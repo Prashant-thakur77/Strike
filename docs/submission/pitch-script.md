@@ -20,4 +20,4 @@ One speaker, slides from `deck-outline.md`.
 
 ## 1:35 · Business and roadmap (slides 8 and 9)
 
-> Strike takes ten percent of positive weekly premium, half of it paid to the agent that earned it. Next: more tickers, put spreads, and an SDK that lets any wallet add a "earn on your stocks" button. Strike: the first agent-run options vaults on Robinhood Chain, paid in USDG.
+> Strike takes ten percent of positive weekly premium, half of it paid to the agent that earned it. Next: more tickers, put spreads, and an SDK that lets any wallet add an "earn on your stocks" button. Strike: options vaults on Robinhood Chain, run by agents that cannot break the rules, paid in USDG.

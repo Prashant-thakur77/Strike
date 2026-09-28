@@ -37,7 +37,7 @@ Screen: epoch timeline and terminal.
 
 1. After Friday 16:00 New York, the keeper (or anyone) calls `settle`. It uses the first Chainlink round after expiry.
 2. Show the payout redeemed by the buyer and the USDG premium claimable by the depositor, including the slashed bond.
-3. Paused oracle case: on the test token, pause the oracle and show that settlement refuses to run (`FeedPaused`), then succeeds after unpausing.
+3. Paused oracle case: on the Arbitrum Sepolia test stock token (Strike controls it), pause the oracle and show that settlement refuses to run (`FeedPaused`), then succeeds after unpausing.
 
 ## 2:45 to 3:00 · Close
 
