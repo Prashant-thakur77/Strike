@@ -17,13 +17,13 @@ interface IFaucet {
 ///         on the first listed stock. Writes deployments/<chainId>-vaults.json.
 ///
 /// Env: PRIVATE_KEY (curator and agent owner); AGENT_SIGNER (default: the same key's address);
-///      BOND (USDG base units, default 50e6); STOCK (symbol, default TSLA).
+///      BOND (USDG base units, default 100e6: one slash still leaves the agent above the 50 USDG minimum); STOCK (symbol, default TSLA).
 contract Seed is Script {
     function run() external {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address me = vm.addr(pk);
         address signer = vm.envOr("AGENT_SIGNER", me);
-        uint256 bond = vm.envOr("BOND", uint256(50e6));
+        uint256 bond = vm.envOr("BOND", uint256(100e6));
         string memory symbol = vm.envOr("STOCK", string("TSLA"));
 
         string memory json =
