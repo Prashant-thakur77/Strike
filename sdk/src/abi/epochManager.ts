@@ -549,6 +549,55 @@ export const epochManagerAbi = [
   },
   {
     "type": "function",
+    "name": "proposeByDelta",
+    "inputs": [
+      {
+        "name": "vault",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "targetDeltaBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "expiry",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "size",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "premiumBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "accepted",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "seriesId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "strike",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "proposeSeries",
     "inputs": [
       {

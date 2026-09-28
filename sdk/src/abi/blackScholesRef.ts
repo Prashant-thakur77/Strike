@@ -123,6 +123,45 @@ export const blackScholesRefAbi = [
     "stateMutability": "pure"
   },
   {
+    "type": "function",
+    "name": "strikeForDelta",
+    "inputs": [
+      {
+        "name": "spot",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "targetDelta",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "timeToExpiry",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "sigma",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "isCall",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
     "type": "error",
     "name": "PricerInputOutOfRange",
     "inputs": [
