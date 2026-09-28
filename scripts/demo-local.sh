@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # One-command local demo of Strike on anvil:
 #   deploy + seed → deposit TSLA (and USDG) → the example agent proposes a 0.20-delta covered call (accepted)
-#   → the agent forces a reckless at-the-money put (rejected on-chain, bond slashed) → a second account buys
-#   options → time jumps past Friday's close → the keeper publishes the settlement price → the agent settles
-#   → balances.
+#   → the agent forces a reckless at-the-money put (rejected on-chain, bond slashed) → a buyer agent (a second
+#   account) buys calls within a 10 USDG budget → time jumps past Friday's close → the keeper publishes the
+#   settlement price → the agent settles → the buyer agent redeems → balances.
 #
 #   scripts/demo-local.sh                 # settle out of the money at $380 (depositors keep the premium)
 #   SETTLE_PRICE=400 scripts/demo-local.sh  # settle in the money (buyers get paid in TSLA)
@@ -130,17 +130,20 @@ agent --vault sTSLA-CC
 bold "Agent (reckless): force an at-the-money put on the put vault"
 agent --reckless --vault sTSLA-CSP
 
-# ---------------------------------------------------------------- a buyer
+# ---------------------------------------------------------------- a buyer agent
 
-bold "Buyer (account #1) takes 2 options from the live series"
-SERIES=$(cast call --rpc-url "$RPC" "$EM" "epochs(address)(uint8,uint64,uint256)" "$CALL_VAULT" | sed -n 3p | awk '{print $1}')
+# The same example agent in buyer mode, signing with account #1: it starts its own MCP server with that key.
+buyer_agent() { (cd "$ROOT" && STRIKE_AGENT_PRIVATE_KEY=$BUYER_KEY pnpm --silent --filter @strike/agent-example start "$@"); }
+OPTION_TOKEN=$(json 31337.json .optionToken)
+
+bold "Buyer agent (account #1): find the live series and buy calls within a 10 USDG budget"
 send --private-key $BUYER_KEY "$USDG" "faucet(uint256)" 10000000000
-PREMIUM=$(call "$EM" "quoteBuy(uint256,uint256)(uint256,uint256)" "$SERIES" "$(cast to-wei 2)" | head -1)
-MAX_PREMIUM=$((PREMIUM * 101 / 100 + 1))
-send --private-key $BUYER_KEY "$USDG" "approve(address,uint256)" "$EM" "$MAX_PREMIUM"
-send --private-key $BUYER_KEY "$EM" "buy(uint256,uint256,uint256,address)" "$SERIES" "$(cast to-wei 2)" "$MAX_PREMIUM" $BUYER
-note "series $SERIES"
-note "quoted $(usdg "$PREMIUM") USDG for 2 options (max $(usdg "$MAX_PREMIUM") with 1% slippage); holds $(tokens "$(call "$(json 31337.json .optionToken)" "balanceOf(address,uint256)(uint256)" $BUYER "$SERIES")") options"
+note "account #1 took 10,000 USDG from the testnet faucet"
+BUYER_USDG_BEFORE=$(call "$USDG" "balanceOf(address)(uint256)" $BUYER)
+buyer_agent --buy --budget 10
+SERIES=$(cast call --rpc-url "$RPC" "$EM" "epochs(address)(uint8,uint64,uint256)" "$CALL_VAULT" | sed -n 3p | awk '{print $1}')
+PREMIUM=$((BUYER_USDG_BEFORE - $(call "$USDG" "balanceOf(address)(uint256)" $BUYER)))
+OPTIONS=$(call "$OPTION_TOKEN" "balanceOf(address,uint256)(uint256)" $BUYER "$SERIES")
 
 # ---------------------------------------------------------------- expiry and settlement
 
@@ -156,17 +159,19 @@ agent --settle --vault sTSLA-CC
 bold "Curator aborts the put vault's epoch (no valid proposal), paying the slashed bond to its depositors"
 send --private-key $DEPLOYER_KEY "$EM" "abortEpoch(address)" "$PUT_VAULT"
 
-bold "Everyone collects"
+bold "Buyer agent: redeem the settled calls (redeem_options finds the series from the vault)"
 BUYER_TSLA_BEFORE=$(call "$TSLA" "balanceOf(address)(uint256)" $BUYER)
-send --private-key $BUYER_KEY "$EM" "redeem(uint256,uint256,address)" "$SERIES" "$(cast to-wei 2)" $BUYER
+buyer_agent --redeem --vault sTSLA-CC
 BUYER_TSLA_AFTER=$(call "$TSLA" "balanceOf(address)(uint256)" $BUYER)
+
+bold "Depositor collects the premium"
 CALL_PREMIUM=$(call "$CALL_VAULT" "pendingPremium(address)(uint256)" $DEPLOYER)
 PUT_PREMIUM=$(call "$PUT_VAULT" "pendingPremium(address)(uint256)" $DEPLOYER)
 send --private-key $DEPLOYER_KEY "$CALL_VAULT" "claimPremium()"
 send --private-key $DEPLOYER_KEY "$PUT_VAULT" "claimPremium()"
 
 bold "Balances"
-note "Buyer:     paid $(usdg "$PREMIUM") USDG for 2 options; redeemed for $(tokens $((BUYER_TSLA_AFTER - BUYER_TSLA_BEFORE))) TSLA (settled at \$$SETTLE_PRICE)"
+note "Buyer:     paid $(usdg "$PREMIUM") USDG for $(tokens "$OPTIONS") options; redeemed for $(tokens $((BUYER_TSLA_AFTER - BUYER_TSLA_BEFORE))) TSLA (settled at \$$SETTLE_PRICE)"
 note "Depositor: claimed $(usdg "$CALL_PREMIUM") USDG premium from sTSLA-CC and $(usdg "$PUT_PREMIUM") USDG (the slashed bond) from sTSLA-CSP"
 note "           sTSLA-CC now holds $(tokens "$(call "$CALL_VAULT" "totalAssets()(uint256)")") TSLA; vault locked: $(call "$CALL_VAULT" "locked()(bool)")"
 note "Fees:      $(usdg "$(call "$FEES" "claimable(address)(uint256)" $DEPLOYER)") USDG performance fee claimable (agent share and treasury share: the same demo address)"

@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { DEFAULT_BUDGET, DEFAULT_SLIPPAGE_BPS, buyOptions, redeemOptions } from "./buyer.js";
 import { describeClaudeError, planWithClaude } from "./llm.js";
 import { type StrikeMcp, connectStrikeMcp } from "./mcp.js";
 import {
@@ -33,6 +34,15 @@ Usage: pnpm --filter @strike/agent-example start [options]
   --vault <v>        Vault address or share symbol (default: the first vault this agent runs
                      that can take a proposal, covered calls first).
   --target-delta <d> Target |delta| for the default strategy (default ${DEFAULT_TARGET_DELTA}).
+
+Buyer modes (STRIKE_AGENT_PRIVATE_KEY is the buyer's key; it pays the premium in USDG):
+  --buy              Find a live series (--vault to choose) and buy options within the budget,
+                     explaining the premium, max loss and breakeven.
+  --budget <usdg>    Most USDG to spend, slippage included (default ${DEFAULT_BUDGET}).
+  --amount <n>       Buy at most this many options (default: what the budget allows).
+  --hedge <tokens>   With --buy: protect a holding of this many stock tokens; hedge_plan picks
+                     the put series and sizes the purchase.
+  --redeem           Redeem this wallet's options of settled series (--vault, or every vault).
 
 Environment: STRIKE_CHAIN_ID, STRIKE_RPC_URL, STRIKE_AGENT_PRIVATE_KEY (passed to the MCP server),
 STRIKE_MCP_COMMAND (server command; default: pnpm --silent --filter @strike/mcp dev).`;
@@ -250,6 +260,11 @@ async function main() {
       status: { type: "boolean" },
       vault: { type: "string" },
       "target-delta": { type: "string" },
+      buy: { type: "boolean" },
+      redeem: { type: "boolean" },
+      budget: { type: "string" },
+      amount: { type: "string" },
+      hedge: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -260,17 +275,45 @@ async function main() {
   const targetDelta = Number(values["target-delta"] ?? DEFAULT_TARGET_DELTA);
   if (!(targetDelta > 0 && targetDelta < 1))
     throw new Error("--target-delta must be between 0 and 1 (e.g. 0.2)");
+  const positive = (flag: string, value: string | undefined) => {
+    if (value === undefined) return undefined;
+    const n = Number(value);
+    if (!(n > 0)) throw new Error(`--${flag} must be a positive number, got "${value}"`);
+    return n;
+  };
+  const budget = positive("budget", values.budget) ?? DEFAULT_BUDGET;
+  const amount = positive("amount", values.amount);
+  const hedge = positive("hedge", values.hedge);
 
   const log = new Narrator();
-  console.log(
-    `Strike example agent${values.reckless ? " (reckless mode)" : values.llm ? " (Claude mode)" : ""}`,
-  );
+  const mode = values.buy
+    ? " (buyer mode)"
+    : values.redeem
+      ? " (buyer: redeem)"
+      : values.reckless
+        ? " (reckless mode)"
+        : values.llm
+          ? " (Claude mode)"
+          : "";
+  console.log(`Strike example agent${mode}`);
   const mcp = await connectStrikeMcp();
   try {
     const info = await mcp.call<StrikeInfo>("strike_info");
     console.log(
       `Connected to the Strike MCP server: chain ${info.chainId}, ${info.mode} mode${info.agentAddress ? ` as ${info.agentAddress}` : ""}.`,
     );
+    if (values.buy || values.redeem) {
+      if (info.mode === "read-only")
+        throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the buyer's key) to buy or redeem");
+      if (values.buy) {
+        await buyOptions(
+          mcp,
+          { vault: values.vault, budget, amount, hedge, slippageBps: DEFAULT_SLIPPAGE_BPS },
+          log,
+        );
+      } else await redeemOptions(mcp, { vault: values.vault }, log);
+      return;
+    }
     const agentId = info.agentAddress ? (await mcp.call<AgentStats>("agent_stats")).agentId : null;
     const vault = await chooseVault(mcp, values.vault, agentId);
 
