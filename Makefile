@@ -21,7 +21,7 @@ snapshot:
 	cd contracts && forge snapshot
 
 coverage:
-	cd contracts && forge coverage --report summary
+	cd contracts && forge coverage --ir-minimum --report summary --no-match-coverage "(test|script|lib)/"
 
 stylus-test:
 	cargo test --manifest-path stylus/pricer/Cargo.toml

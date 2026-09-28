@@ -12,6 +12,21 @@ Run everything with `make test` (default profile) or `make ci-test` (5,000 fuzz 
 | Vectors      | `test/vectors/pricer.json`, `test/vectors/nyse.json`                    | 300 pricer outputs from Rust; NYSE sessions for every day 2026–2030 from Python `zoneinfo`                                         |
 | Rust         | `stylus/pricer` (`cargo test`)                                          | Accuracy against closed-form Black-Scholes (< 1e-9 of spot), parity, bounds                                                        |
 
+## Coverage
+
+`make coverage` (Foundry, `--ir-minimum`, production code only):
+
+| Contract                                                           | Lines        | Branches     | Functions |
+| ------------------------------------------------------------------ | ------------ | ------------ | --------- |
+| AgentRegistry                                                      | 100%         | 100%         | 100%      |
+| EpochManager                                                       | 98.6%        | 89.5%        | 100%      |
+| StrikeVault                                                        | 99.4%        | 100%         | 100%      |
+| SafeStockFeed / StockOracle                                        | 100%         | 95.8% / 100% | 100%      |
+| BlackScholesLib                                                    | 100%         | 92.0%        | 100%      |
+| MarketCalendar / NyseTime                                          | 95.9% / 100% | 100%         | 100%      |
+| FeeManager, Decimals, VaultFactory, OptionToken, testnet contracts | 100%         | 100%         | 100%      |
+| **Total**                                                          | **99.2%**    | **95.8%**    | **100%**  |
+
 ## Invariants
 
 Handlers drive random sequences of deposits, redemptions, queue requests, cancels, share transfers, epoch openings, valid and reckless proposals, purchases at drifting prices, settlements with ±40% moves, and option redemptions.
