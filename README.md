@@ -88,7 +88,7 @@ A covered call pays the buyer `(S − K) / S` stock tokens per option when it ex
 
 ## Safety evidence
 
-396 Foundry tests, 15 Rust tests, 95 TypeScript tests (SDK, MCP, agent), 10 subgraph tests and 20 Playwright checks, all in CI.
+397 Foundry tests, 15 Rust tests, 95 TypeScript tests (SDK, MCP, agent) and 10 subgraph tests run in CI; 20 Playwright checks cover the app on desktop and mobile.
 
 | Check           | Result                                                                                                                                             |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
