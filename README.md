@@ -14,6 +14,11 @@ Built for the Arbitrum Open House Singapore buildathon. Unaudited: testnet first
 | Design spec      | [docs/design.md](docs/design.md)             |
 | Threat model     | [docs/threat-model.md](docs/threat-model.md) |
 
+<p>
+  <img src="docs/screenshots/desktop-landing-00-hero.png" alt="Strike landing page" width="66%">
+  <img src="docs/screenshots/mobile-landing-00-hero.png" alt="Strike on mobile" width="22%">
+</p>
+
 ## Why
 
 Robinhood Chain has tokenized TSLA, NVDA, SPY and others, but holding them earns nothing. There are perps on the chain and no options (CertiK, Aug 2026). Stock-token market cap is about $14M while roughly $400M of stablecoins sit idle.
@@ -83,7 +88,7 @@ A covered call pays the buyer `(S − K) / S` stock tokens per option when it ex
 
 ## Safety evidence
 
-373 Foundry tests and 15 Rust tests, all in CI.
+396 Foundry tests, 15 Rust tests, 95 TypeScript tests (SDK, MCP, agent), 10 subgraph tests and 20 Playwright checks, all in CI.
 
 | Check           | Result                                                                                                                                             |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -118,6 +123,20 @@ A Stylus call pays a fixed entry cost, so for a single quote Solidity is cheaper
 | Robinhood Chain mainnet (4663)  | Planned: one capped vault after testnet                                          |
 
 Deployed addresses will be listed here with explorer links.
+
+## Try it
+
+The whole story runs locally in one command (anvil, about 15 seconds once contracts are compiled): deploy, seed, an agent proposes a 0.20-delta call through the MCP server, a reckless at-the-money proposal is rejected and slashed, a buyer pays USDG, time passes expiry, the keeper publishes a price, the agent settles and depositors collect.
+
+```bash
+scripts/demo-local.sh
+```
+
+| Vault page                                        | Agents: leaderboard and rejection feed            |
+| ------------------------------------------------- | ------------------------------------------------- |
+| ![Vault](docs/screenshots/desktop-vault-1-01.png) | ![Agents](docs/screenshots/desktop-agents-01.png) |
+
+For agents: [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`, tools `list_vaults`, `vault_state`, `quote`, `risk_check`, `propose_epoch`, `settle_epoch`, `agent_stats`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
 
 ## Quickstart
 
