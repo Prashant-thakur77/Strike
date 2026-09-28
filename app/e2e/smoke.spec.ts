@@ -1,0 +1,199 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import { createPublicClient, http, parseAbi, type Address } from "viem";
+import { RPC, connectWallet, devnetUp, installMockWallet } from "./helpers";
+
+const emAbi = parseAbi([
+  "function allVaults(uint256) view returns (address)",
+  "function epochs(address) view returns (uint8 state, uint64 openedAt, uint256 seriesId)",
+]);
+
+/** The local EpochManager, from the SDK's generated deployments map. */
+function localEpochManager(): Address {
+  const src = readFileSync(join(__dirname, "..", "..", "sdk", "src", "deployments.generated.ts"), "utf8");
+  const m = src.match(/"31337":\s*\{[\s\S]*?"epochManager":\s*"(0x[0-9a-fA-F]{40})"/);
+  if (!m) throw new Error("no 31337 deployment in the SDK map");
+  return m[1] as Address;
+}
+
+// Smoke: every page renders, logs no console errors, and has no horizontal overflow at phone width.
+
+function watchErrors(page: Page) {
+  const errors: string[] = [];
+  page.on("console", (msg) => {
+    if (msg.type() === "error") errors.push(msg.text());
+  });
+  page.on("pageerror", (err) => errors.push(err.message));
+  return errors;
+}
+
+/** Real layout width: lift the body's overflow-x safety clip, then compare. */
+async function horizontalOverflow(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    document.body.style.overflowX = "visible";
+    const extra = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+    document.body.style.overflowX = "";
+    return extra;
+  });
+}
+
+async function scrollThrough(page: Page) {
+  await page.evaluate(async () => {
+    const step = window.innerHeight;
+    for (let y = 0; y < document.documentElement.scrollHeight; y += step) {
+      window.scrollTo(0, y);
+      await new Promise((r) => setTimeout(r, 60));
+    }
+    window.scrollTo(0, 0);
+  });
+}
+
+const STATIC_PAGES = [
+  { path: "/", heading: /stock tokens that pay every week/i },
+  { path: "/app?chain=46630", heading: /vaults/i },
+  { path: "/app/agents?chain=46630", heading: /agents/i },
+  { path: "/app/faucet?chain=46630", heading: /faucet/i },
+];
+
+for (const p of STATIC_PAGES) {
+  test(`renders ${p.path}`, async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto(p.path);
+    await expect(page.getByRole("heading", { level: 1, name: p.heading })).toBeAttached();
+    await expect(page.getByRole("note", { name: "Risk notice" })).toBeVisible();
+    await scrollThrough(page);
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+test("honours prefers-reduced-motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/");
+  // The manifesto is fully inked and the closing panels are stacked instead of pinned.
+  await expect(page.locator('[data-on="false"]')).toHaveCount(0);
+  const cta = page.getByRole("link", { name: /Open the app/ });
+  await cta.scrollIntoViewIfNeeded();
+  await expect(cta).toBeVisible();
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector("[data-reveal]")!).opacity)).toBe(
+    "1",
+  );
+});
+
+test("shows the not-deployed state on a network without contracts", async ({ page }) => {
+  await page.goto("/app?chain=46630");
+  await expect(page.getByText("Not deployed on Robinhood Chain testnet yet.")).toBeVisible();
+});
+
+test("mobile menu opens and closes", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "the menu toggle only shows on phones");
+  await page.goto("/");
+  await page.getByRole("button", { name: "Menu" }).click();
+  const dialog = page.getByRole("dialog", { name: "Menu" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("link", { name: /Open app/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await page.getByRole("button", { name: "Menu" }).click();
+  await dialog.getByRole("link", { name: /Safety/ }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test.describe("with a local devnet", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await devnetUp()), "needs a Strike devnet at E2E_RPC");
+  });
+
+  test("vault list, detail, agents and faucet render live data", async ({ page }) => {
+    const errors = watchErrors(page);
+    await page.goto("/app?chain=31337");
+    const rows = page.locator('a[href^="/app/vault/"]');
+    await expect(rows.first()).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+
+    const href = (await rows.first().getAttribute("href"))!;
+    await page.goto(href);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByText("Epoch timeline")).toBeVisible();
+    await expect(page.getByText("Delta band")).toBeVisible();
+    await scrollThrough(page);
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+
+    await page.goto("/app/agents");
+    await expect(page.getByText(/StrikeWrongSide/).first()).toBeVisible();
+    await scrollThrough(page);
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+
+    await page.goto("/app/faucet");
+    await expect(page.getByRole("heading", { name: "Stock tokens" })).toBeVisible();
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    expect(errors).toEqual([]);
+  });
+
+  test("connects the injected wallet and shows the position", async ({ page }, info) => {
+    await installMockWallet(page);
+    await page.goto("/app?chain=31337");
+    await page.locator('a[href^="/app/vault/"]').first().waitFor();
+    await connectWallet(page, info.project.name === "mobile");
+    await page.locator('a[href^="/app/vault/"]').first().click();
+    await expect(page.getByText("Premium to claim")).toBeVisible();
+    await expect(page.getByText("sTSLA-CC").or(page.getByText("sTSLA-CSP")).first()).toBeVisible();
+  });
+
+  test("buys one option through the mock wallet", async ({ page }) => {
+    test.skip(test.info().project.name !== "desktop", "one chain-mutating run is enough");
+    await installMockWallet(page);
+    await page.goto("/app?chain=31337");
+    await page.locator('a[href^="/app/vault/"]').first().waitFor();
+    await connectWallet(page, false);
+    await page.locator('a[href^="/app/vault/"]').first().click();
+    const buy = page.getByRole("button", { name: /^(Approve USDG & buy|Buy)$/ });
+    await expect(buy).toBeVisible();
+    await page.waitForTimeout(1500); // quote
+    test.skip(await buy.isDisabled(), "market closed on the devnet clock");
+    await buy.click();
+    await expect(page.getByText("Buy options: done.")).toBeVisible({ timeout: 30_000 });
+  });
+
+  test("serves ERC-1155 option metadata for a live series", async ({ request }) => {
+    const em = localEpochManager();
+    const client = createPublicClient({ transport: http(RPC) });
+    const vault = await client.readContract({
+      address: em,
+      abi: emAbi,
+      functionName: "allVaults",
+      args: [0n],
+    });
+    const [, , seriesId] = await client.readContract({
+      address: em,
+      abi: emAbi,
+      functionName: "epochs",
+      args: [vault],
+    });
+    test.skip(seriesId === 0n, "no live series on the devnet");
+    const hex = seriesId.toString(16).padStart(64, "0");
+
+    const res = await request.get(`/api/option/${hex}.json?chainId=31337`);
+    expect(res.ok()).toBeTruthy();
+    expect(res.headers()["cache-control"]).toContain("max-age=60");
+    const meta = (await res.json()) as { name: string; image: string; attributes: { trait_type: string }[] };
+    expect(meta.name).toMatch(/^TSLA \S+ (Call|Put) · \d+ \w{3} \d{4}$/);
+    expect(meta.attributes.map((a) => a.trait_type)).toEqual(
+      expect.arrayContaining([
+        "Underlying",
+        "Strike (USD)",
+        "Expiry",
+        "Type",
+        "Vault",
+        "Settled",
+        "Settlement price (USD)",
+      ]),
+    );
+    const img = await request.get(new URL(meta.image).pathname + new URL(meta.image).search);
+    expect(img.headers()["content-type"]).toContain("image/svg+xml");
+
+    expect((await request.get(`/api/option/not-hex.json?chainId=31337`)).status()).toBe(400);
+    expect((await request.get(`/api/option/${"ab".repeat(32)}.json?chainId=31337`)).status()).toBe(404);
+  });
+});
