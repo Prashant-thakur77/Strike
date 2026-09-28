@@ -34,7 +34,8 @@ contract Seed is Script {
         address stock = vm.parseJsonAddress(json, string.concat(".stocks.", symbol, ".token"));
 
         vm.startBroadcast(pk);
-        if (block.chainid == 31_337) IFaucet(address(usdg)).faucet(1_000_000e6);
+        // Local devnets (anvil, Nitro dev node) use TestUSDG with an open faucet.
+        if (block.chainid == 31_337 || block.chainid == 412_346) IFaucet(address(usdg)).faucet(1_000_000e6);
 
         uint256 agentId = registry.agentOfSigner(signer);
         if (agentId == 0) agentId = registry.register(signer, me, 0);
