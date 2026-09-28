@@ -2,35 +2,37 @@
 
 Resume here. Newest status first.
 
-## 2026-09-28 (day 1)
+## 2026-09-28 (day 1, evening)
 
 ### Phase status
 
-| Phase                  | Gate                           | Status                                                                                                                    |
-| ---------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
-| 0 Setup                | CI green + design doc          | Passed, tagged `v0.1.0`                                                                                                   |
-| 1 Core contracts       | Lifecycle tests pass           | Passed (13 lifecycle tests), tagged in `v0.2.0`                                                                           |
-| 2 Safety + Stylus      | Invariants + differential pass | Passed: 9 invariants × 2 vaults, exact Rust/Solidity differential, fork tests on 4663, Slither 0 High, gas table          |
-| 3 Agents               | Rejected-proposal demo         | Contract side done (AgentRegistry, slashing, proposeByDelta, `AgentMandate.t.sol`). SDK + MCP + example agent in progress |
-| 4 App + testnet        | Deployed + verified            | App and subgraph in progress; deploy script rehearsed on anvil and on a testnet fork; **waiting for testnet funds**       |
-| 5 Mainnet + submission | Submitted                      | Not started                                                                                                               |
+| Phase                  | Gate                           | Status                                                                                                                      |
+| ---------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| 0 Setup                | CI green + design doc          | Passed, `v0.1.0`                                                                                                            |
+| 1 Core contracts       | Lifecycle tests pass           | Passed, `v0.2.0`                                                                                                            |
+| 2 Safety + Stylus      | Invariants + differential pass | Passed, `v0.3.0`                                                                                                            |
+| 3 Agents               | Rejected-proposal demo         | Passed: the MCP example agent's reckless proposal is rejected and slashed on-chain (`scripts/demo-local.sh`, also a CI job) |
+| 4 App + testnet        | Deployed + verified            | App, SDK, MCP, subgraph and keeper built. **Deploy blocked on testnet funds** (`scripts/deploy-testnet.sh` ready)           |
+| 5 Mainnet + submission | Submitted                      | Submission kit drafted; needs deployment, videos, HackQuest form                                                            |
 
-### Done today
+### Done since the morning
 
-- Contracts: EpochManager, StrikeVault, VaultFactory, OptionToken, FeeManager, MandateGuard, AgentRegistry, SafeStockFeed, StockOracle, MarketCalendar, BlackScholesLib/Ref, testnet MirrorFeed/TestStockToken
-- Stylus pricer (quote, price, delta, strikeForDelta), `cargo stylus check` passes, deployed and measured on a Nitro dev node
-- 373 Foundry tests + 15 Rust tests; invariants with mutation checks; fork tests on Robinhood mainnet; Slither triage; threat model; gas table; README
-- Deploy and seed scripts for 4663 / 46630 / 421614 / anvil; testnet deployer key generated (address in [req-you.md](req-you.md))
+- `@strike/sdk` (68 tests), `@strike/mcp` (16 tests, 8 tools + skill resource), example agent (11 tests, default, `--reckless`, `--llm` with Claude)
+- Next.js app styled after the owner's reference site: landing, vaults, vault detail with buy/deposit/queue/claims, agents leaderboard and rejection feed, faucet, option metadata API; 20 Playwright checks on desktop and mobile
+- Subgraph: 21 entities, 10 matchstick tests, networks for Arbitrum Sepolia and Robinhood Chain; hosting notes in `docs/indexing.md`
+- ERC-8004 reputation feedback for settled epochs and rejections (fork-tested against the real registries on 4663)
+- `proposeByDelta` with the Stylus strike solver; gas table; Slither 0 High; 99% line coverage; threat model; risk model; FEEDBACK.md; keeper script and workflow
+- CI: contracts, Stylus, differential, fork, Slither, TypeScript, subgraph, end-to-end demo
 
 ### Next
 
-1. Merge the SDK/MCP/agent, app and subgraph work (three parallel builders)
-2. As soon as the deployer is funded: deploy to Robinhood testnet and Arbitrum Sepolia, deploy the Stylus pricer, verify on Blockscout/Arbiscan, seed vaults, run the agent demo on-chain, put addresses in the README
-3. Keeper script for MirrorFeeds (mirror mainnet Chainlink rounds)
-4. Submission kit: demo and pitch scripts, deck outline, HackQuest answers
-5. Improvement cycles (judge simulation, competitor check)
+1. When `0x26b277b434B1670f207Afd8946edA9AF78A613Ff` is funded: `scripts/deploy-testnet.sh robinhood-testnet` and `arbitrum-sepolia`, then README addresses, `hackquest-answers.md`, tag `v0.5.0`
+2. Enable the keeper workflow (`KEEPER_ENABLED`, `KEEPER_PRIVATE_KEY`) after deployment
+3. Improvement cycle 1: judge simulation, competitor check, top-5 fixes
+4. Capped mainnet vault on 4663 (needs owner approval and funds)
 
-### Blockers
+### Blockers (owner)
 
-- Testnet funds for `0x26b277b434B1670f207Afd8946edA9AF78A613Ff` ([req-you.md](req-you.md))
-- HackQuest registration closes 2026-10-02 17:01 UTC (owner)
+- HackQuest registration before 2026-10-02 17:01 UTC
+- Testnet funds for the deployer
+- Vercel (live app URL), Goldsky (subgraph), videos
