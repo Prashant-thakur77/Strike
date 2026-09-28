@@ -1,0 +1,653 @@
+import {
+  agentRegistryAbi,
+  epochManagerAbi,
+  optionTokenAbi,
+  stockOracleAbi,
+  strikeVaultAbi,
+  testStockTokenAbi,
+} from "@strike/sdk";
+import { erc20Abi, type Address, type PublicClient } from "viem";
+import { fromBlock, type Deployment } from "./deployment";
+import { toNumber, usdValue } from "./format";
+
+export interface TokenInfo {
+  address: Address;
+  symbol: string;
+  decimals: number;
+}
+
+export interface Mandate {
+  minDeltaBps: number;
+  maxDeltaBps: number;
+  minPremiumBps: number;
+  minYieldBps: number;
+  maxShareSoldBps: number;
+  minTenor: number;
+  maxTenor: number;
+}
+
+export interface Series {
+  id: bigint;
+  vault: Address;
+  underlying: Address;
+  agentId: bigint;
+  expiry: bigint;
+  premiumBps: number;
+  isCall: boolean;
+  settled: boolean;
+  cancelled: boolean;
+  strike: bigint;
+  size: bigint;
+  sold: bigint;
+  premium: bigint;
+  collateral: bigint;
+  settlementPrice: bigint;
+  payoutPerOption: bigint;
+}
+
+export interface Spot {
+  status: number;
+  price: bigint;
+  updatedAt: bigint;
+}
+
+export interface VaultSummary {
+  address: Address;
+  name: string;
+  symbol: string;
+  decimals: number;
+  isCall: boolean;
+  asset: TokenInfo;
+  underlying: TokenInfo;
+  usdg: TokenInfo;
+  totalAssets: bigint;
+  totalSupply: bigint;
+  depositCap: bigint;
+  locked: boolean;
+  currentEpoch: bigint;
+  lastProcessedEpoch: bigint;
+  pendingDepositAssets: bigint;
+  pendingRedeemShares: bigint;
+  state: number;
+  openedAt: bigint;
+  series: Series | null;
+  agentId: bigint;
+  curator: Address;
+  mandate: Mandate;
+  spot: Spot;
+  tvlUsd: number | null;
+  sharePrice: number | null;
+}
+
+const tokenCache = new Map<string, TokenInfo>();
+
+export async function tokenInfo(client: PublicClient, address: Address): Promise<TokenInfo> {
+  const key = `${client.chain?.id}:${address.toLowerCase()}`;
+  const hit = tokenCache.get(key);
+  if (hit) return hit;
+  const [symbol, decimals] = await Promise.all([
+    client.readContract({ address, abi: erc20Abi, functionName: "symbol" }),
+    client.readContract({ address, abi: erc20Abi, functionName: "decimals" }),
+  ]);
+  const info = { address, symbol, decimals };
+  tokenCache.set(key, info);
+  return info;
+}
+
+export async function vaultAddresses(client: PublicClient, dep: Deployment): Promise<Address[]> {
+  const count = await client.readContract({
+    address: dep.epochManager,
+    abi: epochManagerAbi,
+    functionName: "vaultCount",
+  });
+  return Promise.all(
+    Array.from({ length: Number(count) }, (_, i) =>
+      client.readContract({
+        address: dep.epochManager,
+        abi: epochManagerAbi,
+        functionName: "allVaults",
+        args: [BigInt(i)],
+      }),
+    ),
+  );
+}
+
+export async function getSeries(client: PublicClient, dep: Deployment, id: bigint): Promise<Series> {
+  const s = await client.readContract({
+    address: dep.epochManager,
+    abi: epochManagerAbi,
+    functionName: "getSeries",
+    args: [id],
+  });
+  return { id, ...s };
+}
+
+export async function spotOf(client: PublicClient, dep: Deployment, token: Address): Promise<Spot> {
+  try {
+    const [status, price, updatedAt] = await client.readContract({
+      address: dep.stockOracle,
+      abi: stockOracleAbi,
+      functionName: "status",
+      args: [token],
+    });
+    return { status, price, updatedAt };
+  } catch {
+    return { status: 1, price: 0n, updatedAt: 0n };
+  }
+}
+
+export async function vaultSummary(
+  client: PublicClient,
+  dep: Deployment,
+  vault: Address,
+): Promise<VaultSummary> {
+  const v = { address: vault, abi: strikeVaultAbi } as const;
+  const [
+    name,
+    symbol,
+    decimals,
+    isCall,
+    assetAddr,
+    underlyingAddr,
+    totalAssets,
+    totalSupply,
+    depositCap,
+    locked,
+    currentEpoch,
+    lastProcessedEpoch,
+    pendingDepositAssets,
+    pendingRedeemShares,
+    epoch,
+    config,
+  ] = await Promise.all([
+    client.readContract({ ...v, functionName: "name" }),
+    client.readContract({ ...v, functionName: "symbol" }),
+    client.readContract({ ...v, functionName: "decimals" }),
+    client.readContract({ ...v, functionName: "isCall" }),
+    client.readContract({ ...v, functionName: "asset" }),
+    client.readContract({ ...v, functionName: "underlying" }),
+    client.readContract({ ...v, functionName: "totalAssets" }),
+    client.readContract({ ...v, functionName: "totalSupply" }),
+    client.readContract({ ...v, functionName: "depositCap" }),
+    client.readContract({ ...v, functionName: "locked" }),
+    client.readContract({ ...v, functionName: "currentEpoch" }),
+    client.readContract({ ...v, functionName: "lastProcessedEpoch" }),
+    client.readContract({ ...v, functionName: "pendingDepositAssets" }),
+    client.readContract({ ...v, functionName: "pendingRedeemShares" }),
+    client.readContract({
+      address: dep.epochManager,
+      abi: epochManagerAbi,
+      functionName: "epochs",
+      args: [vault],
+    }),
+    client.readContract({
+      address: dep.epochManager,
+      abi: epochManagerAbi,
+      functionName: "vaultConfig",
+      args: [vault],
+    }),
+  ]);
+  const [state, openedAt, seriesId] = epoch;
+  const [asset, underlying, usdg, spot, series] = await Promise.all([
+    tokenInfo(client, assetAddr),
+    tokenInfo(client, underlyingAddr),
+    tokenInfo(client, dep.usdg),
+    spotOf(client, dep, underlyingAddr),
+    seriesId === 0n ? Promise.resolve(null) : getSeries(client, dep, seriesId),
+  ]);
+
+  const assetsUsd = isCall
+    ? spot.price > 0n
+      ? usdValue(totalAssets, asset.decimals, spot.price)
+      : null
+    : toNumber(totalAssets, asset.decimals);
+  const sharePrice =
+    totalSupply > 0n ? toNumber(totalAssets, asset.decimals) / toNumber(totalSupply, decimals) : null;
+
+  return {
+    address: vault,
+    name,
+    symbol,
+    decimals,
+    isCall,
+    asset,
+    underlying,
+    usdg,
+    totalAssets,
+    totalSupply,
+    depositCap,
+    locked,
+    currentEpoch,
+    lastProcessedEpoch,
+    pendingDepositAssets,
+    pendingRedeemShares,
+    state,
+    openedAt,
+    series,
+    agentId: config.agentId,
+    curator: config.curator,
+    mandate: config.mandate,
+    spot,
+    tvlUsd: assetsUsd,
+    sharePrice,
+  };
+}
+
+export async function marketStatus(client: PublicClient, dep: Deployment) {
+  const [open, saleCutoff, block] = await Promise.all([
+    client.readContract({ address: dep.stockOracle, abi: stockOracleAbi, functionName: "isMarketOpen" }),
+    client.readContract({ address: dep.epochManager, abi: epochManagerAbi, functionName: "saleCutoff" }),
+    client.getBlock(),
+  ]);
+  return { open, saleCutoff: Number(saleCutoff), now: Number(block.timestamp) };
+}
+
+// ------------------------------------------------------------------ history (events)
+
+export interface EpochEvents {
+  epoch: bigint;
+  openedAt?: number;
+  spotAtOpen?: bigint;
+  proposedAt?: number;
+  seriesId?: bigint;
+  strike?: bigint;
+  expiry?: bigint;
+  delta?: bigint;
+  settledAt?: number;
+  abortedAt?: number;
+  settlementPrice?: bigint;
+  payout?: bigint;
+  premium?: bigint;
+  fee?: bigint;
+  assetsAfter?: bigint;
+  rejections: number;
+}
+
+export interface VaultHistory {
+  epochs: EpochEvents[];
+  seriesIds: bigint[];
+  apy: number | null;
+  premiumPaid: bigint;
+}
+
+async function blockTimes(client: PublicClient, numbers: (bigint | null)[]): Promise<Map<bigint, number>> {
+  const unique = [...new Set(numbers.filter((n): n is bigint => n !== null))];
+  const blocks = await Promise.all(unique.map((blockNumber) => client.getBlock({ blockNumber })));
+  return new Map(blocks.map((b) => [b.number, Number(b.timestamp)]));
+}
+
+export async function vaultHistory(
+  client: PublicClient,
+  dep: Deployment,
+  vault: VaultSummary,
+): Promise<VaultHistory> {
+  const base = { address: dep.epochManager, abi: epochManagerAbi, fromBlock: fromBlock(dep) } as const;
+  const args = { vault: vault.address };
+  const [opened, proposed, settled, rejected, aborted, vaultSettled] = await Promise.all([
+    client.getContractEvents({ ...base, eventName: "EpochOpened", args }),
+    client.getContractEvents({ ...base, eventName: "SeriesProposed", args }),
+    client.getContractEvents({ ...base, eventName: "EpochSettled", args }),
+    client.getContractEvents({ ...base, eventName: "ProposalRejected", args }),
+    client.getContractEvents({ ...base, eventName: "EpochAborted", args }),
+    client.getContractEvents({
+      address: vault.address,
+      abi: strikeVaultAbi,
+      eventName: "EpochSettled",
+      fromBlock: fromBlock(dep),
+    }),
+  ]);
+  const times = await blockTimes(
+    client,
+    [...opened, ...proposed, ...settled, ...aborted].map((l) => l.blockNumber),
+  );
+  const byEpoch = new Map<bigint, EpochEvents>();
+  const at = (epoch: bigint) => {
+    let e = byEpoch.get(epoch);
+    if (!e) {
+      e = { epoch, rejections: 0 };
+      byEpoch.set(epoch, e);
+    }
+    return e;
+  };
+  const ts = (n: bigint | null) => (n === null ? undefined : times.get(n));
+
+  for (const l of opened) {
+    const e = at(l.args.epoch!);
+    e.openedAt = ts(l.blockNumber);
+    e.spotAtOpen = l.args.spot;
+  }
+  for (const l of proposed) {
+    const e = at(l.args.epoch!);
+    e.proposedAt = ts(l.blockNumber);
+    e.seriesId = l.args.seriesId;
+    e.strike = l.args.strike;
+    e.expiry = BigInt(l.args.expiry ?? 0);
+    e.delta = l.args.delta;
+  }
+  for (const l of settled) {
+    const e = at(l.args.epoch!);
+    e.settledAt = ts(l.blockNumber);
+    e.settlementPrice = l.args.settlementPrice;
+    e.payout = l.args.payout;
+    e.premium = l.args.premium;
+    e.fee = l.args.fee;
+  }
+  for (const l of aborted) at(l.args.epoch!).abortedAt = ts(l.blockNumber);
+  for (const l of rejected) at(l.args.epoch!).rejections += 1;
+  for (const l of vaultSettled) {
+    const e = byEpoch.get(l.args.epoch!);
+    if (e) e.assetsAfter = l.args.assets;
+  }
+
+  const epochs = [...byEpoch.values()].sort((a, b) => Number(a.epoch - b.epoch));
+  const seriesIds = proposed.map((l) => l.args.seriesId!).filter((id) => id !== undefined);
+  const premiumPaid = epochs.reduce((sum, e) => sum + (e.premium ?? 0n) - (e.fee ?? 0n), 0n);
+  return { epochs, seriesIds, apy: trailingApy(epochs, vault), premiumPaid };
+}
+
+/**
+ * Trailing premium APY: premium paid to the vault (after the performance fee) over the value of the assets that
+ * backed it, averaged over the last four settled epochs and annualised (simple, 52.14 weeks). Null with no history.
+ */
+export function trailingApy(epochs: EpochEvents[], vault: VaultSummary): number | null {
+  const done = epochs.filter((e) => e.settledAt !== undefined && e.assetsAfter !== undefined).slice(-4);
+  if (done.length === 0) return null;
+  const yields: number[] = [];
+  for (const e of done) {
+    const net = toNumber((e.premium ?? 0n) - (e.fee ?? 0n), vault.usdg.decimals);
+    const backing = (e.assetsAfter ?? 0n) + (e.payout ?? 0n);
+    const price = e.settlementPrice || e.spotAtOpen || 0n;
+    const value = vault.isCall
+      ? price > 0n
+        ? usdValue(backing, vault.asset.decimals, price)
+        : 0
+      : toNumber(backing, vault.asset.decimals);
+    if (value > 0) yields.push(net / value);
+    else if (net === 0) yields.push(0);
+  }
+  if (yields.length === 0) return null;
+  const weekly = yields.reduce((a, b) => a + b, 0) / yields.length;
+  return weekly * (365 / 7);
+}
+
+// ------------------------------------------------------------------ account
+
+export interface Position {
+  shares: bigint;
+  assets: bigint;
+  pendingPremium: bigint;
+  claimableDepositShares: bigint;
+  claimableRedeemAssets: bigint;
+  depositRequest: { epoch: bigint; amount: bigint };
+  redeemRequest: { epoch: bigint; amount: bigint };
+  assetBalance: bigint;
+  assetAllowance: bigint;
+  usdgBalance: bigint;
+  usdgAllowance: bigint;
+  maxWithdraw: bigint;
+  maxDeposit: bigint;
+}
+
+export async function position(
+  client: PublicClient,
+  dep: Deployment,
+  vault: VaultSummary,
+  account: Address,
+): Promise<Position> {
+  const v = { address: vault.address, abi: strikeVaultAbi } as const;
+  const [
+    shares,
+    pendingPremium,
+    claimableDepositShares,
+    claimableRedeemAssets,
+    dr,
+    rr,
+    maxWithdraw,
+    maxDeposit,
+    assetBalance,
+    assetAllowance,
+    usdgBalance,
+    usdgAllowance,
+  ] = await Promise.all([
+    client.readContract({ ...v, functionName: "balanceOf", args: [account] }),
+    client.readContract({ ...v, functionName: "pendingPremium", args: [account] }),
+    client.readContract({ ...v, functionName: "claimableDepositShares", args: [account] }),
+    client.readContract({ ...v, functionName: "claimableRedeemAssets", args: [account] }),
+    client.readContract({ ...v, functionName: "depositRequests", args: [account] }),
+    client.readContract({ ...v, functionName: "redeemRequests", args: [account] }),
+    client.readContract({ ...v, functionName: "maxWithdraw", args: [account] }),
+    client.readContract({ ...v, functionName: "maxDeposit", args: [account] }),
+    client.readContract({
+      address: vault.asset.address,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [account],
+    }),
+    client.readContract({
+      address: vault.asset.address,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [account, vault.address],
+    }),
+    client.readContract({ address: dep.usdg, abi: erc20Abi, functionName: "balanceOf", args: [account] }),
+    client.readContract({
+      address: dep.usdg,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [account, dep.epochManager],
+    }),
+  ]);
+  const assets =
+    shares === 0n ? 0n : await client.readContract({ ...v, functionName: "convertToAssets", args: [shares] });
+  return {
+    shares,
+    assets,
+    pendingPremium,
+    claimableDepositShares,
+    claimableRedeemAssets,
+    depositRequest: { epoch: BigInt(dr[0]), amount: dr[1] },
+    redeemRequest: { epoch: BigInt(rr[0]), amount: rr[1] },
+    assetBalance,
+    assetAllowance,
+    usdgBalance,
+    usdgAllowance,
+    maxWithdraw,
+    maxDeposit,
+  };
+}
+
+export interface OptionHolding {
+  series: Series;
+  balance: bigint;
+}
+
+export async function optionHoldings(
+  client: PublicClient,
+  dep: Deployment,
+  seriesIds: bigint[],
+  account: Address,
+): Promise<OptionHolding[]> {
+  if (seriesIds.length === 0) return [];
+  const balances = await client.readContract({
+    address: dep.optionToken,
+    abi: optionTokenAbi,
+    functionName: "balanceOfBatch",
+    args: [seriesIds.map(() => account), seriesIds],
+  });
+  const held = seriesIds.map((id, i) => ({ id, balance: balances[i] ?? 0n })).filter((h) => h.balance > 0n);
+  const series = await Promise.all(held.map((h) => getSeries(client, dep, h.id)));
+  return held.map((h, i) => ({ series: series[i]!, balance: h.balance }));
+}
+
+// ------------------------------------------------------------------ agents
+
+export interface AgentRow {
+  id: bigint;
+  owner: Address;
+  signer: Address;
+  payout: Address;
+  status: number;
+  strikes: number;
+  accepted: number;
+  rejected: number;
+  erc8004Id: bigint;
+  bond: bigint;
+  unbonding: bigint;
+  vaults: Address[];
+}
+
+export interface Registry {
+  agents: AgentRow[];
+  minBond: bigint;
+  slashAmount: bigint;
+  maxStrikes: number;
+  usdg: TokenInfo;
+}
+
+export async function registry(client: PublicClient, dep: Deployment): Promise<Registry> {
+  const r = { address: dep.agentRegistry, abi: agentRegistryAbi } as const;
+  const [count, minBond, slashAmount, maxStrikes, usdg, vaults] = await Promise.all([
+    client.readContract({ ...r, functionName: "agentCount" }),
+    client.readContract({ ...r, functionName: "minBond" }),
+    client.readContract({ ...r, functionName: "slashAmount" }),
+    client.readContract({ ...r, functionName: "maxStrikes" }),
+    tokenInfo(client, dep.usdg),
+    vaultAddresses(client, dep),
+  ]);
+  const [agents, configs] = await Promise.all([
+    Promise.all(
+      Array.from({ length: Number(count) }, (_, i) =>
+        client.readContract({ ...r, functionName: "getAgent", args: [BigInt(i + 1)] }),
+      ),
+    ),
+    Promise.all(
+      vaults.map((vault) =>
+        client.readContract({
+          address: dep.epochManager,
+          abi: epochManagerAbi,
+          functionName: "vaultConfig",
+          args: [vault],
+        }),
+      ),
+    ),
+  ]);
+  return {
+    agents: agents.map((a, i) => ({
+      id: BigInt(i + 1),
+      ...a,
+      vaults: vaults.filter((_, j) => configs[j]?.agentId === BigInt(i + 1)),
+    })),
+    minBond,
+    slashAmount,
+    maxStrikes,
+    usdg,
+  };
+}
+
+export interface Rejection {
+  key: string;
+  vault: Address;
+  epoch: bigint;
+  agentId: bigint;
+  reason: number;
+  slashed: bigint;
+  strike: bigint;
+  expiry: bigint;
+  size: bigint;
+  premiumBps: number;
+  time?: number;
+  tx: `0x${string}`;
+}
+
+export async function rejections(client: PublicClient, dep: Deployment): Promise<Rejection[]> {
+  const logs = await client.getContractEvents({
+    address: dep.epochManager,
+    abi: epochManagerAbi,
+    eventName: "ProposalRejected",
+    fromBlock: fromBlock(dep),
+  });
+  const times = await blockTimes(
+    client,
+    logs.map((l) => l.blockNumber),
+  );
+  return logs
+    .map((l) => ({
+      key: `${l.transactionHash}-${l.logIndex}`,
+      vault: l.args.vault!,
+      epoch: l.args.epoch!,
+      agentId: l.args.agentId!,
+      reason: Number(l.args.reason ?? 0),
+      slashed: l.args.slashed ?? 0n,
+      strike: l.args.strike ?? 0n,
+      expiry: BigInt(l.args.expiry ?? 0),
+      size: l.args.size ?? 0n,
+      premiumBps: Number(l.args.premiumBps ?? 0),
+      time: l.blockNumber === null ? undefined : times.get(l.blockNumber),
+      tx: l.transactionHash!,
+    }))
+    .reverse();
+}
+
+// ------------------------------------------------------------------ faucet
+
+export interface FaucetToken {
+  symbol: string;
+  token: Address;
+  decimals: number;
+  isTestToken: boolean;
+  amount: bigint;
+  cooldown: number;
+  balance: bigint;
+  nextAt: number;
+}
+
+export async function faucetTokens(
+  client: PublicClient,
+  dep: Deployment,
+  account: Address | undefined,
+): Promise<FaucetToken[]> {
+  const now = Number((await client.getBlock()).timestamp);
+  return Promise.all(
+    Object.entries(dep.stocks).map(async ([symbol, { token }]) => {
+      const info = await tokenInfo(client, token);
+      const balance = account
+        ? await client.readContract({
+            address: token,
+            abi: erc20Abi,
+            functionName: "balanceOf",
+            args: [account],
+          })
+        : 0n;
+      try {
+        const t = { address: token, abi: testStockTokenAbi } as const;
+        const [amount, cooldown, last] = await Promise.all([
+          client.readContract({ ...t, functionName: "FAUCET_AMOUNT" }),
+          client.readContract({ ...t, functionName: "FAUCET_COOLDOWN" }),
+          account ? client.readContract({ ...t, functionName: "lastFaucet", args: [account] }) : 0n,
+        ]);
+        const nextAt = last === 0n ? 0 : Number(last + cooldown);
+        return {
+          symbol,
+          token,
+          decimals: info.decimals,
+          isTestToken: true,
+          amount,
+          cooldown: Number(cooldown),
+          balance,
+          nextAt: nextAt > now ? nextAt : 0,
+        };
+      } catch {
+        return {
+          symbol,
+          token,
+          decimals: info.decimals,
+          isTestToken: false,
+          amount: 0n,
+          cooldown: 0,
+          balance,
+          nextAt: 0,
+        };
+      }
+    }),
+  );
+}
