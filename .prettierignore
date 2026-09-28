@@ -1,0 +1,12 @@
+contracts/lib
+contracts/out
+contracts/cache
+contracts/broadcast
+stylus
+node_modules
+dist
+.next
+pnpm-lock.yaml
+subgraph/generated
+subgraph/build
+docs/PLAN.md

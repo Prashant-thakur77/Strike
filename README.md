@@ -24,16 +24,16 @@ See [docs/PLAN.md](docs/PLAN.md) for the full plan.
 
 ## Repository layout
 
-| Folder | Contents |
-| --- | --- |
-| `contracts/` | Solidity (Foundry): vaults, factory, epoch manager, option token, mandate guard, agent registry, fee manager, `SafeStockFeed` |
-| `stylus/pricer/` | Rust (Arbitrum Stylus): fixed-point Black-Scholes pricer |
-| `sdk/` | `@strike/sdk`: typed TypeScript client |
-| `mcp/` | MCP server for agents |
-| `app/` | Next.js app |
-| `subgraph/` | Indexer for epochs, premiums and PnL |
-| `agents/example/` | Example strike-picking agent |
-| `docs/` | Design, threat model, decisions |
+| Folder            | Contents                                                                                                                      |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `contracts/`      | Solidity (Foundry): vaults, factory, epoch manager, option token, mandate guard, agent registry, fee manager, `SafeStockFeed` |
+| `stylus/pricer/`  | Rust (Arbitrum Stylus): fixed-point Black-Scholes pricer                                                                      |
+| `sdk/`            | `@strike/sdk`: typed TypeScript client                                                                                        |
+| `mcp/`            | MCP server for agents                                                                                                         |
+| `app/`            | Next.js app                                                                                                                   |
+| `subgraph/`       | Indexer for epochs, premiums and PnL                                                                                          |
+| `agents/example/` | Example strike-picking agent                                                                                                  |
+| `docs/`           | Design, threat model, decisions                                                                                               |
 
 ## License
 
