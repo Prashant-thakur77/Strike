@@ -1,0 +1,35 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.key
+keystore/
+
+# node
+node_modules/
+.pnpm-store/
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+coverage/
+
+# foundry
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# rust
+target/
+
+# subgraph
+subgraph/generated/
+subgraph/build/
+
+# misc
+.DS_Store
+*.log
+.vscode/
+.idea/
