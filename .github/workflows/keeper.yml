@@ -1,0 +1,32 @@
+name: Testnet keeper
+
+# Mirrors mainnet Chainlink stock prices into the testnet MirrorFeeds and settles expired epochs.
+# Needs the repository secret KEEPER_PRIVATE_KEY (a key with KEEPER_ROLE on the MirrorFeeds).
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  keep:
+    if: ${{ vars.KEEPER_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - chain: 46630
+            rpc: https://rpc.testnet.chain.robinhood.com
+          - chain: 421614
+            rpc: https://sepolia-rollup.arbitrum.io/rpc
+    steps:
+      - uses: actions/checkout@v6
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - name: Run keeper once
+        if: ${{ hashFiles(format('contracts/deployments/{0}.json', matrix.chain)) != '' }}
+        env:
+          CHAIN_ID: ${{ matrix.chain }}
+          RPC_URL: ${{ matrix.rpc }}
+          PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: scripts/keeper.sh --once
