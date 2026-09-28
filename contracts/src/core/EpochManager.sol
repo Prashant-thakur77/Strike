@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import {IAgentRegistry} from "../interfaces/IAgentRegistry.sol";
 import {IPricer} from "../interfaces/IPricer.sol";
 import {IStockOracle} from "../interfaces/IStockOracle.sol";
 import {IStrikeVault} from "../interfaces/IStrikeVault.sol";
@@ -43,7 +44,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
 
     struct VaultConfig {
         address curator;
-        address agent;
+        uint256 agentId;
         bool registered;
         MandateGuard.Mandate mandate;
     }
@@ -63,7 +64,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     struct Series {
         address vault;
         address underlying;
-        address agent;
+        uint256 agentId;
         uint64 expiry;
         uint16 premiumBps;
         bool isCall;
@@ -88,6 +89,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     FeeManager public feeManager;
     /// @notice Safe stock prices (SafeStockFeed) and NYSE hours.
     IStockOracle public oracle;
+    /// @notice Bonded agents that may propose.
+    IAgentRegistry public immutable agents;
 
     /// @notice An agent must propose within this long after the epoch opens, or anyone may abort it.
     uint32 public proposalTimeout = 1 days;
@@ -100,6 +103,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     mapping(address vault => VaultConfig) internal _vaults;
     mapping(address vault => VaultEpoch) public epochs;
     mapping(uint256 id => Series) internal _series;
+    /// @notice Slashed agent bonds waiting to be paid to a vault's depositors when its epoch closes.
+    mapping(address vault => uint256) public compensation;
     address[] public allVaults;
 
     // ------------------------------------------------------------------ events
@@ -111,9 +116,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     event FeeManagerSet(address feeManager);
     event TimingsSet(uint32 proposalTimeout, uint32 saleCutoff, uint32 settlementGrace);
     event VaultRegistered(
-        address indexed vault, address indexed curator, address indexed agent, address underlying, bool isCall
+        address indexed vault, address indexed curator, uint256 indexed agentId, address underlying, bool isCall
     );
-    event VaultAgentSet(address indexed vault, address indexed agent);
+    event VaultAgentSet(address indexed vault, uint256 indexed agentId);
     event EpochOpened(address indexed vault, uint64 indexed epoch, uint256 spot);
     event SeriesProposed(
         address indexed vault,
@@ -129,8 +134,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     event ProposalRejected(
         address indexed vault,
         uint64 indexed epoch,
-        address indexed agent,
+        uint256 indexed agentId,
         MandateGuard.Reason reason,
+        uint256 slashed,
         uint256 strike,
         uint64 expiry,
         uint256 size,
@@ -161,6 +167,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     error VaultNotRegistered(address vault);
     error VaultAlreadyRegistered(address vault);
     error NotAgent(address caller);
+    error AgentNotActive(uint256 agentId);
     error NotCurator(address caller);
     error WrongState(EpochState expected, EpochState actual);
     error SigmaOutOfBounds(uint64 sigma);
@@ -186,7 +193,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         OptionToken optionToken_,
         IPricer pricer_,
         FeeManager feeManager_,
-        IStockOracle oracle_
+        IStockOracle oracle_,
+        IAgentRegistry agents_
     ) {
         if (admin == address(0) || address(usdg_) == address(0) || address(optionToken_) == address(0)) {
             revert ZeroAddress();
@@ -194,7 +202,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         if (address(pricer_) == address(0) || address(feeManager_) == address(0) || address(oracle_) == address(0)) {
             revert ZeroAddress();
         }
+        if (address(agents_) == address(0)) revert ZeroAddress();
         oracle = oracle_;
+        agents = agents_;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GUARDIAN_ROLE, admin);
         usdg = usdg_;
@@ -269,7 +279,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     }
 
     /// @notice Called by the factory for each new vault.
-    function registerVault(address vault, address curator, address agent, MandateGuard.Mandate calldata mandate)
+    function registerVault(address vault, address curator, uint256 agentId, MandateGuard.Mandate calldata mandate)
         external
         onlyRole(FACTORY_ROLE)
     {
@@ -278,17 +288,17 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         address token = IStrikeVault(vault).underlying();
         if (!underlyings[token].allowed) revert UnderlyingNotAllowed(token);
         MandateGuard.validate(mandate);
-        _vaults[vault] = VaultConfig({curator: curator, agent: agent, registered: true, mandate: mandate});
+        _vaults[vault] = VaultConfig({curator: curator, agentId: agentId, registered: true, mandate: mandate});
         allVaults.push(vault);
-        emit VaultRegistered(vault, curator, agent, token, IStrikeVault(vault).isCall());
+        emit VaultRegistered(vault, curator, agentId, token, IStrikeVault(vault).isCall());
     }
 
     /// @notice The curator (or admin) can replace the vault's agent at any time, effective immediately.
-    function setVaultAgent(address vault, address agent) external {
+    function setVaultAgent(address vault, uint256 agentId) external {
         VaultConfig storage v = _vault(vault);
         if (msg.sender != v.curator && !hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotCurator(msg.sender);
-        v.agent = agent;
-        emit VaultAgentSet(vault, agent);
+        v.agentId = agentId;
+        emit VaultAgentSet(vault, agentId);
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -296,7 +306,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     /// @notice Start an epoch: checks the feed and locks the vault (deposits and redemptions queue from here on).
     function openEpoch(address vault) external whenNotPaused nonReentrant {
         VaultConfig storage v = _vault(vault);
-        if (msg.sender != v.agent && !hasRole(KEEPER_ROLE, msg.sender)) revert NotAgent(msg.sender);
+        if (msg.sender != agents.signerOf(v.agentId) && !hasRole(KEEPER_ROLE, msg.sender)) revert NotAgent(msg.sender);
         VaultEpoch storage ep = epochs[vault];
         _expectState(ep, EpochState.Idle);
         _requireMarketOpen();
@@ -319,17 +329,19 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         returns (bool accepted, uint256 seriesId)
     {
         VaultConfig storage v = _vault(vault);
-        if (msg.sender != v.agent) revert NotAgent(msg.sender);
+        if (msg.sender != agents.signerOf(v.agentId)) revert NotAgent(msg.sender);
+        if (!agents.isActive(v.agentId)) revert AgentNotActive(v.agentId);
         VaultEpoch storage ep = epochs[vault];
         _expectState(ep, EpochState.Open);
 
         (MandateGuard.Reason reason, MandateGuard.Proposal memory p) =
             _evaluate(vault, v, strike, expiry, size, premiumBps);
         if (reason != MandateGuard.Reason.None) {
-            _reject(vault, reason, p, expiry);
+            _reject(vault, v.agentId, reason, p, expiry);
             return (false, 0);
         }
-        return (true, _createSeries(vault, ep, p, expiry));
+        agents.recordAccepted(v.agentId);
+        return (true, _createSeries(vault, v.agentId, ep, p, expiry));
     }
 
     /// @notice Buy options. Price = Black-Scholes fair value at the current spot × the series' premium factor.
@@ -388,12 +400,12 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         ep.seriesId = 0;
 
         (uint256 fee, uint256 agentCut) = feeManager.computeFee(s.premium, payoutValue);
-        uint256 toVault = s.premium - fee;
+        uint256 toVault = s.premium - fee + _takeCompensation(vault);
         uint64 epoch = IStrikeVault(vault).currentEpoch();
 
         if (fee != 0) {
             usdg.safeTransfer(address(feeManager), fee);
-            feeManager.creditFees(s.agent, agentCut, fee - agentCut);
+            feeManager.creditFees(agents.payoutOf(s.agentId), agentCut, fee - agentCut);
         }
         if (toVault != 0) usdg.safeTransfer(vault, toVault);
         IStrikeVault(vault).settleEpoch(payout, toVault);
@@ -439,7 +451,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         }
         ep.state = EpochState.Idle;
         uint64 epoch = IStrikeVault(vault).currentEpoch();
-        IStrikeVault(vault).settleEpoch(0, 0);
+        _closeWithoutPayout(vault);
         emit EpochAborted(vault, epoch);
     }
 
@@ -458,7 +470,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         ep.state = EpochState.Idle;
         ep.seriesId = 0;
         uint64 epoch = IStrikeVault(vault).currentEpoch();
-        IStrikeVault(vault).settleEpoch(0, 0);
+        _closeWithoutPayout(vault);
         emit SeriesCancelled(vault, epoch, seriesId);
     }
 
@@ -541,25 +553,47 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         return (MandateGuard.check(v.mandate, p), p);
     }
 
-    function _reject(address vault, MandateGuard.Reason reason, MandateGuard.Proposal memory p, uint64 expiry)
-        internal
-    {
+    /// @dev The agent's bond pays for the rejected proposal; the vault's depositors receive it at epoch close.
+    function _reject(
+        address vault,
+        uint256 agentId,
+        MandateGuard.Reason reason,
+        MandateGuard.Proposal memory p,
+        uint64 expiry
+    ) internal {
+        uint256 slashed = agents.slash(agentId, address(this));
+        compensation[vault] += slashed;
         emit ProposalRejected(
-            vault, IStrikeVault(vault).currentEpoch(), msg.sender, reason, p.strike, expiry, p.size, p.premiumBps
+            vault, IStrikeVault(vault).currentEpoch(), agentId, reason, slashed, p.strike, expiry, p.size, p.premiumBps
         );
     }
 
-    function _createSeries(address vault, VaultEpoch storage ep, MandateGuard.Proposal memory p, uint64 expiry)
-        internal
-        returns (uint256 seriesId)
-    {
+    function _takeCompensation(address vault) internal returns (uint256 amount) {
+        amount = compensation[vault];
+        if (amount != 0) compensation[vault] = 0;
+    }
+
+    /// @dev Close the epoch with no payout; any slashed bonds still go to depositors.
+    function _closeWithoutPayout(address vault) internal {
+        uint256 comp = _takeCompensation(vault);
+        if (comp != 0) usdg.safeTransfer(vault, comp);
+        IStrikeVault(vault).settleEpoch(0, comp);
+    }
+
+    function _createSeries(
+        address vault,
+        uint256 agentId,
+        VaultEpoch storage ep,
+        MandateGuard.Proposal memory p,
+        uint64 expiry
+    ) internal returns (uint256 seriesId) {
         address token = IStrikeVault(vault).underlying();
         seriesId = seriesIdOf(vault, token, p.strike, expiry, p.isCall);
         if (_series[seriesId].vault != address(0)) revert SeriesExists(seriesId);
         Series storage s = _series[seriesId];
         s.vault = vault;
         s.underlying = token;
-        s.agent = msg.sender;
+        s.agentId = agentId;
         s.expiry = expiry;
         s.premiumBps = p.premiumBps;
         s.isCall = p.isCall;

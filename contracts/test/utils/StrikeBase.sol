@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
+import {AgentRegistry} from "../../src/agents/AgentRegistry.sol";
 import {EpochManager} from "../../src/core/EpochManager.sol";
 import {FeeManager} from "../../src/core/FeeManager.sol";
 import {MandateGuard} from "../../src/libraries/MandateGuard.sol";
@@ -13,6 +14,7 @@ import {VaultFactory} from "../../src/vaults/VaultFactory.sol";
 import {MockAggregator} from "../mocks/MockAggregator.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {MockStockToken} from "../mocks/MockStockToken.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Test} from "forge-std/Test.sol";
 
 /// @notice Full Strike deployment with mocks: 6-decimal USDG, an 18-decimal TSLA stock token with an 8-decimal
@@ -20,6 +22,8 @@ import {Test} from "forge-std/Test.sol";
 abstract contract StrikeBase is Test {
     uint256 internal constant WAD = 1e18;
     uint256 internal constant USDG_UNIT = 1e6;
+    uint256 internal constant MIN_BOND = 100e6;
+    uint256 internal constant SLASH = 25e6;
 
     /// Monday 2026-10-05 14:00 UTC (10:00 New York, market open).
     uint256 internal constant MONDAY = 1_791_208_800;
@@ -46,7 +50,9 @@ abstract contract StrikeBase is Test {
     BlackScholesRef internal pricer;
     FeeManager internal fees;
     OptionToken internal options;
+    AgentRegistry internal registry;
     EpochManager internal manager;
+    uint256 internal agentId;
     StrikeVault internal vaultImpl;
     VaultFactory internal factory;
     StrikeVault internal callVault;
@@ -66,7 +72,9 @@ abstract contract StrikeBase is Test {
         pricer = new BlackScholesRef();
         fees = new FeeManager(admin, usdg, treasury, 1000, 5000); // 10% of net premium, half to the agent
         options = new OptionToken("https://strike.example/api/option/{id}.json", admin);
-        manager = new EpochManager(admin, usdg, options, pricer, fees, oracle);
+        registry = new AgentRegistry(admin, usdg, IERC721(address(0)), MIN_BOND, SLASH, 3, 8 days);
+        manager = new EpochManager(admin, usdg, options, pricer, fees, oracle, registry);
+        registry.grantRole(registry.SLASHER_ROLE(), address(manager));
         options.setManager(address(manager));
         fees.grantRole(fees.DEPOSITOR_ROLE(), address(manager));
         manager.grantRole(manager.GUARDIAN_ROLE(), guardian);
@@ -74,6 +82,17 @@ abstract contract StrikeBase is Test {
         manager.setUnderlying(address(tsla), true);
         manager.setSigmaBounds(address(tsla), 0.2e18, 1.5e18, 0.6e18);
 
+        vm.stopPrank();
+
+        // The agent registers its signer and posts a bond.
+        usdg.mint(agent, 1000e6);
+        vm.startPrank(agent);
+        agentId = registry.register(agent, agent, 0);
+        usdg.approve(address(registry), 1000e6);
+        registry.postBond(agentId, 1000e6);
+        vm.stopPrank();
+
+        vm.startPrank(admin);
         vaultImpl = new StrikeVault();
         factory = new VaultFactory(admin, address(vaultImpl), manager, address(usdg), 10_000_000 * WAD);
         manager.grantRole(manager.FACTORY_ROLE(), address(factory));
@@ -103,7 +122,7 @@ abstract contract StrikeBase is Test {
         return VaultFactory.CreateParams({
             underlying: address(tsla),
             isCall: isCall,
-            agent: agent,
+            agentId: agentId,
             depositCap: cap,
             name: isCall ? "Strike TSLA Covered Call" : "Strike TSLA Cash-Secured Put",
             symbol: isCall ? "sTSLA-CC" : "sTSLA-CSP",

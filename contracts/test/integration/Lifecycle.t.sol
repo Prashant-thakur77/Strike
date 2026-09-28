@@ -194,7 +194,7 @@ contract LifecycleTest is StrikeBase {
         manager.openEpoch(address(callVault));
         vm.expectEmit(true, true, true, false, address(manager));
         emit EpochManager.ProposalRejected(
-            address(callVault), 1, agent, MandateGuard.Reason.StrikeWrongSide, 0, 0, 0, 0
+            address(callVault), 1, agentId, MandateGuard.Reason.StrikeWrongSide, 0, 0, 0, 0, 0
         );
         vm.prank(agent);
         (bool accepted,) = manager.proposeSeries(address(callVault), 240 * WAD, FRIDAY_CLOSE, 10 * WAD, 10_000);

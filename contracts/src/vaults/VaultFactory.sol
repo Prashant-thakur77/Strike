@@ -22,7 +22,7 @@ contract VaultFactory is AccessControl {
     struct CreateParams {
         address underlying;
         bool isCall;
-        address agent;
+        uint256 agentId;
         uint256 depositCap;
         string name;
         string symbol;
@@ -30,7 +30,7 @@ contract VaultFactory is AccessControl {
     }
 
     event VaultCreated(
-        address indexed vault, address indexed curator, address indexed underlying, bool isCall, address agent
+        address indexed vault, address indexed curator, address indexed underlying, bool isCall, uint256 agentId
     );
     event MaxDepositCapSet(uint256 maxDepositCap);
 
@@ -74,7 +74,7 @@ contract VaultFactory is AccessControl {
                 symbol: p.symbol
             })
             );
-        manager.registerVault(vault, msg.sender, p.agent, p.mandate);
-        emit VaultCreated(vault, msg.sender, p.underlying, p.isCall, p.agent);
+        manager.registerVault(vault, msg.sender, p.agentId, p.mandate);
+        emit VaultCreated(vault, msg.sender, p.underlying, p.isCall, p.agentId);
     }
 }

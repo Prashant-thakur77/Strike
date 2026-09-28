@@ -12,7 +12,7 @@ contract BlackScholesRef is IPricer {
     function quote(uint256 spot, uint256 strike, uint256 timeToExpiry, uint256 sigma, bool isCall)
         external
         pure
-        returns (uint256 price, int256 delta)
+        returns (uint256, int256)
     {
         return BlackScholesLib.quote(spot, strike, timeToExpiry, sigma, isCall);
     }
