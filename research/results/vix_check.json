@@ -1,0 +1,10 @@
+{
+  "days": 1924,
+  "mean_vix": 0.20067666338288115,
+  "mean_trailing_rv": 0.16334689266765245,
+  "mean_forward_rv": 0.16146274529611135,
+  "median_vix_over_trailing": 1.3032522322912405,
+  "median_vix_over_forward": 1.3608613669722436,
+  "share_vix_above_forward": 0.8425155925155925,
+  "mean_vix_over_trailing": 1.3922999391837576
+}

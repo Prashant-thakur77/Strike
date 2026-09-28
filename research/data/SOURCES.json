@@ -1,0 +1,47 @@
+{
+  "TSLA": {
+    "file": "TSLA.csv",
+    "source": "Yahoo Finance chart API v8 (daily bars; adj_close is split- and dividend-adjusted)",
+    "url": "https://query2.finance.yahoo.com/v8/finance/chart/TSLA?period1=1538352000&period2=1790627609&interval=1d&events=div%2Csplit",
+    "downloaded_utc": "2026-09-28T20:33:30Z",
+    "rows": 2008,
+    "first": "2018-10-01",
+    "last": "2026-09-28"
+  },
+  "NVDA": {
+    "file": "NVDA.csv",
+    "source": "Yahoo Finance chart API v8 (daily bars; adj_close is split- and dividend-adjusted)",
+    "url": "https://query2.finance.yahoo.com/v8/finance/chart/NVDA?period1=1538352000&period2=1790627611&interval=1d&events=div%2Csplit",
+    "downloaded_utc": "2026-09-28T20:33:31Z",
+    "rows": 2008,
+    "first": "2018-10-01",
+    "last": "2026-09-28"
+  },
+  "AMZN": {
+    "file": "AMZN.csv",
+    "source": "Yahoo Finance chart API v8 (daily bars; adj_close is split- and dividend-adjusted)",
+    "url": "https://query2.finance.yahoo.com/v8/finance/chart/AMZN?period1=1538352000&period2=1790627613&interval=1d&events=div%2Csplit",
+    "downloaded_utc": "2026-09-28T20:33:33Z",
+    "rows": 2008,
+    "first": "2018-10-01",
+    "last": "2026-09-28"
+  },
+  "SPY": {
+    "file": "SPY.csv",
+    "source": "Yahoo Finance chart API v8 (daily bars; adj_close is split- and dividend-adjusted)",
+    "url": "https://query2.finance.yahoo.com/v8/finance/chart/SPY?period1=1538352000&period2=1790627615&interval=1d&events=div%2Csplit",
+    "downloaded_utc": "2026-09-28T20:33:36Z",
+    "rows": 2008,
+    "first": "2018-10-01",
+    "last": "2026-09-28"
+  },
+  "^VIX": {
+    "file": "VIX.csv",
+    "source": "Yahoo Finance chart API v8 (daily bars; adj_close is split- and dividend-adjusted)",
+    "url": "https://query2.finance.yahoo.com/v8/finance/chart/%5EVIX?period1=1538352000&period2=1790627617&interval=1d&events=div%2Csplit",
+    "downloaded_utc": "2026-09-28T20:33:38Z",
+    "rows": 2010,
+    "first": "2018-10-01",
+    "last": "2026-09-28"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "known_quote": {
+    "price": 1.36028323765224,
+    "delta": 0.1344687460128014,
+    "rust_price": 1.36028323765224,
+    "rust_delta": 0.1344687460128014
+  },
+  "vectors": {
+    "n": 300,
+    "max_price_err_over_spot": 3.5687367954653223e-16,
+    "max_delta_err": 8.881784197001252e-16
+  },
+  "risk_model_table": [
+    {
+      "underlying": "TSLA",
+      "vault": "call",
+      "strike_vs_spot": 0.07614281534856215,
+      "yield": 0.008922433679242432
+    },
+    {
+      "underlying": "TSLA",
+      "vault": "put",
+      "strike_vs_spot": -0.06431750178834739,
+      "yield": 0.010319082570044005
+    },
+    {
+      "underlying": "NVDA",
+      "vault": "call",
+      "strike_vs_spot": 0.06255161423255862,
+      "yield": 0.00748307930945751
+    },
+    {
+      "underlying": "SPY",
+      "vault": "call",
+      "strike_vs_spot": 0.02151827224768632,
+      "yield": 0.0027502214806457478
+    }
+  ],
+  "gas_md_strike": 389.79
+}
