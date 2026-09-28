@@ -6,13 +6,13 @@ Weekly options vaults for Robinhood Chain stock tokens. Depositors earn premium 
 
 Built for the Arbitrum Open House Singapore buildathon. Unaudited: testnet first, and any mainnet vault is capped.
 
-|                  |                                              |
-| ---------------- | -------------------------------------------- |
-| Live app         | pending deployment (see [status](#status))   |
-| Demo video       | pending                                      |
-| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md) |
-| Design spec      | [docs/design.md](docs/design.md)             |
-| Threat model     | [docs/threat-model.md](docs/threat-model.md) |
+|                  |                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Live app         | pending Vercel setup ([docs/deploy-app.md](docs/deploy-app.md)); contracts are [live on Robinhood Chain testnet](#deployed-contracts) |
+| Demo video       | pending                                                                                                                               |
+| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md)                                                                                          |
+| Design spec      | [docs/design.md](docs/design.md)                                                                                                      |
+| Threat model     | [docs/threat-model.md](docs/threat-model.md)                                                                                          |
 
 <p>
   <img src="docs/screenshots/desktop-landing-00-hero.png" alt="Strike landing page" width="66%">
@@ -118,15 +118,34 @@ Measured on an Arbitrum Nitro dev node, L2 execution gas:
 
 A Stylus call pays a fixed entry cost, so a single quote is cheaper in Solidity. Real work is 6.5× cheaper in Stylus, and a full proposal transaction 3.3× cheaper, with the same strike chosen. Method and scripts in [docs/gas.md](docs/gas.md).
 
-## Status
+## Deployed contracts
 
-| Network                         | Status                                                                           |
-| ------------------------------- | -------------------------------------------------------------------------------- |
-| Robinhood Chain testnet (46630) | Deploy script rehearsed on a fork of the live testnet; waiting for testnet funds |
-| Arbitrum Sepolia (421614)       | Ready; waiting for testnet funds                                                 |
-| Robinhood Chain mainnet (4663)  | Planned: one capped vault after testnet                                          |
+Robinhood Chain testnet (46630), deployed and verified on Blockscout (deploy block 125866639). The `EpochManager` prices with the Stylus pricer after an on-chain check that it returns exactly what the Solidity reference returns. Agent #1 is registered and bonded with 100 USDG; the TSLA covered-call vault holds real testnet TSLA from the Robinhood faucet. Robinhood testnet has no Chainlink stock feeds, so `MirrorFeed`s copy the mainnet Chainlink rounds ([keeper](scripts/keeper.sh)).
 
-Deployed addresses will be listed here with explorer links.
+| Contract                                    | Address                                                                                                                                         |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| EpochManager                                | [`0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0`](https://explorer.testnet.chain.robinhood.com/address/0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0) |
+| VaultFactory                                | [`0x9DbaFfD488FC591947149E2b27189A201C0a74f4`](https://explorer.testnet.chain.robinhood.com/address/0x9DbaFfD488FC591947149E2b27189A201C0a74f4) |
+| StrikeVault implementation                  | [`0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197`](https://explorer.testnet.chain.robinhood.com/address/0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197) |
+| TSLA covered-call vault                     | [`0x5655659E18bf54ee0EF8f6A816E2e18D000F7311`](https://explorer.testnet.chain.robinhood.com/address/0x5655659E18bf54ee0EF8f6A816E2e18D000F7311) |
+| TSLA cash-secured-put vault                 | [`0x02B701210aA006CEAbd389dBc32af0047B1B9bbe`](https://explorer.testnet.chain.robinhood.com/address/0x02B701210aA006CEAbd389dBc32af0047B1B9bbe) |
+| Stylus pricer (Rust/WASM, active pricer)    | [`0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c`](https://explorer.testnet.chain.robinhood.com/address/0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c) |
+| BlackScholesRef (Solidity reference pricer) | [`0x79A4158900579FA0eE5b413B4724D010C8a0A8E2`](https://explorer.testnet.chain.robinhood.com/address/0x79A4158900579FA0eE5b413B4724D010C8a0A8E2) |
+| StockOracle (SafeStockFeed)                 | [`0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F`](https://explorer.testnet.chain.robinhood.com/address/0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F) |
+| MarketCalendar                              | [`0xefD1121ef13F1187F9ac9A54076DFa09A586d31D`](https://explorer.testnet.chain.robinhood.com/address/0xefD1121ef13F1187F9ac9A54076DFa09A586d31D) |
+| AgentRegistry                               | [`0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E`](https://explorer.testnet.chain.robinhood.com/address/0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E) |
+| FeeManager                                  | [`0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569`](https://explorer.testnet.chain.robinhood.com/address/0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569) |
+| OptionToken (ERC-1155)                      | [`0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7`](https://explorer.testnet.chain.robinhood.com/address/0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7) |
+| USDG (Paxos)                                | [`0x7E955252E15c84f5768B83c41a71F9eba181802F`](https://explorer.testnet.chain.robinhood.com/address/0x7E955252E15c84f5768B83c41a71F9eba181802F) |
+| TSLA MirrorFeed (testnet)                   | [`0x8401bcb990005fCEB1390C0b10dA5bE283d6cC0F`](https://explorer.testnet.chain.robinhood.com/address/0x8401bcb990005fCEB1390C0b10dA5bE283d6cC0F) |
+
+Stock tokens are Robinhood's own testnet tokens (TSLA `0xC9f9…Bd4E`, AMZN, PLTR, NFLX, AMD). All addresses: [`contracts/deployments/46630.json`](contracts/deployments/46630.json).
+
+| Network                         | Status                                         |
+| ------------------------------- | ---------------------------------------------- |
+| Robinhood Chain testnet (46630) | Live, verified                                 |
+| Arbitrum Sepolia (421614)       | Script ready, waiting for Arbitrum Sepolia ETH |
+| Robinhood Chain mainnet (4663)  | Planned: one capped vault                      |
 
 ## Try it
 

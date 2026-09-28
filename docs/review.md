@@ -6,13 +6,13 @@ Updated at the end of every phase and every improvement cycle. A score without l
 
 ### A. Hard requirements
 
-| Requirement                                                                     | Status      | Evidence                                                                                                                                                           |
-| ------------------------------------------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Deployed and verified on Robinhood Chain 46630 and/or 4663, addresses in README | NO (ready)  | One-command deploy + Blockscout verify ([scripts/deploy-testnet.sh](../scripts/deploy-testnet.sh)) rehearsed on a testnet fork. Waiting for funds on `0x26b2…13Ff` |
-| Also deployed on Arbitrum Sepolia or One                                        | NO (ready)  | Same script, `arbitrum-sepolia`                                                                                                                                    |
-| USDG is the premium and settlement asset (real addresses)                       | YES in code | Real USDG on 4 networks in [Deploy.s.sol](../contracts/script/Deploy.s.sol); fork test uses real mainnet USDG                                                      |
-| Public repo, live demo URL, demo video, pitch video                             | PARTIAL     | Repo public with CI. App in progress; videos need the owner ([req-you](req-you.md))                                                                                |
-| HackQuest submission before the deadline                                        | NO          | Answers drafted in [submission/hackquest-answers.md](submission/hackquest-answers.md)                                                                              |
+| Requirement                                                                     | Status                      | Evidence                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Deployed and verified on Robinhood Chain 46630 and/or 4663, addresses in README | **YES** (46630, 2026-09-28) | One-command deploy + Blockscout verify ([scripts/deploy-testnet.sh](../scripts/deploy-testnet.sh)) rehearsed on a testnet fork. Waiting for funds on `0x26b2…13Ff` |
+| Also deployed on Arbitrum Sepolia or One                                        | NO (ready)                  | Same script, `arbitrum-sepolia`                                                                                                                                    |
+| USDG is the premium and settlement asset (real addresses)                       | YES in code                 | Real USDG on 4 networks in [Deploy.s.sol](../contracts/script/Deploy.s.sol); fork test uses real mainnet USDG                                                      |
+| Public repo, live demo URL, demo video, pitch video                             | PARTIAL                     | Repo public with CI. App in progress; videos need the owner ([req-you](req-you.md))                                                                                |
+| HackQuest submission before the deadline                                        | NO                          | Answers drafted in [submission/hackquest-answers.md](submission/hackquest-answers.md)                                                                              |
 
 ### B. Judging scores
 
