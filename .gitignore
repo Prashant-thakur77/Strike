@@ -37,3 +37,9 @@ subgraph/build/
 
 # local devnet deployments
 contracts/deployments/31337*.json
+
+# app screenshot runs (curated copies live in docs/screenshots)
+app/screenshots/
+app/test-results/
+app/playwright-report/
+app/tsconfig.tsbuildinfo

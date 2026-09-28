@@ -4,10 +4,13 @@
   "private": true,
   "license": "MIT",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "demo-chain": "node scripts/demo-chain.mjs",
+    "e2e": "playwright test",
+    "screenshots": "playwright test e2e/screenshots.spec.ts"
   },
   "dependencies": {
     "@strike/sdk": "workspace:*",

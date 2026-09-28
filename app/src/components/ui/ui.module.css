@@ -1,0 +1,141 @@
+/* ---------------------------------------------------------------- section head */
+
+.head {
+  display: grid;
+  gap: 14px;
+}
+
+.headRow {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: baseline;
+}
+
+.headRow > :only-child,
+.headRow > :global(.micro):first-child {
+  grid-column: 1 / 3;
+}
+
+.headRight {
+  justify-self: end;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .headRow {
+    grid-template-columns: 48px 1fr auto;
+    column-gap: 12px;
+  }
+  .hideRightMobile {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- fit text */
+
+.fit {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.fitLine {
+  display: block;
+  white-space: nowrap;
+  font-size: 12vw;
+  font-weight: 900;
+  line-height: 0.8;
+  letter-spacing: -0.045em;
+  text-transform: uppercase;
+  width: max-content;
+  max-width: 100%;
+}
+
+/* ---------------------------------------------------------------- CTA bar */
+
+.cta {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding: clamp(14px, 1.6vw, 22px) clamp(14px, 1.6vw, 22px) clamp(14px, 1.6vw, 22px) clamp(24px, 2.2vw, 32px);
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--fg);
+  transition: color 0.35s var(--ease-out);
+}
+
+.cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--ink-teal);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.65s var(--ease-out);
+}
+
+.ctaText {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ctaText :global(.micro) {
+  color: var(--fg-muted);
+  transition: color 0.35s var(--ease-out);
+}
+
+.ctaBig {
+  font-size: clamp(1.6rem, 4.3vw, 4.6rem);
+  font-weight: 640;
+  line-height: 0.95;
+  letter-spacing: -0.055em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctaCircle {
+  display: grid;
+  place-items: center;
+  width: clamp(52px, 7vw, 100px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  transition:
+    background 0.35s var(--ease-out),
+    color 0.35s var(--ease-out),
+    transform 0.5s var(--ease-out);
+}
+
+.ctaCircle svg {
+  width: 42%;
+  height: 42%;
+  transition: transform 0.5s var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cta:hover {
+    color: var(--mint);
+  }
+  .cta:hover::before {
+    transform: scaleX(1);
+  }
+  .cta:hover :global(.micro) {
+    color: var(--mint);
+  }
+  .cta:hover .ctaCircle {
+    background: var(--mint);
+    color: var(--ink-teal);
+    border-color: var(--mint);
+    transform: rotate(8deg);
+  }
+  .cta:hover .ctaCircle svg {
+    transform: translate(6%, -6%);
+  }
+}
