@@ -257,6 +257,7 @@ contract Deploy is Script {
             stocksJson = vm.serializeString(sk, stocks[i].symbol, entry);
         }
         string memory json = vm.serializeString(k, "stocks", stocksJson);
+        vm.createDir(string.concat(vm.projectRoot(), "/deployments"), true);
         string memory path = string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json");
         vm.writeJson(json, path);
         console2.log("Strike deployed; addresses written to", path);
