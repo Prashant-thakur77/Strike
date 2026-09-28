@@ -1,0 +1,245 @@
+specVersion: 1.3.0
+description: Strike options vaults, epochs, series and agents
+repository: https://github.com/Prashant-thakur77/Strike
+indexerHints:
+  prune: auto
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: EpochManager
+    network: arbitrum-sepolia
+    source:
+      abi: EpochManager
+      address: "0x0000000000000000000000000000000000000000"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/epoch-manager.ts
+      entities:
+        - ProtocolStats
+        - Underlying
+        - Vault
+        - Epoch
+        - Series
+        - Purchase
+        - Redemption
+        - ProposalRejection
+        - Agent
+        - VaultDayData
+      abis:
+        - name: EpochManager
+          file: ./abis/EpochManager.json
+        - name: StrikeVault
+          file: ./abis/StrikeVault.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: UnderlyingSet(indexed address,bool)
+          handler: handleUnderlyingSet
+        - event: SigmaSet(indexed address,uint64,uint64,uint64)
+          handler: handleSigmaSet
+        - event: VaultRegistered(indexed address,indexed address,indexed
+            uint256,address,bool)
+          handler: handleVaultRegistered
+        - event: VaultAgentSet(indexed address,indexed uint256)
+          handler: handleVaultAgentSet
+        - event: EpochOpened(indexed address,indexed uint64,uint256)
+          handler: handleEpochOpened
+        - event: SeriesProposed(indexed address,indexed uint64,indexed
+            uint256,uint256,uint64,uint256,uint16,uint256,int256)
+          handler: handleSeriesProposed
+        - event: ProposalRejected(indexed address,indexed uint64,indexed
+            uint256,uint8,uint256,uint256,uint64,uint256,uint16)
+          handler: handleProposalRejected
+        - event: OptionsBought(indexed uint256,indexed address,indexed
+            address,uint256,uint256)
+          handler: handleOptionsBought
+        - event: EpochSettled(indexed address,indexed uint64,indexed
+            uint256,uint256,uint256,uint256,uint256)
+          handler: handleEpochSettled
+        - event: EpochAborted(indexed address,indexed uint64)
+          handler: handleEpochAborted
+        - event: SeriesCancelled(indexed address,indexed uint64,indexed uint256)
+          handler: handleSeriesCancelled
+        - event: OptionsRedeemed(indexed uint256,indexed address,indexed
+            address,uint256,uint256)
+          handler: handleOptionsRedeemed
+        - event: Paused(address)
+          handler: handlePaused
+        - event: Unpaused(address)
+          handler: handleUnpaused
+  - kind: ethereum
+    name: VaultFactory
+    network: arbitrum-sepolia
+    source:
+      abi: VaultFactory
+      address: "0x0000000000000000000000000000000000000000"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/vault-factory.ts
+      entities:
+        - ProtocolStats
+        - Underlying
+        - Vault
+      abis:
+        - name: VaultFactory
+          file: ./abis/VaultFactory.json
+        - name: StrikeVault
+          file: ./abis/StrikeVault.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: VaultCreated(indexed address,indexed address,indexed
+            address,bool,uint256)
+          handler: handleVaultCreated
+  - kind: ethereum
+    name: AgentRegistry
+    network: arbitrum-sepolia
+    source:
+      abi: AgentRegistry
+      address: "0x0000000000000000000000000000000000000000"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/agent-registry.ts
+      entities:
+        - ProtocolStats
+        - Agent
+        - ReputationFeedback
+      abis:
+        - name: AgentRegistry
+          file: ./abis/AgentRegistry.json
+      eventHandlers:
+        - event: AgentRegistered(indexed uint256,indexed address,address,uint256)
+          handler: handleAgentRegistered
+        - event: SignerSet(indexed uint256,address)
+          handler: handleSignerSet
+        - event: PayoutSet(indexed uint256,address)
+          handler: handlePayoutSet
+        - event: BondPosted(indexed uint256,indexed address,uint256)
+          handler: handleBondPosted
+        - event: UnbondRequested(indexed uint256,uint256,uint64)
+          handler: handleUnbondRequested
+        - event: Unbonded(indexed uint256,address,uint256)
+          handler: handleUnbonded
+        - event: Slashed(indexed uint256,indexed address,uint256,uint32)
+          handler: handleSlashed
+        - event: StatusSet(indexed uint256,uint8)
+          handler: handleStatusSet
+        - event: ProposalRecorded(indexed uint256,bool)
+          handler: handleProposalRecorded
+        - event: ParamsSet(uint256,uint256,uint32,uint32)
+          handler: handleParamsSet
+        - event: EpochResultRecorded(indexed uint256,int256,uint32,int256)
+          handler: handleEpochResultRecorded
+        - event: ReputationFeedback(indexed uint256,indexed uint256,int128,string,bool)
+          handler: handleReputationFeedback
+  - kind: ethereum
+    name: StockOracle
+    network: arbitrum-sepolia
+    source:
+      abi: StockOracle
+      address: "0x0000000000000000000000000000000000000000"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/stock-oracle.ts
+      entities:
+        - Underlying
+        - SettlementPrice
+      abis:
+        - name: StockOracle
+          file: ./abis/StockOracle.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: FeedSet(indexed address,address,uint32,uint32)
+          handler: handleFeedSet
+        - event: SettlementPriceRecorded(indexed address,indexed uint64,uint80,uint256)
+          handler: handleSettlementPriceRecorded
+  - kind: ethereum
+    name: FeeManager
+    network: arbitrum-sepolia
+    source:
+      abi: FeeManager
+      address: "0x0000000000000000000000000000000000000000"
+      startBlock: 0
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/fee-manager.ts
+      entities:
+        - ProtocolStats
+        - FeeAccount
+      abis:
+        - name: FeeManager
+          file: ./abis/FeeManager.json
+      eventHandlers:
+        - event: FeesSet(uint16,uint16)
+          handler: handleFeesSet
+        - event: TreasurySet(indexed address)
+          handler: handleTreasurySet
+        - event: FeesCredited(indexed address,uint256,uint256)
+          handler: handleFeesCredited
+        - event: Claimed(indexed address,uint256)
+          handler: handleClaimed
+templates:
+  - kind: ethereum
+    name: StrikeVault
+    network: arbitrum-sepolia
+    source:
+      abi: StrikeVault
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.9
+      language: wasm/assemblyscript
+      file: ./src/strike-vault.ts
+      entities:
+        - Vault
+        - Epoch
+        - SharePriceSnapshot
+        - DepositRequest
+        - RedeemRequest
+        - DepositClaim
+        - RedeemClaim
+        - Deposit
+        - Withdrawal
+        - PremiumClaim
+        - VaultDayData
+      abis:
+        - name: StrikeVault
+          file: ./abis/StrikeVault.json
+        - name: ERC20
+          file: ./abis/ERC20.json
+      eventHandlers:
+        - event: Deposit(indexed address,indexed address,uint256,uint256)
+          handler: handleDeposit
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256,uint256)
+          handler: handleWithdraw
+        - event: EpochLocked(indexed uint64)
+          handler: handleEpochLocked
+        - event: EpochSettled(indexed uint64,uint256,uint256,uint256,uint256,uint256)
+          handler: handleVaultEpochSettled
+        - event: DepositRequested(indexed address,indexed uint64,uint256)
+          handler: handleDepositRequested
+        - event: DepositRequestCancelled(indexed address,indexed uint64,uint256)
+          handler: handleDepositRequestCancelled
+        - event: DepositClaimed(indexed address,indexed uint64,uint256,uint256)
+          handler: handleDepositClaimed
+        - event: RedeemRequested(indexed address,indexed uint64,uint256)
+          handler: handleRedeemRequested
+        - event: RedeemClaimed(indexed address,indexed uint64,uint256,uint256)
+          handler: handleRedeemClaimed
+        - event: PremiumClaimed(indexed address,uint256)
+          handler: handlePremiumClaimed

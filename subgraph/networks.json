@@ -1,0 +1,112 @@
+{
+  "arbitrum-sepolia": {
+    "EpochManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "VaultFactory": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "AgentRegistry": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "StockOracle": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "FeeManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    }
+  },
+  "robinhood-sepolia": {
+    "EpochManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "VaultFactory": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "AgentRegistry": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "StockOracle": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "FeeManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    }
+  },
+  "robinhood-testnet": {
+    "EpochManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "VaultFactory": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "AgentRegistry": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "StockOracle": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "FeeManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    }
+  },
+  "robinhood": {
+    "EpochManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "VaultFactory": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "AgentRegistry": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "StockOracle": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "FeeManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    }
+  },
+  "robinhood-mainnet": {
+    "EpochManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "VaultFactory": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "AgentRegistry": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "StockOracle": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    },
+    "FeeManager": {
+      "address": "0x0000000000000000000000000000000000000000",
+      "startBlock": 0
+    }
+  }
+}

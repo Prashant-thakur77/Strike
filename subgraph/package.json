@@ -2,15 +2,20 @@
   "name": "@strike/subgraph",
   "version": "0.1.0",
   "private": true,
+  "description": "The Graph subgraph for Strike: vaults, epochs, option series, agents, fees",
   "license": "MIT",
   "scripts": {
+    "abis": "node scripts/copy-abis.mjs",
+    "set-network": "node scripts/set-network.mjs",
     "graph:codegen": "graph codegen",
     "graph:build": "graph build",
-    "graph:test": "graph test"
+    "graph:test": "graph test",
+    "graph:test:binary": "node scripts/matchstick.mjs"
   },
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.98.1",
     "@graphprotocol/graph-ts": "^0.38.2",
+    "assemblyscript": "0.19.23",
     "matchstick-as": "^0.6.0"
   }
 }

@@ -1,8 +1,575 @@
-# Strike subgraph schema. Mappings arrive with the contracts (Phase 4).
+# Strike subgraph schema.
+#
+# Units (docs/design.md §2):
+#   - prices, strikes, fair values, settlement prices: WAD (1e18 = $1) per RAW stock token (never × uiMultiplier)
+#   - option amounts / sizes: underlying token base units (10^decimals = one option on one raw token)
+#   - premium, fees, bonds, slashes: USDG base units (6 decimals on Robinhood Chain testnet)
+#   - vault assets / payouts: the vault's asset base units (stock token for call vaults, USDG for put vaults)
+#   - accPremiumPerShare / premiumPerShare: USDG base units per share, scaled by 1e36 (as on-chain)
+# Raw on-chain integers are BigInt. Ratios and USD figures derived by the subgraph are BigDecimal.
+#
+# Ids: addresses as Bytes; uint256 ids (agentId, seriesId) as the 32-byte big-endian word (abi encoding);
+# composite ids concatenate Bytes with little-endian integers (graph-ts `concatI32`). Prefer `where` filters
+# (e.g. `epochs(where: { vault: "0x…", number: "3" })`) over building composite ids by hand.
+
+enum EpochState {
+  "Epoch opened, vault locked, waiting for the agent's proposal"
+  Open
+  "A series was accepted; options can be bought"
+  Selling
+  "Settled after expiry (with or without sales)"
+  Settled
+  "Closed without an accepted proposal (abortEpoch)"
+  Aborted
+  "Guardian cancelled an unsettleable series; buyers redeem their premium"
+  Cancelled
+}
+
+"AgentRegistry.Status"
+enum AgentStatus {
+  None
+  Active
+  Suspended
+  Retired
+}
+
+"MandateGuard.Reason, in contract order (Unknown = a code this subgraph does not know)"
+enum RejectionReason {
+  None
+  ZeroSize
+  TenorOutOfRange
+  InvalidExpiry
+  StrikeWrongSide
+  SizeTooLarge
+  PremiumBelowFair
+  PremiumAboveCap
+  DeltaOutOfBand
+  PremiumTooSmall
+  Unknown
+}
+
+enum RequestStatus {
+  "Queued; claimable once its epoch is Settled/Aborted/Cancelled"
+  Pending
+  "Withdrawn before its epoch closed (deposits only)"
+  Cancelled
+  "Shares (deposit) or assets (redemption) moved to the account"
+  Claimed
+}
+
+"Protocol-wide totals and configuration. Singleton, id = UTF-8 bytes of 'strike' (0x737472696b65)."
+type ProtocolStats @entity(immutable: false) {
+  id: Bytes!
+  vaultCount: Int!
+  callVaultCount: Int!
+  putVaultCount: Int!
+  agentCount: Int!
+  "Epochs opened"
+  epochCount: Int!
+  settledEpochCount: Int!
+  abortedEpochCount: Int!
+  cancelledEpochCount: Int!
+  "Accepted proposals (= series created)"
+  proposalCount: Int!
+  rejectionCount: Int!
+  purchaseCount: Int!
+  "Gross premium of settled epochs (USDG)"
+  totalPremium: BigInt!
+  "Premium − fee + slashing compensation delivered to vaults (USDG)"
+  totalPremiumToDepositors: BigInt!
+  "Value of settlement payouts to option holders (USDG)"
+  totalPayoutValue: BigInt!
+  totalFees: BigInt!
+  totalAgentFees: BigInt!
+  totalTreasuryFees: BigInt!
+  totalFeesClaimed: BigInt!
+  totalPremiumClaimed: BigInt!
+  totalSlashed: BigInt!
+  "Bond + unbonding of all agents (still slashable)"
+  totalBonded: BigInt!
+  "Sum of Vault.tvlUsd"
+  tvlUsd: BigDecimal!
+  "EpochManager paused"
+  paused: Boolean!
+  perfFeeBps: Int!
+  agentShareBps: Int!
+  treasury: Bytes
+  minBond: BigInt!
+  slashAmount: BigInt!
+  maxStrikes: Int!
+  unbondDelay: Int!
+  updatedAt: BigInt!
+}
+
+"An allow-listed stock token (EpochManager) and its Chainlink feed (StockOracle)."
+type Underlying @entity(immutable: false) {
+  "Token address"
+  id: Bytes!
+  symbol: String!
+  decimals: Int!
+  "Allowed as an underlying by the EpochManager"
+  allowed: Boolean!
+  feed: Bytes
+  maxPriceAge: Int
+  corporateActionGrace: Int
+  "Implied volatility used for fair value, WAD, annualised"
+  sigma: BigInt
+  minSigma: BigInt
+  maxSigma: BigInt
+  "Last price the subgraph saw (epoch-open spot or settlement price), WAD per raw token"
+  lastPrice: BigInt
+  lastPriceAt: BigInt
+  vaults: [Vault!]! @derivedFrom(field: "underlying")
+  settlementPrices: [SettlementPrice!]! @derivedFrom(field: "token")
+}
 
 type Vault @entity(immutable: false) {
+  "Vault (EIP-1167 clone) address"
   id: Bytes!
-  underlying: Bytes!
+  underlying: Underlying!
+  "true: covered-call vault (collateral = stock token); false: cash-secured-put vault (collateral = USDG)"
   isCall: Boolean!
+  name: String!
+  symbol: String!
+  "Collateral token (ERC-4626 asset)"
+  asset: Bytes!
+  "Decimals of the asset and of the vault shares"
+  assetDecimals: Int!
+  "USDG"
+  premiumToken: Bytes!
+  premiumDecimals: Int!
+  curator: Bytes!
+  agent: Agent
+  agentId: BigInt!
+  depositCap: BigInt!
+  "An epoch is running: deposits and redemptions queue"
+  locked: Boolean!
+  currentEpoch: Epoch
+  currentEpochNumber: BigInt!
+  "TVL: managed collateral (ERC-4626 totalAssets), asset units"
+  totalAssets: BigInt!
+  totalSupply: BigInt!
+  pendingDepositAssets: BigInt!
+  pendingRedeemShares: BigInt!
+  "Assets of processed redemptions not yet claimed"
+  reservedRedeemAssets: BigInt!
+  "totalAssets in USD at the underlying's last seen price (calls) or 1:1 (puts)"
+  tvlUsd: BigDecimal!
+  "Assets per share at the last settlement snapshot"
+  pricePerShare: BigDecimal!
+  accPremiumPerShare: BigInt!
+  "Gross premium of settled epochs (USDG)"
+  cumulativePremium: BigInt!
+  "Premium − fee + slashing compensation received by the vault (USDG)"
+  cumulativePremiumToDepositors: BigInt!
+  cumulativeFees: BigInt!
+  "Settlement payouts to option holders, asset units"
+  cumulativePayout: BigInt!
+  "Settlement payouts to option holders, USDG"
+  cumulativePayoutValue: BigInt!
+  "Slashed agent bonds paid to this vault's depositors (USDG)"
+  cumulativeCompensation: BigInt!
+  cumulativePremiumClaimed: BigInt!
+  "Annualised net premium yield of the last settled epoch (0.12 = 12%)"
+  lastPremiumApr: BigDecimal!
+  epochCount: Int!
+  settledEpochCount: Int!
+  rejectionCount: Int!
   createdAt: BigInt!
+  createdAtBlock: BigInt!
+  createdTx: Bytes!
+  epochs: [Epoch!]! @derivedFrom(field: "vault")
+  series: [Series!]! @derivedFrom(field: "vault")
+  sharePriceHistory: [SharePriceSnapshot!]! @derivedFrom(field: "vault")
+  dayData: [VaultDayData!]! @derivedFrom(field: "vault")
+  rejections: [ProposalRejection!]! @derivedFrom(field: "vault")
+}
+
+type Epoch @entity(immutable: false) {
+  "vault ++ epoch number (i32, little-endian)"
+  id: Bytes!
+  vault: Vault!
+  number: BigInt!
+  state: EpochState!
+  "The vault's agent when the epoch opened"
+  agent: Agent
+  openedAt: BigInt!
+  openedAtBlock: BigInt!
+  openTx: Bytes!
+  "Spot at openEpoch, WAD per raw token"
+  spotAtOpen: BigInt
+  "Vault collateral when the epoch locked"
+  assetsAtOpen: BigInt!
+  "The accepted series (null until a proposal passes)"
+  series: Series
+  proposedAt: BigInt
+  "When the epoch closed (settled, aborted or cancelled)"
+  closedAt: BigInt
+  closedAtBlock: BigInt
+  closeTx: Bytes
+  "Settlement price (null when nothing was sold or the epoch did not settle)"
+  settlementPrice: BigInt
+  "Payout to option holders, asset units"
+  payout: BigInt!
+  "Payout to option holders, USDG"
+  payoutValue: BigInt!
+  "Gross premium (USDG)"
+  premium: BigInt!
+  "Performance fee (USDG)"
+  fee: BigInt!
+  "Agent's share of the fee (USDG)"
+  agentFee: BigInt!
+  "Slashed agent bonds paid to depositors at close (USDG)"
+  compensation: BigInt!
+  "Premium − fee + compensation delivered to the vault (USDG)"
+  premiumToDepositors: BigInt!
+  "premium − payoutValue (USDG, can be negative)"
+  pnl: BigInt!
+  aborted: Boolean!
+  cancelled: Boolean!
+  "Vault snapshot at close (before the queue)"
+  assetsAtClose: BigInt
+  supplyAtClose: BigInt
+  pricePerShare: BigDecimal
+  "(premium − fee) / collateral value at open"
+  premiumYield: BigDecimal!
+  "premiumYield annualised by the epoch's duration (simple, not compounded)"
+  premiumApr: BigDecimal!
+  rejectionCount: Int!
+  rejections: [ProposalRejection!]! @derivedFrom(field: "epoch")
+  depositRequests: [DepositRequest!]! @derivedFrom(field: "epoch")
+  redeemRequests: [RedeemRequest!]! @derivedFrom(field: "epoch")
+}
+
+"An option series: one per accepted proposal. ERC-1155 id = seriesId."
+type Series @entity(immutable: false) {
+  "seriesId as 32 bytes"
+  id: Bytes!
+  seriesId: BigInt!
+  vault: Vault!
+  epoch: Epoch!
+  "The agent that proposed it"
+  agent: Agent
+  agentId: BigInt!
+  underlying: Underlying!
+  isCall: Boolean!
+  "WAD per raw token"
+  strike: BigInt!
+  expiry: BigInt!
+  "Max options for sale"
+  size: BigInt!
+  "Price as a share of Black-Scholes fair value (10000 = 100%)"
+  premiumBps: Int!
+  "Fair value per token at proposal, WAD"
+  fairValue: BigInt!
+  "Black-Scholes delta at proposal, WAD (negative for puts)"
+  delta: BigInt!
+  sold: BigInt!
+  "USDG paid by buyers"
+  premium: BigInt!
+  purchaseCount: Int!
+  settled: Boolean!
+  cancelled: Boolean!
+  settlement: SettlementPrice
+  settlementPrice: BigInt
+  "Calls: fraction of one token (WAD); puts: USD per token (WAD)"
+  payoutPerOption: BigInt
+  "Total payout, asset units"
+  payout: BigInt!
+  "Options redeemed (burned)"
+  redeemed: BigInt!
+  "Paid on redemption (asset units, or USDG refunds for a cancelled series)"
+  redeemedPaid: BigInt!
+  proposedAt: BigInt!
+  proposalTx: Bytes!
+  settledAt: BigInt
+  purchases: [Purchase!]! @derivedFrom(field: "series")
+  redemptions: [Redemption!]! @derivedFrom(field: "series")
+}
+
+type Purchase @entity(immutable: true) {
+  "tx hash ++ log index"
+  id: Bytes!
+  series: Series!
+  vault: Vault!
+  epoch: Epoch!
+  buyer: Bytes!
+  recipient: Bytes!
+  amount: BigInt!
+  "USDG"
+  premium: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"Options burned after settlement (payout) or cancellation (premium refund)."
+type Redemption @entity(immutable: true) {
+  id: Bytes!
+  series: Series!
+  vault: Vault!
+  holder: Bytes!
+  recipient: Bytes!
+  amount: BigInt!
+  "Asset units for a settled series; USDG when refund = true"
+  paid: BigInt!
+  refund: Boolean!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type Agent @entity(immutable: false) {
+  "agentId as 32 bytes"
+  id: Bytes!
+  agentId: BigInt!
+  owner: Bytes!
+  signer: Bytes!
+  "Receives the agent's fee share"
+  payout: Bytes!
+  "ERC-8004 identity token id (0 = none)"
+  erc8004Id: BigInt!
+  status: AgentStatus!
+  "USDG bond"
+  bond: BigInt!
+  "USDG waiting out the unbond delay (still slashable)"
+  unbonding: BigInt!
+  unbondAt: BigInt
+  strikes: Int!
+  accepted: Int!
+  rejected: Int!
+  "accepted / (accepted + rejected)"
+  acceptanceRate: BigDecimal!
+  totalSlashed: BigInt!
+  "Gross premium of epochs this agent's series settled (USDG)"
+  totalPremiumGenerated: BigInt!
+  "Payouts to option holders on this agent's series (USDG)"
+  totalPayoutValue: BigInt!
+  "On-chain track record (AgentRegistry.track): Σ (premium − payout value) over settled epochs, USDG, signed"
+  cumulativePnl: BigInt!
+  "PnL of the agent's last settled epoch (USDG, signed)"
+  lastEpochPnl: BigInt
+  "On-chain track record: epochs settled with this agent's series"
+  settledEpochs: Int!
+  "Agent share of performance fees (USDG)"
+  totalFeesEarned: BigInt!
+  "ERC-8004 reputation feedback attempts (see ReputationFeedback.posted)"
+  reputationFeedbackCount: Int!
+  registeredAt: BigInt!
+  registeredAtBlock: BigInt!
+  updatedAt: BigInt!
+  vaults: [Vault!]! @derivedFrom(field: "agent")
+  series: [Series!]! @derivedFrom(field: "agent")
+  rejections: [ProposalRejection!]! @derivedFrom(field: "agent")
+  reputationFeedback: [ReputationFeedback!]! @derivedFrom(field: "agent")
+}
+
+"Feedback the AgentRegistry sent to the ERC-8004 Reputation Registry for the agent's linked identity."
+type ReputationFeedback @entity(immutable: true) {
+  id: Bytes!
+  agent: Agent!
+  agentId: BigInt!
+  erc8004Id: BigInt!
+  "Signed value with 6 decimals: epoch PnL in USDG, or −slashed USDG for a rejection"
+  value: BigInt!
+  "strike.epoch.pnl or strike.mandate.rejection"
+  tag: String!
+  "false when the reputation registry call failed (best effort, never blocks settlement or slashing)"
+  posted: Boolean!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"A proposal the vault's mandate rejected. The agent was slashed and got a strike."
+type ProposalRejection @entity(immutable: true) {
+  id: Bytes!
+  vault: Vault!
+  epoch: Epoch!
+  epochNumber: BigInt!
+  agent: Agent
+  agentId: BigInt!
+  reason: RejectionReason!
+  "MandateGuard.Reason as uint8"
+  reasonCode: Int!
+  "USDG moved from the agent's bond to the vault's depositors"
+  slashed: BigInt!
+  strike: BigInt!
+  expiry: BigInt!
+  size: BigInt!
+  premiumBps: Int!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"A queued deposit (vault locked). One per (vault, account, epoch)."
+type DepositRequest @entity(immutable: false) {
+  "vault ++ account ++ epoch number (i32, little-endian)"
+  id: Bytes!
+  vault: Vault!
+  account: Bytes!
+  epoch: Epoch!
+  epochNumber: BigInt!
+  assets: BigInt!
+  status: RequestStatus!
+  "Shares received on claim"
+  shares: BigInt
+  requestedAt: BigInt!
+  updatedAt: BigInt!
+  cancelledAt: BigInt
+  claimedAt: BigInt
+  claims: [DepositClaim!]! @derivedFrom(field: "request")
+}
+
+"A queued redemption (vault locked). One per (vault, account, epoch)."
+type RedeemRequest @entity(immutable: false) {
+  id: Bytes!
+  vault: Vault!
+  account: Bytes!
+  epoch: Epoch!
+  epochNumber: BigInt!
+  shares: BigInt!
+  status: RequestStatus!
+  "Assets received on claim"
+  assets: BigInt
+  requestedAt: BigInt!
+  updatedAt: BigInt!
+  claimedAt: BigInt
+  claims: [RedeemClaim!]! @derivedFrom(field: "request")
+}
+
+type DepositClaim @entity(immutable: true) {
+  id: Bytes!
+  request: DepositRequest!
+  vault: Vault!
+  account: Bytes!
+  epochNumber: BigInt!
+  assets: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+type RedeemClaim @entity(immutable: true) {
+  id: Bytes!
+  request: RedeemRequest!
+  vault: Vault!
+  account: Bytes!
+  epochNumber: BigInt!
+  shares: BigInt!
+  assets: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"Instant ERC-4626 deposit/mint while the vault is unlocked."
+type Deposit @entity(immutable: true) {
+  id: Bytes!
+  vault: Vault!
+  sender: Bytes!
+  owner: Bytes!
+  assets: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"Instant ERC-4626 withdraw/redeem while the vault is unlocked."
+type Withdrawal @entity(immutable: true) {
+  id: Bytes!
+  vault: Vault!
+  sender: Bytes!
+  receiver: Bytes!
+  owner: Bytes!
+  assets: BigInt!
+  shares: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"USDG premium claimed by a shareholder."
+type PremiumClaim @entity(immutable: true) {
+  id: Bytes!
+  vault: Vault!
+  account: Bytes!
+  amount: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"Settlement price fixed once per (token, expiry) by the StockOracle and shared by every vault."
+type SettlementPrice @entity(immutable: true) {
+  "token ++ expiry (i64, little-endian)"
+  id: Bytes!
+  token: Underlying!
+  expiry: BigInt!
+  "First Chainlink round at or after expiry"
+  roundId: BigInt!
+  "WAD per raw token"
+  price: BigInt!
+  recordedAt: BigInt!
+  blockNumber: BigInt!
+  transactionHash: Bytes!
+}
+
+"Vault share price at each settlement (EpochSettled snapshot, before the queue is processed)."
+type SharePriceSnapshot @entity(immutable: true) {
+  "vault ++ epoch number (i32, little-endian)"
+  id: Bytes!
+  vault: Vault!
+  epoch: Epoch!
+  epochNumber: BigInt!
+  assets: BigInt!
+  supply: BigInt!
+  pricePerShare: BigDecimal!
+  accPremiumPerShare: BigInt!
+  "Premium per share distributed this epoch (1e36-scaled USDG units)"
+  premiumPerShare: BigInt!
+  timestamp: BigInt!
+  blockNumber: BigInt!
+}
+
+"Daily vault metrics for TVL and APY charts. Close values are as of the last event of the UTC day."
+type VaultDayData @entity(immutable: false) {
+  "vault ++ day number (i32, little-endian); day = floor(timestamp / 86400)"
+  id: Bytes!
+  vault: Vault!
+  "Unix timestamp of 00:00 UTC"
+  date: Int!
+  totalAssets: BigInt!
+  totalSupply: BigInt!
+  tvlUsd: BigDecimal!
+  pricePerShare: BigDecimal!
+  accPremiumPerShare: BigInt!
+  "Vault.lastPremiumApr at close"
+  premiumApr: BigDecimal!
+  "Premium paid by buyers today (USDG)"
+  premiumSold: BigInt!
+  optionsSold: BigInt!
+  purchaseCount: Int!
+  "Gross premium of epochs settled today (USDG)"
+  premiumSettled: BigInt!
+  premiumToDepositors: BigInt!
+  fees: BigInt!
+  payout: BigInt!
+  payoutValue: BigInt!
+  "Instant deposits + queued deposit requests (asset units)"
+  depositedAssets: BigInt!
+  "Instant withdrawals + claimed redemptions (asset units)"
+  withdrawnAssets: BigInt!
+  epochsSettled: Int!
+}
+
+"Performance-fee balance of one address in the FeeManager (agent payout address or treasury)."
+type FeeAccount @entity(immutable: false) {
+  id: Bytes!
+  claimable: BigInt!
+  totalCredited: BigInt!
+  totalClaimed: BigInt!
 }

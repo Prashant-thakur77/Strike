@@ -147,6 +147,9 @@ importers:
       '@graphprotocol/graph-ts':
         specifier: ^0.38.2
         version: 0.38.2
+      assemblyscript:
+        specifier: 0.19.23
+        version: 0.19.23
       matchstick-as:
         specifier: ^0.6.0
         version: 0.6.0
