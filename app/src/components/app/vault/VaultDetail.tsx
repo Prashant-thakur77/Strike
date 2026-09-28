@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { Address } from "viem";
 import { useVault, useVaultHistory } from "@/hooks/queries";
 import { FEED_STATUS } from "@/lib/labels";
 import { fmtAmount, fmtPct, fmtUsd, fmtWadUsd } from "@/lib/format";
+import { LINKS } from "@/lib/links";
+import { hasMultiplier } from "@/lib/shares";
 import { AddressLink } from "../AddressLink";
 import { Gate } from "../Gate";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
+import { PerShare } from "../PerShare";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { StateTag } from "../StateTag";
@@ -62,9 +65,14 @@ export function VaultDetail({ address }: { address: Address }) {
                 sub: `${fmtAmount(v.totalAssets, v.asset.decimals)} ${v.asset.symbol} of ${fmtAmount(v.depositCap, v.asset.decimals, 0)} cap`,
               },
               {
-                label: `${v.underlying.symbol} spot`,
+                label: `${v.underlying.symbol} spot${hasMultiplier(v.multiplier) ? " per token" : ""}`,
                 value: v.spot.price > 0n ? fmtWadUsd(v.spot.price) : "—",
-                sub: `Feed: ${FEED_STATUS[v.spot.status] ?? "unknown"}`,
+                sub: (
+                  <>
+                    <PerShare price={v.spot.price} multiplier={v.multiplier} />
+                    <span className={styles.metaLine}>Feed: {FEED_STATUS[v.spot.status] ?? "unknown"}</span>
+                  </>
+                ),
               },
               {
                 label: "Premium APY",
@@ -125,6 +133,14 @@ export function VaultDetail({ address }: { address: Address }) {
             >
               <MandatePanel vault={v} />
             </Rail>
+            <aside className={`gutter ${styles.feedback}`} aria-label="Feedback">
+              <div className={styles.feedbackRow}>
+                <span className="micro micro-muted">Testnet · tell us what worked and what didn&apos;t</span>
+                <a className="micro text-link" href={LINKS.feedback} target="_blank" rel="noreferrer">
+                  Give feedback <ArrowUpRight size={12} aria-hidden />
+                </a>
+              </div>
+            </aside>
           </div>
         </>
       ) : null}

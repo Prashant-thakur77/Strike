@@ -3,6 +3,8 @@
 import { useMarket } from "@/hooks/queries";
 import { fmtAmount, fmtBps, fmtDuration, fmtNy, fmtWadUsd, toNumber } from "@/lib/format";
 import type { VaultSummary } from "@/lib/reads";
+import { hasMultiplier } from "@/lib/shares";
+import { PerShare } from "../PerShare";
 import { BuyPanel } from "./BuyPanel";
 import styles from "../app.module.css";
 
@@ -27,6 +29,7 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
   const sold = toNumber(s.sold, dec);
   const size = toNumber(s.size, dec);
   const left = market ? Number(s.expiry) - market.now : null;
+  const scaled = hasMultiplier(vault.multiplier);
 
   return (
     <div className={styles.panel}>
@@ -39,18 +42,26 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
             {left !== null && left > 0 ? `Expires in ${fmtDuration(left)}` : "Expired"}
           </span>
         </div>
-        <p className={styles.seriesStrike}>
-          <span className="micro">Strike</span>
-          {fmtWadUsd(s.strike, 2)}
-        </p>
+        <div className={styles.seriesStrikeWrap}>
+          <p className={styles.seriesStrike}>
+            <span className="micro">{scaled ? "Strike per token" : "Strike"}</span>
+            {fmtWadUsd(s.strike, 2)}
+          </p>
+          <PerShare price={s.strike} multiplier={vault.multiplier} />
+        </div>
         <dl className={styles.seriesStats}>
           <div>
             <dt className="micro micro-muted">Expiry</dt>
             <dd>{fmtNy(s.expiry)}</dd>
           </div>
           <div>
-            <dt className="micro micro-muted">Spot</dt>
+            <dt className="micro micro-muted">{scaled ? "Spot per token" : "Spot"}</dt>
             <dd>{vault.spot.price > 0n ? fmtWadUsd(vault.spot.price) : "—"}</dd>
+            {scaled ? (
+              <dd>
+                <PerShare price={vault.spot.price} multiplier={vault.multiplier} showMultiplier={false} />
+              </dd>
+            ) : null}
           </div>
           <div>
             <dt className="micro micro-muted">Price</dt>

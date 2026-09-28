@@ -8,8 +8,9 @@ import { useConnection } from "wagmi";
 import { useMarket, usePosition } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { useTx } from "@/hooks/useTx";
-import { fmtAmount, parseAmount, toNumber } from "@/lib/format";
+import { fmtAmount, fmtWadUsd, parseAmount, toNumber } from "@/lib/format";
 import type { Series, VaultSummary } from "@/lib/reads";
+import { fmtMultiplier, hasMultiplier, perSharePrice } from "@/lib/shares";
 import { ConnectButton } from "@/components/site/ConnectButton";
 import { AmountField } from "../AmountField";
 import { TxNote } from "../TxNote";
@@ -97,12 +98,19 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
 
   const perOption =
     premium !== undefined && amount ? toNumber(premium, usdgDec) / toNumber(amount, dec) : null;
+  // One option is written on one raw token; with an ERC-8056 multiplier that token is not exactly one share.
+  const scaled = hasMultiplier(vault.multiplier);
+  const sym = vault.underlying.symbol;
 
   return (
     <div className={styles.buy}>
       <h3 className="micro">Buy options</h3>
       <AmountField
-        label={`Options (1 = one ${vault.underlying.symbol})`}
+        label={
+          scaled
+            ? `Options (1 = one ${sym} token = ${fmtMultiplier(vault.multiplier)} shares)`
+            : `Options (1 = one ${sym})`
+        }
         value={text}
         onChange={setText}
         unit={series.isCall ? "Calls" : "Puts"}
@@ -127,6 +135,15 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
             {maxPremium !== undefined ? `${fmtAmount(maxPremium, usdgDec)} USDG` : "—"}
           </dd>
         </div>
+        {scaled ? (
+          <div>
+            <dt className="micro micro-muted">Strike per share</dt>
+            <dd className="mono">{fmtWadUsd(perSharePrice(series.strike, vault.multiplier))}</dd>
+            <dd className="micro micro-muted">
+              {fmtWadUsd(series.strike)} per token · multiplier {fmtMultiplier(vault.multiplier)}
+            </dd>
+          </div>
+        ) : null}
       </dl>
       <div className={styles.slip} role="group" aria-label="Slippage">
         <span className="micro micro-muted">Slippage</span>

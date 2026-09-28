@@ -8,6 +8,7 @@ import { useTx } from "@/hooks/useTx";
 import { fmtAmount, fmtNy, fmtWadUsd, toNumber } from "@/lib/format";
 import type { OptionHolding, VaultSummary } from "@/lib/reads";
 import { ConnectButton } from "@/components/site/ConnectButton";
+import { PerShare } from "../PerShare";
 import { Skeleton } from "../Skeleton";
 import { TxNote } from "../TxNote";
 import styles from "../app.module.css";
@@ -53,6 +54,8 @@ export function OptionsPanel({ vault, seriesIds }: { vault: VaultSummary; series
                 <strong className="h3">
                   {vault.underlying.symbol} {fmtWadUsd(s.strike, 0)} {s.isCall ? "call" : "put"}
                 </strong>
+                {/* The current multiplier only describes live series; settled ones keep their own history. */}
+                {final ? null : <PerShare price={s.strike} multiplier={vault.multiplier} />}
                 <span className="micro micro-muted">
                   {fmtNy(s.expiry)} ·{" "}
                   {s.cancelled

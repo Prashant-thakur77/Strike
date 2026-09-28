@@ -6,9 +6,10 @@ import {
   strikeVaultAbi,
   testStockTokenAbi,
 } from "@strike/sdk";
-import { erc20Abi, type Address, type PublicClient } from "viem";
+import { erc20Abi, parseAbi, type Address, type PublicClient } from "viem";
 import { fromBlock, type Deployment } from "./deployment";
 import { toNumber, usdValue } from "./format";
+import { UNIT_MULTIPLIER } from "./shares";
 
 export interface TokenInfo {
   address: Address;
@@ -75,6 +76,8 @@ export interface VaultSummary {
   curator: Address;
   mandate: Mandate;
   spot: Spot;
+  /** ERC-8056 `uiMultiplier` of the underlying (1e18 = one share per raw token; 1e18 when not implemented). */
+  multiplier: bigint;
   tvlUsd: number | null;
   sharePrice: number | null;
 }
@@ -136,6 +139,22 @@ export async function spotOf(client: PublicClient, dep: Deployment, token: Addre
   }
 }
 
+const uiMultiplierAbi = parseAbi(["function uiMultiplier() view returns (uint256)"]);
+
+/** The token's ERC-8056 UI multiplier, or 1.0 when it does not implement one (plain ERC-20s, some test tokens). */
+export async function uiMultiplierOf(client: PublicClient, token: Address): Promise<bigint> {
+  try {
+    const m = await client.readContract({
+      address: token,
+      abi: uiMultiplierAbi,
+      functionName: "uiMultiplier",
+    });
+    return m > 0n ? m : UNIT_MULTIPLIER;
+  } catch {
+    return UNIT_MULTIPLIER;
+  }
+}
+
 export async function vaultSummary(
   client: PublicClient,
   dep: Deployment,
@@ -188,12 +207,13 @@ export async function vaultSummary(
     }),
   ]);
   const [state, openedAt, seriesId] = epoch;
-  const [asset, underlying, usdg, spot, series] = await Promise.all([
+  const [asset, underlying, usdg, spot, series, multiplier] = await Promise.all([
     tokenInfo(client, assetAddr),
     tokenInfo(client, underlyingAddr),
     tokenInfo(client, dep.usdg),
     spotOf(client, dep, underlyingAddr),
     seriesId === 0n ? Promise.resolve(null) : getSeries(client, dep, seriesId),
+    uiMultiplierOf(client, underlyingAddr),
   ]);
 
   const assetsUsd = isCall
@@ -228,6 +248,7 @@ export async function vaultSummary(
     curator: config.curator,
     mandate: config.mandate,
     spot,
+    multiplier,
     tvlUsd: assetsUsd,
     sharePrice,
   };
@@ -493,6 +514,10 @@ export interface AgentRow {
   erc8004Id: bigint;
   bond: bigint;
   unbonding: bigint;
+  /** `AgentRegistry.track`: epochs settled under this agent. */
+  settledEpochs: number;
+  /** `AgentRegistry.track`: cumulative depositor PnL of those epochs, USDG base units (6 decimals). */
+  cumulativePnl: bigint;
   vaults: Address[];
 }
 
@@ -514,12 +539,10 @@ export async function registry(client: PublicClient, dep: Deployment): Promise<R
     tokenInfo(client, dep.usdg),
     vaultAddresses(client, dep),
   ]);
-  const [agents, configs] = await Promise.all([
-    Promise.all(
-      Array.from({ length: Number(count) }, (_, i) =>
-        client.readContract({ ...r, functionName: "getAgent", args: [BigInt(i + 1)] }),
-      ),
-    ),
+  const ids = Array.from({ length: Number(count) }, (_, i) => BigInt(i + 1));
+  const [agents, tracks, configs] = await Promise.all([
+    Promise.all(ids.map((id) => client.readContract({ ...r, functionName: "getAgent", args: [id] }))),
+    Promise.all(ids.map((id) => client.readContract({ ...r, functionName: "track", args: [id] }))),
     Promise.all(
       vaults.map((vault) =>
         client.readContract({
@@ -532,11 +555,16 @@ export async function registry(client: PublicClient, dep: Deployment): Promise<R
     ),
   ]);
   return {
-    agents: agents.map((a, i) => ({
-      id: BigInt(i + 1),
-      ...a,
-      vaults: vaults.filter((_, j) => configs[j]?.agentId === BigInt(i + 1)),
-    })),
+    agents: agents.map((a, i) => {
+      const [settledEpochs, cumulativePnl] = tracks[i]!;
+      return {
+        id: ids[i]!,
+        ...a,
+        settledEpochs,
+        cumulativePnl,
+        vaults: vaults.filter((_, j) => configs[j]?.agentId === ids[i]),
+      };
+    }),
     minBond,
     slashAmount,
     maxStrikes,

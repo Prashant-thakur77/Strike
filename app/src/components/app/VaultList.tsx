@@ -9,6 +9,7 @@ import type { VaultHistory, VaultSummary } from "@/lib/reads";
 import { Gate } from "./Gate";
 import { MetaStrip } from "./MetaStrip";
 import { PageHero } from "./PageHero";
+import { PerShare } from "./PerShare";
 import { Skeleton } from "./Skeleton";
 import { StateTag } from "./StateTag";
 import styles from "./app.module.css";
@@ -123,6 +124,7 @@ function VaultRow({
             <span className="mono">
               {fmtWadUsd(s.strike, 0)} {s.isCall ? "call" : "put"}
             </span>
+            <PerShare price={s.strike} multiplier={vault.multiplier} />
             <span className={styles.rowSub}>{fmtNy(s.expiry)}</span>
           </>
         ) : (
