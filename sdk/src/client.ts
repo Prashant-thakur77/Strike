@@ -369,7 +369,12 @@ export function createStrikeClient(config: StrikeClientConfig) {
       publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "isCall" }),
       blockTimestamp(),
       publicClient.readContract({ address: em, abi: epochManagerAbi, functionName: "epochs", args: [v] }),
-      publicClient.readContract({ address: em, abi: epochManagerAbi, functionName: "vaultConfig", args: [v] }),
+      publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "vaultConfig",
+        args: [v],
+      }),
     ]);
     // While the epoch is Open the contract solves against the snapshot taken at open; otherwise use live values.
     let spotPrice: bigint;
@@ -520,7 +525,6 @@ export function createStrikeClient(config: StrikeClientConfig) {
     const hints = await settlementHintsFor(token, expiry);
     return hints[0] as bigint;
   }
-
 
   async function accountOr(account?: Address): Promise<Address> {
     if (account) return getAddress(account);

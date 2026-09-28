@@ -296,6 +296,8 @@ describe("roundStrikeToCent", () => {
     expect(roundStrikeToCent(k, false, 4000, band)).toBe(275_120_000_000_000_000_000n);
     expect(roundStrikeToCent(k, true, 500, band)).toBe(275_120_000_000_000_000_000n);
     expect(roundStrikeToCent(k, false, 500, band)).toBe(275_130_000_000_000_000_000n);
-    expect(roundStrikeToCent(275_120_000_000_000_000_000n, true, 4000, band)).toBe(275_120_000_000_000_000_000n);
+    expect(roundStrikeToCent(275_120_000_000_000_000_000n, true, 4000, band)).toBe(
+      275_120_000_000_000_000_000n,
+    );
   });
 });

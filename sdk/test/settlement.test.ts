@@ -70,12 +70,18 @@ describe("findSettlementHints", () => {
   });
 
   it("adds the previous phase's last round for round 1 of a new phase", async () => {
-    const f = phased([[100, 200], [500, 600]]);
+    const f = phased([
+      [100, 200],
+      [500, 600],
+    ]);
     expect(await findSettlementHints(f.latest, f.get, 300n)).toEqual([P(2, 1), P(1, 2)]);
   });
 
   it("goes back to the old phase when it printed after expiry", async () => {
-    const f = phased([[100, 200, 350], [500, 600]]);
+    const f = phased([
+      [100, 200, 350],
+      [500, 600],
+    ]);
     expect(await findSettlementHints(f.latest, f.get, 300n)).toEqual([P(1, 3)]);
   });
 
