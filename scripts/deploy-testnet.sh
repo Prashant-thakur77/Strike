@@ -35,14 +35,18 @@ forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow --skip-simu
   forge script script/Deploy.s.sol --rpc-url "$RPC" --resume --verify --verifier blockscout --verifier-url "$VERIFIER_URL" || true
 }
 
-# Stylus pricer (Rust/WASM): deploy + activate, then make it the EpochManager's pricer.
+# Stylus pricer (Rust/WASM): deploy + activate, then make it the EpochManager's pricer. The pricer is stateless, so
+# STYLUS_PRICER=<address> reuses an already deployed and verified one.
 cd "$ROOT/stylus/pricer"
-# Reproducible (Docker) build first, so the WASM can be verified against this source with `cargo stylus verify`;
-# fall back to a local build if Docker is unavailable.
-STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" 2>&1 | tee /dev/stderr | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1 || true)
+STYLUS="${STYLUS_PRICER:-}"
 if [ -z "$STYLUS" ]; then
-  echo "Reproducible Stylus build failed; deploying a local build instead" >&2
-  STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" --no-verify 2>&1 | tee /dev/stderr | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1 || true)
+  # Reproducible (Docker) build first, so the WASM can be verified against this source with `cargo stylus verify`;
+  # fall back to a local build if Docker is unavailable.
+  STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" 2>&1 | tee /dev/stderr | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1 || true)
+  if [ -z "$STYLUS" ]; then
+    echo "Reproducible Stylus build failed; deploying a local build instead" >&2
+    STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" --no-verify 2>&1 | tee /dev/stderr | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1 || true)
+  fi
 fi
 cd "$ROOT/contracts"
 MANAGER=$(python3 -c "import json; print(json.load(open('deployments/$CHAIN_ID.json'))['epochManager'])")

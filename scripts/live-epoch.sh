@@ -16,12 +16,12 @@ agent() { (cd "$ROOT" && pnpm -s --filter @strike/agent-example start -- "$@" 2>
   echo; echo '```'
   echo "== keeper: mirror mainnet Chainlink prices"
   CHAIN_ID=46630 RPC_URL=$RPC "$ROOT/scripts/keeper.sh" --once || true
-  echo "== collateral for the put vault: 50 USDG"
+  echo "== collateral for the put vault: 20 USDG"
   PUT=$(python3 -c "import json; print(json.load(open('$ROOT/contracts/deployments/46630-vaults.json'))['TSLA_cash_secured_put'])")
   USDG=0x7E955252E15c84f5768B83c41a71F9eba181802F
   if [ "$(cast call $PUT 'totalAssets()(uint256)' --rpc-url $RPC | awk '{print $1}')" = "0" ]; then
-    cast send $USDG 'approve(address,uint256)' $PUT 50000000 --rpc-url $RPC --private-key $PRIVATE_KEY >/dev/null
-    cast send $PUT 'deposit(uint256,address)' 50000000 $(cast wallet address --private-key $PRIVATE_KEY) --rpc-url $RPC --private-key $PRIVATE_KEY --json | python3 -c "import json,sys; print('deposit tx', json.load(sys.stdin)['transactionHash'])"
+    cast send $USDG 'approve(address,uint256)' $PUT 20000000 --rpc-url $RPC --private-key $PRIVATE_KEY >/dev/null
+    cast send $PUT 'deposit(uint256,address)' 20000000 $(cast wallet address --private-key $PRIVATE_KEY) --rpc-url $RPC --private-key $PRIVATE_KEY --json | python3 -c "import json,sys; print('deposit tx', json.load(sys.stdin)['transactionHash'])"
   fi
   echo; echo "== seller agent: 0.20-delta covered call, proposed by delta"
   agent --vault sTSLA-CC

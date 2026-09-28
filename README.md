@@ -121,24 +121,24 @@ The deployed Stylus pricer is reproducibly verified against this source with `ca
 
 ## Deployed contracts
 
-Robinhood Chain testnet (46630), deployed and verified on Blockscout (deploy block 125866639). The `EpochManager` prices with the Stylus pricer after an on-chain check that it returns exactly what the Solidity reference returns. Agent #1 is registered and bonded with 100 USDG; the TSLA covered-call vault holds real testnet TSLA from the Robinhood faucet. Robinhood testnet has no Chainlink stock feeds, so `MirrorFeed`s copy the mainnet Chainlink rounds ([keeper](scripts/keeper.sh)).
+Robinhood Chain testnet (46630), v2 (with every fix from the [2026-09-29 security review](docs/security/review-2026-09-29.md)), deployed and verified on Blockscout (deploy block 125880607). The `EpochManager` prices with the verified Stylus pricer after an on-chain check that it returns exactly what the Solidity reference returns. Agent #1 is registered and bonded with 60 USDG; the TSLA covered-call vault holds 5 real testnet TSLA from the Robinhood faucet. The v1 addresses (before the fixes) are kept in [`46630-v1.json`](contracts/deployments/46630-v1.json). Robinhood testnet has no Chainlink stock feeds, so `MirrorFeed`s copy the mainnet Chainlink rounds ([keeper](scripts/keeper.sh)).
 
 | Contract                                    | Address                                                                                                                                         |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| EpochManager                                | [`0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0`](https://explorer.testnet.chain.robinhood.com/address/0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0) |
-| VaultFactory                                | [`0x9DbaFfD488FC591947149E2b27189A201C0a74f4`](https://explorer.testnet.chain.robinhood.com/address/0x9DbaFfD488FC591947149E2b27189A201C0a74f4) |
-| StrikeVault implementation                  | [`0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197`](https://explorer.testnet.chain.robinhood.com/address/0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197) |
-| TSLA covered-call vault                     | [`0x5655659E18bf54ee0EF8f6A816E2e18D000F7311`](https://explorer.testnet.chain.robinhood.com/address/0x5655659E18bf54ee0EF8f6A816E2e18D000F7311) |
-| TSLA cash-secured-put vault                 | [`0x02B701210aA006CEAbd389dBc32af0047B1B9bbe`](https://explorer.testnet.chain.robinhood.com/address/0x02B701210aA006CEAbd389dBc32af0047B1B9bbe) |
+| EpochManager                                | [`0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99`](https://explorer.testnet.chain.robinhood.com/address/0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99) |
+| VaultFactory                                | [`0x5665E02878fA592513C1633af2F07b08cF606beC`](https://explorer.testnet.chain.robinhood.com/address/0x5665E02878fA592513C1633af2F07b08cF606beC) |
+| StrikeVault implementation                  | [`0x900e7C78598C3AbC38FDD411756c38CF7931797D`](https://explorer.testnet.chain.robinhood.com/address/0x900e7C78598C3AbC38FDD411756c38CF7931797D) |
+| TSLA covered-call vault                     | [`0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e`](https://explorer.testnet.chain.robinhood.com/address/0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e) |
+| TSLA cash-secured-put vault                 | [`0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7`](https://explorer.testnet.chain.robinhood.com/address/0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7) |
 | Stylus pricer (Rust/WASM, active pricer)    | [`0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c`](https://explorer.testnet.chain.robinhood.com/address/0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c) |
-| BlackScholesRef (Solidity reference pricer) | [`0x79A4158900579FA0eE5b413B4724D010C8a0A8E2`](https://explorer.testnet.chain.robinhood.com/address/0x79A4158900579FA0eE5b413B4724D010C8a0A8E2) |
-| StockOracle (SafeStockFeed)                 | [`0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F`](https://explorer.testnet.chain.robinhood.com/address/0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F) |
-| MarketCalendar                              | [`0xefD1121ef13F1187F9ac9A54076DFa09A586d31D`](https://explorer.testnet.chain.robinhood.com/address/0xefD1121ef13F1187F9ac9A54076DFa09A586d31D) |
-| AgentRegistry                               | [`0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E`](https://explorer.testnet.chain.robinhood.com/address/0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E) |
-| FeeManager                                  | [`0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569`](https://explorer.testnet.chain.robinhood.com/address/0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569) |
-| OptionToken (ERC-1155)                      | [`0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7`](https://explorer.testnet.chain.robinhood.com/address/0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7) |
+| BlackScholesRef (Solidity reference pricer) | [`0x4261d47E6487e2533EdB9D5F91242F28121d5A1A`](https://explorer.testnet.chain.robinhood.com/address/0x4261d47E6487e2533EdB9D5F91242F28121d5A1A) |
+| StockOracle (SafeStockFeed)                 | [`0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89`](https://explorer.testnet.chain.robinhood.com/address/0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89) |
+| MarketCalendar                              | [`0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4`](https://explorer.testnet.chain.robinhood.com/address/0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4) |
+| AgentRegistry                               | [`0xE5b76249041e59C74Ee317fC2729f26249618D32`](https://explorer.testnet.chain.robinhood.com/address/0xE5b76249041e59C74Ee317fC2729f26249618D32) |
+| FeeManager                                  | [`0x6b23819bC44EEbE1BD004208c0F00f2ed002B621`](https://explorer.testnet.chain.robinhood.com/address/0x6b23819bC44EEbE1BD004208c0F00f2ed002B621) |
+| OptionToken (ERC-1155)                      | [`0x557060266F4aE09ae723541AC8E7E27A99B0c9DB`](https://explorer.testnet.chain.robinhood.com/address/0x557060266F4aE09ae723541AC8E7E27A99B0c9DB) |
 | USDG (Paxos)                                | [`0x7E955252E15c84f5768B83c41a71F9eba181802F`](https://explorer.testnet.chain.robinhood.com/address/0x7E955252E15c84f5768B83c41a71F9eba181802F) |
-| TSLA MirrorFeed (testnet)                   | [`0x8401bcb990005fCEB1390C0b10dA5bE283d6cC0F`](https://explorer.testnet.chain.robinhood.com/address/0x8401bcb990005fCEB1390C0b10dA5bE283d6cC0F) |
+| TSLA MirrorFeed (testnet)                   | [`0x5476cb08769f406dE95F6171AcC1F5FE88431230`](https://explorer.testnet.chain.robinhood.com/address/0x5476cb08769f406dE95F6171AcC1F5FE88431230) |
 
 Stock tokens are Robinhood's own testnet tokens (TSLA `0xC9f9…Bd4E`, AMZN, PLTR, NFLX, AMD). All addresses: [`contracts/deployments/46630.json`](contracts/deployments/46630.json).
 
