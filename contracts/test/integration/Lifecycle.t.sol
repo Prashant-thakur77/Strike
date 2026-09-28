@@ -170,8 +170,8 @@ contract LifecycleTest is StrikeBase {
         vm.stopPrank();
         manager.settle(address(callVault), _expireAt(250e8));
 
-        // Epoch 2 while Bob has not claimed his shares yet: he still earns his half of the premium.
-        vm.warp(FRIDAY_CLOSE + 3 days);
+        // Epoch 2 (Monday 12:00 New York) while Bob has not claimed his shares yet: he still earns his half.
+        vm.warp(FRIDAY_CLOSE + 3 days - 4 hours);
         feed.set(250e8);
         vm.prank(agent);
         manager.openEpoch(address(callVault));

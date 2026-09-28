@@ -4,6 +4,8 @@ pragma solidity 0.8.30;
 import {EpochManager} from "../../src/core/EpochManager.sol";
 import {FeeManager} from "../../src/core/FeeManager.sol";
 import {MandateGuard} from "../../src/libraries/MandateGuard.sol";
+import {MarketCalendar} from "../../src/oracle/MarketCalendar.sol";
+import {StockOracle} from "../../src/oracle/StockOracle.sol";
 import {BlackScholesRef} from "../../src/pricing/BlackScholesRef.sol";
 import {OptionToken} from "../../src/tokens/OptionToken.sol";
 import {StrikeVault} from "../../src/vaults/StrikeVault.sol";
@@ -39,6 +41,8 @@ abstract contract StrikeBase is Test {
     MockERC20 internal usdg;
     MockStockToken internal tsla;
     MockAggregator internal feed;
+    MarketCalendar internal calendar;
+    StockOracle internal oracle;
     BlackScholesRef internal pricer;
     FeeManager internal fees;
     OptionToken internal options;
@@ -56,15 +60,18 @@ abstract contract StrikeBase is Test {
         feed.set(250e8);
 
         vm.startPrank(admin);
+        calendar = new MarketCalendar(admin, new uint256[](0), new uint256[](0));
+        oracle = new StockOracle(admin, calendar);
+        oracle.setFeed(address(tsla), feed, 1 days, 1 days);
         pricer = new BlackScholesRef();
         fees = new FeeManager(admin, usdg, treasury, 1000, 5000); // 10% of net premium, half to the agent
         options = new OptionToken("https://strike.example/api/option/{id}.json", admin);
-        manager = new EpochManager(admin, usdg, options, pricer, fees);
+        manager = new EpochManager(admin, usdg, options, pricer, fees, oracle);
         options.setManager(address(manager));
         fees.grantRole(fees.DEPOSITOR_ROLE(), address(manager));
         manager.grantRole(manager.GUARDIAN_ROLE(), guardian);
         manager.grantRole(manager.KEEPER_ROLE(), keeper);
-        manager.setUnderlying(address(tsla), feed, 1 days, true);
+        manager.setUnderlying(address(tsla), true);
         manager.setSigmaBounds(address(tsla), 0.2e18, 1.5e18, 0.6e18);
 
         vaultImpl = new StrikeVault();

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.30;
 
-import {IAggregatorV3} from "../interfaces/IAggregatorV3.sol";
 import {IPricer} from "../interfaces/IPricer.sol";
+import {IStockOracle} from "../interfaces/IStockOracle.sol";
 import {IStrikeVault} from "../interfaces/IStrikeVault.sol";
 import {Decimals} from "../libraries/Decimals.sol";
 import {MandateGuard} from "../libraries/MandateGuard.sol";
@@ -34,10 +34,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     // ------------------------------------------------------------------ types
 
     struct UnderlyingConfig {
-        IAggregatorV3 feed; // Chainlink stock feed, price per raw token (multiplier already included)
-        uint32 maxPriceAge; // staleness limit for live reads
         uint8 tokenDecimals;
-        uint8 feedDecimals;
         bool allowed;
         uint64 sigma; // annualised implied volatility used for fair value, WAD
         uint64 minSigma;
@@ -89,6 +86,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     OptionToken public immutable optionToken;
     IPricer public pricer;
     FeeManager public feeManager;
+    /// @notice Safe stock prices (SafeStockFeed) and NYSE hours.
+    IStockOracle public oracle;
 
     /// @notice An agent must propose within this long after the epoch opens, or anyone may abort it.
     uint32 public proposalTimeout = 1 days;
@@ -101,13 +100,12 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     mapping(address vault => VaultConfig) internal _vaults;
     mapping(address vault => VaultEpoch) public epochs;
     mapping(uint256 id => Series) internal _series;
-    /// @notice Settlement price per feed and expiry, fixed once set.
-    mapping(address feed => mapping(uint256 expiry => uint256 price)) public expiryPrices;
     address[] public allVaults;
 
     // ------------------------------------------------------------------ events
 
-    event UnderlyingSet(address indexed token, address feed, uint32 maxPriceAge, bool allowed);
+    event UnderlyingSet(address indexed token, bool allowed);
+    event OracleSet(address oracle);
     event SigmaSet(address indexed token, uint64 sigma, uint64 minSigma, uint64 maxSigma);
     event PricerSet(address pricer);
     event FeeManagerSet(address feeManager);
@@ -167,9 +165,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     error WrongState(EpochState expected, EpochState actual);
     error SigmaOutOfBounds(uint64 sigma);
     error InvalidTimings();
-    error InvalidPrice(int256 answer);
-    error StalePrice(uint256 updatedAt, uint256 maxAge);
-    error InvalidSettlementRound(uint80 roundId);
+    error MarketClosed(uint256 timestamp);
+    error UnsupportedByOracle(address token);
     error NotExpired(uint64 expiry);
     error SaleClosed(uint64 expiry);
     error SeriesUnknown(uint256 seriesId);
@@ -183,11 +180,21 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
 
     // ------------------------------------------------------------------ setup
 
-    constructor(address admin, IERC20 usdg_, OptionToken optionToken_, IPricer pricer_, FeeManager feeManager_) {
+    constructor(
+        address admin,
+        IERC20 usdg_,
+        OptionToken optionToken_,
+        IPricer pricer_,
+        FeeManager feeManager_,
+        IStockOracle oracle_
+    ) {
         if (admin == address(0) || address(usdg_) == address(0) || address(optionToken_) == address(0)) {
             revert ZeroAddress();
         }
-        if (address(pricer_) == address(0) || address(feeManager_) == address(0)) revert ZeroAddress();
+        if (address(pricer_) == address(0) || address(feeManager_) == address(0) || address(oracle_) == address(0)) {
+            revert ZeroAddress();
+        }
+        oracle = oracle_;
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(GUARDIAN_ROLE, admin);
         usdg = usdg_;
@@ -197,19 +204,20 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         feeManager = feeManager_;
     }
 
-    /// @notice Allow-list a stock token and its Chainlink feed. Only allow-listed tokens can back vaults.
-    function setUnderlying(address token, IAggregatorV3 feed, uint32 maxPriceAge, bool allowed)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        if (token == address(0) || address(feed) == address(0)) revert ZeroAddress();
+    /// @notice Allow-list a stock token. Its feed must already be registered in the oracle.
+    function setUnderlying(address token, bool allowed) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (token == address(0)) revert ZeroAddress();
+        if (allowed && !oracle.isSupported(token)) revert UnsupportedByOracle(token);
         UnderlyingConfig storage c = underlyings[token];
-        c.feed = feed;
-        c.maxPriceAge = maxPriceAge;
         c.tokenDecimals = IERC20Metadata(token).decimals();
-        c.feedDecimals = feed.decimals();
         c.allowed = allowed;
-        emit UnderlyingSet(token, address(feed), maxPriceAge, allowed);
+        emit UnderlyingSet(token, allowed);
+    }
+
+    function setOracle(IStockOracle oracle_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (address(oracle_) == address(0)) revert ZeroAddress();
+        oracle = oracle_;
+        emit OracleSet(address(oracle_));
     }
 
     /// @notice Admin sets the volatility bounds; the keeper moves sigma inside them.
@@ -291,12 +299,13 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         if (msg.sender != v.agent && !hasRole(KEEPER_ROLE, msg.sender)) revert NotAgent(msg.sender);
         VaultEpoch storage ep = epochs[vault];
         _expectState(ep, EpochState.Idle);
-        uint256 spot = _spot(IStrikeVault(vault).underlying());
+        _requireMarketOpen();
+        uint256 spotPrice = _spot(IStrikeVault(vault).underlying());
 
         ep.state = EpochState.Open;
         ep.openedAt = uint64(block.timestamp);
         IStrikeVault(vault).lock();
-        emit EpochOpened(vault, IStrikeVault(vault).currentEpoch(), spot);
+        emit EpochOpened(vault, IStrikeVault(vault).currentEpoch(), spotPrice);
     }
 
     /// @notice The vault's agent proposes this epoch's option. A proposal outside the mandate does not revert: it
@@ -339,6 +348,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         VaultEpoch storage ep = epochs[s.vault];
         if (ep.state != EpochState.Selling || ep.seriesId != seriesId) revert WrongState(EpochState.Selling, ep.state);
         if (block.timestamp + saleCutoff >= s.expiry) revert SaleClosed(s.expiry);
+        _requireMarketOpen();
         if (s.sold + amount > s.size) revert ExceedsSize(amount, s.size - s.sold);
 
         uint256 collateral;
@@ -368,7 +378,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         uint256 payout;
         uint256 payoutValue;
         if (s.sold != 0) {
-            uint256 price = _settlementPrice(s.underlying, s.expiry, roundId);
+            uint256 price = oracle.recordSettlementPrice(s.underlying, s.expiry, roundId);
             (payout, payoutValue) = _settleMath(s, price);
             s.settlementPrice = price;
         }
@@ -613,39 +623,18 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         }
     }
 
-    /// @dev Live spot with basic feed checks. Replaced by SafeStockFeed in Phase 2.
-    function _spot(address token) internal view returns (uint256) {
-        UnderlyingConfig storage c = underlyings[token];
-        if (!c.allowed) revert UnderlyingNotAllowed(token);
-        (, int256 answer,, uint256 updatedAt,) = c.feed.latestRoundData();
-        if (answer <= 0 || updatedAt > block.timestamp) revert InvalidPrice(answer);
-        if (block.timestamp - updatedAt > c.maxPriceAge) revert StalePrice(updatedAt, c.maxPriceAge);
-        return Decimals.toWad(uint256(answer), c.feedDecimals);
+    /// @dev Live spot (WAD per raw token) through SafeStockFeed: fresh, unpaused, no corporate action in progress.
+    function _spot(address token) internal view returns (uint256 price) {
+        if (!underlyings[token].allowed) revert UnderlyingNotAllowed(token);
+        (price,) = oracle.latestPrice(token);
     }
 
-    /// @dev Weekly expiries are Friday 16:00 New York. Phase 1 accepts any future time; Phase 2 adds the calendar.
+    /// @dev Expiries must be an NYSE session close (Friday 16:00 New York for weekly options).
     function _isValidExpiry(uint64 expiry) internal view returns (bool) {
-        return expiry > block.timestamp;
+        return expiry > block.timestamp && oracle.isValidExpiry(expiry);
     }
 
-    /// @dev The first round at or after expiry. Cached per (feed, expiry) so every vault settles at one price.
-    function _settlementPrice(address token, uint64 expiry, uint80 roundId) internal returns (uint256 price) {
-        UnderlyingConfig storage c = underlyings[token];
-        price = expiryPrices[address(c.feed)][expiry];
-        if (price != 0) return price;
-
-        (, int256 answer,, uint256 updatedAt,) = c.feed.getRoundData(roundId);
-        if (answer <= 0) revert InvalidPrice(answer);
-        if (updatedAt < expiry) revert InvalidSettlementRound(roundId);
-        // Chainlink round ids are (phase << 64 | aggregatorRound). Within a phase the previous round must predate
-        // expiry; at the first round of a phase we cannot look back, so we require a print close to expiry.
-        if (uint64(roundId) > 1) {
-            (,,, uint256 prevUpdatedAt,) = c.feed.getRoundData(roundId - 1);
-            if (prevUpdatedAt >= expiry) revert InvalidSettlementRound(roundId);
-        } else if (updatedAt - expiry > c.maxPriceAge) {
-            revert InvalidSettlementRound(roundId);
-        }
-        price = Decimals.toWad(uint256(answer), c.feedDecimals);
-        expiryPrices[address(c.feed)][expiry] = price;
+    function _requireMarketOpen() internal view {
+        if (!oracle.isMarketOpen()) revert MarketClosed(block.timestamp);
     }
 }
