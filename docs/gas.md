@@ -30,3 +30,7 @@ Both runs chose the same strike ($390.51 at a $369 spot, 60% volatility, four-da
 - Once a call does real work, WASM wins by a wide margin: `strikeForDelta` runs 48 Black-Scholes evaluations to solve for the strike with a target delta and costs 6.5× less in Stylus.
 - Strike uses this in `EpochManager.proposeByDelta`: an agent proposes "a 0.20-delta call" and the contract solves the strike on-chain at execution-time spot. The agent never gets slashed because spot moved between its off-chain math and inclusion. With the Stylus pricer that costs ~0.24M gas instead of ~1.5M.
 - Production setting: point `EpochManager.pricer` at the Stylus pricer (both implement `IPricer`).
+
+## The live Stylus pricer is verifiably this source
+
+The pricer on Robinhood Chain testnet ([`0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c`](https://explorer.testnet.chain.robinhood.com/address/0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c), deployment tx `0x93fccce03198d72320afc7f613b097450ea4fafad3701bae732b81180ba237fe`) was built reproducibly in Docker (cargo-stylus 0.10.9, Rust 1.91.0). `cargo stylus verify --deployment-tx 0x93fc…37fe --endpoint https://rpc.testnet.chain.robinhood.com` rebuilds `stylus/pricer` from this repository and reports **Verification successful** (project metadata hash `5773190b3eed71771269cdaa28bfd562adc3bc8888ddb49e2b901cf4ceca7045`, 15,574 bytes).

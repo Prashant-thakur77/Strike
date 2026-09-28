@@ -116,7 +116,7 @@ Measured on an Arbitrum Nitro dev node, L2 execution gas:
 | `EpochManager.proposeByDelta` (full transaction) | 1,908,694 | 586,289 |
 | `EpochManager.buy` (full transaction)            |   330,423 | 300,739 |
 
-A Stylus call pays a fixed entry cost, so a single quote is cheaper in Solidity. Real work is 6.5× cheaper in Stylus, and a full proposal transaction 3.3× cheaper, with the same strike chosen. Method and scripts in [docs/gas.md](docs/gas.md).
+The deployed Stylus pricer is reproducibly verified against this source with `cargo stylus verify` ([details](docs/gas.md#the-live-stylus-pricer-is-verifiably-this-source)). A Stylus call pays a fixed entry cost, so a single quote is cheaper in Solidity. Real work is 6.5× cheaper in Stylus, and a full proposal transaction 3.3× cheaper, with the same strike chosen. Method and scripts in [docs/gas.md](docs/gas.md).
 
 ## Deployed contracts
 
