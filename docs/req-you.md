@@ -12,9 +12,9 @@ Tick an item (`[x]`) when done; blocked work resumes from there. Never paste pri
   - Arbitrum Sepolia (421614): ~0.05 ETH (any Arbitrum Sepolia faucet or bridge) and ~200 USDG from https://faucet.paxos.com (network: Arbitrum Sepolia)
 - [ ] Choose the npm scope (`@strike` may be taken) and add an `NPM_TOKEN` | why: publish `@strike/sdk` | blocks: SDK publish | added: 2026-09-28
 - [ ] Vercel (or similar) account connected to the GitHub repo | why: live demo URL | blocks: live demo | added: 2026-09-28
-- [ ] Subgraph hosting account and deploy key (The Graph Studio, Goldsky or Envio) | why: index epochs and PnL | blocks: subgraph deploy | added: 2026-09-28
+- [ ] Goldsky account and API key (the only host with Robinhood Chain testnet subgraph support, see [indexing.md](indexing.md)) | why: index epochs and PnL for the app and agents | blocks: subgraph deploy | added: 2026-09-28
 - [ ] Approve and fund a capped mainnet vault on Robinhood Chain (4663): a small amount of ETH for gas plus the stock token/USDG to seed | why: mainnet presence for the Robinhood reservation | blocks: Phase 5 | added: 2026-09-28
 - [ ] Record the 3-minute demo video and the 2-minute pitch video (scripts will be in `docs/submission/`) | why: submission requirement | blocks: submission | added: 2026-09-28
 - [ ] Post the build thread on X and in Arbitrum Discord #open-house | why: traction breaks ties | blocks: distribution | added: 2026-09-28
-- [ ] Recruit 10+ testnet users and collect their feedback (form link will be in the app) | why: product-market-fit evidence | blocks: PMF score | added: 2026-09-28
+- [ ] Recruit 10+ testnet users and ask each to file the feedback form: https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml (also linked in the app footer) | why: product-market-fit evidence; the form answers go straight into the repo | blocks: PMF score | added: 2026-09-28
 - [ ] Submit on HackQuest before **2026-10-04 15:59 UTC**; answers for every form field will be ready in `docs/submission/` | why: required | blocks: everything | added: 2026-09-28
