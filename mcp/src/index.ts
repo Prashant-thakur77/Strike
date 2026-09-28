@@ -1,29 +1,23 @@
 #!/usr/bin/env node
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { STRIKE_SDK_VERSION, strikeChains } from "@strike/sdk";
+import type { StrikeClient } from "@strike/sdk";
+import { clientFromConfig, configFromEnv } from "./config.js";
+import { createStrikeMcpServer } from "./server.js";
 
-const server = new McpServer({ name: "strike", version: "0.1.0" });
+// Strike MCP server over stdio. Configure with STRIKE_CHAIN_ID, STRIKE_RPC_URL and (to send transactions as the
+// vault agent) STRIKE_AGENT_PRIVATE_KEY. Logs go to stderr; stdout carries the protocol.
+const config = configFromEnv();
+let cached: StrikeClient | undefined;
+const server = createStrikeMcpServer({
+  chainId: config.chainId,
+  skillPath: config.skillPath,
+  client: () => (cached ??= clientFromConfig(config)),
+});
 
-server.registerTool(
-  "strike_info",
-  {
-    title: "Strike protocol info",
-    description: "Describe Strike and list the chains it supports.",
-    inputSchema: {},
-  },
-  async () => ({
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify({
-          protocol: "Strike",
-          sdkVersion: STRIKE_SDK_VERSION,
-          chains: Object.values(strikeChains).map((c) => ({ id: c.id, name: c.name })),
-        }),
-      },
-    ],
-  }),
+const transport = new StdioServerTransport();
+await server.connect(transport);
+// When the client goes away, finish in-flight responses, then exit even if sockets are still open.
+process.stdin.on("end", () => setTimeout(() => process.exit(0), 2000).unref());
+console.error(
+  `strike-mcp: chain ${config.chainId} via ${config.rpcUrl} (${config.privateKey ? "agent" : "read-only"} mode)`,
 );
-
-await server.connect(new StdioServerTransport());
