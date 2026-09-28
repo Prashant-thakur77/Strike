@@ -5,9 +5,11 @@ Tick an item (`[x]`) when done; blocked work resumes from there. Never paste pri
 - [ ] Open `~/projects/strike` in VS Code (File → Open Folder). The old `protocol-monorepo-main` folder is untouched; delete or keep it as you like | why: Strike lives in the new folder | blocks: nothing | added: 2026-09-28
 - [ ] **URGENT: register the team on HackQuest before 2026-10-02 17:01 UTC** | why: registration closes then; no registration, no submission | blocks: submission | added: 2026-09-28
 - [ ] Skim the deadline and rules in [hackathon.md](hackathon.md) (submission closes **2026-10-04 15:59 UTC**) and the 12 open items at the end of [research.md](research.md) | why: taken from the page's embedded data; worth a human glance | blocks: nothing | added: 2026-09-28
-- [ ] **URGENT (by Sep 30):** create a fresh deployer wallet and put `PRIVATE_KEY=` in `contracts/.env` | why: deployments need a signer; use a new key with test funds only | blocks: Phase 4 deploys | added: 2026-09-28
-- [ ] Fund the deployer: Robinhood Chain testnet ETH (faucet), Arbitrum Sepolia ETH | why: gas for deploys and the demo | blocks: Phase 4 deploys | added: 2026-09-28
-- [ ] Get testnet USDG from faucet.paxos.com (Robinhood testnet, and Arbitrum Sepolia if offered) and testnet stock tokens (TSLA, AMZN, PLTR, NFLX, AMD) from the Robinhood faucet, sent to the deployer | why: seed vaults and buy options in the demo | blocks: testnet demo | added: 2026-09-28
+- [x] Create a fresh deployer wallet: done for you. Testnet-only key in `contracts/.env` (gitignored, chmod 600). **Deployer address: `0x26b277b434B1670f207Afd8946edA9AF78A613Ff`** | added: 2026-09-28
+- [ ] **URGENT (by Sep 30): fund `0x26b277b434B1670f207Afd8946edA9AF78A613Ff`** on both testnets. A watcher deploys automatically as soon as the Robinhood testnet ETH arrives. | why: gas for deploys, the Stylus pricer and the demo | blocks: all testnet deploys | added: 2026-09-28
+  - Robinhood Chain testnet (46630): ~0.05 ETH from the Robinhood Chain faucet, plus the faucet's stock tokens (TSLA, AMZN, PLTR, NFLX, AMD)
+  - Robinhood Chain testnet: ~200 USDG from https://faucet.paxos.com (network: Robinhood Chain testnet)
+  - Arbitrum Sepolia (421614): ~0.05 ETH (any Arbitrum Sepolia faucet or bridge) and ~200 USDG from https://faucet.paxos.com (network: Arbitrum Sepolia)
 - [ ] Choose the npm scope (`@strike` may be taken) and add an `NPM_TOKEN` | why: publish `@strike/sdk` | blocks: SDK publish | added: 2026-09-28
 - [ ] Vercel (or similar) account connected to the GitHub repo | why: live demo URL | blocks: live demo | added: 2026-09-28
 - [ ] Subgraph hosting account and deploy key (The Graph Studio, Goldsky or Envio) | why: index epochs and PnL | blocks: subgraph deploy | added: 2026-09-28
