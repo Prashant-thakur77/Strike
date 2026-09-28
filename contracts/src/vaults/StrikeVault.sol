@@ -213,8 +213,8 @@ contract StrikeVault is ERC4626Upgradeable, ReentrancyGuardTransient, IStrikeVau
 
     /// @notice Move the shares of a processed deposit request to its owner. Anyone may call.
     function claimDeposit(address account) external nonReentrant returns (uint256 shares) {
+        _requireProcessed(depositRequests[account]);
         shares = _claimDepositIfProcessed(account);
-        if (shares == 0) revert NoProcessedRequest();
     }
 
     /// @notice Queue shares for redemption at the end of the running epoch. Claim assets with `claimRedeem`.
@@ -233,8 +233,14 @@ contract StrikeVault is ERC4626Upgradeable, ReentrancyGuardTransient, IStrikeVau
 
     /// @notice Pay out a processed redemption to its owner. Anyone may call.
     function claimRedeem(address account) external nonReentrant returns (uint256 assets) {
+        _requireProcessed(redeemRequests[account]);
         assets = _claimRedeemIfProcessed(account);
-        if (assets == 0 && redeemRequests[account].amount == 0) revert NoProcessedRequest();
+    }
+
+    /// @dev A processed request can always be claimed, even if it rounds to zero shares or assets (the premium it
+    ///      earned is still credited).
+    function _requireProcessed(Request memory r) internal view {
+        if (r.amount == 0 || r.epoch > lastProcessedEpoch) revert NoProcessedRequest();
     }
 
     function _claimDepositIfProcessed(address account) internal returns (uint256 shares) {

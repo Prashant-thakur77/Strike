@@ -42,7 +42,8 @@ library Decimals {
         uint8 usdDecimals,
         Math.Rounding rounding
     ) internal pure returns (uint256) {
-        if (usdDecimals > 18 || tokenDecimals > 36) revert UnsupportedDecimals(usdDecimals);
+        if (tokenDecimals > 36) revert UnsupportedDecimals(tokenDecimals);
+        if (usdDecimals > 18) revert UnsupportedDecimals(usdDecimals);
         return Math.mulDiv(amount, priceWad * 10 ** usdDecimals, 10 ** tokenDecimals * WAD, rounding);
     }
 }
