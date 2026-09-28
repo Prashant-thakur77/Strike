@@ -34,3 +34,6 @@ subgraph/build/
 .vscode/
 .idea/
 .design-ref/
+
+# local devnet deployments
+contracts/deployments/31337*.json
