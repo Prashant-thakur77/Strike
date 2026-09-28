@@ -20,6 +20,8 @@ jobs:
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
       - name: Format
         working-directory: contracts
         run: forge fmt --check
@@ -91,6 +93,8 @@ jobs:
         with:
           workspaces: stylus/pricer
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
       - name: Build pricer CLI
         working-directory: stylus/pricer
         run: cargo build --release --example pricer_cli
@@ -108,6 +112,8 @@ jobs:
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
       - name: Fork tests at a pinned block
         working-directory: contracts
         run: forge test --match-path "test/fork/*" -vv

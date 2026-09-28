@@ -60,20 +60,18 @@ contract VaultFactory is AccessControl {
         if (p.underlying == address(0)) revert ZeroAddress();
         if (p.depositCap > maxDepositCap) revert DepositCapTooHigh(p.depositCap, maxDepositCap);
 
+        IStrikeVault.InitParams memory init = IStrikeVault.InitParams({
+            asset: p.isCall ? p.underlying : usdg,
+            premiumToken: usdg,
+            underlying: p.underlying,
+            isCall: p.isCall,
+            manager: address(manager),
+            depositCap: p.depositCap,
+            name: p.name,
+            symbol: p.symbol
+        });
         vault = Clones.clone(implementation);
-        IStrikeVault(vault)
-            .initialize(
-                IStrikeVault.InitParams({
-                asset: p.isCall ? p.underlying : usdg,
-                premiumToken: usdg,
-                underlying: p.underlying,
-                isCall: p.isCall,
-                manager: address(manager),
-                depositCap: p.depositCap,
-                name: p.name,
-                symbol: p.symbol
-            })
-            );
+        IStrikeVault(vault).initialize(init);
         manager.registerVault(vault, msg.sender, p.agentId, p.mandate);
         emit VaultCreated(vault, msg.sender, p.underlying, p.isCall, p.agentId);
     }

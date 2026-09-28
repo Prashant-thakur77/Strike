@@ -3,6 +3,7 @@ contracts/out
 contracts/cache
 contracts/broadcast
 stylus
+contracts/test/vectors
 node_modules
 dist
 .next
