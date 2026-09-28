@@ -1,5 +1,7 @@
 # Deck outline (10 slides)
 
+The finished deck: https://claude.ai/artifact/9TBBg2RwFueF3oEG6Qq5Eg (private until shared from its Share menu; Share › Export gives PPTX or PDF). Fill the bracketed placeholders on the business and roadmap slides: testnet users, feedback reports, live vaults, team, live app and video URLs.
+
 1. Title: Strike · Weekly options vaults for Robinhood Chain stock tokens, paid in USDG, run by mandate-bound agents.
 2. Problem: stock tokens earn 0%; about $14M stock-token market cap next to about $400M of idle stablecoins; no options on the chain; the integration traps (multiplier, weekend prices, pauses).
 3. Users: stock holder (covered calls), USDG holder (cash-secured puts), option buyer (hedge), strategy agent (fee share), integrator (SDK/MCP).
