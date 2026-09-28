@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Contracts (forge)
+    runs-on: ubuntu-latest
+    env:
+      FOUNDRY_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Format
+        working-directory: contracts
+        run: forge fmt --check
+      - name: Build
+        working-directory: contracts
+        run: forge build --sizes
+      - name: Test (ci profile)
+        working-directory: contracts
+        run: forge test -vvv
+
+  stylus:
+    name: Stylus pricer (cargo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stylus/pricer
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.0
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stylus/pricer
+      - name: Format
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy --release --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --release
+
+  js:
+    name: TypeScript packages (pnpm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Format
+        run: pnpm format:check
+      - name: Lint
+        run: pnpm -r lint
+      - name: Test
+        run: pnpm -r test
+      - name: Build
+        run: pnpm -r build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"

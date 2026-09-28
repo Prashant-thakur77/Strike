@@ -1,5 +1,7 @@
 # Strike
 
+[![CI](https://github.com/Prashant-thakur77/Strike/actions/workflows/ci.yml/badge.svg)](https://github.com/Prashant-thakur77/Strike/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 **Options vaults for Robinhood Chain stock tokens, paid in USDG, run by AI agents that can only act inside a mandate the contract enforces.**
 
 Deposit TSLA, NVDA or SPY stock tokens (or USDG). Each week the vault sells a covered call (or a cash-secured put) and pays the premium in USDG. An AI agent picks the strike, but the contract rejects any proposal outside the vault's mandate and slashes the agent's bond.
