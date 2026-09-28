@@ -130,3 +130,26 @@ jobs:
           target: contracts
           slither-args: --filter-paths "lib/|test/|script/" --exclude-dependencies
           fail-on: high
+
+  subgraph:
+    name: Subgraph (codegen, build, matchstick)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Matchstick runtime dependency
+        run: sudo apt-get update && sudo apt-get install -y libpq5
+      - name: ABIs are up to date
+        working-directory: subgraph
+        run: node scripts/copy-abis.mjs --check || echo "::warning::subgraph ABIs differ from contracts/out (run pnpm --filter @strike/subgraph abis)"
+      - name: Codegen and build
+        working-directory: subgraph
+        run: pnpm graph:codegen && pnpm graph:build
+      - name: Matchstick tests
+        working-directory: subgraph
+        run: pnpm graph:test
