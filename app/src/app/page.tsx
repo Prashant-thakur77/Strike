@@ -1,8 +1,27 @@
-export default function Home() {
+import { Agents } from "@/components/landing/Agents";
+import { BuiltOn } from "@/components/landing/BuiltOn";
+import { Closing } from "@/components/landing/Closing";
+import { Hero } from "@/components/landing/Hero";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { Manifesto } from "@/components/landing/Manifesto";
+import { Numbers } from "@/components/landing/Numbers";
+import { Safety } from "@/components/landing/Safety";
+import { SiteNav } from "@/components/site/SiteNav";
+
+export default function Landing() {
   return (
-    <main>
-      <h1>Strike</h1>
-      <p>Weekly covered calls and cash-secured puts on Robinhood Chain stock tokens, paid in USDG.</p>
-    </main>
+    <>
+      <SiteNav />
+      <main id="main">
+        <Hero />
+        <Manifesto />
+        <Numbers />
+        <HowItWorks />
+        <Agents />
+        <Safety />
+        <BuiltOn />
+        <Closing />
+      </main>
+    </>
   );
 }
