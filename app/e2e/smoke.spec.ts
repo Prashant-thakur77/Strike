@@ -186,6 +186,62 @@ test.describe("with a local devnet", () => {
     await expect(page.getByText("Buy options: done.")).toBeVisible({ timeout: 30_000 });
   });
 
+  test("sizes a buy from the position (puts) or a budget (calls)", async ({ page }, info) => {
+    const errors = watchErrors(page);
+    await installMockWallet(page);
+    await page.goto("/app?chain=31337");
+    const rows = page.locator('a[href^="/app/vault/"]');
+    await rows.first().waitFor();
+    await connectWallet(page, info.project.name === "mobile");
+    const hrefs = await rows.evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute("href")!))]);
+    const kinds: string[] = [];
+    for (const href of hrefs) {
+      await page.goto(href);
+      const tabs = page.getByRole("tablist", { name: "How to size the buy" });
+      await expect(tabs).toBeVisible();
+      const panel = tabs.locator("xpath=../..");
+      const amountTab = tabs.getByRole("tab", { name: "Amount" });
+      await expect(amountTab).toHaveAttribute("aria-selected", "true"); // the expert mode stays the default
+      const isPut = (await tabs.getByRole("tab", { name: "Protect my position" }).count()) > 0;
+      kinds.push(isPut ? "put" : "call");
+      let expected: number;
+      if (isPut) {
+        await tabs.getByRole("tab", { name: "Protect my position" }).click();
+        const held = panel.getByLabel(/tokens you hold/);
+        await expect(held).not.toHaveValue(""); // prefilled from the wallet's stock-token balance
+        await expect(panel.getByText(/^[\d,.]+ puts$/)).toBeVisible();
+        await expect(panel.getByText(/^[\d,.]+ USDG$/)).toBeVisible(); // quoted premium
+        await expect(panel.getByText(/ × \$[\d,.]+ − premium$/)).toBeVisible();
+        const text = (await panel.getByText(/^[\d,.]+ puts$/).textContent())!;
+        expected = Number(text.replace(/[^\d.]/g, ""));
+        expect(expected).toBeGreaterThan(0);
+        expect(expected).toBeLessThanOrEqual(Number(await held.inputValue()));
+      } else {
+        await tabs.getByRole("tab", { name: "Upside for a budget" }).click();
+        await panel.getByLabel(/^Budget/).fill("100");
+        await expect(panel.getByText(/^[\d,.]+ calls$/)).toBeVisible();
+        await expect(panel.getByText("Payout 10% above breakeven")).toBeVisible();
+        const maxLoss = panel
+          .getByText("Max loss", { exact: true })
+          .locator("xpath=following-sibling::dd[1]");
+        await expect(maxLoss).toHaveText(/^[\d,.]+ USDG$/);
+        expect(Number((await maxLoss.textContent())!.replace(/[^\d.]/g, ""))).toBeLessThanOrEqual(100);
+        const text = (await panel.getByText(/^[\d,.]+ calls$/).textContent())!;
+        expected = Number(text.replace(/[^\d.]/g, ""));
+        expect(expected).toBeGreaterThan(0);
+      }
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+      await panel.getByRole("button", { name: /Use this amount/ }).click();
+      // Back in the amount mode, with the sized amount filled in and quoted.
+      await expect(amountTab).toHaveAttribute("aria-selected", "true");
+      const filled = Number(await panel.getByLabel(/^Options/).inputValue());
+      expect(filled).toBeCloseTo(expected, 3);
+      await expect(panel.getByText(/^[\d,.]+ USDG$/).first()).toBeVisible();
+    }
+    expect(kinds.sort()).toEqual(["call", "put"]);
+    expect(errors).toEqual([]);
+  });
+
   test("serves ERC-1155 option metadata for a live series", async ({ request }) => {
     const em = localEpochManager();
     const client = createPublicClient({ transport: http(RPC) });

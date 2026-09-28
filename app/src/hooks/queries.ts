@@ -1,13 +1,15 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import type { Address } from "viem";
+import { erc20Abi, type Address } from "viem";
 import { useConnection } from "wagmi";
+import { affordableOptions } from "@/lib/hedge";
 import {
   faucetTokens,
   marketStatus,
   optionHoldings,
   position,
+  quotePremium,
   registry,
   rejections,
   vaultAddresses,
@@ -114,5 +116,54 @@ export function useFaucetTokens() {
     queryKey: ["strike", chainId, "faucet", address],
     enabled: ready && !!client && !!deployment,
     queryFn: () => faucetTokens(client!, deployment!, address),
+  });
+}
+
+/** The premium for `amount` options of a series (`EpochManager.quoteBuy`), refreshed as the spot moves. */
+export function useQuoteBuy(seriesId: bigint, amount: bigint | null) {
+  const { client, deployment, chainId } = useStrike();
+  return useQuery({
+    queryKey: ["strike", chainId, "quote", seriesId.toString(), amount?.toString()],
+    enabled: !!client && !!deployment && amount !== null && amount > 0n,
+    refetchInterval: REFRESH,
+    queryFn: () => quotePremium(client!, deployment!, seriesId, amount!),
+  });
+}
+
+/** The most options of a series a premium `budget` buys (at most `cap`, in `step`s), confirmed by `quoteBuy`. */
+export function useAffordable(seriesId: bigint, budget: bigint | null, cap: bigint, step: bigint) {
+  const { client, deployment, chainId } = useStrike();
+  return useQuery({
+    queryKey: [
+      "strike",
+      chainId,
+      "affordable",
+      seriesId.toString(),
+      budget?.toString(),
+      cap.toString(),
+      step.toString(),
+    ],
+    enabled: !!client && !!deployment && budget !== null && budget > 0n && cap > 0n,
+    refetchInterval: REFRESH,
+    queryFn: () =>
+      affordableOptions({
+        budget: budget!,
+        cap,
+        step,
+        quote: (amount) => quotePremium(client!, deployment!, seriesId, amount),
+      }),
+  });
+}
+
+/** The connected wallet's balance of an ERC-20 (base units). */
+export function useTokenBalance(token: Address | undefined) {
+  const { client, chainId } = useStrike();
+  const { address } = useConnection();
+  return useQuery({
+    queryKey: ["strike", chainId, "balance", token, address],
+    enabled: !!client && !!token && !!address,
+    refetchInterval: REFRESH,
+    queryFn: () =>
+      client!.readContract({ address: token!, abi: erc20Abi, functionName: "balanceOf", args: [address!] }),
   });
 }

@@ -125,6 +125,22 @@ export async function getSeries(client: PublicClient, dep: Deployment, id: bigin
   return { id, ...s };
 }
 
+/** `EpochManager.quoteBuy`: the premium (USDG base units) for `amount` options of a series, at the live spot. */
+export async function quotePremium(
+  client: PublicClient,
+  dep: Deployment,
+  seriesId: bigint,
+  amount: bigint,
+): Promise<bigint> {
+  const [premium] = await client.readContract({
+    address: dep.epochManager,
+    abi: epochManagerAbi,
+    functionName: "quoteBuy",
+    args: [seriesId, amount],
+  });
+  return premium;
+}
+
 export async function spotOf(client: PublicClient, dep: Deployment, token: Address): Promise<Spot> {
   try {
     const [status, price, updatedAt] = await client.readContract({

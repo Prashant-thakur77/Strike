@@ -20,6 +20,14 @@ export function fmtUsd(n: number | null | undefined, maxFrac = 0): string {
   return `$${n.toLocaleString("en-US", { maximumFractionDigits: maxFrac, minimumFractionDigits: 0 })}`;
 }
 
+/** A USD-stablecoin amount (base units) as dollars and cents: "$43,987.65", "−$12.00". */
+export function fmtDollars(value: bigint | undefined, decimals: number): string {
+  if (value === undefined) return "—";
+  const n = toNumber(value < 0n ? -value : value, decimals);
+  const abs = n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${value < 0n ? "−" : ""}$${abs}`;
+}
+
 /** A WAD dollar price (per raw token). */
 export function fmtWadUsd(wad: bigint | undefined, maxFrac = 2): string {
   if (wad === undefined) return "—";

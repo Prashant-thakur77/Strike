@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { acknowledge, connectWallet, devnetUp, installMockWallet, revealAll, settle } from "./helpers";
 
 // Captures every section of every page into screenshots/{desktop,mobile}/ by stepping through each page one
@@ -120,5 +120,68 @@ test("app pages", async ({ page }, info) => {
     await page.getByRole("button", { name: "Menu" }).click();
     await settle(page, 1200);
     await page.screenshot({ path: join(out, "app-menu.png") });
+  }
+});
+
+test("buy panel modes", async ({ page }, info) => {
+  test.skip(!(await devnetUp()), "needs a Strike devnet at E2E_RPC");
+  const out = dir(info.project.name);
+  await acknowledge(page);
+  await installMockWallet(page);
+  await page.goto("/app?chain=31337");
+  const rows = page.locator('a[href^="/app/vault/"]');
+  await rows.first().waitFor();
+  await connectWallet(page, info.project.name === "mobile");
+  const hrefs = await rows.evaluateAll((els) => [...new Set(els.map((e) => e.getAttribute("href")!))]);
+  for (const href of hrefs) {
+    await page.goto(href);
+    const tabs = page.getByRole("tablist", { name: "How to size the buy" });
+    await tabs.waitFor();
+    await revealAll(page);
+    const panel = tabs.locator("xpath=../..");
+    const isPut = (await tabs.getByRole("tab", { name: "Protect my position" }).count()) > 0;
+    const kind = isPut ? "put" : "call";
+    const mode = isPut ? "protect" : "upside";
+    // Element capture with the fixed nav and banner hidden, so they don't cover a panel taller than the viewport.
+    const shoot = async (name: string) => {
+      await settle(page, 1200);
+      await page.evaluate((hide) => {
+        for (const el of document.querySelectorAll<HTMLElement>("body *")) {
+          const pos = getComputedStyle(el).position;
+          if (pos === "fixed" || pos === "sticky") el.style.visibility = hide ? "hidden" : "";
+        }
+      }, true);
+      await panel.screenshot({ path: join(out, `${name}.png`) });
+      await page.evaluate(() => {
+        for (const el of document.querySelectorAll<HTMLElement>("body *")) el.style.visibility = "";
+      });
+    };
+    const figure = panel
+      .getByText(isPut ? "Worst case at expiry" : "Profit at that price", { exact: true })
+      .locator("xpath=following-sibling::dd[1]");
+
+    await panel
+      .getByText(/^[\d,.]+ USDG$/)
+      .first()
+      .waitFor();
+    await panel.scrollIntoViewIfNeeded();
+    await shoot(`buy-${kind}-amount`);
+
+    // Defaults first (the wallet balance for puts, 100 USDG for calls; both use up the small demo series).
+    await tabs.getByRole("tab", { name: isPut ? "Protect my position" : "Upside for a budget" }).click();
+    await expect(figure).toHaveText(/^−?\$[\d,]+\.\d\d$/); // quoted and worked out
+    await shoot(`buy-${kind}-${mode}-capped`);
+
+    // Then an amount the series can fill.
+    const field = panel.getByLabel(isPut ? /tokens you hold/ : /^Budget/);
+    await field.fill(isPut ? "12" : "50");
+    await expect(panel.getByText(isPut ? /^12 puts$/ : /^[\d,.]+ calls$/)).toBeVisible();
+    await expect(panel.getByText(/^Capped/)).toHaveCount(0);
+    await expect(figure).toHaveText(/^−?\$[\d,]+\.\d\d$/);
+    await shoot(`buy-${kind}-${mode}`);
+    await panel.evaluate((el) => el.scrollIntoView({ block: "start" }));
+    await page.evaluate(() => window.scrollBy(0, -130));
+    await settle(page, 800);
+    await page.screenshot({ path: join(out, `buy-${kind}-${mode}-viewport.png`) });
   }
 });

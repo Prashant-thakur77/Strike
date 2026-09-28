@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+/** `value`, once it has stopped changing for `ms` (so typing doesn't fire a quote per keystroke). */
+export function useDebounced<T>(value: T, ms = 300): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}

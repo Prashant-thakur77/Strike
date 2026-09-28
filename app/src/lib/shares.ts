@@ -11,6 +11,12 @@ export function perSharePrice(pricePerRawToken: bigint, multiplier: bigint): big
   return (pricePerRawToken * UNIT_MULTIPLIER) / multiplier;
 }
 
+/** A raw token amount as shares of the stock (same decimals): raw × multiplier. Raw for a zero multiplier. */
+export function sharesOf(rawAmount: bigint, multiplier: bigint): bigint {
+  if (multiplier <= 0n) return rawAmount;
+  return (rawAmount * multiplier) / UNIT_MULTIPLIER;
+}
+
 /** True when one raw token is not exactly one share, so a per-share figure is worth showing. */
 export function hasMultiplier(multiplier: bigint): boolean {
   return multiplier > 0n && multiplier !== UNIT_MULTIPLIER;

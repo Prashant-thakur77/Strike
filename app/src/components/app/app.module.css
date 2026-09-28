@@ -788,6 +788,52 @@
   margin-right: 4px;
 }
 
+.buyHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+/* Hedging modes: the input, then hairline-topped result cells (label, figure, working). */
+.hedgeField {
+  display: grid;
+  gap: 10px;
+}
+
+.hedgeGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px 24px;
+}
+
+.hedgeGrid div {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule);
+}
+
+.hedgeGrid dd {
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+
+.hedgeGrid dd:global(.micro) {
+  font-size: var(--fs-label);
+  line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+  .hedgeGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 16px;
+  }
+}
+
 /* ================================================================ timeline */
 
 .timeline {
