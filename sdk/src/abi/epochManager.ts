@@ -95,6 +95,32 @@ export const epochManagerAbi = [
   },
   {
     "type": "function",
+    "name": "MAX_SIGMA_STEP_BPS",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "SIGMA_UPDATE_INTERVAL",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "abortEpoch",
     "inputs": [
       {
@@ -229,6 +255,16 @@ export const epochManagerAbi = [
         "name": "seriesId",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "openSpot",
+        "type": "uint128",
+        "internalType": "uint128"
+      },
+      {
+        "name": "openSigma",
+        "type": "uint64",
+        "internalType": "uint64"
       }
     ],
     "stateMutability": "view"
@@ -938,6 +974,24 @@ export const epochManagerAbi = [
   },
   {
     "type": "function",
+    "name": "setSpotBuffer",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setTimings",
     "inputs": [
       {
@@ -1099,6 +1153,16 @@ export const epochManagerAbi = [
         "name": "maxSigma",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "spotBufferBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "sigmaUpdatedAt",
+        "type": "uint32",
+        "internalType": "uint32"
       }
     ],
     "stateMutability": "view"
@@ -1701,6 +1765,25 @@ export const epochManagerAbi = [
   },
   {
     "type": "event",
+    "name": "SpotBufferSet",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "bps",
+        "type": "uint16",
+        "indexed": false,
+        "internalType": "uint16"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "TimingsSet",
     "inputs": [
       {
@@ -1963,6 +2046,22 @@ export const epochManagerAbi = [
   },
   {
     "type": "error",
+    "name": "SafeCastOverflowedUintDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SafeCastOverflowedUintToInt",
     "inputs": [
       {
@@ -2029,12 +2128,39 @@ export const epochManagerAbi = [
   },
   {
     "type": "error",
+    "name": "SettlementAvailable",
+    "inputs": [
+      {
+        "name": "price",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SigmaOutOfBounds",
     "inputs": [
       {
         "name": "sigma",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StrikeInTheMoney",
+    "inputs": [
+      {
+        "name": "strike",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "spot",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

@@ -241,7 +241,36 @@ export const stockOracleAbi = [
     ],
     "outputs": [
       {
-        "name": "priceWad",
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recordSettlementPriceWithHints",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "expiry",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "hints",
+        "type": "uint80[]",
+        "internalType": "uint80[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -677,6 +706,17 @@ export const stockOracleAbi = [
         "name": "roundId",
         "type": "uint80",
         "internalType": "uint80"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MissingHint",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

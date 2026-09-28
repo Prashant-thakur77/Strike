@@ -3,6 +3,7 @@ import {
   type Mandate,
   SECONDS_PER_YEAR,
   WAD,
+  roundStrikeToCent,
   blackScholes,
   clampDeltaToMandate,
   floorToCent,
@@ -283,5 +284,18 @@ describe("suggestProposal", () => {
       mandate: { ...mandate, minYieldBps: 5000 },
     });
     expect(s.meetsMinYield).toBe(false);
+  });
+});
+
+describe("roundStrikeToCent", () => {
+  const band = { minDeltaBps: 500, maxDeltaBps: 4000 };
+  const k = 275_123_400_000_000_000_000n; // 275.1234
+  it("rounds toward the middle of the delta band", () => {
+    // Upper half: lower |delta| (calls up, puts down). Lower half: raise it (calls down, puts up).
+    expect(roundStrikeToCent(k, true, 4000, band)).toBe(275_130_000_000_000_000_000n);
+    expect(roundStrikeToCent(k, false, 4000, band)).toBe(275_120_000_000_000_000_000n);
+    expect(roundStrikeToCent(k, true, 500, band)).toBe(275_120_000_000_000_000_000n);
+    expect(roundStrikeToCent(k, false, 500, band)).toBe(275_130_000_000_000_000_000n);
+    expect(roundStrikeToCent(275_120_000_000_000_000_000n, true, 4000, band)).toBe(275_120_000_000_000_000_000n);
   });
 });

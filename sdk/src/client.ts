@@ -25,8 +25,8 @@ import {
 import { getDeployment } from "./deployments.js";
 import { StrikeError } from "./errors.js";
 import { agentStatusName, epochStateName, feedStatusName, mandateReasonName } from "./names.js";
-import { floorToCent } from "./pricing.js";
-import { type FeedRound, findSettlementRound } from "./settlement.js";
+import { roundStrikeToCent } from "./pricing.js";
+import { type CorporateAction, type FeedRound, findSettlementHints } from "./settlement.js";
 import type {
   AgentInfo,
   AgentRegistryParams,
@@ -49,6 +49,17 @@ import type {
   VaultState,
 } from "./types.js";
 import { BPS } from "./units.js";
+
+/** ERC-8056: when the pending UI multiplier takes effect. */
+const erc8056EffectiveAtAbi = [
+  {
+    type: "function",
+    name: "effectiveAt",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
 
 /** Contract addresses the client talks to. */
 export interface StrikeAddresses {
@@ -353,33 +364,45 @@ export function createStrikeClient(config: StrikeClientConfig) {
   async function solveStrike(vault: Address, p: { targetDeltaBps: number; expiry: bigint }): Promise<bigint> {
     assertDeltaBps(p.targetDeltaBps);
     const v = getAddress(vault);
-    const [underlying, isCall, now] = await Promise.all([
+    const [underlying, isCall, now, epoch, vcfg] = await Promise.all([
       publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "underlying" }),
       publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "isCall" }),
       blockTimestamp(),
+      publicClient.readContract({ address: em, abi: epochManagerAbi, functionName: "epochs", args: [v] }),
+      publicClient.readContract({ address: em, abi: epochManagerAbi, functionName: "vaultConfig", args: [v] }),
     ]);
-    const [spotPrice, cfg] = await Promise.all([
-      publicClient.readContract({
-        address: em,
-        abi: epochManagerAbi,
-        functionName: "spot",
-        args: [underlying],
-      }),
-      publicClient.readContract({
-        address: em,
-        abi: epochManagerAbi,
-        functionName: "underlyings",
-        args: [underlying],
-      }),
-    ]);
+    // While the epoch is Open the contract solves against the snapshot taken at open; otherwise use live values.
+    let spotPrice: bigint;
+    let sigma: bigint;
+    if (epoch[0] === 1) {
+      spotPrice = epoch[3];
+      sigma = epoch[4];
+    } else {
+      const [live, cfg] = await Promise.all([
+        publicClient.readContract({
+          address: em,
+          abi: epochManagerAbi,
+          functionName: "spot",
+          args: [underlying],
+        }),
+        publicClient.readContract({
+          address: em,
+          abi: epochManagerAbi,
+          functionName: "underlyings",
+          args: [underlying],
+        }),
+      ]);
+      spotPrice = live;
+      sigma = cfg[2];
+    }
     const strike = await pricerStrikeForDelta({
       spot: spotPrice,
       targetDelta: BigInt(p.targetDeltaBps) * 10n ** 14n,
       tenorSeconds: p.expiry > now ? p.expiry - now : 1n,
-      sigma: cfg[2],
+      sigma,
       isCall,
     });
-    return floorToCent(strike);
+    return roundStrikeToCent(strike, isCall, p.targetDeltaBps, vcfg.mandate);
   }
 
   async function getAgent(agentId: bigint): Promise<AgentInfo> {
@@ -449,7 +472,8 @@ export function createStrikeClient(config: StrikeClientConfig) {
     throw new StrikeError(`transaction ${tx.hash} emitted neither SeriesProposed nor ProposalRejected`);
   }
 
-  async function settlementRoundFor(token: Address, expiry: bigint): Promise<bigint> {
+  /** Hints proving the settlement round for (token, expiry); see `findSettlementHints`. */
+  async function settlementHintsFor(token: Address, expiry: bigint): Promise<bigint[]> {
     const cfg = await publicClient.readContract({
       address: addresses.stockOracle,
       abi: stockOracleAbi,
@@ -462,7 +486,18 @@ export function createStrikeClient(config: StrikeClientConfig) {
       functionName: "latestRoundData",
     });
     const latest: FeedRound = { roundId, answer, updatedAt };
-    return findSettlementRound(
+    let action: CorporateAction | undefined;
+    try {
+      const effectiveAt = await publicClient.readContract({
+        address: getAddress(token),
+        abi: erc8056EffectiveAtAbi,
+        functionName: "effectiveAt",
+      });
+      action = { effectiveAt, grace: BigInt(cfg.corporateActionGrace) };
+    } catch {
+      action = undefined; // a plain ERC-20: no corporate actions
+    }
+    return findSettlementHints(
       latest,
       async (id) => {
         try {
@@ -471,14 +506,21 @@ export function createStrikeClient(config: StrikeClientConfig) {
             functionName: "getRoundData",
             args: [id],
           });
-          return { roundId: rid, answer: ans, updatedAt: upd };
+          return upd === 0n ? null : { roundId: rid, answer: ans, updatedAt: upd };
         } catch {
           return null;
         }
       },
       expiry,
+      action,
     );
   }
+
+  async function settlementRoundFor(token: Address, expiry: bigint): Promise<bigint> {
+    const hints = await settlementHintsFor(token, expiry);
+    return hints[0] as bigint;
+  }
+
 
   async function accountOr(account?: Address): Promise<Address> {
     if (account) return getAddress(account);
@@ -557,8 +599,8 @@ export function createStrikeClient(config: StrikeClientConfig) {
     previewProposal,
 
     /**
-     * Dry-run a delta proposal: solve the strike with the on-chain pricer at the current spot (floored to a cent,
-     * as `proposeByDelta` does), then preview it.
+     * Dry-run a delta proposal: solve the strike with the on-chain pricer exactly as `proposeByDelta` does (the
+     * epoch's opening snapshot while it is Open, rounded to a cent toward the middle of the delta band), then preview it.
      */
     async previewProposeByDelta(vault: Address, p: DeltaProposalParams): Promise<DeltaProposalPreview> {
       const strike = await solveStrike(vault, p);
@@ -572,8 +614,8 @@ export function createStrikeClient(config: StrikeClientConfig) {
     },
 
     /**
-     * The strike `proposeByDelta` would use right now for `targetDeltaBps` (on-chain pricer, current spot and the
-     * vault's sigma, floored to a cent).
+     * The strike `proposeByDelta` would use right now for `targetDeltaBps` (on-chain pricer; the opening snapshot's
+     * spot and sigma while the epoch is Open; rounded to a cent toward the middle of the mandate's delta band).
      */
     solveStrike,
 
@@ -744,6 +786,7 @@ export function createStrikeClient(config: StrikeClientConfig) {
      * walking back from `latestRoundData` on the feed registered in `StockOracle.feedConfig`.
      */
     findSettlementRound: settlementRoundFor,
+    findSettlementHints: settlementHintsFor,
 
     // ------------------------------------------------------------------ writes (need walletClient)
 
@@ -937,7 +980,7 @@ export function createStrikeClient(config: StrikeClientConfig) {
     },
 
     /**
-     * Propose by target delta: the contract solves the strike at execution-time spot (floored to a cent), so the
+     * Propose by target delta: the contract solves the strike at the epoch's opening snapshot (rounded to a cent toward the band's middle), so the
      * intended delta survives spot moves while the transaction is pending. Same rejection and slashing rules as
      * `proposeSeries`; dry-run with `previewProposeByDelta` first.
      */
@@ -985,7 +1028,19 @@ export function createStrikeClient(config: StrikeClientConfig) {
           functionName: "settlementPrice",
           args: [series.underlying, series.expiry],
         });
-        if (recorded === 0n) roundId = await settlementRoundFor(series.underlying, series.expiry);
+        if (recorded === 0n) {
+          const hints = await settlementHintsFor(series.underlying, series.expiry);
+          roundId = hints[0] as bigint;
+          // A phase change or a corporate action needs more than one round of proof: record the price first.
+          if (hints.length > 1) {
+            await execute({
+              address: addresses.stockOracle,
+              abi: stockOracleAbi,
+              functionName: "recordSettlementPriceWithHints",
+              args: [series.underlying, series.expiry, hints],
+            });
+          }
+        }
       }
       const tx = await execute({
         address: em,

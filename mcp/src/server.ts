@@ -14,7 +14,7 @@ import {
   clampDeltaToMandate,
   explainError,
   explainMandateReason,
-  floorToCent,
+  roundStrikeToCent,
   formatAmount,
   maxProposalSize,
   numberToWad,
@@ -298,8 +298,11 @@ async function evaluate(strike: StrikeClient, input: ProposalInput): Promise<Eva
   } catch {
     source = "float model";
     const tenor = Number(expiry - now);
-    suggestedStrike = floorToCent(
+    suggestedStrike = roundStrikeToCent(
       numberToWad(strikeForDelta(spot, target, tenor, wadToNumber(vault.sigma), isCall)),
+      isCall,
+      suggestedBps,
+      mandate,
     );
   }
   const suggestedSize = maxProposalSize(capacityAt(suggestedStrike), mandate);

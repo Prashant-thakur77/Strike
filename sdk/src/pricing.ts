@@ -169,6 +169,24 @@ export function floorToCent(priceWad: bigint): bigint {
   return priceWad - (priceWad % cent);
 }
 
+/**
+ * Round a solved strike to a cent the way `proposeByDelta` does: toward the middle of the mandate's delta band
+ * (a higher call strike or a lower put strike lowers |delta|), so a target on the band edge stays inside it.
+ */
+export function roundStrikeToCent(
+  strikeWad: bigint,
+  isCall: boolean,
+  targetDeltaBps: number,
+  mandate: Pick<Mandate, "minDeltaBps" | "maxDeltaBps">,
+): bigint {
+  const cent = 10n ** 16n;
+  const rest = strikeWad % cent;
+  const down = strikeWad - rest;
+  if (rest === 0n) return down;
+  const upperHalf = 2 * targetDeltaBps >= mandate.minDeltaBps + mandate.maxDeltaBps;
+  return isCall === upperHalf ? down + cent : down;
+}
+
 /** Inputs for {@link suggestProposal}. Prices in USD, sigma as a fraction. */
 export interface ProposalSuggestionInput {
   spot: number;
@@ -192,7 +210,7 @@ export interface ProposalSuggestionInput {
 export interface ProposalSuggestion {
   /** |delta| actually targeted, after clamping to the mandate band. */
   targetDelta: number;
-  /** Strike, WAD per token (floored to a cent). */
+  /** Strike, WAD per token (rounded to a cent toward the middle of the delta band). */
   strike: bigint;
   strikeUsd: number;
   /** Model |delta| at the rounded strike. */
@@ -216,7 +234,12 @@ export interface ProposalSuggestion {
 export function suggestProposal(input: ProposalSuggestionInput): ProposalSuggestion {
   const { spot, sigma, tenorSeconds, isCall, mandate } = input;
   const targetDelta = clampDeltaToMandate(input.targetDelta ?? 0.2, mandate);
-  const strike = floorToCent(numberToWad(strikeForDelta(spot, targetDelta, tenorSeconds, sigma, isCall)));
+  const strike = roundStrikeToCent(
+    numberToWad(strikeForDelta(spot, targetDelta, tenorSeconds, sigma, isCall)),
+    isCall,
+    Math.round(targetDelta * BPS),
+    mandate,
+  );
   const strikeUsd = Number(strike) / 1e18;
   const quote = blackScholes(spot, strikeUsd, tenorSeconds, sigma, isCall);
   const premiumBps = Math.min(Math.max(input.premiumBps ?? BPS, mandate.minPremiumBps), MAX_PREMIUM_BPS);

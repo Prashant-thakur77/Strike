@@ -25,6 +25,7 @@ export {
   blackScholes,
   clampDeltaToMandate,
   floorToCent,
+  roundStrikeToCent,
   maxProposalSize,
   normCdf,
   strikeForDelta,
@@ -33,7 +34,7 @@ export {
   vaultCapacity,
 } from "./pricing.js";
 export type { BlackScholesQuote, ProposalSuggestion, ProposalSuggestionInput } from "./pricing.js";
-export { findSettlementRound } from "./settlement.js";
+export { type CorporateAction, findSettlementHints, findSettlementRound } from "./settlement.js";
 export type { FeedRound, RoundReader } from "./settlement.js";
 export type * from "./types.js";
 export {
