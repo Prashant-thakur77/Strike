@@ -291,7 +291,10 @@ mod tests {
     fn sqrt_is_floor() {
         for x in [0u128, 1, 2, 3, 4, 15, 16, 17, 1_000_000, WAD, u128::MAX] {
             let r = sqrt(u(x));
-            assert!(r * r <= u(x) && (r + U256::from(1)) * (r + U256::from(1)) > u(x), "sqrt({x})");
+            assert!(
+                r * r <= u(x) && (r + U256::from(1)) * (r + U256::from(1)) > u(x),
+                "sqrt({x})"
+            );
         }
         let big = U256::MAX >> 2;
         let r = sqrt(big);
