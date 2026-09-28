@@ -3,9 +3,11 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   BPS,
+  ERROR_HINTS,
   FEED_STATUS_DESCRIPTIONS,
   type ProposalPreview,
   STRIKE_SDK_VERSION,
+  type SeriesState,
   type StrikeClient,
   StrikeError,
   type VaultState,
@@ -26,7 +28,14 @@ import {
 import { type Address, getAddress, isAddress } from "viem";
 import { z } from "zod";
 import { absDelta, failure, iso, mandateView, result, usd, usdg, vaultView } from "./format.js";
-import { agentSchema, riskCheckShape, suggestionSchema, vaultSchema } from "./schemas.js";
+import {
+  agentSchema,
+  hedgePlanShape,
+  hedgeSchema,
+  riskCheckShape,
+  suggestionSchema,
+  vaultSchema,
+} from "./schemas.js";
 
 export const SERVER_VERSION = "0.1.0";
 export const SKILL_URI = "strike://skill";
@@ -129,6 +138,72 @@ function requireWallet(strike: StrikeClient): Address {
     );
   }
   return address;
+}
+
+const DEFAULT_SLIPPAGE_BPS = 100;
+const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true };
+const addressInput = z
+  .string()
+  .refine((s) => isAddress(s), "must be a 0x address")
+  .describe("0x address");
+
+/** USDG base units as a WAD USD amount. */
+const usdgToWad = (amount: bigint, usdgDecimals: number) => amount * 10n ** BigInt(18 - usdgDecimals);
+/** USDG premium per option for `amount` options (underlying base units). */
+const perOption = (premium: bigint, amount: bigint, underlyingDecimals: number) =>
+  (premium * 10n ** BigInt(underlyingDecimals)) / amount;
+/** A WAD USD value of `amount` tokens (base units) at `price` (WAD per token). */
+const valueOf = (amount: bigint, price: bigint, decimals: number) =>
+  (amount * price) / 10n ** BigInt(decimals);
+const optionWord = (isCall: boolean) => (isCall ? "call" : "put");
+
+/**
+ * Why a vault's live series cannot be bought now, from the facts `EpochManager.buy` checks (null when it can).
+ * The market-hours check is separate: it is the same for every series.
+ */
+function saleBlocker(v: VaultState, now: bigint, saleCutoff: number): string | null {
+  const s = v.series;
+  if (v.epoch.state !== "Selling" || !s)
+    return `${v.symbol} has no series on sale (epoch is ${v.epoch.state})`;
+  if (now >= s.expiry) return `series ${s.id} expired at ${iso(s.expiry)} and waits for settle_epoch`;
+  const closes = s.expiry - BigInt(saleCutoff);
+  if (now >= closes) {
+    return `sales of series ${s.id} closed at ${iso(closes)}, ${saleCutoff / 60} minutes before expiry`;
+  }
+  if (s.sold >= s.size) return `series ${s.id} is sold out`;
+  return null;
+}
+
+/**
+ * The series of a vault to redeem for `holder`: the newest settled or cancelled one they hold options of, else the
+ * newest one they hold that is not final yet (the caller reports it).
+ */
+async function redeemableSeries(strike: StrikeClient, v: VaultState, holder: Address): Promise<SeriesState> {
+  let ids: bigint[];
+  try {
+    ids = await strike.vaultSeriesIds(v.address);
+  } catch (err) {
+    throw new StrikeError(
+      `could not read ${v.symbol}'s series from the chain's logs (${explainError(err)}); pass the seriesId from buy_options`,
+    );
+  }
+  let pending: SeriesState | null = null;
+  for (const id of ids) {
+    const [s, balance] = await Promise.all([strike.getSeries(id), strike.optionBalance(id, holder)]);
+    if (!s || balance === 0n) continue;
+    if (s.settled || s.cancelled) return s;
+    pending ??= s;
+  }
+  if (pending) return pending;
+  throw new StrikeError(`${holder} holds no options of ${v.symbol}`);
+}
+
+/** "10 TSLA", "10" or 10 → amount and optional symbol. */
+function parsePosition(position: string | number): { amount: string; symbol: string | null } {
+  if (typeof position === "number") return { amount: String(position), symbol: null };
+  const m = /^\s*(\d+(?:\.\d+)?)\s*([A-Za-z][A-Za-z0-9.-]*)?\s*$/.exec(position);
+  if (!m) throw new StrikeError(`position must look like "10 TSLA" or "10", got "${position}"`);
+  return { amount: m[1] as string, symbol: m[2] ?? null };
 }
 
 interface Evaluation {
@@ -292,14 +367,15 @@ function nextStep(v: VaultState, now: bigint, marketOpen: boolean, feedOk: boole
     case "Selling": {
       const expiry = v.series?.expiry ?? 0n;
       if (now >= expiry) return "The series has expired: call settle_epoch.";
-      return `Selling until ${iso(expiry)}; buyers can use quote. Settle with settle_epoch after expiry.`;
+      return `Selling until ${iso(expiry)}; buyers can use quote, hedge_plan and buy_options. Settle with settle_epoch after expiry.`;
     }
   }
 }
 
 /**
- * Build the Strike MCP server: tools to list and inspect vaults, quote options, dry-run and send an agent's
- * proposal, settle epochs and read agent track records, plus the STRIKE_SKILL.md resource.
+ * Build the Strike MCP server: tools to list and inspect vaults, quote, plan hedges with, buy and redeem options,
+ * dry-run and send an agent's proposal, settle epochs and read agent track records, plus the STRIKE_SKILL.md
+ * resource.
  */
 export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
   const { chainId, client } = options;
@@ -358,7 +434,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
       return result({
         protocol: "Strike",
         description:
-          "Options vaults for Robinhood Chain stock tokens, paid in USDG. Agents propose weekly strikes; the contract enforces each vault's mandate and slashes the agent's bond for proposals outside it.",
+          "Options vaults for Robinhood Chain stock tokens, paid in USDG. Agents propose weekly strikes; the contract enforces each vault's mandate and slashes the agent's bond for proposals outside it. Agents also buy the options, to hedge a stock position or for directional exposure (hedge_plan, buy_options, redeem_options).",
         sdkVersion: STRIKE_SDK_VERSION,
         serverVersion: SERVER_VERSION,
         chainId,
@@ -523,6 +599,435 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           premium: usdg(q.premium),
           premiumPerOption: usdg(perOption),
           collateral: formatAmount(q.collateral, v.assetDecimals),
+        });
+      }),
+  );
+
+  server.registerTool(
+    "hedge_plan",
+    {
+      title: "Plan a hedge",
+      description:
+        "Plan a hedge for a stock-token position without sending anything: how many puts (for tokens you hold) or calls (for a short position) of a live series cover it, the USDG premium now, the protected price and the worst case. Plain arithmetic from quoteBuy and the series. Says so when no suitable series is on sale. Buy the plan with buy_options.",
+      inputSchema: {
+        vault: vaultInput
+          .optional()
+          .describe(
+            "Vault whose live series to use (a put vault hedges tokens you hold); or give underlying",
+          ),
+        underlying: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Stock token symbol such as TSLA: consider every vault on it"),
+        position: z
+          .union([z.number().positive(), z.string().min(1)])
+          .describe('Tokens to hedge, e.g. "10 TSLA" or "10" (the symbol can stand in for underlying)'),
+        side: z
+          .enum(["long", "short"])
+          .optional()
+          .describe(
+            "long: you hold the tokens and fear a drop (puts hedge). short: you are short and fear a rise (calls hedge). Default: long, or the given vault's kind",
+          ),
+      },
+      outputSchema: hedgePlanShape,
+      annotations: READ_ONLY,
+    },
+    async ({ vault, underlying, position, side }) =>
+      run(async () => {
+        const strike = client();
+        const pos = parsePosition(position);
+        const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+        if (underlying && pos.symbol && !same(underlying, pos.symbol)) {
+          throw new StrikeError(`underlying ${underlying} and position ${pos.symbol} disagree`);
+        }
+        let vaults: VaultState[];
+        let wanted: "long" | "short";
+        if (vault !== undefined) {
+          const v = await strike.getVault(await resolveVault(strike, vault));
+          const other = underlying ?? pos.symbol;
+          if (other && !same(other, v.underlyingSymbol)) {
+            throw new StrikeError(`${v.symbol} is a ${v.underlyingSymbol} vault, not ${other}`);
+          }
+          wanted = side ?? (v.isCall ? "short" : "long");
+          vaults = [v];
+        } else {
+          const ref = underlying ?? pos.symbol;
+          if (!ref)
+            throw new StrikeError('give a vault, an underlying symbol, or a position such as "10 TSLA"');
+          const all = await strike.listVaults();
+          vaults = all.filter((v) => same(v.underlyingSymbol, ref));
+          if (vaults.length === 0) {
+            const known = [...new Set(all.map((v) => v.underlyingSymbol))].join(", ") || "none";
+            throw new StrikeError(`no Strike vault on ${ref}; vaults exist on: ${known}`);
+          }
+          wanted = side ?? "long";
+        }
+        const first = vaults[0] as VaultState;
+        const symbol = first.underlyingSymbol;
+        const dec = first.underlyingDecimals;
+        const positionRaw = parseAmount(pos.amount, dec);
+        if (positionRaw === 0n) throw new StrikeError("position must be positive");
+        const [now, cutoff, marketOpen, oracle, usdgDecimals] = await Promise.all([
+          strike.blockTimestamp(),
+          strike.saleCutoff(),
+          strike.marketOpen(),
+          strike.oracleStatus(first.underlying),
+          strike.usdgDecimals(),
+        ]);
+
+        const wantCall = wanted === "short";
+        const kindWord = optionWord(wantCall);
+        const considered: z.infer<typeof hedgePlanShape.considered> = [];
+        const plans: { v: VaultState; s: SeriesState; options: bigint; premium: bigint }[] = [];
+        for (const v of vaults) {
+          const entry = { vault: v.address, vaultSymbol: v.symbol, kind: v.kind };
+          if (v.isCall !== wantCall) {
+            const note = `sells ${optionWord(v.isCall)}s, which do not hedge a ${wanted} position`;
+            considered.push({ ...entry, usable: false, note });
+            continue;
+          }
+          const blocked = saleBlocker(v, now, cutoff);
+          if (blocked) {
+            considered.push({ ...entry, usable: false, note: blocked });
+            continue;
+          }
+          const s = v.series as SeriesState;
+          const left = s.size - s.sold;
+          const options = positionRaw < left ? positionRaw : left;
+          try {
+            const q = await strike.quoteBuy(s.id, options);
+            plans.push({ v, s, options, premium: q.premium });
+            const note = `series ${s.id}: strike $${usd(s.strike)}, ${formatAmount(left, dec)} options left, ${usdg(q.premium)} USDG for ${formatAmount(options, dec)}`;
+            considered.push({ ...entry, usable: true, note });
+          } catch (err) {
+            considered.push({ ...entry, usable: false, note: explainError(err) });
+          }
+        }
+        // Most coverage first, then the most protection (highest put strike, lowest call strike), then the cheapest.
+        const cmp = (a: bigint, b: bigint) => (a === b ? 0 : a < b ? -1 : 1);
+        plans.sort(
+          (a, b) =>
+            cmp(b.options, a.options) ||
+            (wantCall ? cmp(a.s.strike, b.s.strike) : cmp(b.s.strike, a.s.strike)) ||
+            cmp(a.premium, b.premium),
+        );
+
+        const spot = oracle.price === 0n ? null : oracle.price;
+        const positionAmount = formatAmount(positionRaw, dec);
+        const base = {
+          underlying: symbol,
+          side: wanted,
+          position: positionAmount,
+          spot: spot === null ? null : usd(spot),
+          positionValue: spot === null ? null : usd(valueOf(positionRaw, spot, dec)),
+          considered,
+        };
+        const best = plans[0];
+        if (!best) {
+          const why = considered.map((c) => `${c.vaultSymbol}: ${c.note}`).join("; ");
+          return result({
+            ...base,
+            hedgeable: false,
+            canBuyNow: false,
+            hedge: null,
+            explanation: `No ${symbol} ${kindWord} series can hedge a ${wanted} position right now (${why}). vault_state shows when the next series goes on sale.`,
+          });
+        }
+
+        const { v, s, options, premium } = best;
+        const spotWad = spot ?? 0n;
+        const per = perOption(premium, options, dec);
+        const perWad = usdgToWad(per, usdgDecimals);
+        const premiumWad = usdgToWad(premium, usdgDecimals);
+        const coveredValue = valueOf(options, spotWad, dec);
+        const effective = wantCall ? s.strike + perWad : s.strike > perWad ? s.strike - perWad : 0n;
+        // Puts: the tokens fall to the strike before the puts pay. Calls: the price rises to the strike.
+        const maxLoss =
+          valueOf(options, wantCall ? s.strike - spotWad : spotWad - s.strike, dec) + premiumWad;
+        const costBps = coveredValue > 0n ? Number((premiumWad * 1_000_000n) / coveredValue) / 100 : 0;
+        const closes = s.expiry - BigInt(cutoff);
+        const opts = formatAmount(options, dec);
+        const K = usd(s.strike);
+        const protection = wantCall
+          ? `At expiry, buying back each covered token costs at most $${K} ($${usd(effective)} with the premium): above the strike each call pays (S − K) / S ${symbol}.`
+          : `At expiry each covered token is worth at least $${K} ($${usd(effective)} after the premium): below the strike each put pays K − S in USDG.`;
+        let explanation = `Hedge ${wantCall ? "a short of " : ""}${positionAmount} ${symbol} with ${opts} ${kindWord}s of ${v.symbol} (series ${s.id}, strike $${K}, expiry ${iso(s.expiry)}): ${usdg(premium)} USDG now (${usdg(per)} per option, ${round(costBps / 100, 2)}% of the covered value at $${usd(spotWad)}). ${protection} Worst case versus today, premium included: a loss of $${usd(maxLoss)}.`;
+        if (options < positionRaw) {
+          explanation += ` Only ${opts} options are left, so ${formatAmount(positionRaw - options, dec)} ${symbol} stay unhedged.`;
+        }
+        explanation += marketOpen
+          ? ` Buy it with buy_options { "vault": "${v.symbol}", "amount": "${opts}" } before ${iso(closes)}.`
+          : ` Not buyable right now: ${ERROR_HINTS.MarketClosed}`;
+        return result({
+          ...base,
+          hedgeable: true,
+          canBuyNow: marketOpen && oracle.ok,
+          explanation,
+          hedge: {
+            vault: v.address,
+            vaultSymbol: v.symbol,
+            seriesId: s.id.toString(),
+            optionType: kindWord,
+            strike: K,
+            expiry: Number(s.expiry),
+            expiryIso: iso(s.expiry),
+            options: opts,
+            coverage: Number((options * 10_000n) / positionRaw) / 10_000,
+            premium: usdg(premium),
+            premiumPerOption: usdg(per),
+            costBps,
+            protectedPrice: K,
+            effectivePrice: usd(effective),
+            maxLoss: usd(maxLoss),
+            saleClosesAt: Number(closes),
+            saleClosesAtIso: iso(closes),
+          } satisfies z.infer<typeof hedgeSchema>,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "buy_options",
+    {
+      title: "Buy options",
+      description:
+        "Buy options of a vault's live series as this server's wallet: to hedge a stock position (puts protect tokens you hold; see hedge_plan) or for directional exposure. Quotes first and refuses when the series is not on sale, its sales have closed (shortly before expiry), the NYSE is closed, the price feed is unusable or the wallet lacks the USDG premium; then approves USDG and buys with a slippage bound. Returns the premium paid, the max loss (the premium) and the breakeven price.",
+      inputSchema: {
+        vault: vaultInput,
+        amount: decimalInput.describe(
+          'Options to buy, in underlying tokens (e.g. "2"; one option covers one token)',
+        ),
+        maxSlippageBps: z
+          .number()
+          .int()
+          .min(0)
+          .max(10_000)
+          .optional()
+          .describe("Allowed premium rise over the quote, bps (default 100 = 1%)"),
+        recipient: addressInput
+          .optional()
+          .describe("Who receives the options (default: this server's wallet)"),
+      },
+      outputSchema: {
+        vault: z.string(),
+        vaultSymbol: z.string(),
+        seriesId: z.string(),
+        underlying: z.string(),
+        isCall: z.boolean(),
+        strike: z.string().describe("USD per token"),
+        expiry: z.number(),
+        expiryIso: z.string(),
+        amount: z.string(),
+        quotedPremium: z.string().describe("USDG"),
+        maxPremium: z.string().describe("USDG: the quote plus slippage, the most the contract could charge"),
+        premiumPaid: z.string().describe("USDG"),
+        premiumPerOption: z.string().describe("USDG"),
+        maxLoss: z.string().describe("USDG: a bought option can lose at most its premium"),
+        breakeven: z
+          .string()
+          .describe("USD price at expiry: call strike + premium per option, put strike − it"),
+        payoutAsset: z
+          .string()
+          .describe("What the options pay at settlement: the stock (calls) or USDG (puts)"),
+        recipient: z.string(),
+        txHash: z.string(),
+        explanation: z.string(),
+      },
+      annotations: WRITE,
+    },
+    async ({ vault, amount, maxSlippageBps, recipient }) =>
+      run(async () => {
+        const strike = client();
+        const me = requireWallet(strike);
+        const to = recipient === undefined ? me : getAddress(recipient);
+        const v = await strike.getVault(await resolveVault(strike, vault));
+        const [now, cutoff, marketOpen, oracle, usdgDecimals] = await Promise.all([
+          strike.blockTimestamp(),
+          strike.saleCutoff(),
+          strike.marketOpen(),
+          strike.oracleStatus(v.underlying),
+          strike.usdgDecimals(),
+        ]);
+        const blocked = saleBlocker(v, now, cutoff);
+        if (blocked) throw new StrikeError(`not buying: ${blocked}`);
+        if (!marketOpen) throw new StrikeError(`not buying: ${ERROR_HINTS.MarketClosed}`);
+        if (!oracle.ok) {
+          throw new StrikeError(
+            `not buying: the ${v.underlyingSymbol} price feed is not usable (${oracle.status}): ${FEED_STATUS_DESCRIPTIONS[oracle.status]}`,
+          );
+        }
+        const series = v.series as SeriesState;
+        const dec = v.underlyingDecimals;
+        const raw = parseAmount(amount, dec);
+        if (raw === 0n) throw new StrikeError("amount must be positive");
+        const left = series.size - series.sold;
+        if (raw > left) {
+          throw new StrikeError(`only ${formatAmount(left, dec)} options of series ${series.id} are left`);
+        }
+
+        const slippageBps = maxSlippageBps ?? DEFAULT_SLIPPAGE_BPS;
+        const quote = await strike.quoteBuy(series.id, raw);
+        const maxPremium =
+          quote.premium + (quote.premium * BigInt(slippageBps) + BigInt(BPS) - 1n) / BigInt(BPS);
+        const balance = await strike.tokenBalance(strike.addresses.usdg, me);
+        if (balance < quote.premium) {
+          throw new StrikeError(
+            `not buying: the premium is ${usdg(quote.premium)} USDG but ${me} holds ${usdg(balance)} USDG`,
+          );
+        }
+
+        const res = await strike.buy(series.id, raw, { slippageBps, to });
+        const per = perOption(res.premium, raw, dec);
+        const perWad = usdgToWad(per, usdgDecimals);
+        const breakeven = v.isCall
+          ? series.strike + perWad
+          : series.strike > perWad
+            ? series.strike - perWad
+            : 0n;
+        const U = v.underlyingSymbol;
+        const K = usd(series.strike);
+        const n = formatAmount(raw, dec);
+        const paid = usdg(res.premium);
+        const payoff = v.isCall
+          ? `Above $${K} at expiry each option pays (S − K) / S ${U}`
+          : `Below $${K} at expiry each option pays K − S in USDG`;
+        return result({
+          vault: v.address,
+          vaultSymbol: v.symbol,
+          seriesId: series.id.toString(),
+          underlying: U,
+          isCall: v.isCall,
+          strike: K,
+          expiry: Number(series.expiry),
+          expiryIso: iso(series.expiry),
+          amount: n,
+          quotedPremium: usdg(quote.premium),
+          maxPremium: usdg(maxPremium),
+          premiumPaid: paid,
+          premiumPerOption: usdg(per),
+          maxLoss: paid,
+          breakeven: usd(breakeven),
+          payoutAsset: v.isCall ? U : v.assetSymbol,
+          recipient: to,
+          txHash: res.hash,
+          explanation: `Bought ${n} ${U} ${optionWord(v.isCall)}s (series ${series.id}, strike $${K}, expiry ${iso(series.expiry)}) for ${paid} USDG (${usdg(per)} per option). Max loss: the premium, ${paid} USDG. Breakeven at expiry: ${U} at $${usd(breakeven)}. ${payoff}; after settle_epoch, collect it with redeem_options.`,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "redeem_options",
+    {
+      title: "Redeem options",
+      description:
+        "Redeem this wallet's options of a settled (or cancelled) series and report the payout: stock tokens for calls, USDG for puts, a USDG premium refund for a cancelled series. Give a seriesId, or a vault to use its newest settled series you hold. Redeems all you hold unless amount is given.",
+      inputSchema: {
+        vault: vaultInput.optional().describe("Use this vault's newest settled series you hold options of"),
+        seriesId: z
+          .string()
+          .regex(/^\d+$/)
+          .optional()
+          .describe("Series id (decimal, from buy_options); default: found from the vault"),
+        amount: decimalInput
+          .optional()
+          .describe("Options to redeem, in underlying tokens; default: all you hold"),
+        recipient: addressInput
+          .optional()
+          .describe("Who receives the payout (default: this server's wallet)"),
+      },
+      outputSchema: {
+        vault: z.string(),
+        vaultSymbol: z.string(),
+        seriesId: z.string(),
+        isCall: z.boolean(),
+        strike: z.string(),
+        expiry: z.number(),
+        expiryIso: z.string(),
+        status: z.enum(["settled", "cancelled"]),
+        settlementPrice: z.string().nullable(),
+        amount: z.string().describe("Options redeemed (burned)"),
+        paid: z.string().describe("Payout, in paidAsset"),
+        paidAsset: z.string(),
+        paidValue: z.string().describe("The payout's USD value at the settlement price"),
+        remaining: z.string().describe("Options of this series still held"),
+        recipient: z.string(),
+        txHash: z.string(),
+        explanation: z.string(),
+      },
+      annotations: WRITE,
+    },
+    async ({ vault, seriesId, amount, recipient }) =>
+      run(async () => {
+        const strike = client();
+        const me = requireWallet(strike);
+        const to = recipient === undefined ? me : getAddress(recipient);
+        let series: SeriesState;
+        if (seriesId !== undefined) {
+          const s = await strike.getSeries(BigInt(seriesId));
+          if (!s) throw new StrikeError(`series ${seriesId} does not exist`);
+          series = s;
+        } else if (vault !== undefined) {
+          series = await redeemableSeries(
+            strike,
+            await strike.getVault(await resolveVault(strike, vault)),
+            me,
+          );
+        } else throw new StrikeError("give a vault or a seriesId");
+        const [v, balance, usdgDecimals] = await Promise.all([
+          strike.getVault(series.vault),
+          strike.optionBalance(series.id, me),
+          strike.usdgDecimals(),
+        ]);
+        const dec = v.underlyingDecimals;
+        if (!series.settled && !series.cancelled) {
+          throw new StrikeError(
+            `series ${series.id} is not settled yet: it expires ${iso(series.expiry)}; after expiry anyone can settle it with settle_epoch, then redeem (${formatAmount(balance, dec)} options held)`,
+          );
+        }
+        if (balance === 0n) throw new StrikeError(`${me} holds no options of series ${series.id}`);
+        const raw = amount === undefined ? balance : parseAmount(amount, dec);
+        if (raw === 0n) throw new StrikeError("amount must be positive");
+        if (raw > balance) {
+          throw new StrikeError(
+            `${me} holds only ${formatAmount(balance, dec)} options of series ${series.id}`,
+          );
+        }
+
+        const res = await strike.redeemOptions(series.id, { amount: raw, to });
+        const inStock = series.isCall && !series.cancelled;
+        const paidAsset = inStock ? v.underlyingSymbol : "USDG";
+        const paid = inStock ? formatAmount(res.paid, dec) : usdg(res.paid, usdgDecimals);
+        const paidValue = inStock ? usd(valueOf(res.paid, series.settlementPrice, dec)) : paid;
+        const price = series.settlementPrice === 0n ? null : usd(series.settlementPrice);
+        const n = formatAmount(raw, dec);
+        const what = `series ${series.id} (${v.underlyingSymbol} ${optionWord(series.isCall)}, strike $${usd(series.strike)})`;
+        let explanation: string;
+        if (series.cancelled) {
+          explanation = `${what} was cancelled without a settlement price: ${n} options refunded ${paid} USDG of premium.`;
+        } else if (res.paid === 0n) {
+          explanation = `${what} settled at $${price}, out of the money: the ${n} options expired worthless and were burned. The premium paid was the whole loss.`;
+        } else {
+          explanation = `${what} settled at $${price}, in the money: ${n} options paid ${paid} ${paidAsset}${inStock ? ` (worth $${paidValue} at the settlement price)` : ""}.`;
+        }
+        return result({
+          vault: v.address,
+          vaultSymbol: v.symbol,
+          seriesId: series.id.toString(),
+          isCall: series.isCall,
+          strike: usd(series.strike),
+          expiry: Number(series.expiry),
+          expiryIso: iso(series.expiry),
+          status: series.cancelled ? "cancelled" : "settled",
+          settlementPrice: price,
+          amount: n,
+          paid,
+          paidAsset,
+          paidValue,
+          remaining: formatAmount(balance - raw, dec),
+          recipient: to,
+          txHash: res.hash,
+          explanation,
         });
       }),
   );

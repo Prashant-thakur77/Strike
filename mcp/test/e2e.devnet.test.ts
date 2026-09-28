@@ -21,15 +21,28 @@ const unavailable = devnetUnavailableReason();
 describe.skipIf(unavailable !== null)("Strike MCP server on a local devnet", () => {
   let devnet: Devnet;
   let strike: StrikeClient;
+  let buyer: StrikeClient; // anvil account 1, with its own MCP server
   let mcp: Client;
+  let buyerMcp: Client;
   let callVault: Address;
   let putVault: Address;
   const account = privateKeyToAccount(ANVIL_KEYS[0]);
 
-  const call = async (name: string, args: Record<string, unknown> = {}) => {
-    const r = (await mcp.callTool({ name, arguments: args })) as CallToolResult;
+  const callOn = async (c: Client, name: string, args: Record<string, unknown> = {}) => {
+    const r = (await c.callTool({ name, arguments: args })) as CallToolResult;
     if (r.isError) throw new Error(`${name} failed: ${(r.content[0] as { text: string }).text}`);
     return r.structuredContent as Record<string, unknown>;
+  };
+  const call = (name: string, args: Record<string, unknown> = {}) => callOn(mcp, name, args);
+  const buyerCall = (name: string, args: Record<string, unknown> = {}) => callOn(buyerMcp, name, args);
+  const connect = async (client: StrikeClient) => {
+    const server = createStrikeMcpServer({ chainId: 31337, client: () => client });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverTransport);
+    const c = new Client({ name: "strike-e2e", version: "0.0.0" });
+    await c.connect(clientTransport);
+    await c.listTools();
+    return c;
   };
 
   beforeAll(async () => {
@@ -54,16 +67,30 @@ describe.skipIf(unavailable !== null)("Strike MCP server on a local devnet", () 
     await strike.deposit(callVault, 10n * WAD);
     await strike.deposit(putVault, 50_000_000_000n);
 
-    const server = createStrikeMcpServer({ chainId: 31337, client: () => strike });
-    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
-    await server.connect(serverTransport);
-    mcp = new Client({ name: "strike-e2e", version: "0.0.0" });
-    await mcp.connect(clientTransport);
-    await mcp.listTools();
+    // The buyer: 1,000 USDG from the public faucet.
+    const buyerWallet = createWalletClient({ account: privateKeyToAccount(ANVIL_KEYS[1]), chain, transport });
+    buyer = createStrikeClient({
+      publicClient,
+      walletClient: buyerWallet,
+      chainId: 31337,
+      addresses: devnet.deployment,
+    });
+    await publicClient.waitForTransactionReceipt({
+      hash: await buyerWallet.writeContract({
+        address: devnet.deployment.usdg,
+        abi: parseAbi(["function faucet(uint256 amount)"]),
+        functionName: "faucet",
+        args: [1_000_000_000n],
+      }),
+    });
+
+    mcp = await connect(strike);
+    buyerMcp = await connect(buyer);
   }, 180_000);
 
   afterAll(async () => {
     await mcp?.close();
+    await buyerMcp?.close();
     devnet?.stop();
   });
 
@@ -104,32 +131,12 @@ describe.skipIf(unavailable !== null)("Strike MCP server on a local devnet", () 
     expect(Number(quote.premium)).toBeGreaterThan(0);
     expect(quote.remaining).toBe("8");
 
-    // A buyer (anvil account 1) takes 2 options through the SDK.
-    const chain = { ...strikeLocalChain, rpcUrls: { default: { http: [devnet.rpcUrl] } } };
-    const buyerWallet = createWalletClient({
-      account: privateKeyToAccount(ANVIL_KEYS[1]),
-      chain,
-      transport: http(devnet.rpcUrl),
-    });
-    const buyer = createStrikeClient({
-      publicClient: strike.viem.publicClient,
-      walletClient: buyerWallet,
-      chainId: 31337,
-      addresses: devnet.deployment,
-    });
-    await strike.viem.publicClient.waitForTransactionReceipt({
-      hash: await buyerWallet.writeContract({
-        address: devnet.deployment.usdg,
-        abi: parseAbi(["function faucet(uint256 amount)"]),
-        functionName: "faucet",
-        args: [1_000_000_000n],
-      }),
-    });
+    // The buyer (anvil account 1) takes 2 options through the SDK.
     await buyer.buy(BigInt(res.seriesId as string), 2n * WAD);
     expect((await call("quote", { vault: "sTSLA-CC", amount: "1" })).remaining).toBe("6");
   });
 
-  it("a forced reckless proposal is rejected on-chain and slashed", async () => {
+  it("a forced reckless proposal is rejected on-chain and slashed; the agent then proposes a compliant put", async () => {
     const res = await call("propose_epoch", { vault: "sTSLA-CSP", strike: "368", size: "10", force: true });
     expect(res).toMatchObject({
       submitted: true,
@@ -137,16 +144,53 @@ describe.skipIf(unavailable !== null)("Strike MCP server on a local devnet", () 
       accepted: false,
       reason: "DeltaOutOfBand",
       slashed: "10",
-      agent: { bond: "40", strikes: 1, rejected: 1, active: false },
+      // Seed bonds 100 USDG, so one slash leaves the agent above the 50 USDG minimum.
+      agent: { bond: "90", strikes: 1, rejected: 1, active: true },
     });
     const stats = await call("agent_stats");
-    expect(stats).toMatchObject({ accepted: 1, rejected: 1, active: false, rejectionsUntilInactive: 0 });
-    const again = (await mcp.callTool({
-      name: "propose_epoch",
-      arguments: { vault: "sTSLA-CSP", targetDeltaBps: 2000 },
+    expect(stats).toMatchObject({ accepted: 1, rejected: 1, active: true, rejectionsUntilInactive: 2 });
+    const again = await call("propose_epoch", { vault: "sTSLA-CSP", targetDeltaBps: 2000, size: "20" });
+    expect(again).toMatchObject({ submitted: true, accepted: true, openTxHash: null, size: "20" });
+  });
+
+  it("a buyer agent plans a put hedge, buys it and a call, through its own MCP server", async () => {
+    expect(await buyerCall("strike_info")).toMatchObject({ mode: "agent" });
+    const plan = await buyerCall("hedge_plan", { position: "10 TSLA" });
+    expect(plan).toMatchObject({
+      underlying: "TSLA",
+      side: "long",
+      spot: "369",
+      hedgeable: true,
+      canBuyNow: true,
+      hedge: { vaultSymbol: "sTSLA-CSP", optionType: "put", options: "10", coverage: 1 },
+    });
+    const hedge = plan.hedge as Record<string, string>;
+    expect(Number(hedge.protectedPrice)).toBeLessThan(369);
+    expect(Number(hedge.premium)).toBeGreaterThan(0);
+
+    const put = await buyerCall("buy_options", { vault: "sTSLA-CSP", amount: hedge.options });
+    expect(put).toMatchObject({
+      isCall: false,
+      amount: "10",
+      payoutAsset: "USDG",
+      strike: hedge.protectedPrice,
+    });
+    expect(Number(put.premiumPaid)).toBeLessThanOrEqual(Number(put.maxPremium));
+    expect(Number(put.breakeven)).toBeCloseTo(Number(put.strike) - Number(put.premiumPerOption), 3);
+    expect(await buyer.optionBalance(BigInt(put.seriesId as string))).toBe(10n * WAD);
+
+    const bought = await buyerCall("buy_options", { vault: "sTSLA-CC", amount: "1", maxSlippageBps: 50 });
+    expect(bought).toMatchObject({ isCall: true, amount: "1", payoutAsset: "TSLA" });
+    expect(bought.maxLoss).toBe(bought.premiumPaid);
+    expect(Number(bought.breakeven)).toBeCloseTo(Number(bought.strike) + Number(bought.premiumPerOption), 3);
+    expect((await call("quote", { vault: "sTSLA-CC", amount: "1" })).remaining).toBe("5");
+
+    const early = (await buyerMcp.callTool({
+      name: "redeem_options",
+      arguments: { vault: "sTSLA-CC" },
     })) as CallToolResult;
-    expect(again.isError).toBe(true);
-    expect((again.content[0] as { text: string }).text).toMatch(/cannot propose.*postBond/);
+    expect(early.isError).toBe(true);
+    expect((early.content[0] as { text: string }).text).toMatch(/not settled yet.*settle_epoch/);
   });
 
   it("settle_epoch settles after expiry and updates the track record", async () => {
@@ -173,5 +217,31 @@ describe.skipIf(unavailable !== null)("Strike MCP server on a local devnet", () 
     });
     expect(res.explanation).toMatch(/Settled at \$380/);
     expect((await call("vault_state", { vault: "sTSLA-CC" })).vault).toMatchObject({ epochState: "Idle" });
+  });
+
+  it("the buyer redeems settled options from the vault alone and sees the payout", async () => {
+    // $380 is between the put and call strikes: both expire worthless.
+    const calls = await buyerCall("redeem_options", { vault: "sTSLA-CC" });
+    expect(calls).toMatchObject({
+      status: "settled",
+      settlementPrice: "380",
+      amount: "3",
+      paid: "0",
+      paidAsset: "TSLA",
+      remaining: "0",
+    });
+    expect(calls.explanation).toMatch(/expired worthless/);
+
+    await call("settle_epoch", { vault: "sTSLA-CSP" });
+    const puts = await buyerCall("redeem_options", { vault: "sTSLA-CSP", amount: "4" });
+    expect(puts).toMatchObject({
+      settlementPrice: "380",
+      amount: "4",
+      paid: "0",
+      paidAsset: "USDG",
+      remaining: "6",
+    });
+    const rest = await buyerCall("redeem_options", { seriesId: puts.seriesId });
+    expect(rest).toMatchObject({ amount: "6", remaining: "0" });
   });
 });

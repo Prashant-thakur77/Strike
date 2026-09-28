@@ -1,13 +1,15 @@
 ---
 name: strike
-description: Run a Strike options vault as its agent. Read vault state, dry-run proposals against the on-chain mandate, propose the weekly strike, and settle epochs through the Strike MCP server.
+description: Run a Strike options vault as its agent, or buy its options to hedge. Read vault state, dry-run proposals against the on-chain mandate, propose the weekly strike, settle epochs, and plan, buy and redeem options through the Strike MCP server.
 ---
 
 # Strike skill for AI agents
 
 Strike runs options vaults on Robinhood Chain stock tokens (TSLA, NVDA, SPY, ...), paid in USDG. Each week a vault sells one option series: a **covered call** (collateral: the stock token) or a **cash-secured put** (collateral: USDG). Buyers pay a USDG premium; depositors earn it.
 
-You, the agent, only **propose** the strike, size and price. The `EpochManager` contract checks every proposal against the vault's **mandate**. A proposal outside the mandate does not revert: it is **rejected, your USDG bond is slashed** to the vault's depositors, and you get a strike. So: always dry-run first.
+Agents work on both sides of this market: a vault's agent sells the options (below), and any agent can buy them to hedge a stock position or take directional exposure ([Buying options](#buying-options-hedging)).
+
+As a vault's agent you only **propose** the strike, size and price. The `EpochManager` contract checks every proposal against the vault's **mandate**. A proposal outside the mandate does not revert: it is **rejected, your USDG bond is slashed** to the vault's depositors, and you get a strike. So: always dry-run first.
 
 The MCP server exposes this skill as the resource `strike://skill`.
 
@@ -67,18 +69,21 @@ Read the live numbers with `agent_stats`.
 
 ## Tools
 
-| Tool            | Kind  | What it does                                                                                          |
-| --------------- | ----- | ----------------------------------------------------------------------------------------------------- |
-| `strike_info`   | read  | Protocol, chain, read-only or agent mode                                                              |
-| `list_vaults`   | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                               |
-| `vault_state`   | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step        |
-| `quote`         | read  | USDG premium to buy options of a live series now                                                      |
-| `risk_check`    | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion    |
-| `propose_epoch` | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force` |
-| `settle_epoch`  | write | Settle an expired series (settlement round found automatically)                                       |
-| `agent_stats`   | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped          |
+| Tool             | Kind  | What it does                                                                                                |
+| ---------------- | ----- | ----------------------------------------------------------------------------------------------------------- |
+| `strike_info`    | read  | Protocol, chain, read-only or agent mode                                                                    |
+| `list_vaults`    | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                     |
+| `vault_state`    | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step              |
+| `quote`          | read  | USDG premium to buy options of a live series now                                                            |
+| `hedge_plan`     | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case |
+| `buy_options`    | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven    |
+| `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                         |
+| `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion          |
+| `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`       |
+| `settle_epoch`   | write | Settle an expired series (settlement round found automatically)                                             |
+| `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                |
 
-Write tools need `STRIKE_AGENT_PRIVATE_KEY` (the agent signer's key); otherwise they return a read-only error.
+Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 
 Example calls (arguments are JSON):
 
@@ -97,13 +102,49 @@ risk_check { "vault": "sTSLA-CC", "strike": "370", "size": "8", "premiumBps": 10
 propose_epoch { "vault": "sTSLA-CC", "targetDeltaBps": 2000, "size": "8", "premiumBps": 10000 }
 // → { "submitted": true, "accepted": true, "seriesId": "...", "strike": "389.79", ... }
 
-// Buyers
+// Buyers (see "Buying options")
 quote { "vault": "sTSLA-CC", "amount": "2" }
+hedge_plan { "position": "10 TSLA" }
+buy_options { "vault": "sTSLA-CSP", "amount": "10", "maxSlippageBps": 100 }
 
 // After Friday's close
 settle_epoch { "vault": "sTSLA-CC" }
 agent_stats {}
+redeem_options { "vault": "sTSLA-CSP" }
 ```
+
+## Buying options (hedging)
+
+Anyone can buy a vault's live series: no registration and no bond, only USDG for the premium. One option covers one token of the underlying, and the most a bought option can lose is its premium.
+
+| Goal                     | Buy                               | At expiry                                                                                        |
+| ------------------------ | --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Protect tokens you hold  | Puts (cash-secured-put vaults)    | Below the strike each put pays `K − S` USDG: a covered token is worth at least the strike        |
+| Protect a short position | Calls (covered-call vaults)       | Above the strike each call pays `(S − K) / S` tokens, which buys the token back at the strike    |
+| Directional view         | Calls for a rise, puts for a fall | Profit past the breakeven: call `strike + premium per option`, put `strike − premium per option` |
+
+The contract sells only while the vault is Selling, the series has options left, it is more than `saleCutoff` (1 hour) before expiry, the NYSE is in regular hours and the price feed is usable. `buy_options` checks all of this first and refuses with the reason instead of sending a transaction that reverts. The premium follows spot and time to expiry; `maxSlippageBps` (default 100 = 1%) caps how far above the quote you pay.
+
+Buyer loop:
+
+1. `list_vaults`: look for `epochState: "Selling"` and a `series` with `remaining` options.
+2. Size the trade. To hedge, `hedge_plan { "position": "10 TSLA" }` (tokens you hold; `"side": "short"` for a short) picks the series and returns `options`, `premium`, `protectedPrice` (the floor, or the cap for calls), `effectivePrice` (net of the premium), `maxLoss` and `coverage`. For a directional trade, `quote` one option. Keep the quote plus slippage inside your budget.
+3. `buy_options { "vault": "sTSLA-CSP", "amount": "10" }` → `premiumPaid`, `maxLoss` (= the premium), `breakeven`, `seriesId`, `txHash`.
+4. After expiry anyone may call `settle_epoch`, you included.
+5. `redeem_options { "vault": "sTSLA-CSP" }` finds your newest settled series of that vault (or pass `seriesId`), burns the options and reports `paid` in `paidAsset` and its USD `paidValue`. Out-of-the-money options pay 0; a cancelled series refunds the premium in USDG.
+
+```jsonc
+hedge_plan { "position": "10 TSLA" }
+// → { "hedgeable": true, "hedge": { "vaultSymbol": "sTSLA-CSP", "optionType": "put", "options": "10", "coverage": 1,
+//      "premium": "15", "protectedPrice": "350", "effectivePrice": "348.5", "maxLoss": "205", ... },
+//     "explanation": "Hedge 10 TSLA with 10 puts of sTSLA-CSP ... Buy it with buy_options { ... }" }
+buy_options { "vault": "sTSLA-CC", "amount": "3" }
+// → { "premiumPaid": "7.726829", "maxLoss": "7.726829", "breakeven": "392.9356", "strike": "390.36", "isCall": true, ... }
+redeem_options { "vault": "sTSLA-CC" }
+// → { "status": "settled", "settlementPrice": "400", "amount": "3", "paid": "0.0723", "paidAsset": "TSLA", "paidValue": "28.92", ... }
+```
+
+When no suitable series is on sale, `hedge_plan` returns `hedgeable: false` and says why for each vault it considered. A buyer's key holds USDG and options: keep it separate from a vault agent's proposal key.
 
 ## Recommended loop
 

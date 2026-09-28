@@ -1,7 +1,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { type ProposalParams, type StrikeClient, type VaultState, WAD } from "@strike/sdk";
+import { type ProposalParams, type SeriesState, type StrikeClient, type VaultState, WAD } from "@strike/sdk";
 import { type Address, getAddress } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStrikeMcpServer } from "../src/server.js";
@@ -91,19 +91,124 @@ async function previewProposal(_vault: Address, p: ProposalParams) {
   };
 }
 
-function stub(opts: { wallet?: boolean } = {}) {
-  const calls = { openEpoch: vi.fn(), proposeSeries: vi.fn(), proposeByDelta: vi.fn() };
+// The buyer side: a live 389.79 call (2.44 USDG per option) and a live 350 put (1.50 USDG per option).
+const PUT_VAULT = addr(0x1002);
+const USDG = addr(0xd6);
+const BUYER = addr(0xb0b);
+const callSeries: SeriesState = {
+  id: 42n,
+  vault: VAULT,
+  underlying: TSLA,
+  agentId: 1n,
+  expiry: FRIDAY,
+  premiumBps: 10_000,
+  isCall: true,
+  settled: false,
+  cancelled: false,
+  strike: 389_790_000_000_000_000_000n,
+  size: 8n * WAD,
+  sold: 0n,
+  premium: 0n,
+  collateral: 0n,
+  settlementPrice: 0n,
+  payoutPerOption: 0n,
+  escrow: 0n,
+};
+const putSeries: SeriesState = {
+  ...callSeries,
+  id: 43n,
+  vault: PUT_VAULT,
+  isCall: false,
+  strike: 350n * WAD,
+  size: 100n * WAD,
+};
+const putVault: VaultState = {
+  ...vault,
+  address: PUT_VAULT,
+  name: "Strike TSLA Cash-Secured Put",
+  symbol: "sTSLA-CSP",
+  decimals: 6,
+  kind: "cash-secured-put",
+  isCall: false,
+  asset: USDG,
+  assetSymbol: "USDG",
+  assetDecimals: 6,
+  totalAssets: 50_000_000_000n,
+  totalSupply: 50_000_000_000n,
+  pricePerShare: 1_000_000n,
+};
+const selling = (v: VaultState, s: SeriesState): VaultState => ({
+  ...v,
+  locked: true,
+  currentEpoch: 1n,
+  epoch: { state: "Selling", openedAt: MONDAY, seriesId: s.id },
+  series: s,
+});
+const PER_OPTION: Record<string, bigint> = { "42": 2_440_000n, "43": 1_500_000n };
+
+interface StubOptions {
+  wallet?: boolean;
+  vaults?: VaultState[];
+  series?: SeriesState[];
+  now?: bigint;
+  marketOpen?: boolean;
+  usdgBalance?: bigint;
+  /** Option balances of the wallet by series id. */
+  balances?: Record<string, bigint>;
+  /** vaultSeriesIds result, newest first. */
+  seriesIds?: bigint[];
+}
+
+function stub(opts: StubOptions = {}) {
+  const calls = {
+    openEpoch: vi.fn(),
+    proposeSeries: vi.fn(),
+    proposeByDelta: vi.fn(),
+    buy: vi.fn(),
+    redeemOptions: vi.fn(),
+  };
+  const vaults = opts.vaults ?? [vault];
+  const series = opts.series ?? [callSeries, putSeries];
   const client = {
     viem: { walletClient: opts.wallet ? { account: { address: AGENT } } : undefined },
-    listVaults: async () => [vault],
-    getVault: async () => vault,
+    addresses: { usdg: USDG },
+    listVaults: async () => vaults,
+    getVault: async (a: Address) => vaults.find((v) => v.address === a) ?? vault,
+    getSeries: async (id: bigint) => series.find((s) => s.id === id) ?? null,
     oracleStatus: async () => ({ status: "Ok", ok: true, price: 369n * WAD, updatedAt: MONDAY - 60n }),
-    blockTimestamp: async () => MONDAY,
+    blockTimestamp: async () => opts.now ?? MONDAY,
+    saleCutoff: async () => 3600,
     usdgDecimals: async () => 6,
+    quoteBuy: async (id: bigint, amount: bigint) => ({
+      premium: (amount * (PER_OPTION[id.toString()] ?? 0n)) / WAD,
+      collateral: amount,
+    }),
+    tokenBalance: async () => opts.usdgBalance ?? 1_000_000_000n,
+    optionBalance: async (id: bigint) => opts.balances?.[id.toString()] ?? 0n,
+    vaultSeriesIds: async () => opts.seriesIds ?? [],
+    buy: async (id: bigint, amount: bigint, o: { slippageBps?: number; to?: Address }) => {
+      calls.buy(id, amount, o);
+      return {
+        hash: "0xbuy",
+        seriesId: id,
+        amount,
+        premium: (amount * (PER_OPTION[id.toString()] ?? 0n)) / WAD,
+      };
+    },
+    redeemOptions: async (id: bigint, o: { amount?: bigint; to?: Address }) => {
+      calls.redeemOptions(id, o);
+      const s = series.find((x) => x.id === id) as SeriesState;
+      const amount = o.amount ?? 0n;
+      return {
+        hash: "0xredeem",
+        amount,
+        paid: s.isCall ? (amount * s.payoutPerOption) / WAD : (amount * s.payoutPerOption) / 10n ** 30n,
+      };
+    },
     nextExpiry: async () => FRIDAY,
     solveStrike: async () => 389_790_000_000_000_000_000n,
     previewProposal,
-    marketOpen: async () => true,
+    marketOpen: async () => opts.marketOpen ?? true,
     getAgent: async () => agent,
     registryParams: async () => params,
     agentOfSigner: async () => 1n,
@@ -171,9 +276,12 @@ describe("Strike MCP server", () => {
     const byName = Object.fromEntries(tools.map((t) => [t.name, t]));
     expect(Object.keys(byName).sort()).toEqual([
       "agent_stats",
+      "buy_options",
+      "hedge_plan",
       "list_vaults",
       "propose_epoch",
       "quote",
+      "redeem_options",
       "risk_check",
       "settle_epoch",
       "strike_info",
@@ -188,6 +296,15 @@ describe("Strike MCP server", () => {
     expect(byName.propose_epoch?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     expect(byName.risk_check?.annotations).toMatchObject({ readOnlyHint: true });
     expect(byName.risk_check?.inputSchema.properties).toHaveProperty("targetDeltaBps");
+    for (const name of ["buy_options", "redeem_options"]) {
+      expect(byName[name]?.annotations, name).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+      });
+    }
+    expect(byName.hedge_plan?.annotations).toMatchObject({ readOnlyHint: true });
+    expect(byName.buy_options?.inputSchema.properties).toHaveProperty("maxSlippageBps");
   });
 
   it("serves STRIKE_SKILL.md as a resource", async () => {
@@ -273,6 +390,8 @@ describe("Strike MCP server", () => {
     for (const [name, args] of [
       ["propose_epoch", { vault: VAULT, targetDeltaBps: 2000 }],
       ["settle_epoch", { vault: VAULT }],
+      ["buy_options", { vault: VAULT, amount: "1" }],
+      ["redeem_options", { vault: VAULT }],
     ] as const) {
       const r = await call(c, name, args);
       expect(r.isError, name).toBe(true);
@@ -333,5 +452,246 @@ describe("Strike MCP server", () => {
     const r = await call(c, "list_vaults");
     expect(r.isError).toBe(true);
     expect(text(r)).toMatch(/No Strike deployment/);
+  });
+  describe("buyers", () => {
+    const market = [selling(vault, callSeries), selling(putVault, putSeries)];
+
+    it("buy_options quotes, buys and reports max loss and breakeven for a call", async () => {
+      const { client, calls } = stub({ wallet: true, vaults: market });
+      const c = await connect(() => client);
+      const r = await call(c, "buy_options", { vault: "sTSLA-CC", amount: "4" });
+      expect(r.isError).toBeFalsy();
+      expect(calls.buy).toHaveBeenCalledWith(42n, 4n * WAD, { slippageBps: 100, to: AGENT });
+      expect(r.structuredContent).toMatchObject({
+        seriesId: "42",
+        amount: "4",
+        isCall: true,
+        strike: "389.79",
+        expiry: Number(FRIDAY),
+        quotedPremium: "9.76",
+        maxPremium: "9.8576",
+        premiumPaid: "9.76",
+        premiumPerOption: "2.44",
+        maxLoss: "9.76",
+        breakeven: "392.23",
+        payoutAsset: "TSLA",
+        recipient: AGENT,
+        txHash: "0xbuy",
+      });
+      const explanation = (r.structuredContent as { explanation: string }).explanation;
+      expect(explanation).toMatch(/Max loss: the premium, 9\.76 USDG/);
+      expect(explanation).toMatch(/redeem_options/);
+    });
+
+    it("buy_options puts: breakeven below the strike, custom slippage and recipient", async () => {
+      const { client, calls } = stub({ wallet: true, vaults: market });
+      const c = await connect(() => client);
+      const r = await call(c, "buy_options", {
+        vault: PUT_VAULT,
+        amount: 10,
+        maxSlippageBps: 50,
+        recipient: BUYER.toLowerCase(),
+      });
+      expect(calls.buy).toHaveBeenCalledWith(43n, 10n * WAD, { slippageBps: 50, to: BUYER });
+      expect(r.structuredContent).toMatchObject({
+        isCall: false,
+        premiumPaid: "15",
+        maxPremium: "15.075",
+        breakeven: "348.5",
+        payoutAsset: "USDG",
+        recipient: BUYER,
+      });
+    });
+
+    it("buy_options refuses when the series cannot be bought", async () => {
+      const cases: [StubOptions, Record<string, unknown>, RegExp][] = [
+        [{ vaults: [vault] }, { vault: VAULT, amount: "1" }, /no series on sale \(epoch is Idle\)/],
+        [
+          { now: FRIDAY - 1800n },
+          { vault: VAULT, amount: "1" },
+          /sales of series 42 closed at .*60 minutes before expiry/,
+        ],
+        [{ now: FRIDAY + 60n }, { vault: VAULT, amount: "1" }, /expired .* settle_epoch/],
+        [{ marketOpen: false }, { vault: VAULT, amount: "1" }, /NYSE is closed/],
+        [
+          { usdgBalance: 1_000_000n },
+          { vault: VAULT, amount: "1" },
+          /premium is 2\.44 USDG but .* holds 1 USDG/,
+        ],
+        [{}, { vault: VAULT, amount: "9" }, /only 8 options of series 42 are left/],
+        [{}, { vault: VAULT, amount: "0" }, /amount must be positive/],
+      ];
+      for (const [opts, args, message] of cases) {
+        const { client, calls } = stub({ wallet: true, vaults: market, ...opts });
+        const c = await connect(() => client);
+        const r = await call(c, "buy_options", args);
+        expect(r.isError, String(message)).toBe(true);
+        expect(text(r)).toMatch(message);
+        expect(calls.buy).not.toHaveBeenCalled();
+        await c.close();
+      }
+    });
+
+    it("redeem_options finds the newest settled series held and reports the payout", async () => {
+      // Settled at $400: each 389.79 call pays (400 - 389.79) / 400 = 0.025525 TSLA.
+      const settled = {
+        ...callSeries,
+        settled: true,
+        settlementPrice: 400n * WAD,
+        payoutPerOption: 25_525_000_000_000_000n,
+      };
+      const live = { ...callSeries, id: 44n };
+      const { client, calls } = stub({
+        wallet: true,
+        series: [settled, live],
+        seriesIds: [44n, 42n],
+        balances: { "42": 4n * WAD },
+      });
+      const c = await connect(() => client);
+      const r = await call(c, "redeem_options", { vault: "sTSLA-CC" });
+      expect(r.isError).toBeFalsy();
+      expect(calls.redeemOptions).toHaveBeenCalledWith(42n, { amount: 4n * WAD, to: AGENT });
+      expect(r.structuredContent).toMatchObject({
+        seriesId: "42",
+        status: "settled",
+        settlementPrice: "400",
+        amount: "4",
+        paid: "0.1021",
+        paidAsset: "TSLA",
+        paidValue: "40.84",
+        remaining: "0",
+        txHash: "0xredeem",
+      });
+      expect((r.structuredContent as { explanation: string }).explanation).toMatch(/in the money/);
+    });
+
+    it("redeem_options reports worthless options, put payouts and partial redemptions", async () => {
+      const otm = { ...callSeries, settled: true, settlementPrice: 380n * WAD };
+      const itmPut = { ...putSeries, settled: true, settlementPrice: 340n * WAD, payoutPerOption: 10n * WAD };
+      const { client } = stub({
+        wallet: true,
+        series: [otm, itmPut],
+        balances: { "42": 2n * WAD, "43": 5n * WAD },
+      });
+      const c = await connect(() => client);
+      const worthless = await call(c, "redeem_options", { seriesId: "42" });
+      expect(worthless.structuredContent).toMatchObject({
+        paid: "0",
+        paidAsset: "TSLA",
+        settlementPrice: "380",
+      });
+      expect((worthless.structuredContent as { explanation: string }).explanation).toMatch(
+        /expired worthless/,
+      );
+      const put = await call(c, "redeem_options", { seriesId: "43", amount: "3" });
+      expect(put.structuredContent).toMatchObject({
+        paid: "30",
+        paidAsset: "USDG",
+        paidValue: "30",
+        remaining: "2",
+      });
+    });
+
+    it("redeem_options refuses series that are not final, not held, or over-asked", async () => {
+      const { client, calls } = stub({
+        wallet: true,
+        series: [callSeries, { ...putSeries, cancelled: true }],
+        seriesIds: [42n],
+        balances: { "42": WAD, "43": WAD },
+      });
+      const c = await connect(() => client);
+      const pending = await call(c, "redeem_options", { vault: "sTSLA-CC" });
+      expect(text(pending)).toMatch(/series 42 is not settled yet.*settle_epoch/);
+      const tooMany = await call(c, "redeem_options", { seriesId: "43", amount: "2" });
+      expect(text(tooMany)).toMatch(/holds only 1 options of series 43/);
+      expect(text(await call(c, "redeem_options", {}))).toMatch(/give a vault or a seriesId/);
+      expect(calls.redeemOptions).not.toHaveBeenCalled();
+      await c.close();
+
+      const empty = await connect(() => stub({ wallet: true, seriesIds: [42n] }).client);
+      const none = await call(empty, "redeem_options", { vault: "sTSLA-CC" });
+      expect(text(none)).toMatch(/holds no options of sTSLA-CC/);
+    });
+
+    it("hedge_plan sizes a put hedge for tokens held", async () => {
+      const c = await connect(() => stub({ vaults: market }).client);
+      const r = await call(c, "hedge_plan", { position: "10 TSLA" });
+      expect(r.isError).toBeFalsy();
+      expect(r.structuredContent).toMatchObject({
+        underlying: "TSLA",
+        side: "long",
+        position: "10",
+        spot: "369",
+        positionValue: "3690",
+        hedgeable: true,
+        canBuyNow: true,
+        hedge: {
+          vaultSymbol: "sTSLA-CSP",
+          seriesId: "43",
+          optionType: "put",
+          options: "10",
+          coverage: 1,
+          premium: "15",
+          premiumPerOption: "1.5",
+          costBps: 40.65,
+          protectedPrice: "350",
+          effectivePrice: "348.5",
+          maxLoss: "205", // (369 - 350) x 10 + 15
+          saleClosesAt: Number(FRIDAY) - 3600,
+        },
+      });
+      const out = r.structuredContent as {
+        explanation: string;
+        considered: { vaultSymbol: string; usable: boolean; note: string }[];
+      };
+      expect(out.considered).toEqual([
+        expect.objectContaining({
+          vaultSymbol: "sTSLA-CC",
+          usable: false,
+          note: expect.stringMatching(/sells calls/),
+        }),
+        expect.objectContaining({ vaultSymbol: "sTSLA-CSP", usable: true }),
+      ]);
+      expect(out.explanation).toMatch(/worth at least \$350/);
+      expect(out.explanation).toMatch(/buy_options \{ "vault": "sTSLA-CSP", "amount": "10" \}/);
+    });
+
+    it("hedge_plan covers what is left and hedges shorts with calls", async () => {
+      const c = await connect(() => stub({ vaults: market, marketOpen: false }).client);
+      const partial = await call(c, "hedge_plan", { underlying: "tsla", position: 150 });
+      expect(partial.structuredContent).toMatchObject({
+        canBuyNow: false,
+        hedge: { options: "100", coverage: 0.6666 },
+      });
+      expect((partial.structuredContent as { explanation: string }).explanation).toMatch(
+        /50 TSLA stay unhedged.*NYSE is closed/,
+      );
+
+      const short = await call(c, "hedge_plan", { vault: "sTSLA-CC", position: "5" });
+      expect(short.structuredContent).toMatchObject({
+        side: "short",
+        hedge: {
+          optionType: "call",
+          options: "5",
+          premium: "12.2",
+          protectedPrice: "389.79",
+          effectivePrice: "392.23",
+          maxLoss: "116.15", // (389.79 - 369) x 5 + 12.2
+        },
+      });
+    });
+
+    it("hedge_plan says so when no suitable series is live", async () => {
+      const c = await connect(() => stub({ vaults: [selling(vault, callSeries), putVault] }).client);
+      const r = await call(c, "hedge_plan", { position: "10 TSLA" });
+      expect(r.structuredContent).toMatchObject({ hedgeable: false, canBuyNow: false, hedge: null });
+      expect((r.structuredContent as { explanation: string }).explanation).toMatch(
+        /No TSLA put series can hedge a long position right now .*sTSLA-CSP: sTSLA-CSP has no series on sale \(epoch is Idle\)/,
+      );
+      const unknown = await call(c, "hedge_plan", { position: "3 NVDA" });
+      expect(text(unknown)).toMatch(/no Strike vault on NVDA; vaults exist on: TSLA/);
+      const clash = await call(c, "hedge_plan", { vault: "sTSLA-CC", position: "3 NVDA" });
+      expect(text(clash)).toMatch(/is a TSLA vault, not NVDA/);
+    });
   });
 });

@@ -98,6 +98,47 @@ export const riskCheckShape = {
   suggestion: suggestionSchema.nullable(),
 };
 
+export const hedgeSchema = z.object({
+  vault: address,
+  vaultSymbol: z.string(),
+  seriesId: z.string(),
+  optionType: z.enum(["put", "call"]),
+  strike: decimal.describe("USD per token"),
+  expiry: z.number(),
+  expiryIso: z.string(),
+  options: decimal.describe("Options to buy; one option covers one token"),
+  coverage: z.number().describe("Share of the position the options cover (1 = all of it)"),
+  premium: decimal.describe("USDG for all the options, quoted now"),
+  premiumPerOption: decimal.describe("USDG"),
+  costBps: z.number().describe("Premium over the covered tokens' value at spot, bps"),
+  protectedPrice: decimal.describe("Puts: the floor per covered token at expiry. Calls: the cap. USD"),
+  effectivePrice: decimal.describe("protectedPrice net of the premium per option, USD"),
+  maxLoss: decimal.describe("Worst case on the covered tokens versus spot, premium included, USD"),
+  saleClosesAt: z.number(),
+  saleClosesAtIso: z.string(),
+});
+
+export const hedgePlanShape = {
+  underlying: z.string(),
+  side: z.enum(["long", "short"]).describe("long: you hold the tokens (puts hedge). short: calls hedge"),
+  position: decimal.describe("Tokens to hedge"),
+  spot: decimal.nullable(),
+  positionValue: decimal.nullable().describe("USD at spot"),
+  hedgeable: z.boolean(),
+  canBuyNow: z.boolean(),
+  explanation: z.string(),
+  hedge: hedgeSchema.nullable(),
+  considered: z.array(
+    z.object({
+      vault: address,
+      vaultSymbol: z.string(),
+      kind: z.enum(["covered-call", "cash-secured-put"]),
+      usable: z.boolean(),
+      note: z.string(),
+    }),
+  ),
+};
+
 export const agentSchema = z.object({
   agentId: z.string(),
   status: z.enum(["None", "Active", "Suspended", "Retired"]),
