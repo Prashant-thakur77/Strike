@@ -8,6 +8,11 @@ library MandateGuard {
     uint256 internal constant BPS = 10_000;
     /// @notice Highest premium an agent may ask, as a share of fair value (3x).
     uint256 internal constant MAX_PREMIUM_BPS = 30_000;
+    /// @notice Protocol floor on any vault's premium factor (90% of fair value): a curator cannot let its own agent
+    ///         buy the vault's options for nothing.
+    uint256 internal constant MIN_PREMIUM_FLOOR_BPS = 9000;
+    /// @notice Longest tenor any mandate may allow.
+    uint256 internal constant MAX_TENOR_CAP = 35 days;
 
     /// @notice Limits fixed when a vault is created. They never change afterwards.
     struct Mandate {
@@ -53,9 +58,9 @@ library MandateGuard {
     function validate(Mandate memory m) internal pure {
         if (m.minDeltaBps > m.maxDeltaBps || m.maxDeltaBps > BPS) revert InvalidMandate();
         if (m.maxShareSoldBps == 0 || m.maxShareSoldBps > BPS) revert InvalidMandate();
-        if (m.minPremiumBps == 0 || m.minPremiumBps > MAX_PREMIUM_BPS) revert InvalidMandate();
+        if (m.minPremiumBps < MIN_PREMIUM_FLOOR_BPS || m.minPremiumBps > MAX_PREMIUM_BPS) revert InvalidMandate();
         if (m.minYieldBps > BPS) revert InvalidMandate();
-        if (m.minTenor == 0 || m.minTenor > m.maxTenor) revert InvalidMandate();
+        if (m.minTenor == 0 || m.minTenor > m.maxTenor || m.maxTenor > MAX_TENOR_CAP) revert InvalidMandate();
     }
 
     /// @notice `Reason.None` if the proposal is inside the mandate, otherwise the first rule it breaks.

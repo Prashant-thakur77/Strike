@@ -36,7 +36,7 @@ abstract contract StrikeInvariants is StrikeBase {
 
     /// 1. Collateral locked for a live series always covers its worst-case payout, and never exceeds the vault.
     function invariant_collateralCoversMaxPayout() public view {
-        (EpochManager.EpochState state,, uint256 id) = manager.epochs(address(vault));
+        (EpochManager.EpochState state,, uint256 id,,) = manager.epochs(address(vault));
         if (state != EpochManager.EpochState.Selling) return;
         EpochManager.Series memory s = manager.getSeries(id);
         uint256 maxPayout = s.isCall ? s.sold : Decimals.valueInUsd(s.sold, s.strike, 18, 6, Math.Rounding.Floor);

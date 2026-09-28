@@ -130,6 +130,8 @@ contract Deploy is Script {
         StockOracle(d.oracle).setFeed(s.token, IAggregatorV3(s.feed), maxPriceAge, 1 days);
         EpochManager(d.manager).setUnderlying(s.token, true);
         EpochManager(d.manager).setSigmaBounds(s.token, 0.2e18, 2e18, s.sigma);
+        // Chainlink stock feeds print on a 0.5% move: price buys that far against the buyer (audit M-03).
+        EpochManager(d.manager).setSpotBuffer(s.token, 50);
     }
 
     // ------------------------------------------------------------------ chain configs (docs/research.md)

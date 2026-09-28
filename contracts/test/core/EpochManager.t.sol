@@ -42,7 +42,7 @@ contract EpochManagerTest is StrikeBase {
         manager.setUnderlying(address(usdg), true);
         manager.setUnderlying(address(tsla), false);
         vm.stopPrank();
-        (uint8 dec, bool allowed,,,) = manager.underlyings(address(tsla));
+        (uint8 dec, bool allowed,,,,,) = manager.underlyings(address(tsla));
         assertEq(dec, 18);
         assertFalse(allowed);
         vm.expectRevert(abi.encodeWithSelector(EpochManager.UnderlyingNotAllowed.selector, address(tsla)));
@@ -51,9 +51,20 @@ contract EpochManagerTest is StrikeBase {
 
     function test_sigma() public {
         vm.prank(keeper);
+        manager.setSigma(address(tsla), 0.75e18); // +25%, the largest step
+        (,, uint64 sigma,,,,) = manager.underlyings(address(tsla));
+        assertEq(sigma, 0.75e18);
+        // Once an hour.
+        vm.prank(keeper);
+        vm.expectRevert(abi.encodeWithSelector(EpochManager.TooEarly.selector, block.timestamp + 1 hours));
         manager.setSigma(address(tsla), 0.8e18);
-        (,, uint64 sigma,,) = manager.underlyings(address(tsla));
-        assertEq(sigma, 0.8e18);
+        vm.warp(block.timestamp + 1 hours);
+        // More than 25% at once.
+        vm.prank(keeper);
+        vm.expectRevert(abi.encodeWithSelector(EpochManager.SigmaOutOfBounds.selector, uint64(0.55e18)));
+        manager.setSigma(address(tsla), 0.55e18);
+        vm.prank(keeper);
+        manager.setSigma(address(tsla), 0.5625e18); // -25%
         vm.prank(keeper);
         vm.expectRevert(abi.encodeWithSelector(EpochManager.SigmaOutOfBounds.selector, uint64(2e18)));
         manager.setSigma(address(tsla), 2e18);
@@ -62,6 +73,18 @@ contract EpochManagerTest is StrikeBase {
         manager.setSigmaBounds(address(tsla), 0.2e18, 1e18, 0.1e18);
         vm.expectRevert();
         manager.setSigma(address(tsla), 0.5e18); // not a keeper
+    }
+
+    function test_spotBuffer() public {
+        vm.expectRevert();
+        manager.setSpotBuffer(address(tsla), 50); // not admin
+        vm.startPrank(admin);
+        vm.expectRevert(EpochManager.InvalidTimings.selector);
+        manager.setSpotBuffer(address(tsla), 201);
+        manager.setSpotBuffer(address(tsla), 50);
+        vm.stopPrank();
+        (,,,,, uint16 buffer,) = manager.underlyings(address(tsla));
+        assertEq(buffer, 50);
     }
 
     function test_setters() public {

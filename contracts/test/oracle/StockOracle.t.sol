@@ -181,19 +181,48 @@ contract StockOracleTest is Test {
         assertEq(oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, monday), 240e18);
     }
 
+    function _hints(uint80 a, uint80 b) internal pure returns (uint80[] memory h) {
+        h = new uint80[](2);
+        (h[0], h[1]) = (a, b);
+    }
+
     function test_recordSettlementPrice_newPhase() public {
+        uint80 lastOfPhase1 = feed.currentRoundId();
         feed.newPhase();
         uint80 r = feed.push(255e8, FRIDAY_CLOSE + 30);
         vm.warp(FRIDAY_CLOSE + 100);
-        assertEq(oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, r), 255e18);
+        // Round 1 of a new phase needs the previous phase's last round as proof.
+        vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.MissingHint.selector, 1));
+        oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, r);
+        assertEq(oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, lastOfPhase1)), 255e18);
     }
 
-    function test_revert_recordSettlementPrice_newPhaseTooLate() public {
+    /// The new phase starts long after the close (an upgrade over the weekend): still settles, no age window.
+    function test_recordSettlementPrice_newPhaseLate() public {
+        uint80 lastOfPhase1 = feed.currentRoundId();
         feed.newPhase();
-        uint80 r = feed.push(255e8, FRIDAY_CLOSE + MAX_AGE + 1);
-        vm.warp(FRIDAY_CLOSE + 2 hours);
+        uint80 r = feed.push(255e8, FRIDAY_CLOSE + 2 days);
+        vm.warp(FRIDAY_CLOSE + 3 days);
+        assertEq(oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, lastOfPhase1)), 255e18);
+    }
+
+    /// The old phase printed after the close: that print is the settlement price, not the new phase's round 1.
+    function test_revert_recordSettlementPrice_newPhaseWhenOldPhasePrintedAfterExpiry() public {
+        uint80 oldFirst = feed.push(260e8, FRIDAY_CLOSE + 5);
+        uint80 before = oldFirst - 1;
+        feed.newPhase();
+        uint80 r = feed.push(300e8, FRIDAY_CLOSE + 2 hours);
+        vm.warp(FRIDAY_CLOSE + 3 hours);
+        // Claiming the old phase ended before the close: its hinted "last round" has a successor.
+        vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.InvalidSettlementRound.selector, before));
+        oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, before));
+        // The true last round of the old phase is after the close.
+        vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.InvalidSettlementRound.selector, oldFirst));
+        oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, oldFirst));
+        // A hint from the wrong phase.
         vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.InvalidSettlementRound.selector, r));
-        oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, r);
+        oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, r));
+        assertEq(oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, oldFirst), 260e18);
     }
 
     function test_revert_recordSettlementPrice_notExpired() public {
@@ -212,13 +241,29 @@ contract StockOracleTest is Test {
         vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.FeedPaused.selector, address(tsla)));
         oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, r);
         tsla.setOraclePaused(false);
-        // A split took effect minutes before the settlement print: refuse that print.
+        // A split took effect minutes before the settlement print: that print is skipped and settlement moves to
+        // the first print after effectiveAt + grace.
         tsla.scheduleMultiplier(2e18, FRIDAY_CLOSE);
         tsla.applyMultiplier();
-        vm.expectRevert(
-            abi.encodeWithSelector(SafeStockFeed.CorporateActionPending.selector, address(tsla), FRIDAY_CLOSE)
-        );
+        vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.MissingHint.selector, 1));
         oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, r);
+        uint80 during = feed.push(262e8, FRIDAY_CLOSE + GRACE - 1);
+        uint80 afterGrace = feed.push(265e8, FRIDAY_CLOSE + GRACE);
+        feed.push(270e8, FRIDAY_CLOSE + GRACE + 1);
+        vm.warp(FRIDAY_CLOSE + GRACE + 10);
+        vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.InvalidSettlementRound.selector, during));
+        oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, during));
+        vm.expectRevert(abi.encodeWithSelector(SafeStockFeed.InvalidSettlementRound.selector, afterGrace + 1));
+        oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, afterGrace + 1));
+        assertEq(oracle.recordSettlementPriceWithHints(address(tsla), FRIDAY_CLOSE, _hints(r, afterGrace)), 265e18);
+    }
+
+    /// A multiplier change far from expiry does not move the settlement print.
+    function test_recordSettlementPrice_distantCorporateActionIgnored() public {
+        uint80 r = feed.push(260e8, FRIDAY_CLOSE + 5);
+        vm.warp(FRIDAY_CLOSE + 10);
+        tsla.scheduleMultiplier(2e18, FRIDAY_CLOSE + 30 days);
+        assertEq(oracle.recordSettlementPrice(address(tsla), FRIDAY_CLOSE, r), 260e18);
     }
 
     // ------------------------------------------------------------------ sequencer

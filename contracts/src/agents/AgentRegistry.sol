@@ -298,10 +298,22 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     function _feedback(uint256 agentId, uint256 erc8004Id, int128 value, string memory tag) internal {
         if (erc8004Id == 0 || address(reputationRegistry) == address(0)) return;
         bool posted;
-        try reputationRegistry.giveFeedback(erc8004Id, value, 6, tag, "", "", "", bytes32(0)) {
-            posted = true;
-        } catch {}
+        // Only while the agent's owner still holds the identity: a transferred identity keeps no Strike record.
+        if (_holdsIdentity(_agents[agentId].owner, erc8004Id)) {
+            try reputationRegistry.giveFeedback(erc8004Id, value, 6, tag, "", "", "", bytes32(0)) {
+                posted = true;
+            } catch {}
+        }
         emit ReputationFeedback(agentId, erc8004Id, value, tag, posted);
+    }
+
+    function _holdsIdentity(address owner, uint256 erc8004Id) internal view returns (bool) {
+        if (address(identityRegistry) == address(0)) return true;
+        try identityRegistry.ownerOf(erc8004Id) returns (address holder) {
+            return holder == owner;
+        } catch {
+            return false;
+        }
     }
 
     function _checkIdentity(uint256 erc8004Id) internal view {

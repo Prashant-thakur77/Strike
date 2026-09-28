@@ -18,6 +18,13 @@ interface IStockOracle {
     /// @notice Fix the settlement price for (token, expiry) from the first round at or after expiry. Idempotent.
     function recordSettlementPrice(address token, uint64 expiry, uint80 roundId) external returns (uint256 priceWad);
 
+    /// @notice Same, with extra hints for the rare cases one round cannot prove: the first round of a new Chainlink
+    ///         phase (add the previous phase's last round) and a print inside a corporate-action window (add the
+    ///         first round after `effectiveAt + grace`, plus its phase hint if needed). Idempotent.
+    function recordSettlementPriceWithHints(address token, uint64 expiry, uint80[] calldata hints)
+        external
+        returns (uint256 priceWad);
+
     /// @notice Recorded settlement price (0 if not recorded yet).
     function settlementPrice(address token, uint64 expiry) external view returns (uint256);
 

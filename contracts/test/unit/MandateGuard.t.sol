@@ -89,10 +89,24 @@ contract MandateGuardTest is Test {
         });
         h.validate(m);
         m.minDeltaBps = 0;
-        m.minPremiumBps = 1;
+        m.minPremiumBps = 9000;
         m.minYieldBps = 0;
         m.maxShareSoldBps = 1;
-        m.maxTenor = type(uint32).max;
+        m.maxTenor = 35 days;
+        h.validate(m);
+    }
+
+    function test_validate_revertsBelowProtocolPremiumFloor() public {
+        MandateGuard.Mandate memory m = _mandate();
+        m.minPremiumBps = 8999;
+        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        h.validate(m);
+    }
+
+    function test_validate_revertsAboveTenorCap() public {
+        MandateGuard.Mandate memory m = _mandate();
+        m.maxTenor = 35 days + 1;
+        vm.expectRevert(MandateGuard.InvalidMandate.selector);
         h.validate(m);
     }
 
@@ -410,8 +424,8 @@ contract MandateGuardTest is Test {
     /// validate() reverts exactly when one of its consistency rules is broken.
     function testFuzz_validate_matchesSpec(MandateGuard.Mandate memory m) public {
         bool valid = m.minDeltaBps <= m.maxDeltaBps && m.maxDeltaBps <= BPS && m.maxShareSoldBps != 0
-            && m.maxShareSoldBps <= BPS && m.minPremiumBps != 0 && m.minPremiumBps <= MAX_PREMIUM_BPS
-            && m.minYieldBps <= BPS && m.minTenor != 0 && m.minTenor <= m.maxTenor;
+            && m.maxShareSoldBps <= BPS && m.minPremiumBps >= 9000 && m.minPremiumBps <= MAX_PREMIUM_BPS
+            && m.minYieldBps <= BPS && m.minTenor != 0 && m.minTenor <= m.maxTenor && m.maxTenor <= 35 days;
         if (!valid) vm.expectRevert(MandateGuard.InvalidMandate.selector);
         h.validate(m);
     }
@@ -430,10 +444,10 @@ contract MandateGuardTest is Test {
         m.maxDeltaBps = uint16(bound(m.maxDeltaBps, 0, BPS));
         m.minDeltaBps = uint16(bound(m.minDeltaBps, 0, m.maxDeltaBps));
         m.maxShareSoldBps = uint16(bound(m.maxShareSoldBps, 1, BPS));
-        m.minPremiumBps = uint16(bound(m.minPremiumBps, 1, MAX_PREMIUM_BPS));
+        m.minPremiumBps = uint16(bound(m.minPremiumBps, 9000, MAX_PREMIUM_BPS));
         m.minYieldBps = uint16(bound(m.minYieldBps, 0, BPS));
-        m.minTenor = uint32(bound(m.minTenor, 1, type(uint32).max));
-        m.maxTenor = uint32(bound(m.maxTenor, m.minTenor, type(uint32).max));
+        m.minTenor = uint32(bound(m.minTenor, 1, 35 days));
+        m.maxTenor = uint32(bound(m.maxTenor, m.minTenor, 35 days));
         return m;
     }
 }

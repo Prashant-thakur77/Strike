@@ -32,6 +32,10 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     bytes32 public constant FACTORY_ROLE = keccak256("FACTORY_ROLE");
     uint256 internal constant BPS = 10_000;
     uint256 internal constant WAD = 1e18;
+    /// @notice Largest relative sigma change per keeper update, and the minimum time between updates.
+    uint256 public constant MAX_SIGMA_STEP_BPS = 2500;
+    uint256 public constant SIGMA_UPDATE_INTERVAL = 1 hours;
+    uint256 internal constant MAX_SPOT_BUFFER_BPS = 200;
 
     // ------------------------------------------------------------------ types
 
@@ -41,6 +45,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         uint64 sigma; // annualised implied volatility used for fair value, WAD
         uint64 minSigma;
         uint64 maxSigma;
+        uint16 spotBufferBps; // feed deviation threshold: buys are priced this far against the buyer
+        uint32 sigmaUpdatedAt; // last keeper sigma update
     }
 
     struct VaultConfig {
@@ -56,10 +62,14 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         Selling
     }
 
+    /// @dev Proposals are judged against the market snapshot taken at open, so a sigma or price update that lands
+    ///      between an agent's dry run and its transaction cannot turn an honest proposal into a slash.
     struct VaultEpoch {
         EpochState state;
         uint64 openedAt;
         uint256 seriesId;
+        uint128 openSpot; // WAD per raw token
+        uint64 openSigma; // WAD
     }
 
     struct Series {
@@ -113,6 +123,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     event UnderlyingSet(address indexed token, bool allowed);
     event OracleSet(address oracle);
     event SigmaSet(address indexed token, uint64 sigma, uint64 minSigma, uint64 maxSigma);
+    event SpotBufferSet(address indexed token, uint16 bps);
     event PricerSet(address pricer);
     event FeeManagerSet(address feeManager);
     event TimingsSet(uint32 proposalTimeout, uint32 saleCutoff, uint32 settlementGrace);
@@ -185,6 +196,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     error ZeroAmount();
     error PremiumTooHigh(uint256 premium, uint256 maxPremium);
     error TooEarly(uint256 availableAt);
+    error StrikeInTheMoney(uint256 strike, uint256 spot);
+    error SettlementAvailable(uint256 price);
 
     // ------------------------------------------------------------------ setup
 
@@ -242,11 +255,27 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         emit SigmaSet(token, sigma, minSigma, maxSigma);
     }
 
+    /// @notice Keeper volatility update: inside the admin bounds, at most 25% from the current value, once an hour.
+    ///         A single keeper key cannot reprice live series by orders of magnitude.
     function setSigma(address token, uint64 sigma) external onlyRole(KEEPER_ROLE) {
         UnderlyingConfig storage c = underlyings[token];
         if (sigma < c.minSigma || sigma > c.maxSigma || sigma == 0) revert SigmaOutOfBounds(sigma);
+        uint256 step = sigma > c.sigma ? sigma - c.sigma : c.sigma - sigma;
+        if (step * BPS > uint256(c.sigma) * MAX_SIGMA_STEP_BPS) revert SigmaOutOfBounds(sigma);
+        if (block.timestamp < uint256(c.sigmaUpdatedAt) + SIGMA_UPDATE_INTERVAL) {
+            revert TooEarly(uint256(c.sigmaUpdatedAt) + SIGMA_UPDATE_INTERVAL);
+        }
         c.sigma = sigma;
+        c.sigmaUpdatedAt = uint32(block.timestamp);
         emit SigmaSet(token, sigma, c.minSigma, c.maxSigma);
+    }
+
+    /// @notice Price buys at spot moved this far against the buyer: a Chainlink feed only prints on a deviation-
+    ///         threshold move, so the market can sit up to that far from the last print. Set it to the threshold.
+    function setSpotBuffer(address token, uint16 bps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (bps > MAX_SPOT_BUFFER_BPS) revert InvalidTimings();
+        underlyings[token].spotBufferBps = bps;
+        emit SpotBufferSet(token, bps);
     }
 
     function setPricer(IPricer pricer_) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -311,10 +340,13 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         VaultEpoch storage ep = epochs[vault];
         _expectState(ep, EpochState.Idle);
         _requireMarketOpen();
-        uint256 spotPrice = _spot(IStrikeVault(vault).underlying());
+        address token = IStrikeVault(vault).underlying();
+        uint256 spotPrice = _spot(token);
 
         ep.state = EpochState.Open;
         ep.openedAt = uint64(block.timestamp);
+        ep.openSpot = SafeCast.toUint128(spotPrice);
+        ep.openSigma = underlyings[token].sigma;
         IStrikeVault(vault).lock();
         emit EpochOpened(vault, IStrikeVault(vault).currentEpoch(), spotPrice);
     }
@@ -332,24 +364,31 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         return _propose(vault, strike, expiry, size, premiumBps);
     }
 
-    /// @notice Propose by target delta: the strike is solved on-chain at the current spot (Stylus pricer), so the
-    ///         series gets exactly the delta the agent intended even if spot moved while the transaction was pending.
-    /// @param targetDeltaBps |delta| in bps of 1 (2000 = 0.20). The strike is rounded down to a whole cent.
+    /// @notice Propose by target delta: the strike is solved on-chain (Stylus pricer) against the epoch's opening
+    ///         snapshot, so the agent knows the exact strike and delta before it sends the transaction.
+    /// @param targetDeltaBps |delta| in bps of 1 (2000 = 0.20). The strike is rounded to a whole cent, toward the
+    ///        middle of the mandate's delta band, so a target on the band edge stays inside it.
     function proposeByDelta(address vault, uint16 targetDeltaBps, uint64 expiry, uint256 size, uint16 premiumBps)
         external
         whenNotPaused
         nonReentrant
         returns (bool accepted, uint256 seriesId, uint256 strike)
     {
-        address token = IStrikeVault(vault).underlying();
+        VaultEpoch storage ep = epochs[vault];
+        _expectState(ep, EpochState.Open);
+        bool isCall = IStrikeVault(vault).isCall();
         uint256 tenor = expiry > block.timestamp ? expiry - block.timestamp : 1;
-        strike = pricer.strikeForDelta(
-            _spot(token), uint256(targetDeltaBps) * 1e14, tenor, underlyings[token].sigma, IStrikeVault(vault).isCall()
-        );
-        // Round down to a whole cent. Not randomness: Slither's weak-prng detector flags any modulo on a value
-        // derived from block.timestamp (here the tenor).
+        strike = pricer.strikeForDelta(ep.openSpot, uint256(targetDeltaBps) * 1e14, tenor, ep.openSigma, isCall);
+        // A higher call strike (lower put strike) lowers |delta|: round that way when the target sits in the upper
+        // half of the band. Not randomness: Slither's weak-prng detector flags any modulo on a value derived from
+        // block.timestamp (here the tenor).
+        MandateGuard.Mandate storage m = _vault(vault).mandate;
         // slither-disable-next-line weak-prng
-        strike -= strike % 1e16;
+        uint256 cents = strike % 1e16;
+        strike -= cents;
+        if (cents != 0 && (isCall == (2 * uint256(targetDeltaBps) >= uint256(m.minDeltaBps) + m.maxDeltaBps))) {
+            strike += 1e16;
+        }
         (accepted, seriesId) = _propose(vault, strike, expiry, size, premiumBps);
     }
 
@@ -365,10 +404,14 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
 
         (MandateGuard.Reason reason, MandateGuard.Proposal memory p) =
             _evaluate(vault, v, strike, expiry, size, premiumBps);
+        // The live feed must still be healthy.
+        uint256 live = _spot(IStrikeVault(vault).underlying());
         if (reason != MandateGuard.Reason.None) {
             _reject(vault, v.agentId, reason, p, expiry);
             return (false, 0);
         }
+        // If spot crossed the strike since the snapshot, revert: nothing is sold in the money, nobody is slashed.
+        if (p.isCall ? strike <= live : strike >= live) revert StrikeInTheMoney(strike, live);
         seriesId = _createSeries(vault, v.agentId, ep, p, expiry);
         agents.recordAccepted(v.agentId);
         return (true, seriesId);
@@ -497,6 +540,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         if (block.timestamp < uint256(s.expiry) + settlementGrace) {
             revert TooEarly(uint256(s.expiry) + settlementGrace);
         }
+        // A recorded price means `settle` works: cancelling would turn a payout into a premium refund.
+        uint256 recorded = oracle.settlementPrice(s.underlying, s.expiry);
+        if (recorded != 0) revert SettlementAvailable(recorded);
         s.cancelled = true;
         s.escrow = s.premium;
         ep.state = EpochState.Idle;
@@ -572,8 +618,10 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     ) internal view returns (MandateGuard.Reason, MandateGuard.Proposal memory p) {
         address token = IStrikeVault(vault).underlying();
         UnderlyingConfig storage u = underlyings[token];
+        VaultEpoch storage ep = epochs[vault];
+        bool open = ep.state == EpochState.Open;
         p.isCall = IStrikeVault(vault).isCall();
-        p.spot = _spot(token);
+        p.spot = open ? ep.openSpot : _spot(token);
         p.strike = strike;
         p.size = size;
         p.premiumBps = premiumBps;
@@ -581,7 +629,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         p.validExpiry = _isValidExpiry(expiry);
         p.capacity = _capacity(vault, p.isCall, strike, u.tokenDecimals);
         if (p.tenor == 0) return (MandateGuard.Reason.TenorOutOfRange, p);
-        (p.fairValue, p.delta) = pricer.quote(p.spot, strike, p.tenor, u.sigma, p.isCall);
+        (p.fairValue, p.delta) = pricer.quote(p.spot, strike, p.tenor, open ? ep.openSigma : u.sigma, p.isCall);
         return (MandateGuard.check(v.mandate, p), p);
     }
 
@@ -661,10 +709,15 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
 
     function _quoteBuy(Series storage s, uint256 amount) internal view returns (uint256 premium, uint256 collateral) {
         UnderlyingConfig storage u = underlyings[s.underlying];
+        // The last print can lag the market by up to the feed's deviation threshold: price against the buyer.
         uint256 spot_ = _spot(s.underlying);
+        spot_ = spot_ * (s.isCall ? BPS + u.spotBufferBps : BPS - u.spotBufferBps) / BPS;
         uint256 tenor = s.expiry > block.timestamp ? s.expiry - block.timestamp : 1;
         (uint256 fair,) = pricer.quote(spot_, s.strike, tenor, u.sigma, s.isCall);
-        uint256 perOption = fair * s.premiumBps / BPS;
+        // Never below intrinsic value: an in-the-money option is not sold at a discount to its exercise value.
+        uint256 intrinsic =
+            s.isCall ? (spot_ > s.strike ? spot_ - s.strike : 0) : (s.strike > spot_ ? s.strike - spot_ : 0);
+        uint256 perOption = Math.max(fair * s.premiumBps / BPS, intrinsic);
         premium = Decimals.valueInUsd(amount, perOption, u.tokenDecimals, usdgDecimals, Math.Rounding.Ceil);
         if (premium == 0) premium = 1; // never sell options for free
         collateral = s.isCall

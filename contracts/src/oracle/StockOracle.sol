@@ -70,12 +70,27 @@ contract StockOracle is IStockOracle, AccessControl {
     }
 
     /// @inheritdoc IStockOracle
-    function recordSettlementPrice(address token, uint64 expiry, uint80 roundId) external returns (uint256 priceWad) {
+    function recordSettlementPrice(address token, uint64 expiry, uint80 roundId) external returns (uint256) {
+        uint80[] memory hints = new uint80[](1);
+        hints[0] = roundId;
+        return _record(token, expiry, hints);
+    }
+
+    /// @inheritdoc IStockOracle
+    function recordSettlementPriceWithHints(address token, uint64 expiry, uint80[] calldata hints)
+        external
+        returns (uint256)
+    {
+        return _record(token, expiry, hints);
+    }
+
+    function _record(address token, uint64 expiry, uint80[] memory hints) internal returns (uint256 priceWad) {
         priceWad = _settlementPrices[token][expiry];
         if (priceWad != 0) return priceWad;
         if (block.timestamp < expiry) revert NotExpired(expiry);
         SafeStockFeed.checkSequencer(sequencerFeed, sequencerGrace);
-        (priceWad,) = _config(token).settlementPrice(token, roundId, expiry);
+        uint80 roundId;
+        (priceWad,, roundId) = _config(token).settlementPrice(token, hints, expiry);
         _settlementPrices[token][expiry] = priceWad;
         emit SettlementPriceRecorded(token, expiry, roundId, priceWad);
     }

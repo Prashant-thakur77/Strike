@@ -45,7 +45,7 @@ contract AgentMandateTest is StrikeBase {
 
         // The agent then proposes inside the mandate; buyers pay; nothing expires in the money.
         assertTrue(_propose(275 * WAD, FRIDAY_CLOSE, 50 * WAD, 10_000));
-        (EpochManager.EpochState state,, uint256 seriesId) = manager.epochs(address(callVault));
+        (EpochManager.EpochState state,, uint256 seriesId,,) = manager.epochs(address(callVault));
         assertEq(uint8(state), uint8(EpochManager.EpochState.Selling));
         uint256 premium = _buy(seriesId, 50 * WAD);
         manager.settle(address(callVault), _expireAt(260e8));
@@ -69,16 +69,58 @@ contract AgentMandateTest is StrikeBase {
         assertEq(manager.getSeries(seriesId).strike, strike);
     }
 
-    /// Spot jumps 5% before the transaction lands: a precomputed strike would now break the delta band and be
-    /// slashed; proposing by delta still lands inside the mandate.
-    function test_proposeByDelta_survivesSpotMove() public {
-        uint256 precomputed = pricer.strikeForDelta(250 * WAD, 0.06e18, FRIDAY_CLOSE - block.timestamp, 0.6e18, true);
+    /// Spot drops 5% after the epoch opens: the proposal is judged against the opening snapshot, so a strike the
+    /// agent computed and dry-ran at open is still accepted, and proposeByDelta solves exactly that strike.
+    function test_proposal_judgedAgainstOpeningSnapshot() public {
+        uint256 tenor = FRIDAY_CLOSE - block.timestamp;
+        uint256 precomputed = pricer.strikeForDelta(250 * WAD, 0.06e18, tenor, 0.6e18, true);
+        precomputed -= precomputed % 1e16;
         feed.set(237.5e8);
         (MandateGuard.Reason r,,,) = manager.previewProposal(address(callVault), precomputed, FRIDAY_CLOSE, 1, 10_000);
-        assertEq(uint8(r), uint8(MandateGuard.Reason.DeltaOutOfBand));
+        assertEq(uint8(r), uint8(MandateGuard.Reason.None), "judged at the opening spot");
         vm.prank(agent);
-        (bool ok,,) = manager.proposeByDelta(address(callVault), 600, FRIDAY_CLOSE, 1, 10_000);
+        (bool ok,, uint256 strike) = manager.proposeByDelta(address(callVault), 600, FRIDAY_CLOSE, 1, 10_000);
         assertTrue(ok);
+        assertApproxEqAbs(strike, precomputed, 1e16, "same strike as the off-chain solve, up to the cent");
+    }
+
+    /// A keeper sigma update between the agent's dry run and its transaction cannot get the agent slashed.
+    function test_sigmaUpdateAfterOpen_doesNotChangeTheVerdict() public {
+        uint256 k = pricer.strikeForDelta(250 * WAD, 0.39e18, FRIDAY_CLOSE - block.timestamp, 0.6e18, true);
+        k -= k % 1e16;
+        assertEq(uint8(_reason(k, FRIDAY_CLOSE, 10 * WAD, 10_000)), uint8(MandateGuard.Reason.None));
+        vm.prank(keeper);
+        manager.setSigma(address(tsla), 0.75e18);
+        assertTrue(_propose(k, FRIDAY_CLOSE, 10 * WAD, 10_000));
+        assertEq(registry.getAgent(agentId).strikes, 0);
+    }
+
+    /// If spot crosses the strike after the snapshot, the proposal reverts: nothing is sold in the money and the
+    /// agent is not slashed for a move it could not control.
+    function test_proposal_revertsWhenLiveSpotCrossedStrike() public {
+        feed.set(280e8);
+        vm.prank(agent);
+        vm.expectRevert(abi.encodeWithSelector(EpochManager.StrikeInTheMoney.selector, 275 * WAD, 280 * WAD));
+        manager.proposeSeries(address(callVault), 275 * WAD, FRIDAY_CLOSE, 1, 10_000);
+        assertEq(registry.getAgent(agentId).strikes, 0);
+    }
+
+    /// Band-edge targets survive the cent rounding, for calls and puts: it always moves toward the band's middle.
+    function testFuzz_proposeByDelta_bandEdgeNeverSlashed(uint256 spotCents, bool atMax, bool isCall) public {
+        vm.prank(curator);
+        manager.abortEpoch(address(callVault));
+        _depositPut(alice, 100_000e6);
+        StrikeVault vault = isCall ? callVault : putVault;
+        spotCents = bound(spotCents, 20_000, 30_000);
+        feed.set(int256(spotCents) * 1e6);
+        vm.prank(agent);
+        manager.openEpoch(address(vault));
+        MandateGuard.Mandate memory m = _mandate();
+        vm.prank(agent);
+        (bool ok,,) =
+            manager.proposeByDelta(address(vault), atMax ? m.maxDeltaBps : m.minDeltaBps, FRIDAY_CLOSE, WAD, 10_000);
+        assertTrue(ok);
+        assertEq(registry.getAgent(agentId).strikes, 0);
     }
 
     function test_proposeByDelta_outsideBandIsRejected() public {

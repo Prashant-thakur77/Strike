@@ -22,7 +22,7 @@ contract LifecycleTest is StrikeBase {
         // No payout; the vault keeps every token and the vault unlocks.
         assertEq(callVault.totalAssets(), 100 * WAD);
         assertFalse(callVault.locked());
-        (EpochManager.EpochState state,,) = manager.epochs(address(callVault));
+        (EpochManager.EpochState state,,,,) = manager.epochs(address(callVault));
         assertEq(uint8(state), uint8(EpochManager.EpochState.Idle));
 
         // 10% performance fee on the (fully profitable) premium, half to the agent.
@@ -199,7 +199,7 @@ contract LifecycleTest is StrikeBase {
         vm.prank(agent);
         (bool accepted,) = manager.proposeSeries(address(callVault), 240 * WAD, FRIDAY_CLOSE, 10 * WAD, 10_000);
         assertFalse(accepted);
-        (EpochManager.EpochState state,,) = manager.epochs(address(callVault));
+        (EpochManager.EpochState state,,,,) = manager.epochs(address(callVault));
         assertEq(uint8(state), uint8(EpochManager.EpochState.Open));
     }
 

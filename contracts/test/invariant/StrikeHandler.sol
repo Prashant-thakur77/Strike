@@ -77,7 +77,7 @@ contract StrikeHandler is CommonBase, StdCheats, StdUtils {
     }
 
     function _state() internal view returns (EpochManager.EpochState state, uint256 seriesId) {
-        (state,, seriesId) = manager.epochs(address(vault));
+        (state,, seriesId,,) = manager.epochs(address(vault));
     }
 
     function seriesCount() external view returns (uint256) {
