@@ -33,3 +33,4 @@ subgraph/build/
 *.log
 .vscode/
 .idea/
+.design-ref/
