@@ -66,8 +66,15 @@ settle_expired() {
       [ -z "$at" ] || [ "$at" -lt "$expiry" ] && break
       round=$prev
     done
-    cast send "$manager" "settle(address,uint80)" "$vault" "$round" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null
-    echo "$(date -u +%FT%TZ) settled $vault at round $round"
+    if cast send "$manager" "settle(address,uint80)" "$vault" "$round" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+      echo "$(date -u +%FT%TZ) settled $vault at round $round"
+    else
+      # One round is not enough after a Chainlink phase change or a corporate action at expiry: the SDK finds every
+      # hint (findSettlementHints), records the price with recordSettlementPriceWithHints, then settles.
+      echo "$(date -u +%FT%TZ) $sym: single-round settle failed; settling through the SDK with hints"
+      (cd "$ROOT" && STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_AGENT_PRIVATE_KEY="$PRIVATE_KEY" STRIKE_RPC_URL="$RPC_URL" \
+        pnpm -s --filter @strike/agent-example start -- --settle --vault "$vault") || echo "settle failed for $vault"
+    fi
   done
 }
 

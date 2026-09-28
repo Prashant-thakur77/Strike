@@ -9,7 +9,7 @@ The simulation follows the contracts (docs/design.md, EpochManager, MandateGuard
   option expires at the close of the week's last trading day (Friday, or Thursday when Friday is a
   holiday, as `MarketCalendar.weeklyExpiry`). Tenor = calendar days between the two closes x 86,400 s.
 * Strike = `strikeForDelta(spot, target, tenor, sigma)`: 48 bisection rounds over [S/10, 10 S],
-  then rounded down to a whole cent (`EpochManager.proposeByDelta`). The strike is solved at today's
+  then rounded to a whole cent toward the middle of the delta band (`EpochManager.proposeByDelta`). The strike is solved at today's
   token price and applied as moneyness (Black-Scholes is scale-invariant), so the cent rounding has
   its real size rather than its size on back-adjusted early prices.
 * Premium per option = Black-Scholes fair value (r = 0, 365-day year) x premiumBps.
@@ -94,8 +94,18 @@ def strike_for_delta(s: float, target: float, t_sec: float, sigma: float, is_cal
 
 
 def round_down_cent(k: float) -> float:
-    # proposeByDelta: strike -= strike % 1e16 (WAD), i.e. floor to $0.01. The epsilon absorbs float noise.
+    # Floor to $0.01. The epsilon absorbs float noise.
     return math.floor(k * 100.0 + 1e-9) / 100.0
+
+
+def round_strike_to_cent(k: float, is_call: bool, delta: float) -> float:
+    # proposeByDelta (after audit fix L-01): round to a cent toward the middle of the mandate's delta band. A target
+    # in the upper half lowers |delta| (calls round up, puts down); a target in the lower half raises it.
+    down = round_down_cent(k)
+    if abs(k - down) < 1e-9:
+        return down
+    upper_half = 2 * delta * 10_000 >= MANDATE["min_delta_bps"] + MANDATE["max_delta_bps"]
+    return down + 0.01 if is_call == upper_half else down
 
 
 def cross_check() -> dict:
@@ -195,7 +205,7 @@ def simulate(ticker: str, is_call: bool, cfg: Config, px: dict[str, pd.Series]) 
         # back-adjusted 2019 prices (NVDA about $4) it would be exaggerated.
         key = (ticker, is_call, cfg.delta, round(sigma, 12), w.tenor)
         if key not in _strike_cache:
-            k_ref = round_down_cent(strike_for_delta(s_ref, cfg.delta, w.tenor, sigma, is_call))
+            k_ref = round_strike_to_cent(strike_for_delta(s_ref, cfg.delta, w.tenor, sigma, is_call), is_call, cfg.delta)
             fair_ref, dlt = bs_quote(s_ref, k_ref, w.tenor, sigma, is_call)
             _strike_cache[key] = (k_ref / s_ref, fair_ref / s_ref, dlt)
         m, fair_m, dlt = _strike_cache[key]

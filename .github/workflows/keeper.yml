@@ -23,6 +23,13 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
+      # Node packages are only used when a settlement needs more than one round of proof (the SDK finds the hints).
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile && pnpm --filter @strike/sdk --filter @strike/mcp build
       - name: Run keeper once
         if: ${{ hashFiles(format('contracts/deployments/{0}.json', matrix.chain)) != '' }}
         env:
