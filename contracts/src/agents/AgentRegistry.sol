@@ -1,0 +1,271 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+
+import {IAgentRegistry} from "../interfaces/IAgentRegistry.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+
+/// @title AgentRegistry
+/// @notice AI agents that propose strikes for Strike vaults. Each agent has an owner, a signer key (the only key that
+///         may propose), a payout address for its fee share, an optional ERC-8004 identity, and a USDG bond.
+/// @dev A proposal the vault's mandate rejects costs the agent `slashAmount` of its bond (paid to that vault's
+///      depositors) and a strike; at `maxStrikes` the agent is suspended. Unbonding takes `unbondDelay`, and bond in
+///      the unbonding queue can still be slashed, so an agent cannot misbehave and exit in the same week.
+contract AgentRegistry is AccessControl, IAgentRegistry {
+    using SafeERC20 for IERC20;
+
+    bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
+
+    enum Status {
+        None,
+        Active,
+        Suspended,
+        Retired
+    }
+
+    struct Agent {
+        address owner;
+        address signer;
+        address payout;
+        Status status;
+        uint32 strikes;
+        uint32 accepted;
+        uint32 rejected;
+        uint64 unbondAt;
+        uint256 erc8004Id;
+        uint256 bond;
+        uint256 unbonding;
+    }
+
+    IERC20 public immutable usdg;
+    /// @notice ERC-8004 Identity Registry (ERC-721). Zero disables identity checks.
+    IERC721 public identityRegistry;
+    uint256 public minBond;
+    uint256 public slashAmount;
+    uint32 public maxStrikes;
+    uint32 public unbondDelay;
+
+    uint256 public agentCount;
+    mapping(uint256 agentId => Agent) internal _agents;
+    /// @notice Agent id for a signer key (0 if none).
+    mapping(address signer => uint256 agentId) public agentOfSigner;
+
+    event AgentRegistered(uint256 indexed agentId, address indexed owner, address signer, uint256 erc8004Id);
+    event SignerSet(uint256 indexed agentId, address signer);
+    event PayoutSet(uint256 indexed agentId, address payout);
+    event BondPosted(uint256 indexed agentId, address indexed from, uint256 amount);
+    event UnbondRequested(uint256 indexed agentId, uint256 amount, uint64 availableAt);
+    event Unbonded(uint256 indexed agentId, address to, uint256 amount);
+    event Slashed(uint256 indexed agentId, address indexed recipient, uint256 amount, uint32 strikes);
+    event StatusSet(uint256 indexed agentId, Status status);
+    event ProposalRecorded(uint256 indexed agentId, bool accepted);
+    event ParamsSet(uint256 minBond, uint256 slashAmount, uint32 maxStrikes, uint32 unbondDelay);
+    event IdentityRegistrySet(address registry);
+
+    error ZeroAddress();
+    error NotOwner(uint256 agentId);
+    error UnknownAgent(uint256 agentId);
+    error SignerTaken(address signer);
+    error NotIdentityOwner(uint256 erc8004Id);
+    error ZeroAmount();
+    error InsufficientBond(uint256 requested, uint256 available);
+    error NothingUnbonding();
+    error UnbondPending(uint64 availableAt);
+    error InvalidParams();
+    error InvalidStatus(Status status);
+
+    constructor(
+        address admin,
+        IERC20 usdg_,
+        IERC721 identityRegistry_,
+        uint256 minBond_,
+        uint256 slashAmount_,
+        uint32 maxStrikes_,
+        uint32 unbondDelay_
+    ) {
+        if (admin == address(0) || address(usdg_) == address(0)) revert ZeroAddress();
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
+        usdg = usdg_;
+        identityRegistry = identityRegistry_;
+        _setParams(minBond_, slashAmount_, maxStrikes_, unbondDelay_);
+    }
+
+    // ------------------------------------------------------------------ agent owner
+
+    /// @notice Register an agent. With an ERC-8004 id, the caller must own that identity.
+    function register(address signer, address payout, uint256 erc8004Id) external returns (uint256 agentId) {
+        if (signer == address(0) || payout == address(0)) revert ZeroAddress();
+        if (agentOfSigner[signer] != 0) revert SignerTaken(signer);
+        _checkIdentity(erc8004Id);
+        agentId = ++agentCount;
+        Agent storage a = _agents[agentId];
+        a.owner = msg.sender;
+        a.signer = signer;
+        a.payout = payout;
+        a.erc8004Id = erc8004Id;
+        a.status = Status.Active;
+        agentOfSigner[signer] = agentId;
+        emit AgentRegistered(agentId, msg.sender, signer, erc8004Id);
+    }
+
+    /// @notice Rotate the signer key (for example after a key compromise).
+    function setSigner(uint256 agentId, address signer) external {
+        Agent storage a = _owned(agentId);
+        if (signer == address(0)) revert ZeroAddress();
+        if (agentOfSigner[signer] != 0) revert SignerTaken(signer);
+        delete agentOfSigner[a.signer];
+        a.signer = signer;
+        agentOfSigner[signer] = agentId;
+        emit SignerSet(agentId, signer);
+    }
+
+    function setPayout(uint256 agentId, address payout) external {
+        Agent storage a = _owned(agentId);
+        if (payout == address(0)) revert ZeroAddress();
+        a.payout = payout;
+        emit PayoutSet(agentId, payout);
+    }
+
+    /// @notice Link (or change) the ERC-8004 identity. The caller must own it.
+    function setIdentity(uint256 agentId, uint256 erc8004Id) external {
+        Agent storage a = _owned(agentId);
+        _checkIdentity(erc8004Id);
+        a.erc8004Id = erc8004Id;
+        emit AgentRegistered(agentId, a.owner, a.signer, erc8004Id);
+    }
+
+    /// @notice Add USDG to an agent's bond. Anyone may top up.
+    function postBond(uint256 agentId, uint256 amount) external {
+        Agent storage a = _known(agentId);
+        if (amount == 0) revert ZeroAmount();
+        a.bond += amount;
+        usdg.safeTransferFrom(msg.sender, address(this), amount);
+        emit BondPosted(agentId, msg.sender, amount);
+    }
+
+    /// @notice Start unbonding. The amount stays slashable until it is withdrawn.
+    function requestUnbond(uint256 agentId, uint256 amount) external {
+        Agent storage a = _owned(agentId);
+        if (amount == 0) revert ZeroAmount();
+        if (amount > a.bond) revert InsufficientBond(amount, a.bond);
+        a.bond -= amount;
+        a.unbonding += amount;
+        a.unbondAt = uint64(block.timestamp) + unbondDelay;
+        emit UnbondRequested(agentId, amount, a.unbondAt);
+    }
+
+    function withdrawUnbonded(uint256 agentId, address to) external returns (uint256 amount) {
+        Agent storage a = _owned(agentId);
+        if (to == address(0)) revert ZeroAddress();
+        amount = a.unbonding;
+        if (amount == 0) revert NothingUnbonding();
+        if (block.timestamp < a.unbondAt) revert UnbondPending(a.unbondAt);
+        a.unbonding = 0;
+        usdg.safeTransfer(to, amount);
+        emit Unbonded(agentId, to, amount);
+    }
+
+    /// @notice An owner can retire their agent at once (it can no longer propose).
+    function retire(uint256 agentId) external {
+        _owned(agentId).status = Status.Retired;
+        emit StatusSet(agentId, Status.Retired);
+    }
+
+    // ------------------------------------------------------------------ protocol
+
+    /// @notice Penalise a rejected proposal: move up to `slashAmount` (bond first, then unbonding) to `recipient`.
+    function slash(uint256 agentId, address recipient) external onlyRole(SLASHER_ROLE) returns (uint256 amount) {
+        Agent storage a = _known(agentId);
+        if (recipient == address(0)) revert ZeroAddress();
+        amount = slashAmount;
+        uint256 fromBond = amount < a.bond ? amount : a.bond;
+        a.bond -= fromBond;
+        uint256 rest = amount - fromBond;
+        uint256 fromUnbonding = rest < a.unbonding ? rest : a.unbonding;
+        a.unbonding -= fromUnbonding;
+        amount = fromBond + fromUnbonding;
+
+        uint32 strikes = ++a.strikes;
+        ++a.rejected;
+        if (strikes >= maxStrikes && a.status == Status.Active) {
+            a.status = Status.Suspended;
+            emit StatusSet(agentId, Status.Suspended);
+        }
+        emit Slashed(agentId, recipient, amount, strikes);
+        if (amount != 0) usdg.safeTransfer(recipient, amount);
+    }
+
+    /// @notice Count an accepted proposal (the on-chain track record).
+    function recordAccepted(uint256 agentId) external onlyRole(SLASHER_ROLE) {
+        ++_known(agentId).accepted;
+        emit ProposalRecorded(agentId, true);
+    }
+
+    // ------------------------------------------------------------------ admin
+
+    /// @notice Suspend or reinstate an agent (reinstating clears its strikes).
+    function setStatus(uint256 agentId, Status status) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        Agent storage a = _known(agentId);
+        if (status == Status.None) revert InvalidStatus(status);
+        if (status == Status.Active) a.strikes = 0;
+        a.status = status;
+        emit StatusSet(agentId, status);
+    }
+
+    function setParams(uint256 minBond_, uint256 slashAmount_, uint32 maxStrikes_, uint32 unbondDelay_)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        _setParams(minBond_, slashAmount_, maxStrikes_, unbondDelay_);
+    }
+
+    function setIdentityRegistry(IERC721 registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        identityRegistry = registry;
+        emit IdentityRegistrySet(address(registry));
+    }
+
+    // ------------------------------------------------------------------ views
+
+    function getAgent(uint256 agentId) external view returns (Agent memory) {
+        return _agents[agentId];
+    }
+
+    /// @notice May propose: active, bonded at least `minBond`, under the strike limit.
+    function isActive(uint256 agentId) public view returns (bool) {
+        Agent storage a = _agents[agentId];
+        return a.status == Status.Active && a.bond >= minBond && a.strikes < maxStrikes;
+    }
+
+    function signerOf(uint256 agentId) external view returns (address) {
+        return _agents[agentId].signer;
+    }
+
+    function payoutOf(uint256 agentId) external view returns (address) {
+        return _agents[agentId].payout;
+    }
+
+    // ------------------------------------------------------------------ internals
+
+    function _known(uint256 agentId) internal view returns (Agent storage a) {
+        a = _agents[agentId];
+        if (a.status == Status.None) revert UnknownAgent(agentId);
+    }
+
+    function _owned(uint256 agentId) internal view returns (Agent storage a) {
+        a = _known(agentId);
+        if (msg.sender != a.owner) revert NotOwner(agentId);
+    }
+
+    function _checkIdentity(uint256 erc8004Id) internal view {
+        if (erc8004Id == 0 || address(identityRegistry) == address(0)) return;
+        if (identityRegistry.ownerOf(erc8004Id) != msg.sender) revert NotIdentityOwner(erc8004Id);
+    }
+
+    function _setParams(uint256 minBond_, uint256 slashAmount_, uint32 maxStrikes_, uint32 unbondDelay_) internal {
+        if (maxStrikes_ == 0 || unbondDelay_ < 1 days || unbondDelay_ > 60 days) revert InvalidParams();
+        (minBond, slashAmount, maxStrikes, unbondDelay) = (minBond_, slashAmount_, maxStrikes_, unbondDelay_);
+        emit ParamsSet(minBond_, slashAmount_, maxStrikes_, unbondDelay_);
+    }
+}
