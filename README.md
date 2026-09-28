@@ -92,7 +92,7 @@ A covered call pays the buyer `(S − K) / S` stock tokens per option when it ex
 | Invariants      | 9 properties on a call vault and a put vault, 32,768 random calls each in the CI profile ([list](docs/testing.md#invariants))                      |
 | Mutation checks | Three injected bugs, all caught by the invariants ([details](docs/testing.md#mutation-checks))                                                     |
 | Differential    | Stylus (Rust) and Solidity pricers return identical results on 10,000 fuzz inputs, 300 vectors and on-chain on a Nitro dev node                    |
-| Fork tests      | Robinhood Chain mainnet at a pinned block: real TSLA, NVDA, SPY feeds and multipliers, real USDG, a full epoch                                     |
+| Fork tests      | Robinhood Chain mainnet: real TSLA, NVDA, SPY feeds and multipliers, real USDG, real ERC-8004 registries, a full epoch                             |
 | Calendar        | Session times match Python `zoneinfo` for every day from 2026 to 2030                                                                              |
 | Static analysis | Slither: 0 High, every other finding justified in [docs/security/slither.md](docs/security/slither.md)                                             |
 | Threat model    | 18 threats with mitigation and the test that covers each: [docs/threat-model.md](docs/threat-model.md)                                             |

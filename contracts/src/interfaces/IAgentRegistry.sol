@@ -14,4 +14,7 @@ interface IAgentRegistry {
     function slash(uint256 agentId, address recipient) external returns (uint256);
 
     function recordAccepted(uint256 agentId) external;
+
+    /// @notice Record an agent's settled epoch (net USDG PnL for the vault's depositors, before fees).
+    function recordEpochResult(uint256 agentId, int256 pnl) external;
 }

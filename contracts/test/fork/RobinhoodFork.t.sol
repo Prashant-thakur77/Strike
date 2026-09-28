@@ -5,6 +5,7 @@ import {AgentRegistry} from "../../src/agents/AgentRegistry.sol";
 import {EpochManager} from "../../src/core/EpochManager.sol";
 import {FeeManager} from "../../src/core/FeeManager.sol";
 import {IAggregatorV3} from "../../src/interfaces/IAggregatorV3.sol";
+import {IERC8004Reputation} from "../../src/interfaces/IERC8004Reputation.sol";
 import {IStockToken} from "../../src/interfaces/IStockToken.sol";
 import {MandateGuard} from "../../src/libraries/MandateGuard.sol";
 import {SafeStockFeed} from "../../src/libraries/SafeStockFeed.sol";
@@ -16,15 +17,13 @@ import {StrikeVault} from "../../src/vaults/StrikeVault.sol";
 import {VaultFactory} from "../../src/vaults/VaultFactory.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {Test} from "forge-std/Test.sol";
+import {Test, Vm} from "forge-std/Test.sol";
 
 /// @notice Fork tests against Robinhood Chain mainnet (4663): real stock tokens, real Chainlink feeds, real USDG,
 ///         real ERC-8056 multipliers and pause functions. Skipped unless ROBINHOOD_RPC_URL is set:
 ///         ROBINHOOD_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --match-path "test/fork/*"
 /// @dev Addresses from docs.robinhood.com/chain/contracts and docs.chain.link (see docs/research.md).
 contract RobinhoodForkTest is Test {
-    uint256 internal constant FORK_BLOCK = 74_708_484; // 2026-09-28 08:39 UTC (Monday, before the open)
-
     address internal constant TSLA = 0x322F0929c4625eD5bAd873c95208D54E1c003b2d;
     address internal constant NVDA = 0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC;
     address internal constant SPY = 0x117cc2133c37B721F49dE2A7a74833232B3B4C0C;
@@ -33,6 +32,7 @@ contract RobinhoodForkTest is Test {
     address internal constant SPY_FEED = 0x319724394D3A0e3669269846abE664Cd621f9f6A;
     address internal constant USDG = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
     address internal constant ERC8004_IDENTITY = 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432;
+    address internal constant ERC8004_REPUTATION = 0x8004BAa17C55a88189AE136b182e5fdA19dE9b63;
 
     address internal admin = makeAddr("admin");
     MarketCalendar internal calendar;
@@ -43,7 +43,10 @@ contract RobinhoodForkTest is Test {
         string memory rpc = vm.envOr("ROBINHOOD_RPC_URL", string(""));
         enabled = bytes(rpc).length != 0;
         if (!enabled) return;
-        vm.createSelectFork(rpc, FORK_BLOCK);
+        // Latest block by default: public RPCs prune old state. Pin with FORK_BLOCK when using an archive node.
+        uint256 forkBlock = vm.envOr("FORK_BLOCK", uint256(0));
+        if (forkBlock == 0) vm.createSelectFork(rpc);
+        else vm.createSelectFork(rpc, forkBlock);
         vm.startPrank(admin);
         calendar = new MarketCalendar(admin, new uint256[](0), new uint256[](0));
         oracle = new StockOracle(admin, calendar);
@@ -75,7 +78,6 @@ contract RobinhoodForkTest is Test {
     function test_fork_multiplierIsNotAppliedTwice() public onFork {
         uint256 m = IStockToken(NVDA).uiMultiplier();
         assertGt(m, 1e18, "NVDA should have a dividend multiplier");
-        assertEq(IStockToken(NVDA).newUIMultiplier(), m, "no change pending");
         (, int256 answer,,,) = IAggregatorV3(NVDA_FEED).latestRoundData();
         (uint256 price,) = oracle.latestPrice(NVDA);
         uint256 doubleCounted = price * m / 1e18;
@@ -93,8 +95,11 @@ contract RobinhoodForkTest is Test {
     function test_fork_corporateActionWindow() public onFork {
         uint256 at = IStockToken(NVDA).effectiveAt();
         assertGt(at, 0);
+        bool pending =
+            IStockToken(NVDA).newUIMultiplier() != IStockToken(NVDA).uiMultiplier() || block.timestamp < at + 1 days;
         (SafeStockFeed.Status s,,) = oracle.status(NVDA);
-        assertEq(uint8(s), uint8(SafeStockFeed.Status.Ok));
+        if (!pending) assertEq(uint8(s), uint8(SafeStockFeed.Status.Ok));
+        else assertEq(uint8(s), uint8(SafeStockFeed.Status.CorporateActionPending));
         vm.prank(admin);
         oracle.setFeed(NVDA, IAggregatorV3(NVDA_FEED), 3 days, 60 days);
         (s,,) = oracle.status(NVDA);
@@ -122,6 +127,7 @@ contract RobinhoodForkTest is Test {
 
     // State for the full-epoch test (kept in storage to stay under the stack limit).
     EpochManager internal manager;
+    AgentRegistry internal registry;
     StrikeVault internal vault;
     uint256 internal agentId;
     address internal agent = makeAddr("agent");
@@ -131,7 +137,7 @@ contract RobinhoodForkTest is Test {
     /// A full covered-call epoch on real TSLA and real USDG. Live reads use the real feed; the post-expiry print is
     /// mocked because a fork cannot produce future rounds.
     function test_fork_fullEpochWithRealTokens() public onFork {
-        vm.warp(1_790_607_600); // Monday 2026-09-28 15:00 UTC, market open
+        vm.warp(_nextSessionMoment()); // one hour into the next NYSE session
         _deployStack();
 
         deal(TSLA, alice, 10e18);
@@ -141,6 +147,7 @@ contract RobinhoodForkTest is Test {
         vm.stopPrank();
 
         uint64 expiry = uint64(calendar.weeklyExpiry(block.timestamp));
+        if (expiry < block.timestamp + 1 days) expiry = uint64(calendar.weeklyExpiry(block.timestamp + 3 days));
         uint256 strike = manager.spot(TSLA) * 106 / 100;
         vm.prank(agent);
         manager.openEpoch(address(vault));
@@ -155,7 +162,9 @@ contract RobinhoodForkTest is Test {
         manager.buy(seriesId, 5e18, premium, buyer);
         vm.stopPrank();
 
+        vm.recordLogs();
         _settleAt(strike * 110 / 100, expiry);
+        _assertFeedbackPosted();
 
         vm.prank(buyer);
         uint256 paid = manager.redeem(seriesId, 5e18, buyer);
@@ -169,7 +178,8 @@ contract RobinhoodForkTest is Test {
         vm.startPrank(admin);
         FeeManager fees = new FeeManager(admin, IERC20(USDG), admin, 1000, 5000);
         OptionToken options = new OptionToken("", admin);
-        AgentRegistry registry = new AgentRegistry(admin, IERC20(USDG), IERC721(ERC8004_IDENTITY), 10e6, 5e6, 3, 8 days);
+        registry = new AgentRegistry(admin, IERC20(USDG), IERC721(ERC8004_IDENTITY), 10e6, 5e6, 3, 8 days);
+        registry.setReputationRegistry(IERC8004Reputation(ERC8004_REPUTATION));
         manager = new EpochManager(admin, IERC20(USDG), options, new BlackScholesRef(), fees, oracle, registry);
         options.setManager(address(manager));
         fees.grantRole(fees.DEPOSITOR_ROLE(), address(manager));
@@ -182,7 +192,9 @@ contract RobinhoodForkTest is Test {
 
         deal(USDG, agent, 100e6);
         vm.startPrank(agent);
-        agentId = registry.register(agent, agent, 0);
+        // A real ERC-8004 identity from the official registry on chain 4663.
+        uint256 identityId = IERC8004Identity(ERC8004_IDENTITY).register();
+        agentId = registry.register(agent, agent, identityId);
         IERC20(USDG).approve(address(registry), 100e6);
         registry.postBond(agentId, 100e6);
         vm.stopPrank();
@@ -199,6 +211,33 @@ contract RobinhoodForkTest is Test {
         vault = StrikeVault(factory.createVault(p));
     }
 
+    /// One hour after the next NYSE open (or now, if a session is open for at least another hour).
+    function _nextSessionMoment() internal view returns (uint256) {
+        uint256 day = block.timestamp / 1 days;
+        for (uint256 i; i < 10; ++i) {
+            if (!calendar.isTradingDay(day + i)) continue;
+            (uint256 open, uint256 close) = calendar.sessionOf(day + i);
+            if (block.timestamp < open + 1 hours) return open + 1 hours;
+            if (block.timestamp + 1 hours < close) return block.timestamp;
+        }
+        revert("no session in 10 days");
+    }
+
+    /// The settled epoch was posted to the official ERC-8004 Reputation Registry.
+    function _assertFeedbackPosted() internal {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        bytes32 sig = AgentRegistry.ReputationFeedback.selector;
+        bool found;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter == address(registry) && logs[i].topics[0] == sig) {
+                (,, bool posted) = abi.decode(logs[i].data, (int128, string, bool));
+                assertTrue(posted, "real ERC-8004 registry rejected the feedback");
+                found = true;
+            }
+        }
+        assertTrue(found, "no reputation feedback emitted");
+    }
+
     /// Mock the first post-expiry round of the real feed at `priceWad`, then settle.
     function _settleAt(uint256 priceWad, uint64 expiry) internal {
         (uint80 latest,,,,) = IAggregatorV3(TSLA_FEED).latestRoundData();
@@ -211,6 +250,10 @@ contract RobinhoodForkTest is Test {
         vm.warp(printAt + 60);
         manager.settle(address(vault), latest + 1);
     }
+}
+
+interface IERC8004Identity {
+    function register() external returns (uint256 agentId);
 }
 
 interface IERC20Decimals {

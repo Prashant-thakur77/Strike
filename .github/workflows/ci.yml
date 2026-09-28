@@ -114,7 +114,7 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - name: Fork tests at a pinned block
+      - name: Fork tests at the latest block
         working-directory: contracts
         run: forge test --match-path "test/fork/*" -vv
 

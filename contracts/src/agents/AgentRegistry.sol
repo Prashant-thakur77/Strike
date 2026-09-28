@@ -2,10 +2,12 @@
 pragma solidity 0.8.30;
 
 import {IAgentRegistry} from "../interfaces/IAgentRegistry.sol";
+import {IERC8004Reputation} from "../interfaces/IERC8004Reputation.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title AgentRegistry
 /// @notice AI agents that propose strikes for Strike vaults. Each agent has an owner, a signer key (the only key that
@@ -47,7 +49,18 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     uint32 public maxStrikes;
     uint32 public unbondDelay;
 
+    /// @notice ERC-8004 Reputation Registry. When set, settled epochs and mandate rejections are posted as feedback
+    ///         to the agent's linked ERC-8004 identity. Zero disables feedback.
+    IERC8004Reputation public reputationRegistry;
+
+    struct Track {
+        uint32 settledEpochs;
+        int256 cumulativePnl; // USDG base units
+    }
+
     uint256 public agentCount;
+    /// @notice On-chain track record per agent.
+    mapping(uint256 agentId => Track) public track;
     mapping(uint256 agentId => Agent) internal _agents;
     /// @notice Agent id for a signer key (0 if none).
     mapping(address signer => uint256 agentId) public agentOfSigner;
@@ -63,6 +76,9 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     event ProposalRecorded(uint256 indexed agentId, bool accepted);
     event ParamsSet(uint256 minBond, uint256 slashAmount, uint32 maxStrikes, uint32 unbondDelay);
     event IdentityRegistrySet(address registry);
+    event ReputationRegistrySet(address registry);
+    event EpochResultRecorded(uint256 indexed agentId, int256 pnl, uint32 settledEpochs, int256 cumulativePnl);
+    event ReputationFeedback(uint256 indexed agentId, uint256 indexed erc8004Id, int128 value, string tag, bool posted);
 
     error ZeroAddress();
     error NotOwner(uint256 agentId);
@@ -194,6 +210,7 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
             emit StatusSet(agentId, Status.Suspended);
         }
         emit Slashed(agentId, recipient, amount, strikes);
+        _feedback(agentId, a.erc8004Id, -SafeCast.toInt128(SafeCast.toInt256(amount)), "strike.mandate.rejection");
         if (amount != 0) usdg.safeTransfer(recipient, amount);
     }
 
@@ -201,6 +218,20 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     function recordAccepted(uint256 agentId) external onlyRole(SLASHER_ROLE) {
         ++_known(agentId).accepted;
         emit ProposalRecorded(agentId, true);
+    }
+
+    /// @notice Record a settled epoch and post it to ERC-8004 as feedback (value = PnL in USDG, 6 decimals).
+    function recordEpochResult(uint256 agentId, int256 pnl) external onlyRole(SLASHER_ROLE) {
+        Agent storage a = _known(agentId);
+        Track storage t = track[agentId];
+        ++t.settledEpochs;
+        t.cumulativePnl += pnl;
+        emit EpochResultRecorded(agentId, pnl, t.settledEpochs, t.cumulativePnl);
+        // Clamp into int128 (PnL of a single epoch never gets close).
+        int256 v =
+            pnl > type(int128).max ? int256(type(int128).max) : pnl < type(int128).min ? int256(type(int128).min) : pnl;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        _feedback(agentId, a.erc8004Id, int128(v), "strike.epoch.pnl");
     }
 
     // ------------------------------------------------------------------ admin
@@ -219,6 +250,11 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         _setParams(minBond_, slashAmount_, maxStrikes_, unbondDelay_);
+    }
+
+    function setReputationRegistry(IERC8004Reputation registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        reputationRegistry = registry;
+        emit ReputationRegistrySet(address(registry));
     }
 
     function setIdentityRegistry(IERC721 registry) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -256,6 +292,16 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     function _owned(uint256 agentId) internal view returns (Agent storage a) {
         a = _known(agentId);
         if (msg.sender != a.owner) revert NotOwner(agentId);
+    }
+
+    /// @dev Best effort: a failing or missing reputation registry never blocks settlement or slashing.
+    function _feedback(uint256 agentId, uint256 erc8004Id, int128 value, string memory tag) internal {
+        if (erc8004Id == 0 || address(reputationRegistry) == address(0)) return;
+        bool posted;
+        try reputationRegistry.giveFeedback(erc8004Id, value, 6, tag, "", "", "", bytes32(0)) {
+            posted = true;
+        } catch {}
+        emit ReputationFeedback(agentId, erc8004Id, value, tag, posted);
     }
 
     function _checkIdentity(uint256 erc8004Id) internal view {

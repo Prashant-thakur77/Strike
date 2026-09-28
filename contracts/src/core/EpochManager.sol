@@ -17,6 +17,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title EpochManager
 /// @notice Runs every Strike vault's weekly epoch: open → propose → sell → settle. It is the only contract that can
@@ -438,6 +439,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         }
         if (toVault != 0) usdg.safeTransfer(vault, toVault);
         IStrikeVault(vault).settleEpoch(payout, toVault);
+        // The agent's track record (and its ERC-8004 reputation): depositors' premium minus what buyers were paid.
+        agents.recordEpochResult(s.agentId, SafeCast.toInt256(s.premium) - SafeCast.toInt256(payoutValue));
         emit EpochSettled(vault, epoch, seriesId, s.settlementPrice, payout, s.premium, fee);
     }
 
