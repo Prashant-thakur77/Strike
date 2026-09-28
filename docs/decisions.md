@@ -105,3 +105,23 @@ A full rehearsal on an Arbitrum Nitro dev node showed `forge script` broadcasts 
 ## D26 · The app is built with webpack (2026-09-28)
 
 The SDK is consumed from source through its `strike-source` export condition, and its ESM imports use `.js` specifiers for `.ts` files. Turbopack supports neither, so `app` builds with `next build --webpack`. `app/vercel.json` pins the install and build commands.
+
+## D27 · Every review finding is fixed before the live epoch; testnet redeployed as v2 (2026-09-29)
+
+The internal review (docs/security/review-2026-09-29.md) found 1 High, 3 Medium and 4 Low issues, each with a failing test. All are fixed in the contracts and the tests now run as regression tests. Nothing is upgradeable, so Robinhood testnet got a fresh v2 deployment. It reuses the verified Stylus pricer, which is stateless and unchanged. The v1 agent bond (100 USDG) is unbonding (8 days). v2 bonds 60 USDG, which keeps the agent above the 50 USDG minimum after one 10 USDG slash and leaves 40 USDG for the live epoch's put collateral and buyer budget.
+
+## D28 · Proposals are judged against the market at open, not at inclusion (2026-09-29)
+
+The review showed a keeper sigma update or a new print between an agent's dry run and its transaction could slash an honest agent (L-02). Adding expected-market bounds to the proposal ABI was rejected: it would change every agent integration. Instead, `openEpoch` snapshots spot and sigma, and the mandate is checked against that snapshot, so a proposal's verdict is fully determined when the agent dry-runs it. The live feed must still be healthy, and a proposal whose strike live spot has already crossed reverts instead (no slash, nothing sold in the money). `proposeByDelta` also solves against the snapshot, so the agent knows the exact strike before sending. Sales still price off the live spot.
+
+## D29 · Sales are priced conservatively: spot buffer and intrinsic floor (2026-09-29)
+
+Chainlink stock feeds print on a 0.5% move, so the market can be up to 0.5% from the last print with no new round. Buys therefore price fair value at spot moved 50 bps against the buyer (`setSpotBuffer`, per token, capped at 200 bps). They also never charge less than intrinsic value, since a mandate may allow premiumBps down to 90%. Both only ever raise the premium.
+
+## D30 · Hard settlement cases get a hinted recorder, not a new settle signature (2026-09-29)
+
+An aggregator phase change or a corporate action near expiry needs more than one round of proof. `StockOracle.recordSettlementPriceWithHints` takes them. `EpochManager.settle(vault, roundId)` keeps its signature and reads the recorded price, so the keeper, the MCP tools and the app do not change in the common case. The SDK finds the hints (`findSettlementHints`) and records the price first only when needed.
+
+## D31 · Weekly performance fee without a high-water mark (2026-09-29)
+
+The backtest showed the weekly fee takes about 8% of gross premium even over stretches where buyers were paid more than the premium collected. A per-vault loss carry-forward needs the vault in the fee call, which is an `EpochManager` change. It is on the roadmap for the next version and stated as a known issue in audit-readiness.md, rather than being rushed into v2.

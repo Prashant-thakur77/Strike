@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Strike terminal replay</title>
+    <style>
+      /*__FONTS__*/
+      :root {
+        --ink: #0d0d0d;
+        --ink-teal: #071111;
+        --paper: #f1f0ed;
+        --mint: #75d0cb;
+        --dim: #7d8a89;
+        --green: #6fdc9a;
+        --red: #ff7a6b;
+        --amber: #f2c46d;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+        --sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+      }
+      body {
+        background: radial-gradient(1200px 700px at 70% 30%, #0f2222 0%, var(--ink-teal) 55%, #040808 100%);
+        color: var(--paper);
+        font-family: var(--sans);
+        overflow: hidden;
+      }
+      .stage {
+        position: absolute;
+        inset: 56px 96px 170px;
+        display: flex;
+        flex-direction: column;
+      }
+      .label {
+        font: 600 15px/1 var(--sans);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--mint);
+        margin: 0 0 18px;
+        display: flex;
+        gap: 18px;
+        align-items: center;
+      }
+      .label span.n {
+        color: var(--dim);
+      }
+      .win {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        background: rgba(8, 10, 10, 0.92);
+        border: 1px solid #1f2b2b;
+        border-radius: 14px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+        overflow: hidden;
+      }
+      .bar {
+        height: 44px;
+        flex: none;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 0 18px;
+        border-bottom: 1px solid #1c2626;
+        background: #0b1111;
+      }
+      .bar i {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #2b3636;
+        display: block;
+      }
+      .bar b {
+        flex: 1;
+        text-align: center;
+        font: 500 14px/1 var(--mono);
+        color: var(--dim);
+        margin-right: 60px;
+      }
+      .screen {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        padding: 22px 28px 26px;
+        font: 400 21px/1.52 var(--mono);
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        word-break: normal;
+      }
+      .screen .l {
+        min-height: 1.52em;
+      }
+      .screen .l.ind {
+        padding-left: 4ch;
+      }
+      .prompt {
+        color: var(--mint);
+      }
+      .cmd {
+        color: var(--paper);
+        font-weight: 600;
+      }
+      .caret {
+        display: inline-block;
+        width: 0.6em;
+        height: 1.1em;
+        vertical-align: -0.18em;
+        background: var(--mint);
+        animation: blink 1s steps(1) infinite;
+      }
+      @keyframes blink {
+        50% {
+          opacity: 0;
+        }
+      }
+      .step {
+        color: var(--mint);
+        font-weight: 700;
+      }
+      .ok {
+        color: var(--green);
+      }
+      .bad {
+        color: var(--red);
+        font-weight: 600;
+      }
+      .dimmed {
+        color: var(--dim);
+      }
+      .title {
+        color: var(--paper);
+        font-weight: 700;
+      }
+      .l.hl {
+        background: rgba(117, 208, 203, 0.09);
+        box-shadow: inset 3px 0 0 var(--mint);
+      }
+      .l.hlbad {
+        background: rgba(255, 122, 107, 0.1);
+        box-shadow: inset 3px 0 0 var(--red);
+      }
+
+      /* closing card */
+      .close {
+        position: absolute;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 120px 80px;
+      }
+      .close.on {
+        display: flex;
+      }
+      .close .logo {
+        font: 800 64px/1 var(--sans);
+        letter-spacing: -0.04em;
+        color: var(--paper);
+        margin-bottom: 42px;
+      }
+      .close .logo em {
+        font-style: normal;
+        color: var(--mint);
+      }
+      .close h1 {
+        font: 800 118px/0.95 var(--sans);
+        letter-spacing: -0.045em;
+        margin: 0 0 56px;
+        max-width: 1500px;
+      }
+      .close ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0;
+        border-top: 1px solid #294040;
+      }
+      .close li {
+        padding: 26px 28px 0 0;
+        font: 500 26px/1.3 var(--sans);
+        color: #c9d3d2;
+      }
+      .close li strong {
+        display: block;
+        font: 800 64px/1 var(--sans);
+        letter-spacing: -0.03em;
+        color: var(--mint);
+        margin-bottom: 10px;
+      }
+      .fade {
+        opacity: 0;
+        transform: translateY(18px);
+        transition:
+          opacity 700ms ease,
+          transform 700ms ease;
+      }
+      .fade.in {
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="stage" id="stage">
+      <p class="label"><span id="label">Terminal</span><span class="n" id="labelN"></span></p>
+      <div class="win">
+        <div class="bar">
+          <i></i><i></i><i></i><b id="wintitle">~/strike · local devnet (anvil, chain 31337)</b>
+        </div>
+        <div class="screen" id="screen"></div>
+      </div>
+    </div>
+    <div class="close" id="close">
+      <div class="logo fade">Strike<em>.</em></div>
+      <h1 class="fade">Options on Robinhood Chain, run by agents that cannot break the rules.</h1>
+      <ul class="fade">
+        <li><strong>500+</strong>tests</li>
+        <li><strong>9</strong>invariants</li>
+        <li><strong>Fork</strong>tests against real Robinhood mainnet tokens</li>
+        <li><strong>To the wei</strong>Rust and Solidity pricers agree</li>
+      </ul>
+    </div>
+    <script>
+      // Filled in by video/record.mjs: { mode: "terminal" | "close", label, segments: [...] }
+      const DATA = /*__DATA__*/ null;
+      const screen = document.getElementById("screen");
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+
+      function classify(line) {
+        const t = line.trim();
+        if (/^\[\d+\]/.test(t)) return "step";
+        if (/^Strike example agent/.test(t)) return "title";
+        if (/REJECTED|Agent stopped|DeltaOutOfBand|Slashed|Not compliant/.test(t)) return "bad";
+        if (/^(Accepted|Verdict: None|Bought|Max loss|Breakeven)/.test(t)) return "ok";
+        if (/^(Connected to|tx 0x|Opened the epoch)/.test(t)) return "dimmed";
+        return "";
+      }
+
+      function addLine(html, cls = "") {
+        const div = document.createElement("div");
+        div.className = "l" + (cls ? " " + cls : "");
+        div.innerHTML = html;
+        screen.appendChild(div);
+        screen.scrollTop = screen.scrollHeight;
+        return div;
+      }
+
+      async function typeCommand(cmd) {
+        const div = addLine(
+          '<span class="prompt">strike $ </span><span class="cmd"></span><span class="caret"></span>',
+        );
+        const span = div.querySelector(".cmd");
+        await sleep(500);
+        for (const ch of cmd) {
+          span.textContent += ch;
+          await sleep(ch === " " ? 45 : 26);
+        }
+        await sleep(450);
+        div.querySelector(".caret").remove();
+      }
+
+      function caption(text) {
+        if (window.__caption) window.__caption(text);
+      }
+
+      async function runSegment(seg) {
+        if (seg.clear) screen.innerHTML = "";
+        if (seg.label) document.getElementById("label").textContent = seg.label;
+        if (seg.caption) caption(seg.caption);
+        await typeCommand(seg.command);
+        for (const raw of seg.lines) {
+          const line = raw.replace(/\s+$/, "");
+          const cls = classify(line);
+          if (cls === "step") await sleep(seg.stepPause ?? 650);
+          const rule = (seg.rules || []).find((r) => new RegExp(r.match).test(line));
+          if (rule && rule.caption) caption(rule.caption);
+          const indented = /^ {4}/.test(line);
+          const text = indented ? line.slice(4) : line;
+          const div = addLine(line ? `<span class="${cls}">${esc(text)}</span>` : "", indented ? "ind" : "");
+          if (rule && rule.highlight) div.classList.add(rule.highlight);
+          await sleep(line ? (seg.linePause ?? 170) : 60);
+          if (rule && rule.hold) await sleep(rule.hold);
+        }
+        addLine('<span class="prompt">strike $ </span><span class="caret"></span>');
+        await sleep(seg.endHold ?? 1500);
+        screen.lastChild.querySelector(".caret")?.remove();
+      }
+
+      async function main() {
+        if (DATA.mode === "close") {
+          document.getElementById("stage").style.display = "none";
+          const close = document.getElementById("close");
+          close.classList.add("on");
+          const items = close.querySelectorAll(".fade");
+          for (const el of items) {
+            await sleep(450);
+            el.classList.add("in");
+          }
+          await sleep(DATA.hold ?? 6000);
+          return;
+        }
+        document.getElementById("labelN").textContent = DATA.sublabel || "";
+        for (const seg of DATA.segments) await runSegment(seg);
+      }
+      window.__run = () => main();
+    </script>
+  </body>
+</html>

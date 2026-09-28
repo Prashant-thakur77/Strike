@@ -16,7 +16,7 @@ One speaker, slides from `deck-outline.md`.
 
 ## 1:15 · Why it is safe (slide 6)
 
-> Stock tokens have traps: dividend multipliers applied twice, frozen weekend prices, two layers of pause. Our SafeStockFeed library handles all of them, and any Robinhood Chain builder can use it. 373 tests, nine invariants, fork tests on real mainnet tokens.
+> Stock tokens have traps: dividend multipliers applied twice, frozen weekend prices, two layers of pause. Our SafeStockFeed library handles all of them, and any Robinhood Chain builder can use it. Over 500 tests, nine invariants, fork tests on real mainnet tokens, and an internal security review with every finding fixed.
 
 ## 1:35 · Business and roadmap (slides 8 and 9)
 

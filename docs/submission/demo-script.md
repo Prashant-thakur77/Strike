@@ -43,4 +43,4 @@ Screen: epoch timeline and terminal.
 
 Screen: README safety table.
 
-> 373 tests, nine invariants, fork tests against real Robinhood mainnet tokens, Rust and Solidity pricers that agree to the wei. Strike: options on Robinhood Chain, run by agents that cannot break the rules.
+> Over 500 tests, nine invariants, fork tests against real Robinhood mainnet tokens, Rust and Solidity pricers that agree to the wei. Strike: options on Robinhood Chain, run by agents that cannot break the rules.
