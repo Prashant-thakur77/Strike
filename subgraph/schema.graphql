@@ -1,0 +1,8 @@
+# Strike subgraph schema. Mappings arrive with the contracts (Phase 4).
+
+type Vault @entity(immutable: false) {
+  id: Bytes!
+  underlying: Bytes!
+  isCall: Boolean!
+  createdAt: BigInt!
+}

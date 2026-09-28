@@ -1,0 +1,16 @@
+{
+  "name": "@strike/subgraph",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "graph:codegen": "graph codegen",
+    "graph:build": "graph build",
+    "graph:test": "graph test"
+  },
+  "devDependencies": {
+    "@graphprotocol/graph-cli": "^0.98.1",
+    "@graphprotocol/graph-ts": "^0.38.2",
+    "matchstick-as": "^0.6.0"
+  }
+}
