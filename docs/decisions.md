@@ -97,3 +97,11 @@ The latest Foundry formats nested struct literals differently from 1.7.1, which 
 ## D24 · A fresh testnet deployer key was generated locally (2026-09-28)
 
 `contracts/.env` (gitignored, mode 600) holds a new testnet-only key; the owner only has to fund its address. It must never hold mainnet funds: mainnet deploys use the owner's own key or a Safe.
+
+## D25 · Deploy scripts skip Foundry's simulation on Arbitrum (2026-09-28)
+
+A full rehearsal on an Arbitrum Nitro dev node showed `forge script` broadcasts failing with "intrinsic gas too low": Foundry's local gas estimate omits Arbitrum's L1 data component. All deploy scripts now pass `--skip-simulation --slow`, so each transaction uses the node's `eth_estimateGas`. The same rehearsal fixed Stylus address parsing (the deployment line, not the activation line, which is absent when the WASM is already activated).
+
+## D26 · The app is built with webpack (2026-09-28)
+
+The SDK is consumed from source through its `strike-source` export condition, and its ESM imports use `.js` specifiers for `.ts` files. Turbopack supports neither, so `app` builds with `next build --webpack`. `app/vercel.json` pins the install and build commands.
