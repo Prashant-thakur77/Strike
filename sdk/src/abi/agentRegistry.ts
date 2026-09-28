@@ -346,6 +346,24 @@ export const agentRegistryAbi = [
   },
   {
     "type": "function",
+    "name": "recordEpochResult",
+    "inputs": [
+      {
+        "name": "agentId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "pnl",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "register",
     "inputs": [
       {
@@ -390,6 +408,19 @@ export const agentRegistryAbi = [
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "reputationRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC8004Reputation"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -519,6 +550,19 @@ export const agentRegistryAbi = [
   },
   {
     "type": "function",
+    "name": "setReputationRegistry",
+    "inputs": [
+      {
+        "name": "registry",
+        "type": "address",
+        "internalType": "contract IERC8004Reputation"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setSigner",
     "inputs": [
       {
@@ -624,6 +668,30 @@ export const agentRegistryAbi = [
         "name": "",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "track",
+    "inputs": [
+      {
+        "name": "agentId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "settledEpochs",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "cumulativePnl",
+        "type": "int256",
+        "internalType": "int256"
       }
     ],
     "stateMutability": "view"
@@ -736,6 +804,37 @@ export const agentRegistryAbi = [
   },
   {
     "type": "event",
+    "name": "EpochResultRecorded",
+    "inputs": [
+      {
+        "name": "agentId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "pnl",
+        "type": "int256",
+        "indexed": false,
+        "internalType": "int256"
+      },
+      {
+        "name": "settledEpochs",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "cumulativePnl",
+        "type": "int256",
+        "indexed": false,
+        "internalType": "int256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "IdentityRegistrySet",
     "inputs": [
       {
@@ -812,6 +911,56 @@ export const agentRegistryAbi = [
         "type": "bool",
         "indexed": false,
         "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReputationFeedback",
+    "inputs": [
+      {
+        "name": "agentId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "erc8004Id",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "value",
+        "type": "int128",
+        "indexed": false,
+        "internalType": "int128"
+      },
+      {
+        "name": "tag",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "posted",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ReputationRegistrySet",
+    "inputs": [
+      {
+        "name": "registry",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1089,6 +1238,33 @@ export const agentRegistryAbi = [
     "type": "error",
     "name": "NothingUnbonding",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflowedIntDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflowedUintToInt",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
   },
   {
     "type": "error",

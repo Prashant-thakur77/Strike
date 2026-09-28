@@ -1963,6 +1963,17 @@ export const epochManagerAbi = [
   },
   {
     "type": "error",
+    "name": "SafeCastOverflowedUintToInt",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "SafeERC20FailedOperation",
     "inputs": [
       {

@@ -5,6 +5,7 @@ import {AgentRegistry} from "../src/agents/AgentRegistry.sol";
 import {EpochManager} from "../src/core/EpochManager.sol";
 import {FeeManager} from "../src/core/FeeManager.sol";
 import {IAggregatorV3} from "../src/interfaces/IAggregatorV3.sol";
+import {IERC8004Reputation} from "../src/interfaces/IERC8004Reputation.sol";
 import {MarketCalendar} from "../src/oracle/MarketCalendar.sol";
 import {StockOracle} from "../src/oracle/StockOracle.sol";
 import {BlackScholesRef} from "../src/pricing/BlackScholesRef.sol";
@@ -42,6 +43,7 @@ contract Deploy is Script {
     struct Config {
         address usdg; // zero: deploy TestUSDG
         address identityRegistry; // ERC-8004
+        address reputationRegistry; // ERC-8004
         uint32 maxPriceAge;
         uint256 maxVaultCap;
         string optionUri;
@@ -95,6 +97,9 @@ contract Deploy is Script {
         d.vaultImpl = address(new StrikeVault());
         d.factory = address(new VaultFactory(deployer, d.vaultImpl, EpochManager(d.manager), d.usdg, cfg.maxVaultCap));
 
+        if (cfg.reputationRegistry != address(0)) {
+            AgentRegistry(d.registry).setReputationRegistry(IERC8004Reputation(cfg.reputationRegistry));
+        }
         EpochManager m = EpochManager(d.manager);
         OptionToken(d.options).setManager(d.manager);
         FeeManager(d.fees).grantRole(FeeManager(d.fees).DEPOSITOR_ROLE(), d.manager);
@@ -134,6 +139,7 @@ contract Deploy is Script {
         if (block.chainid == 4663) {
             c.usdg = 0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168;
             c.identityRegistry = 0x8004A169FB4a3325136EB29fA0ceB6D2e539a432;
+            c.reputationRegistry = 0x8004BAa17C55a88189AE136b182e5fdA19dE9b63;
             c.maxPriceAge = 25 hours; // Chainlink heartbeat 24h, deviation 0.5%
             c.maxVaultCap = 5000e18; // hard ceiling; curators set far lower on mainnet
             stocks.push(
@@ -166,6 +172,7 @@ contract Deploy is Script {
         } else if (block.chainid == 46_630) {
             c.usdg = 0x7E955252E15c84f5768B83c41a71F9eba181802F;
             c.identityRegistry = 0x8004A818BFB912233c491871b3d84c89A494BD9e;
+            c.reputationRegistry = 0x8004B663056A597Dffe9eCcC1965A193B7388713;
             c.maxPriceAge = 25 hours;
             c.maxVaultCap = 1_000_000e18;
             stocks.push(Stock("TSLA", 0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E, address(0), 369e8, 0.6e18));
@@ -176,6 +183,7 @@ contract Deploy is Script {
         } else if (block.chainid == 421_614) {
             c.usdg = 0xFFC95faa3d63Cde504a05B567C600B78C0b41892;
             c.identityRegistry = 0x8004A818BFB912233c491871b3d84c89A494BD9e;
+            c.reputationRegistry = 0x8004B663056A597Dffe9eCcC1965A193B7388713;
             c.maxPriceAge = 25 hours;
             c.maxVaultCap = 1_000_000e18;
             stocks.push(Stock("TSLA", address(0), address(0), 369e8, 0.6e18));
