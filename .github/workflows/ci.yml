@@ -74,3 +74,26 @@ jobs:
         run: pnpm -r build
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+
+  differential:
+    name: Differential (Stylus Rust vs Solidity pricer)
+    runs-on: ubuntu-latest
+    env:
+      FOUNDRY_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.91.0
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: stylus/pricer
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Build pricer CLI
+        working-directory: stylus/pricer
+        run: cargo build --release --example pricer_cli
+      - name: Differential fuzz over FFI
+        working-directory: contracts
+        run: PRICER_CLI=$GITHUB_WORKSPACE/stylus/pricer/target/release/examples/pricer_cli forge test --ffi --match-path "test/differential/*" -vv
