@@ -11,7 +11,7 @@ Tick an item (`[x]`) when done; blocked work resumes from there. Never paste pri
   - Robinhood Chain testnet: ~200 USDG from https://faucet.paxos.com (network: Robinhood Chain testnet)
   - Arbitrum Sepolia (421614): ~0.05 ETH (any Arbitrum Sepolia faucet or bridge) and ~200 USDG from https://faucet.paxos.com (network: Arbitrum Sepolia)
 - [ ] Choose the npm scope (`@strike` may be taken) and add an `NPM_TOKEN` | why: publish `@strike/sdk` | blocks: SDK publish | added: 2026-09-28
-- [ ] Vercel (or similar) account connected to the GitHub repo | why: live demo URL | blocks: live demo | added: 2026-09-28
+- [ ] Import the repo on Vercel with Root Directory `app` (steps in [deploy-app.md](deploy-app.md), about two minutes; ideally name the project `strike-options`) | why: live demo URL is a submission requirement | blocks: live demo | added: 2026-09-28
 - [ ] Goldsky account and API key (the only host with Robinhood Chain testnet subgraph support, see [indexing.md](indexing.md)) | why: index epochs and PnL for the app and agents | blocks: subgraph deploy | added: 2026-09-28
 - [ ] Approve and fund a capped mainnet vault on Robinhood Chain (4663): a small amount of ETH for gas plus the stock token/USDG to seed | why: mainnet presence for the Robinhood reservation | blocks: Phase 5 | added: 2026-09-28
 - [ ] Record the 3-minute demo video and the 2-minute pitch video (scripts will be in `docs/submission/`) | why: submission requirement | blocks: submission | added: 2026-09-28
