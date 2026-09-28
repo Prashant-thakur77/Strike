@@ -326,7 +326,7 @@ The phases run in order and each gate must pass before the next phase starts.
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
-| Another team ships stock-token options first | Loses the "first" claim | Check the HackQuest gallery weekly; lead with safety depth and agent mandates, not only "first" |
+| Another team ships stock-token options first | **Happened:** a daily-options product is live on Robinhood mainnet, and another team has a testnet order book ([research.md §8](research.md)) | Do not claim "first options". Lead with what nobody else has: contract-enforced agent mandates with bonds and slashing, `SafeStockFeed` (multiplier, pause, corporate-action and market-hours safety), Stylus pricing with exact differential tests, USDG income for depositors |
 | Testnet has no stock-token AMM and no USDC | Buyers can't trade realistically | Mock buyer pool on testnet; real Uniswap stock/USDG pools on mainnet |
 | Paxos USDG faucet not dispensing on Arbitrum Sepolia | Can't demo USDG on Sepolia | Use Robinhood testnet USDG `0x7E955252E15c84f5768B83c41a71F9eba181802F`, or a clearly labeled mock |
 | Weekend or holiday oracle gaps | Settlement delayed | Settlement waits for a valid print, by design; UI shows "awaiting market open" |
@@ -337,11 +337,11 @@ The phases run in order and each gate must pass before the next phase starts.
 
 **Open questions to check first:**
 
-- [ ] Exact submission deadline and time zone on the HackQuest page
-- [ ] USDG decimals on each chain (read on-chain) and whether USDG supports EIP-2612 permit
-- [ ] Whether the Robinhood testnet faucet still gives out stock tokens, and which ones have testnet Chainlink feeds
-- [ ] Whether the rules require registration before submission (registration closes in about 4 days)
-- [ ] Whether any other protocol has launched stock-token options since August
+- [x] Exact submission deadline and time zone: **2026-10-04 15:59 UTC** ([hackathon.md](hackathon.md))
+- [x] USDG decimals on each chain: 6 everywhere; EIP-2612 permit works on all four ([research.md §4](research.md))
+- [x] Testnet stock tokens exist (TSLA, AMZN, PLTR, NFLX, AMD) but **no testnet Chainlink feeds**: use Strike's mock feeds on testnet
+- [x] Registration is required and closes 2026-10-02 17:01 UTC
+- [x] Yes: see the risk table above
 
 ## Sources
 
