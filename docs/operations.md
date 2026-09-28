@@ -1,0 +1,39 @@
+# Operations runbook
+
+How Strike is run week to week and what to do when something goes wrong. Every action below is a single transaction or script; none of them can move a depositor's funds anywhere except back to depositors or option holders.
+
+## Weekly schedule (New York time)
+
+| When                                  | Who                        | Action                                                         | Command                                                         |
+| ------------------------------------- | -------------------------- | -------------------------------------------------------------- | --------------------------------------------------------------- |
+| Monday after 09:30                    | Agent (or keeper)          | Open the epoch; propose by delta                               | `pnpm --filter @strike/agent-example start -- --vault <symbol>` |
+| Monday–Friday 16:00 minus sale cutoff | Buyers                     | Buy options                                                    | app or `--buy` agent                                            |
+| Every 10 minutes (testnet)            | Keeper                     | Mirror mainnet Chainlink rounds into MirrorFeeds               | `scripts/keeper.sh --once` (GitHub Actions `keeper.yml`)        |
+| Friday after 16:00                    | Anyone (keeper by default) | Settle at the first round after expiry                         | `scripts/keeper.sh --once` or `--settle` agent                  |
+| After settlement                      | Depositors, buyers         | Claim premium, queued deposits and redemptions; redeem options | app                                                             |
+
+## Incidents
+
+| Situation                                             | What the protocol does by itself                                                           | Operator action                                                                                                |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| Feed stale (weekend, outage)                          | Opening and buying revert `StalePrice`; settlement waits for the first print after expiry  | None. Check the feed; the keeper retries settlement                                                            |
+| Token or oracle paused by the issuer                  | Reads revert `TokenPaused` / `FeedPaused`; settlement waits; idle withdrawals keep working | None. Announce; wait for unpause                                                                               |
+| Split or dividend announced                           | Sales and opening revert `CorporateActionPending` until `effectiveAt + grace`              | None. Optionally announce the pause window                                                                     |
+| Agent proposes outside the mandate                    | Rejected, bond slashed to depositors, strike counted; three strikes suspend                | Review the agent; curator may switch agents (`setVaultAgent`)                                                  |
+| Agent key compromised                                 | The key can only propose inside the mandate                                                | Owner rotates the signer (`setSigner`); curator switches the agent; admin suspends (`setStatus`)               |
+| No proposal by the timeout                            | Anyone can `abortEpoch`; queue processed                                                   | Keeper aborts                                                                                                  |
+| Feed dead after expiry for `settlementGrace` (7 days) | Nothing settles                                                                            | Guardian calls `emergencyCancel`: collateral back to the vault, buyers redeem their premium                    |
+| Suspected bug                                         |                                                                                            | Guardian `pause()`: stops new epochs, proposals and buys; settlement, claims and idle withdrawals keep working |
+| Sequencer down (where a sequencer feed is configured) | Reads revert `SequencerDown` / `SequencerGracePeriod`                                      | None                                                                                                           |
+
+## Keys
+
+| Key              | Where                                      | Mainnet requirement                                        |
+| ---------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| Admin / guardian | `contracts/.env` on testnet                | A Safe multisig; guardian may be a faster 2-of-3           |
+| Keeper           | GitHub Actions secret `KEEPER_PRIVATE_KEY` | Separate hot key with `KEEPER_ROLE` only                   |
+| Agent signer     | Agent operator                             | Separate from the agent owner key; rotate with `setSigner` |
+
+## Monitoring
+
+Watch these events (the subgraph indexes all of them): `ProposalRejected`, `Slashed`, `StatusSet` (suspensions), `EpochSettled` (payout vs premium), `SeriesCancelled`, `Paused`, `SettlementPriceRecorded`, `FeedSet`, `SigmaSet`. Alert when an epoch stays `Selling` more than a day past expiry, or when a MirrorFeed (testnet) is older than 24 hours.

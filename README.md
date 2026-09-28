@@ -6,13 +6,14 @@ Weekly options vaults for Robinhood Chain stock tokens. Depositors earn premium 
 
 Built for the Arbitrum Open House Singapore buildathon. Unaudited: testnet first, and any mainnet vault is capped.
 
-|                  |                                                                                                                                       |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Live app         | pending Vercel setup ([docs/deploy-app.md](docs/deploy-app.md)); contracts are [live on Robinhood Chain testnet](#deployed-contracts) |
-| Demo video       | pending                                                                                                                               |
-| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md)                                                                                          |
-| Design spec      | [docs/design.md](docs/design.md)                                                                                                      |
-| Threat model     | [docs/threat-model.md](docs/threat-model.md)                                                                                          |
+|                  |                                                                                                                                                      |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Live app         | pending Vercel setup ([docs/deploy-app.md](docs/deploy-app.md)); contracts are [live on Robinhood Chain testnet](#deployed-contracts)                |
+| Demo video       | pending                                                                                                                                              |
+| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md)                                                                                                         |
+| Design spec      | [docs/design.md](docs/design.md)                                                                                                                     |
+| Threat model     | [docs/threat-model.md](docs/threat-model.md)                                                                                                         |
+| Audit readiness  | Scope, roles, trust assumptions, known issues: [docs/audit-readiness.md](docs/audit-readiness.md); runbook: [docs/operations.md](docs/operations.md) |
 
 <p>
   <img src="docs/screenshots/desktop-landing-00-hero.png" alt="Strike landing page" width="66%">
