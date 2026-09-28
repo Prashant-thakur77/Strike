@@ -8,6 +8,12 @@ import "./globals.css";
 const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-inter-tight", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
+// Runs before first paint: enables JS-only styles, and hides the app's eligibility notice for visitors who already
+// acknowledged it (same key as EligibilityGate's ACK_KEY; storage may throw in private modes).
+const BOOT =
+  "document.documentElement.classList.add('js');" +
+  "try{if(localStorage.getItem('strike.ack.v1')==='1')document.documentElement.classList.add('acked')}catch(e){}";
+
 export const metadata: Metadata = {
   title: { default: "Strike · Weekly options vaults for stock tokens", template: "%s · Strike" },
   description:
@@ -24,7 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={`${interTight.variable} ${jetbrains.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
+        <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
       <body id="top">
         <a className="skip-link" href="#main">

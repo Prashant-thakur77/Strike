@@ -5,6 +5,30 @@ export const RPC = process.env.E2E_RPC ?? "http://127.0.0.1:8545";
 export const ACCOUNT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8";
 export const LOCAL = 31337;
 
+/** Same key as EligibilityGate's ACK_KEY. */
+export const ACK_KEY = "strike.ack.v1";
+
+/** Pre-acknowledge the app's first-visit eligibility notice, so tests land straight on the page. */
+export async function acknowledge(page: Page) {
+  await page.addInitScript((key) => {
+    try {
+      window.localStorage.setItem(key, "1");
+    } catch {
+      // opaque origin (about:blank): nothing to do
+    }
+  }, ACK_KEY);
+}
+
+/** Real layout width: lift the body's overflow-x safety clip, then compare. */
+export async function horizontalOverflow(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    document.body.style.overflowX = "visible";
+    const extra = document.documentElement.scrollWidth - document.documentElement.clientWidth;
+    document.body.style.overflowX = "";
+    return extra;
+  });
+}
+
 /** Is a Strike devnet reachable at RPC? Local-data tests skip without one. */
 export async function devnetUp(): Promise<boolean> {
   try {

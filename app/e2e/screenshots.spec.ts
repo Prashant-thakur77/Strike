@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { test, type Page } from "@playwright/test";
-import { connectWallet, devnetUp, installMockWallet, revealAll, settle } from "./helpers";
+import { acknowledge, connectWallet, devnetUp, installMockWallet, revealAll, settle } from "./helpers";
 
 // Captures every section of every page into screenshots/{desktop,mobile}/ by stepping through each page one
 // viewport at a time (pinned sections included), plus a full-page image for the app pages.
@@ -51,8 +51,21 @@ test("landing mobile menu", async ({ page }, info) => {
   await page.screenshot({ path: join(out, "landing-menu.png") });
 });
 
+test("eligibility notice", async ({ page }, info) => {
+  const out = dir(info.project.name);
+  await page.goto("/app?chain=46630");
+  const gate = page.getByRole("dialog", { name: /not for us persons/i });
+  await gate.waitFor();
+  await settle(page, 1500);
+  await page.screenshot({ path: join(out, "app-eligibility.png") });
+  await gate.getByRole("checkbox").check();
+  await settle(page, 500);
+  await page.screenshot({ path: join(out, "app-eligibility-checked.png") });
+});
+
 test("not deployed", async ({ page }, info) => {
   const out = dir(info.project.name);
+  await acknowledge(page);
   await page.goto("/app?chain=46630");
   await page.getByText(/Not deployed on/).waitFor();
   await settle(page, 1000);
@@ -63,6 +76,7 @@ test("app pages", async ({ page }, info) => {
   test.skip(!(await devnetUp()), "needs a Strike devnet at E2E_RPC");
   const out = dir(info.project.name);
   const mobile = info.project.name === "mobile";
+  await acknowledge(page);
   await installMockWallet(page);
   await page.goto("/app?chain=31337");
   await page.locator('a[href^="/app/vault/"]').first().waitFor();

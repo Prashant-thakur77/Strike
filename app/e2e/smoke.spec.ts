@@ -2,11 +2,15 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { createPublicClient, http, parseAbi, type Address } from "viem";
-import { RPC, connectWallet, devnetUp, installMockWallet } from "./helpers";
+import { RPC, acknowledge, connectWallet, devnetUp, horizontalOverflow, installMockWallet } from "./helpers";
 
 const emAbi = parseAbi([
   "function allVaults(uint256) view returns (address)",
   "function epochs(address) view returns (uint8 state, uint64 openedAt, uint256 seriesId)",
+]);
+const tokenAbi = parseAbi([
+  "function underlying() view returns (address)",
+  "function uiMultiplier() view returns (uint256)",
 ]);
 
 /** The local EpochManager, from the SDK's generated deployments map. */
@@ -18,6 +22,10 @@ function localEpochManager(): Address {
 }
 
 // Smoke: every page renders, logs no console errors, and has no horizontal overflow at phone width.
+// The app's first-visit eligibility notice is acknowledged up front here; eligibility.spec.ts covers the notice.
+test.beforeEach(async ({ page }) => {
+  await acknowledge(page);
+});
 
 function watchErrors(page: Page) {
   const errors: string[] = [];
@@ -26,16 +34,6 @@ function watchErrors(page: Page) {
   });
   page.on("pageerror", (err) => errors.push(err.message));
   return errors;
-}
-
-/** Real layout width: lift the body's overflow-x safety clip, then compare. */
-async function horizontalOverflow(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    document.body.style.overflowX = "visible";
-    const extra = document.documentElement.scrollWidth - document.documentElement.clientWidth;
-    document.body.style.overflowX = "";
-    return extra;
-  });
 }
 
 async function scrollThrough(page: Page) {
@@ -100,6 +98,19 @@ test("mobile menu opens and closes", async ({ page }, info) => {
   await expect(dialog).toBeHidden();
 });
 
+test("app mobile menu has the network switcher and the wallet", async ({ page }, info) => {
+  test.skip(info.project.name !== "mobile", "the menu toggle only shows on phones");
+  await page.goto("/app?chain=46630");
+  await page.getByRole("button", { name: "Menu" }).click();
+  const dialog = page.getByRole("dialog", { name: "Menu" });
+  await expect(dialog).toBeVisible();
+  const network = dialog.getByRole("combobox", { name: "Network" });
+  await expect(network).toBeVisible();
+  await expect(network).toHaveValue("46630");
+  await expect(dialog.getByRole("button", { name: "Connect wallet" })).toBeVisible();
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+});
+
 test.describe("with a local devnet", () => {
   test.beforeEach(async () => {
     test.skip(!(await devnetUp()), "needs a Strike devnet at E2E_RPC");
@@ -117,11 +128,30 @@ test.describe("with a local devnet", () => {
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expect(page.getByText("Epoch timeline")).toBeVisible();
     await expect(page.getByText("Delta band")).toBeVisible();
+    await expect(page.getByRole("complementary", { name: "Feedback" }).getByRole("link")).toHaveAttribute(
+      "href",
+      /issues\/new\?template=testnet-feedback\.yml$/,
+    );
+    // Per-share figures appear exactly when the stock token's ERC-8056 multiplier is not 1.0.
+    const client = createPublicClient({ transport: http(RPC) });
+    const stock = await client.readContract({
+      address: href.split("/").pop() as Address,
+      abi: tokenAbi,
+      functionName: "underlying",
+    });
+    const multiplier = await client
+      .readContract({ address: stock, abi: tokenAbi, functionName: "uiMultiplier" })
+      .catch(() => 10n ** 18n);
+    const perShare = page.getByText(/per share · multiplier \d/i);
+    if (multiplier === 10n ** 18n) await expect(perShare).toHaveCount(0);
+    else await expect(perShare.first()).toBeVisible();
     await scrollThrough(page);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
     await page.goto("/app/agents");
     await expect(page.getByText(/StrikeWrongSide/).first()).toBeVisible();
+    await expect(page.locator("th", { hasText: "Track record" })).toBeAttached(); // thead is hidden on phones
+    await expect(page.getByText(/\d+ epochs? settled/).first()).toBeVisible();
     await scrollThrough(page);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
