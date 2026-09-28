@@ -97,3 +97,17 @@ jobs:
       - name: Differential fuzz over FFI
         working-directory: contracts
         run: PRICER_CLI=$GITHUB_WORKSPACE/stylus/pricer/target/release/examples/pricer_cli forge test --ffi --match-path "test/differential/*" -vv
+
+  fork:
+    name: Fork tests (Robinhood Chain mainnet 4663)
+    runs-on: ubuntu-latest
+    env:
+      ROBINHOOD_RPC_URL: https://rpc.mainnet.chain.robinhood.com
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Fork tests at a pinned block
+        working-directory: contracts
+        run: forge test --match-path "test/fork/*" -vv
