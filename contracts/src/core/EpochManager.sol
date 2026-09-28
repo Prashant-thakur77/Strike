@@ -345,6 +345,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         strike = pricer.strikeForDelta(
             _spot(token), uint256(targetDeltaBps) * 1e14, tenor, underlyings[token].sigma, IStrikeVault(vault).isCall()
         );
+        // Round down to a whole cent. Not randomness: Slither's weak-prng detector flags any modulo on a value
+        // derived from block.timestamp (here the tenor).
+        // slither-disable-next-line weak-prng
         strike -= strike % 1e16;
         (accepted, seriesId) = _propose(vault, strike, expiry, size, premiumBps);
     }
