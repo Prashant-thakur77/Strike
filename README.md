@@ -6,14 +6,20 @@ Weekly options vaults for Robinhood Chain stock tokens. Depositors earn premium 
 
 Built for the Arbitrum Open House Singapore buildathon. Unaudited: testnet first, and any mainnet vault is capped.
 
-|                  |                                                                                                                                                      |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live app         | pending Vercel setup ([docs/deploy-app.md](docs/deploy-app.md)); contracts are [live on Robinhood Chain testnet](#deployed-contracts)                |
-| Demo video       | pending                                                                                                                                              |
-| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md)                                                                                                         |
-| Design spec      | [docs/design.md](docs/design.md)                                                                                                                     |
-| Threat model     | [docs/threat-model.md](docs/threat-model.md)                                                                                                         |
-| Audit readiness  | Scope, roles, trust assumptions, known issues: [docs/audit-readiness.md](docs/audit-readiness.md); runbook: [docs/operations.md](docs/operations.md) |
+|                  |                                                                                                                                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Live app         | pending Vercel setup ([docs/deploy-app.md](docs/deploy-app.md)); contracts are [live on Robinhood Chain testnet](#deployed-contracts)                  |
+| Demo video       | [2:42 walkthrough](docs/media/strike-demo.mp4) (automated recording: app, seller agent, reckless agent slashed, hedging buyer); narrated video pending |
+| Research         | [Litepaper](docs/litepaper.md) · [8-year backtest](docs/backtest.md) (TSLA, NVDA, AMZN, SPY, with the protocol's own pricer)                           |
+| Security         | [Internal review](docs/security/review-2026-09-29.md): 1 High, 3 Medium, 4 Low, all fixed with regression tests · [Slither](docs/security/slither.md)  |
+| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md)                                                                                                           |
+| Design spec      | [docs/design.md](docs/design.md)                                                                                                                       |
+| Threat model     | [docs/threat-model.md](docs/threat-model.md)                                                                                                           |
+| Audit readiness  | Scope, roles, trust assumptions, known issues: [docs/audit-readiness.md](docs/audit-readiness.md); runbook: [docs/operations.md](docs/operations.md)   |
+
+<p>
+  <a href="docs/media/strike-demo.mp4"><img src="docs/media/strike-demo.gif" alt="Strike demo (first 12 seconds; click for the full video)" width="66%"></a>
+</p>
 
 <p>
   <img src="docs/screenshots/desktop-landing-00-hero.png" alt="Strike landing page" width="66%">
