@@ -10,7 +10,7 @@
 # Working state
 
 - Resume from docs/progress.md (done / next / blockers). Decisions go in docs/decisions.md, anything that needs the owner in docs/req-you.md.
-- Commit after each working task; tag each phase gate (v0.<phase>.0).
+- Commit after each working task; tag each passed phase gate: Phase N → `v0.(N+1).0`, submission → `v1.0.0`.
 - Never commit secrets: keys live in `.env` files, which are gitignored.
 
 # Commands
