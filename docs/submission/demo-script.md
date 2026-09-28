@@ -24,12 +24,12 @@ Screen: terminal running `pnpm --filter @strike/agent-example start`.
 
 > The agent never touches vault funds. A reckless proposal costs it real USDG, and that USDG goes to the depositors.
 
-## 1:40 to 2:10 · A buyer pays in USDG
+## 1:40 to 2:10 · Buyers: a person and an agent
 
-Screen: vault page, buy panel, second wallet.
+Screen: vault page buy panel, then the terminal.
 
-1. Quote 2 options. The premium is Black-Scholes fair value at the live oracle price. Buy with USDG.
-2. Show the ERC-1155 position.
+1. In the app, quote 2 options. The premium is Black-Scholes fair value at the live oracle price. Buy with USDG and show the ERC-1155 position.
+2. In the terminal, `pnpm --filter @strike/agent-example start -- --hedge 10`: a buyer agent sizes puts to protect 10 TSLA, shows the cost, protected price and max loss, and buys through the MCP server.
 
 ## 2:10 to 2:45 · Expiry and settlement
 

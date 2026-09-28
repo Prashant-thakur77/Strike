@@ -77,3 +77,15 @@ Updated at the end of every phase and every improvement cycle. A score without l
 | Robinhood + USDG + agents fit | 15%    | 7.0   | Everything is built for 4663/46630 and USDG; not deployed yet                                                                                                                      |
 
 **Weighted: 7.6 / 10.** Done condition not met (hard requirements A1, A2, A4, A5 open; serious weaknesses open).
+
+### Cycle 1 results
+
+| Improvement                | Status                               | Evidence                                                                                  |
+| -------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| Deploy on 46630 and 421614 | Blocked on testnet funds             | `scripts/deploy-testnet.sh` (rehearsed on a testnet fork)                                 |
+| Buyer side                 | Done                                 | MCP `buy_options`, `redeem_options`, `hedge_plan`; buyer agent; demo buys through it (CI) |
+| Live URL + feedback        | Feedback form done; URL needs Vercel | `.github/ISSUE_TEMPLATE/testnet-feedback.yml`, footer link                                |
+| Robinhood UX               | Done                                 | Per-share display from `uiMultiplier`; non-US acknowledgement gate                        |
+| Stylus in production       | Done in tooling                      | Reproducible Stylus deploy, on-chain equality check before switching the pricer           |
+
+Re-score after cycle 1: contract quality 9.0, real problem 7.5, product-market fit 7.0 (two-sided agent market, SDK, feedback channel; no users yet), innovation 8.0, Robinhood fit 7.5. **Weighted: 7.9 / 10.** The remaining gap is almost entirely deployment, the live URL and users.

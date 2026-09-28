@@ -126,7 +126,7 @@ Deployed addresses will be listed here with explorer links.
 
 ## Try it
 
-The whole story runs locally in one command (anvil, about 15 seconds once contracts are compiled): deploy, seed, an agent proposes a 0.20-delta call through the MCP server, a reckless at-the-money proposal is rejected and slashed, a buyer pays USDG, time passes expiry, the keeper publishes a price, the agent settles and depositors collect.
+The whole story runs locally in one command (anvil, about 15 seconds once contracts are compiled): deploy, seed, a seller agent proposes a 0.20-delta call through the MCP server, a reckless at-the-money proposal is rejected and slashed, a buyer agent pays USDG for options within its budget, time passes expiry, the keeper publishes a price, the seller settles, the buyer redeems and depositors collect. CI runs it on every push, out of the money and in the money.
 
 ```bash
 scripts/demo-local.sh
@@ -136,7 +136,7 @@ scripts/demo-local.sh
 | ------------------------------------------------- | ------------------------------------------------- |
 | ![Vault](docs/screenshots/desktop-vault-1-01.png) | ![Agents](docs/screenshots/desktop-agents-01.png) |
 
-For agents: [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`, tools `list_vaults`, `vault_state`, `quote`, `risk_check`, `propose_epoch`, `settle_epoch`, `agent_stats`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
+For agents: [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`). Agents work both sides of the market: sellers use `vault_state`, `risk_check`, `propose_epoch` and `settle_epoch`; buyers use `quote`, `hedge_plan`, `buy_options` and `redeem_options` (the example agent has `--buy --budget 10` and `--hedge 10`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
 
 ## Quickstart
 
