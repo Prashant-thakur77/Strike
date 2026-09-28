@@ -35,7 +35,13 @@ forge script script/Deploy.s.sol --rpc-url "$RPC" --broadcast --slow \
 
 # Stylus pricer (Rust/WASM): deploy + activate, then make it the EpochManager's pricer.
 cd "$ROOT/stylus/pricer"
-STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" --no-verify 2>&1 | tee /dev/stderr | grep -oE "activated contract 0x[0-9a-fA-F]{40}" | awk '{print $3}' || true)
+# Reproducible (Docker) build first, so the WASM can be verified against this source with `cargo stylus verify`;
+# fall back to a local build if Docker is unavailable.
+STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" 2>&1 | tee /dev/stderr | grep -oE "activated contract 0x[0-9a-fA-F]{40}" | awk '{print $3}' || true)
+if [ -z "$STYLUS" ]; then
+  echo "Reproducible Stylus build failed; deploying a local build instead" >&2
+  STYLUS=$(cargo stylus deploy --endpoint "$RPC" --private-key "$PRIVATE_KEY" --no-verify 2>&1 | tee /dev/stderr | grep -oE "activated contract 0x[0-9a-fA-F]{40}" | awk '{print $3}' || true)
+fi
 cd "$ROOT/contracts"
 MANAGER=$(python3 -c "import json; print(json.load(open('deployments/$CHAIN_ID.json'))['epochManager'])")
 if [ -n "$STYLUS" ]; then
