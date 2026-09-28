@@ -1,0 +1,1038 @@
+import {
+  type Abi,
+  type Account,
+  type Address,
+  type ContractFunctionArgs,
+  type ContractFunctionName,
+  type Hex,
+  type PublicClient,
+  type WalletClient,
+  erc20Abi,
+  getAddress,
+  parseEventLogs,
+} from "viem";
+import {
+  agentRegistryAbi,
+  blackScholesRefAbi,
+  epochManagerAbi,
+  feeManagerAbi,
+  marketCalendarAbi,
+  mirrorFeedAbi,
+  optionTokenAbi,
+  stockOracleAbi,
+  strikeVaultAbi,
+} from "./abi/index.js";
+import { getDeployment } from "./deployments.js";
+import { StrikeError } from "./errors.js";
+import { agentStatusName, epochStateName, feedStatusName, mandateReasonName } from "./names.js";
+import { floorToCent } from "./pricing.js";
+import { type FeedRound, findSettlementRound } from "./settlement.js";
+import type {
+  AgentInfo,
+  AgentRegistryParams,
+  AgentStats,
+  BuyQuote,
+  BuyResult,
+  Claimables,
+  DeltaProposalParams,
+  DeltaProposalPreview,
+  Mandate,
+  OracleStatus,
+  ProposalParams,
+  ProposalPreview,
+  ProposeResult,
+  QueueableTxResult,
+  RedeemOptionsResult,
+  SeriesState,
+  SettleResult,
+  TxResult,
+  VaultState,
+} from "./types.js";
+import { BPS } from "./units.js";
+
+/** Contract addresses the client talks to. */
+export interface StrikeAddresses {
+  epochManager: Address;
+  agentRegistry: Address;
+  stockOracle: Address;
+  marketCalendar: Address;
+  usdg: Address;
+  optionToken: Address;
+  feeManager: Address;
+  vaultFactory: Address;
+}
+
+/** Options for {@link createStrikeClient}. */
+export interface StrikeClientConfig {
+  /** Reads (and receipts). */
+  publicClient: PublicClient;
+  /** Signs writes. It must carry an `account`. Omit for a read-only client. */
+  walletClient?: WalletClient;
+  chainId: number;
+  /** Override (or supply) contract addresses; by default they come from the SDK's deployments map. */
+  addresses?: Partial<StrikeAddresses>;
+}
+
+/** The viem clients a Strike client uses. */
+export interface StrikeViemClients {
+  publicClient: PublicClient;
+  walletClient?: WalletClient;
+}
+
+const ADDRESS_KEYS = [
+  "epochManager",
+  "agentRegistry",
+  "stockOracle",
+  "marketCalendar",
+  "usdg",
+  "optionToken",
+  "feeManager",
+  "vaultFactory",
+] as const satisfies readonly (keyof StrikeAddresses)[];
+
+/** Contract addresses for a chain: the deployments map, with `overrides` on top. */
+export function resolveAddresses(chainId: number, overrides: Partial<StrikeAddresses> = {}): StrikeAddresses {
+  const complete = ADDRESS_KEYS.every((k) => overrides[k] !== undefined);
+  const base: Partial<StrikeAddresses> = complete ? {} : getDeployment(chainId);
+  const out = {} as StrikeAddresses;
+  for (const k of ADDRESS_KEYS) {
+    const value = overrides[k] ?? base[k];
+    if (!value) throw new StrikeError(`missing ${k} address for chain ${chainId}`);
+    out[k] = getAddress(value);
+  }
+  return out;
+}
+
+type WriteFn<abi extends Abi> = ContractFunctionName<abi, "nonpayable" | "payable">;
+interface WriteCall<abi extends Abi, fn extends WriteFn<abi>> {
+  address: Address;
+  abi: abi;
+  functionName: fn;
+  args: ContractFunctionArgs<abi, "nonpayable" | "payable", fn>;
+}
+
+const WEEK = 7n * 86_400n;
+
+function assertDeltaBps(bps: number): void {
+  if (!Number.isInteger(bps) || bps <= 0 || bps >= BPS) {
+    throw new StrikeError(`targetDeltaBps must be an integer between 1 and 9999, got ${bps}`);
+  }
+}
+
+/**
+ * Create a typed Strike client over viem.
+ *
+ * ```ts
+ * const strike = createStrikeClient({ publicClient, walletClient, chainId: 46630 });
+ * const vaults = await strike.listVaults();
+ * ```
+ *
+ * Reads work with only a `publicClient`. Writes simulate first (so a revert surfaces as a decoded custom error
+ * such as `MarketClosed`), send with `walletClient`, and wait for the receipt. Token approvals are automatic.
+ */
+export function createStrikeClient(config: StrikeClientConfig) {
+  const { publicClient, walletClient, chainId } = config;
+  const addresses = resolveAddresses(chainId, config.addresses);
+  const em = addresses.epochManager;
+  let usdgDecimalsCache: number | undefined;
+
+  function requireAccount(): { wallet: WalletClient; account: Account } {
+    if (!walletClient)
+      throw new StrikeError("this Strike client is read-only: pass a walletClient to send transactions");
+    if (!walletClient.account) throw new StrikeError("the walletClient has no account");
+    return { wallet: walletClient, account: walletClient.account };
+  }
+
+  /** Simulate, send, and wait. Reverts surface from the simulation as decoded contract errors. */
+  async function execute<const abi extends Abi, fn extends WriteFn<abi>>(
+    call: WriteCall<abi, fn>,
+  ): Promise<TxResult> {
+    const { wallet, account } = requireAccount();
+    const { request } = await publicClient.simulateContract({ ...call, account } as never);
+    const hash: Hex = await wallet.writeContract({
+      ...(request as object),
+      chain: wallet.chain ?? null,
+    } as never);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") throw new StrikeError(`transaction ${hash} reverted`);
+    return { hash, receipt };
+  }
+
+  async function ensureAllowance(token: Address, spender: Address, amount: bigint): Promise<void> {
+    const { account } = requireAccount();
+    const current = await publicClient.readContract({
+      address: token,
+      abi: erc20Abi,
+      functionName: "allowance",
+      args: [account.address, spender],
+    });
+    if (current >= amount) return;
+    await execute({ address: token, abi: erc20Abi, functionName: "approve", args: [spender, amount] });
+  }
+
+  async function blockTimestamp(): Promise<bigint> {
+    return (await publicClient.getBlock({ blockTag: "latest" })).timestamp;
+  }
+
+  async function usdgDecimals(): Promise<number> {
+    usdgDecimalsCache ??= await publicClient.readContract({
+      address: em,
+      abi: epochManagerAbi,
+      functionName: "usdgDecimals",
+    });
+    return usdgDecimalsCache;
+  }
+
+  async function tokenMeta(token: Address): Promise<{ symbol: string; decimals: number }> {
+    const [symbol, decimals] = await Promise.all([
+      publicClient.readContract({ address: token, abi: erc20Abi, functionName: "symbol" }),
+      publicClient.readContract({ address: token, abi: erc20Abi, functionName: "decimals" }),
+    ]);
+    return { symbol, decimals };
+  }
+
+  async function getSeries(seriesId: bigint): Promise<SeriesState | null> {
+    const s = await publicClient.readContract({
+      address: em,
+      abi: epochManagerAbi,
+      functionName: "getSeries",
+      args: [seriesId],
+    });
+    if (s.vault === "0x0000000000000000000000000000000000000000") return null;
+    return { id: seriesId, ...s };
+  }
+
+  async function getVault(vaultAddress: Address): Promise<VaultState> {
+    const vault = getAddress(vaultAddress);
+    const v = { address: vault, abi: strikeVaultAbi } as const;
+    const [
+      name,
+      symbol,
+      decimals,
+      asset,
+      underlying,
+      isCall,
+      premiumToken,
+      totalAssets,
+      totalSupply,
+      depositCap,
+      locked,
+      currentEpoch,
+      lastProcessedEpoch,
+      pendingDepositAssets,
+      pendingRedeemShares,
+      cfg,
+      epoch,
+      compensation,
+    ] = await Promise.all([
+      publicClient.readContract({ ...v, functionName: "name" }),
+      publicClient.readContract({ ...v, functionName: "symbol" }),
+      publicClient.readContract({ ...v, functionName: "decimals" }),
+      publicClient.readContract({ ...v, functionName: "asset" }),
+      publicClient.readContract({ ...v, functionName: "underlying" }),
+      publicClient.readContract({ ...v, functionName: "isCall" }),
+      publicClient.readContract({ ...v, functionName: "premiumToken" }),
+      publicClient.readContract({ ...v, functionName: "totalAssets" }),
+      publicClient.readContract({ ...v, functionName: "totalSupply" }),
+      publicClient.readContract({ ...v, functionName: "depositCap" }),
+      publicClient.readContract({ ...v, functionName: "locked" }),
+      publicClient.readContract({ ...v, functionName: "currentEpoch" }),
+      publicClient.readContract({ ...v, functionName: "lastProcessedEpoch" }),
+      publicClient.readContract({ ...v, functionName: "pendingDepositAssets" }),
+      publicClient.readContract({ ...v, functionName: "pendingRedeemShares" }),
+      publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "vaultConfig",
+        args: [vault],
+      }),
+      publicClient.readContract({ address: em, abi: epochManagerAbi, functionName: "epochs", args: [vault] }),
+      publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "compensation",
+        args: [vault],
+      }),
+    ]);
+    if (!cfg.registered) throw new StrikeError(`${vault} is not a registered Strike vault`);
+    const [state, openedAt, seriesId] = epoch;
+    const [assetMeta, underlyingMeta, underlyingCfg, pricePerShare, series] = await Promise.all([
+      tokenMeta(asset),
+      tokenMeta(underlying),
+      publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "underlyings",
+        args: [underlying],
+      }),
+      publicClient.readContract({ ...v, functionName: "convertToAssets", args: [10n ** BigInt(decimals)] }),
+      seriesId === 0n ? Promise.resolve(null) : getSeries(seriesId),
+    ]);
+    return {
+      address: vault,
+      name,
+      symbol,
+      decimals,
+      kind: isCall ? "covered-call" : "cash-secured-put",
+      isCall,
+      asset,
+      assetSymbol: assetMeta.symbol,
+      assetDecimals: assetMeta.decimals,
+      underlying,
+      underlyingSymbol: underlyingMeta.symbol,
+      underlyingDecimals: underlyingMeta.decimals,
+      premiumToken,
+      totalAssets,
+      totalSupply,
+      pricePerShare,
+      depositCap,
+      locked,
+      currentEpoch,
+      lastProcessedEpoch,
+      pendingDepositAssets,
+      pendingRedeemShares,
+      curator: cfg.curator,
+      agentId: cfg.agentId,
+      mandate: { ...cfg.mandate } satisfies Mandate,
+      sigma: underlyingCfg[2],
+      compensation,
+      epoch: { state: epochStateName(state), openedAt, seriesId },
+      series,
+    };
+  }
+
+  async function vaultAddresses(): Promise<Address[]> {
+    const count = await publicClient.readContract({
+      address: em,
+      abi: epochManagerAbi,
+      functionName: "vaultCount",
+    });
+    return Promise.all(
+      Array.from({ length: Number(count) }, (_, i) =>
+        publicClient.readContract({
+          address: em,
+          abi: epochManagerAbi,
+          functionName: "allVaults",
+          args: [BigInt(i)],
+        }),
+      ),
+    );
+  }
+
+  async function previewProposal(vault: Address, p: ProposalParams): Promise<ProposalPreview> {
+    const [code, fairValue, delta, capacity] = await publicClient.readContract({
+      address: em,
+      abi: epochManagerAbi,
+      functionName: "previewProposal",
+      args: [getAddress(vault), p.strike, p.expiry, p.size, p.premiumBps],
+    });
+    const reason = mandateReasonName(code);
+    return { reason, reasonCode: code, accepted: reason === "None", fairValue, delta, capacity };
+  }
+
+  async function pricerStrikeForDelta(args: {
+    spot: bigint;
+    targetDelta: bigint;
+    tenorSeconds: bigint;
+    sigma: bigint;
+    isCall: boolean;
+  }): Promise<bigint> {
+    const pricer = await publicClient.readContract({
+      address: em,
+      abi: epochManagerAbi,
+      functionName: "pricer",
+    });
+    return publicClient.readContract({
+      address: pricer,
+      abi: blackScholesRefAbi,
+      functionName: "strikeForDelta",
+      args: [args.spot, args.targetDelta, args.tenorSeconds, args.sigma, args.isCall],
+    });
+  }
+
+  async function solveStrike(vault: Address, p: { targetDeltaBps: number; expiry: bigint }): Promise<bigint> {
+    assertDeltaBps(p.targetDeltaBps);
+    const v = getAddress(vault);
+    const [underlying, isCall, now] = await Promise.all([
+      publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "underlying" }),
+      publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "isCall" }),
+      blockTimestamp(),
+    ]);
+    const [spotPrice, cfg] = await Promise.all([
+      publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "spot",
+        args: [underlying],
+      }),
+      publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "underlyings",
+        args: [underlying],
+      }),
+    ]);
+    const strike = await pricerStrikeForDelta({
+      spot: spotPrice,
+      targetDelta: BigInt(p.targetDeltaBps) * 10n ** 14n,
+      tenorSeconds: p.expiry > now ? p.expiry - now : 1n,
+      sigma: cfg[2],
+      isCall,
+    });
+    return floorToCent(strike);
+  }
+
+  async function getAgent(agentId: bigint): Promise<AgentInfo> {
+    const r = { address: addresses.agentRegistry, abi: agentRegistryAbi } as const;
+    const [a, active, [settledEpochs, cumulativePnl]] = await Promise.all([
+      publicClient.readContract({ ...r, functionName: "getAgent", args: [agentId] }),
+      publicClient.readContract({ ...r, functionName: "isActive", args: [agentId] }),
+      publicClient.readContract({ ...r, functionName: "track", args: [agentId] }),
+    ]);
+    return { agentId, ...a, status: agentStatusName(a.status), active, settledEpochs, cumulativePnl };
+  }
+
+  async function registryParams(): Promise<AgentRegistryParams> {
+    const r = { address: addresses.agentRegistry, abi: agentRegistryAbi } as const;
+    const [minBond, slashAmount, maxStrikes, unbondDelay, identityRegistry, reputationRegistry] =
+      await Promise.all([
+        publicClient.readContract({ ...r, functionName: "minBond" }),
+        publicClient.readContract({ ...r, functionName: "slashAmount" }),
+        publicClient.readContract({ ...r, functionName: "maxStrikes" }),
+        publicClient.readContract({ ...r, functionName: "unbondDelay" }),
+        publicClient.readContract({ ...r, functionName: "identityRegistry" }),
+        publicClient.readContract({ ...r, functionName: "reputationRegistry" }),
+      ]);
+    return { minBond, slashAmount, maxStrikes, unbondDelay, identityRegistry, reputationRegistry };
+  }
+
+  function decodeProposal(tx: TxResult, vault: Address): ProposeResult {
+    const logs = parseEventLogs({ abi: epochManagerAbi, logs: tx.receipt.logs }).filter(
+      (l) => getAddress(l.address) === em,
+    );
+    for (const log of logs) {
+      if (log.eventName === "SeriesProposed" && getAddress(log.args.vault) === vault) {
+        const a = log.args;
+        return {
+          ...tx,
+          accepted: true,
+          reason: "None",
+          epoch: a.epoch,
+          strike: a.strike,
+          expiry: a.expiry,
+          size: a.size,
+          premiumBps: a.premiumBps,
+          seriesId: a.seriesId,
+          fairValue: a.fairValue,
+          delta: a.delta,
+          slashed: 0n,
+        };
+      }
+      if (log.eventName === "ProposalRejected" && getAddress(log.args.vault) === vault) {
+        const a = log.args;
+        return {
+          ...tx,
+          accepted: false,
+          reason: mandateReasonName(a.reason),
+          epoch: a.epoch,
+          strike: a.strike,
+          expiry: a.expiry,
+          size: a.size,
+          premiumBps: a.premiumBps,
+          seriesId: null,
+          fairValue: null,
+          delta: null,
+          slashed: a.slashed,
+        };
+      }
+    }
+    throw new StrikeError(`transaction ${tx.hash} emitted neither SeriesProposed nor ProposalRejected`);
+  }
+
+  async function settlementRoundFor(token: Address, expiry: bigint): Promise<bigint> {
+    const cfg = await publicClient.readContract({
+      address: addresses.stockOracle,
+      abi: stockOracleAbi,
+      functionName: "feedConfig",
+      args: [getAddress(token)],
+    });
+    const feed = { address: cfg.feed, abi: mirrorFeedAbi } as const;
+    const [roundId, answer, , updatedAt] = await publicClient.readContract({
+      ...feed,
+      functionName: "latestRoundData",
+    });
+    const latest: FeedRound = { roundId, answer, updatedAt };
+    return findSettlementRound(
+      latest,
+      async (id) => {
+        try {
+          const [rid, ans, , upd] = await publicClient.readContract({
+            ...feed,
+            functionName: "getRoundData",
+            args: [id],
+          });
+          return { roundId: rid, answer: ans, updatedAt: upd };
+        } catch {
+          return null;
+        }
+      },
+      expiry,
+    );
+  }
+
+  async function accountOr(account?: Address): Promise<Address> {
+    if (account) return getAddress(account);
+    return requireAccount().account.address;
+  }
+
+  return {
+    chainId,
+    addresses,
+    /** The viem clients behind this Strike client. */
+    viem: { publicClient, walletClient } as StrikeViemClients,
+
+    // ------------------------------------------------------------------ reads
+
+    /** Timestamp of the latest block (use this, not the wall clock: devnets warp time). */
+    blockTimestamp,
+
+    /** USDG decimals, as the EpochManager read them (cached). */
+    usdgDecimals,
+
+    /** Addresses of every registered vault, in creation order. */
+    vaultAddresses,
+
+    /** Full state of every registered vault. */
+    async listVaults(): Promise<VaultState[]> {
+      return Promise.all((await vaultAddresses()).map(getVault));
+    },
+
+    /** Full state of one vault: tokens, share price, lock, mandate, curator, agent, epoch and live series. */
+    getVault,
+
+    /** A series by id, or null if it does not exist. */
+    getSeries,
+
+    /**
+     * USDG premium and vault collateral for buying `amount` options (underlying base units) of a series now.
+     * The premium is oracle-anchored: fair value at the current spot × the series' premium factor.
+     */
+    async quoteBuy(seriesId: bigint, amount: bigint): Promise<BuyQuote> {
+      const [premium, collateral] = await publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "quoteBuy",
+        args: [seriesId, amount],
+      });
+      return { premium, collateral };
+    },
+
+    /**
+     * Dry-run a proposal against the vault's mandate (`EpochManager.previewProposal`). Returns the verdict as a
+     * `MandateGuard.Reason` name, the fair value and delta the contract measured, and the vault's capacity.
+     * Reverts (as a decoded error) if the price feed is unsafe.
+     */
+    previewProposal,
+
+    /**
+     * Dry-run a delta proposal: solve the strike with the on-chain pricer at the current spot (floored to a cent,
+     * as `proposeByDelta` does), then preview it.
+     */
+    async previewProposeByDelta(vault: Address, p: DeltaProposalParams): Promise<DeltaProposalPreview> {
+      const strike = await solveStrike(vault, p);
+      const preview = await previewProposal(vault, {
+        strike,
+        expiry: p.expiry,
+        size: p.size,
+        premiumBps: p.premiumBps,
+      });
+      return { ...preview, strike };
+    },
+
+    /**
+     * The strike `proposeByDelta` would use right now for `targetDeltaBps` (on-chain pricer, current spot and the
+     * vault's sigma, floored to a cent).
+     */
+    solveStrike,
+
+    /** Raw `IPricer.strikeForDelta` call on the EpochManager's pricer (all values WAD, tenor in seconds). */
+    pricerStrikeForDelta,
+
+    /** Current spot (WAD per raw token) after every SafeStockFeed check; reverts if the price is unsafe. */
+    async spot(token: Address): Promise<bigint> {
+      return publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "spot",
+        args: [token],
+      });
+    },
+
+    /** Non-reverting SafeStockFeed status of a token's price (`Ok`, `StalePrice`, `TokenPaused`, ...). */
+    async oracleStatus(token: Address): Promise<OracleStatus> {
+      const [code, price, updatedAt] = await publicClient.readContract({
+        address: addresses.stockOracle,
+        abi: stockOracleAbi,
+        functionName: "status",
+        args: [token],
+      });
+      const status = feedStatusName(code);
+      return { status, ok: status === "Ok", price, updatedAt };
+    },
+
+    /** Whether the NYSE regular session is open at the latest block. */
+    async marketOpen(): Promise<boolean> {
+      return publicClient.readContract({
+        address: addresses.stockOracle,
+        abi: stockOracleAbi,
+        functionName: "isMarketOpen",
+      });
+    },
+
+    /**
+     * The Friday 16:00 New York close of the week containing `at` (default: the latest block), or Thursday's
+     * close when Friday is a holiday. Unix seconds.
+     */
+    async weeklyExpiry(at?: bigint): Promise<bigint> {
+      return publicClient.readContract({
+        address: addresses.marketCalendar,
+        abi: marketCalendarAbi,
+        functionName: "weeklyExpiry",
+        args: [at ?? (await blockTimestamp())],
+      });
+    },
+
+    /**
+     * The nearest weekly expiry that is still ahead and, if a mandate is given, inside its tenor limits: this
+     * week's close, else next week's. Null when neither fits.
+     */
+    async nextExpiry(mandate?: Mandate): Promise<bigint | null> {
+      const now = await blockTimestamp();
+      for (const at of [now, now + WEEK]) {
+        const expiry = await publicClient.readContract({
+          address: addresses.marketCalendar,
+          abi: marketCalendarAbi,
+          functionName: "weeklyExpiry",
+          args: [at],
+        });
+        if (expiry <= now) continue;
+        const tenor = expiry - now;
+        if (mandate && (tenor < BigInt(mandate.minTenor) || tenor > BigInt(mandate.maxTenor))) continue;
+        return expiry;
+      }
+      return null;
+    },
+
+    /** An agent's registry entry, whether it may propose now, and its on-chain track record (settled PnL). */
+    getAgent,
+
+    /** The agent id registered for a signer key (0n if none). */
+    async agentOfSigner(signer: Address): Promise<bigint> {
+      return publicClient.readContract({
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "agentOfSigner",
+        args: [getAddress(signer)],
+      });
+    },
+
+    /** Bond, slash and strike parameters of the agent registry, and its ERC-8004 registries. */
+    registryParams,
+
+    /** An agent's registry entry, track record, remaining room before suspension, and claimable fees. */
+    async agentStats(agentId: bigint): Promise<AgentStats> {
+      const [agent, params] = await Promise.all([getAgent(agentId), registryParams()]);
+      const claimableFees = await publicClient.readContract({
+        address: addresses.feeManager,
+        abi: feeManagerAbi,
+        functionName: "claimable",
+        args: [agent.payout],
+      });
+      const proposals = agent.accepted + agent.rejected;
+      const strikesLeft = Math.max(params.maxStrikes - agent.strikes, 0);
+      let byBond = Number.POSITIVE_INFINITY;
+      if (agent.bond < params.minBond) byBond = 0;
+      else if (params.slashAmount > 0n)
+        byBond = Number((agent.bond - params.minBond) / params.slashAmount) + 1;
+      return {
+        ...agent,
+        params,
+        proposals,
+        acceptanceRate: proposals === 0 ? null : agent.accepted / proposals,
+        strikesLeft,
+        rejectionsUntilInactive: agent.status === "Active" ? Math.min(strikesLeft, byBond) : 0,
+        claimableFees,
+      };
+    },
+
+    /** USDG premium `account` can claim from a vault. */
+    async pendingPremium(vault: Address, account: Address): Promise<bigint> {
+      return publicClient.readContract({
+        address: getAddress(vault),
+        abi: strikeVaultAbi,
+        functionName: "pendingPremium",
+        args: [getAddress(account)],
+      });
+    },
+
+    /** Everything `account` can claim from a vault (default: the wallet's account). */
+    async claimables(vault: Address, account?: Address): Promise<Claimables> {
+      const who = await accountOr(account);
+      const v = { address: getAddress(vault), abi: strikeVaultAbi } as const;
+      const [premium, depositShares, redeemAssets, dep, red, shares] = await Promise.all([
+        publicClient.readContract({ ...v, functionName: "pendingPremium", args: [who] }),
+        publicClient.readContract({ ...v, functionName: "claimableDepositShares", args: [who] }),
+        publicClient.readContract({ ...v, functionName: "claimableRedeemAssets", args: [who] }),
+        publicClient.readContract({ ...v, functionName: "depositRequests", args: [who] }),
+        publicClient.readContract({ ...v, functionName: "redeemRequests", args: [who] }),
+        publicClient.readContract({ ...v, functionName: "balanceOf", args: [who] }),
+      ]);
+      return {
+        premium,
+        depositShares,
+        redeemAssets,
+        depositRequest: { epoch: dep[0], amount: dep[1] },
+        redeemRequest: { epoch: red[0], amount: red[1] },
+        shares,
+      };
+    },
+
+    /** ERC-1155 option balance of `account` for a series. */
+    async optionBalance(seriesId: bigint, account?: Address): Promise<bigint> {
+      return publicClient.readContract({
+        address: addresses.optionToken,
+        abi: optionTokenAbi,
+        functionName: "balanceOf",
+        args: [await accountOr(account), seriesId],
+      });
+    },
+
+    /** ERC-20 balance (USDG, a stock token, or vault shares). */
+    async tokenBalance(token: Address, account?: Address): Promise<bigint> {
+      return publicClient.readContract({
+        address: getAddress(token),
+        abi: erc20Abi,
+        functionName: "balanceOf",
+        args: [await accountOr(account)],
+      });
+    },
+
+    /**
+     * The settlement round id for a token and expiry: the first feed round with `updatedAt >= expiry`, found by
+     * walking back from `latestRoundData` on the feed registered in `StockOracle.feedConfig`.
+     */
+    findSettlementRound: settlementRoundFor,
+
+    // ------------------------------------------------------------------ writes (need walletClient)
+
+    /**
+     * Deposit `assets` (asset base units). Instant ERC-4626 deposit while the vault is unlocked; queued
+     * (`requestDeposit`) while an epoch runs, claimable after settlement. Approves the vault if needed.
+     */
+    async deposit(
+      vault: Address,
+      assets: bigint,
+      opts: { receiver?: Address } = {},
+    ): Promise<QueueableTxResult> {
+      const v = getAddress(vault);
+      const receiver = await accountOr(opts.receiver);
+      const [asset, locked] = await Promise.all([
+        publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "asset" }),
+        publicClient.readContract({ address: v, abi: strikeVaultAbi, functionName: "locked" }),
+      ]);
+      await ensureAllowance(asset, v, assets);
+      if (locked) {
+        const tx = await execute({
+          address: v,
+          abi: strikeVaultAbi,
+          functionName: "requestDeposit",
+          args: [assets, receiver],
+        });
+        return { ...tx, queued: true };
+      }
+      const tx = await execute({
+        address: v,
+        abi: strikeVaultAbi,
+        functionName: "deposit",
+        args: [assets, receiver],
+      });
+      return { ...tx, queued: false };
+    },
+
+    /** Queue a deposit for the end of the running epoch (vault must be locked). Approves the vault if needed. */
+    async requestDeposit(
+      vault: Address,
+      assets: bigint,
+      opts: { receiver?: Address } = {},
+    ): Promise<TxResult> {
+      const v = getAddress(vault);
+      const asset = await publicClient.readContract({
+        address: v,
+        abi: strikeVaultAbi,
+        functionName: "asset",
+      });
+      await ensureAllowance(asset, v, assets);
+      return execute({
+        address: v,
+        abi: strikeVaultAbi,
+        functionName: "requestDeposit",
+        args: [assets, await accountOr(opts.receiver)],
+      });
+    },
+
+    /**
+     * Redeem `shares`. Instant while the vault is unlocked; queued (`requestRedeem`) while an epoch runs,
+     * claimable with `claimRedeem` after settlement.
+     */
+    async redeem(
+      vault: Address,
+      shares: bigint,
+      opts: { receiver?: Address } = {},
+    ): Promise<QueueableTxResult> {
+      const v = getAddress(vault);
+      const { account } = requireAccount();
+      const locked = await publicClient.readContract({
+        address: v,
+        abi: strikeVaultAbi,
+        functionName: "locked",
+      });
+      if (locked) {
+        const tx = await execute({
+          address: v,
+          abi: strikeVaultAbi,
+          functionName: "requestRedeem",
+          args: [shares],
+        });
+        return { ...tx, queued: true };
+      }
+      const receiver = await accountOr(opts.receiver);
+      const tx = await execute({
+        address: v,
+        abi: strikeVaultAbi,
+        functionName: "redeem",
+        args: [shares, receiver, account.address],
+      });
+      return { ...tx, queued: false };
+    },
+
+    /** Queue shares for redemption at the end of the running epoch (vault must be locked). */
+    async requestRedeem(vault: Address, shares: bigint): Promise<TxResult> {
+      return execute({
+        address: getAddress(vault),
+        abi: strikeVaultAbi,
+        functionName: "requestRedeem",
+        args: [shares],
+      });
+    },
+
+    /** Move the shares of a processed deposit request to `account` (default: the wallet's account). */
+    async claimDeposit(vault: Address, account?: Address): Promise<TxResult> {
+      return execute({
+        address: getAddress(vault),
+        abi: strikeVaultAbi,
+        functionName: "claimDeposit",
+        args: [await accountOr(account)],
+      });
+    },
+
+    /** Pay out a processed redemption to `account` (default: the wallet's account). */
+    async claimRedeem(vault: Address, account?: Address): Promise<TxResult> {
+      return execute({
+        address: getAddress(vault),
+        abi: strikeVaultAbi,
+        functionName: "claimRedeem",
+        args: [await accountOr(account)],
+      });
+    },
+
+    /** Claim the wallet's accrued USDG premium from a vault. */
+    async claimPremium(vault: Address): Promise<TxResult> {
+      return execute({
+        address: getAddress(vault),
+        abi: strikeVaultAbi,
+        functionName: "claimPremium",
+        args: [],
+      });
+    },
+
+    /**
+     * Buy `amount` options (underlying base units). Quotes first, allows `slippageBps` on top of the quote
+     * (default 100 = 1%) as `maxPremium`, and approves USDG to the EpochManager if needed.
+     */
+    async buy(
+      seriesId: bigint,
+      amount: bigint,
+      opts: { slippageBps?: number; to?: Address } = {},
+    ): Promise<BuyResult> {
+      const slippageBps = BigInt(opts.slippageBps ?? 100);
+      const [quoted] = await publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "quoteBuy",
+        args: [seriesId, amount],
+      });
+      const maxPremium = quoted + (quoted * slippageBps + BigInt(BPS) - 1n) / BigInt(BPS);
+      await ensureAllowance(addresses.usdg, em, maxPremium);
+      const to = await accountOr(opts.to);
+      const tx = await execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "buy",
+        args: [seriesId, amount, maxPremium, to],
+      });
+      const bought = parseEventLogs({
+        abi: epochManagerAbi,
+        logs: tx.receipt.logs,
+        eventName: "OptionsBought",
+      })[0];
+      return { ...tx, seriesId, amount, premium: bought?.args.premium ?? quoted };
+    },
+
+    /** Open the vault's weekly epoch (vault agent's signer or a keeper; market open, feed safe). Locks the vault. */
+    async openEpoch(vault: Address): Promise<TxResult> {
+      return execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "openEpoch",
+        args: [getAddress(vault)],
+      });
+    },
+
+    /**
+     * Propose this epoch's series with an explicit strike (vault agent's signer). A proposal outside the mandate
+     * does not revert: it is rejected, the agent's bond is slashed, and the result has `accepted: false`, the
+     * reason and the slashed amount. Dry-run with `previewProposal` first.
+     */
+    async proposeSeries(vault: Address, p: ProposalParams): Promise<ProposeResult> {
+      const v = getAddress(vault);
+      const tx = await execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "proposeSeries",
+        args: [v, p.strike, p.expiry, p.size, p.premiumBps],
+      });
+      return decodeProposal(tx, v);
+    },
+
+    /**
+     * Propose by target delta: the contract solves the strike at execution-time spot (floored to a cent), so the
+     * intended delta survives spot moves while the transaction is pending. Same rejection and slashing rules as
+     * `proposeSeries`; dry-run with `previewProposeByDelta` first.
+     */
+    async proposeByDelta(vault: Address, p: DeltaProposalParams): Promise<ProposeResult> {
+      assertDeltaBps(p.targetDeltaBps);
+      const v = getAddress(vault);
+      const tx = await execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "proposeByDelta",
+        args: [v, p.targetDeltaBps, p.expiry, p.size, p.premiumBps],
+      });
+      return decodeProposal(tx, v);
+    },
+
+    /**
+     * Settle the vault's expired series and close the epoch (anyone may call). The settlement round (first feed
+     * round at or after expiry) is discovered automatically unless `roundId` is given; nothing-sold series settle
+     * without a price.
+     */
+    async settle(vault: Address, opts: { roundId?: bigint } = {}): Promise<SettleResult> {
+      const v = getAddress(vault);
+      const [state, , seriesId] = await publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "epochs",
+        args: [v],
+      });
+      if (epochStateName(state) !== "Selling") {
+        throw new StrikeError(`vault ${v} has no live series to settle (epoch is ${epochStateName(state)})`);
+      }
+      const series = await getSeries(seriesId);
+      if (!series) throw new StrikeError(`series ${seriesId} not found`);
+      const now = await blockTimestamp();
+      if (now < series.expiry) {
+        throw new StrikeError(
+          `series expires at ${series.expiry} (in ${series.expiry - now}s); settle after expiry`,
+        );
+      }
+      let roundId = opts.roundId ?? 0n;
+      if (opts.roundId === undefined && series.sold > 0n) {
+        const recorded = await publicClient.readContract({
+          address: addresses.stockOracle,
+          abi: stockOracleAbi,
+          functionName: "settlementPrice",
+          args: [series.underlying, series.expiry],
+        });
+        if (recorded === 0n) roundId = await settlementRoundFor(series.underlying, series.expiry);
+      }
+      const tx = await execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "settle",
+        args: [v, roundId],
+      });
+      const settled = parseEventLogs({
+        abi: epochManagerAbi,
+        logs: tx.receipt.logs,
+        eventName: "EpochSettled",
+      })[0];
+      if (!settled) throw new StrikeError(`transaction ${tx.hash} emitted no EpochSettled event`);
+      const a = settled.args;
+      return {
+        ...tx,
+        seriesId,
+        epoch: a.epoch,
+        roundId,
+        settlementPrice: a.settlementPrice,
+        payout: a.payout,
+        premium: a.premium,
+        fee: a.fee,
+      };
+    },
+
+    /**
+     * Burn settled (or cancelled) options and receive the payout (or the premium refund). `amount` defaults to
+     * the wallet's whole balance of the series.
+     */
+    async redeemOptions(
+      seriesId: bigint,
+      opts: { amount?: bigint; to?: Address } = {},
+    ): Promise<RedeemOptionsResult> {
+      const { account } = requireAccount();
+      const amount =
+        opts.amount ??
+        (await publicClient.readContract({
+          address: addresses.optionToken,
+          abi: optionTokenAbi,
+          functionName: "balanceOf",
+          args: [account.address, seriesId],
+        }));
+      if (amount === 0n) throw new StrikeError(`no options of series ${seriesId} to redeem`);
+      const tx = await execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "redeem",
+        args: [seriesId, amount, await accountOr(opts.to)],
+      });
+      const ev = parseEventLogs({
+        abi: epochManagerAbi,
+        logs: tx.receipt.logs,
+        eventName: "OptionsRedeemed",
+      })[0];
+      return { ...tx, amount, paid: ev?.args.paid ?? 0n };
+    },
+
+    /** Close an Open epoch that has no series (anyone after `proposalTimeout`; the curator or admin at any time). */
+    async abortEpoch(vault: Address): Promise<TxResult> {
+      return execute({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "abortEpoch",
+        args: [getAddress(vault)],
+      });
+    },
+  };
+}
+
+/** A Strike client (see {@link createStrikeClient}). */
+export type StrikeClient = ReturnType<typeof createStrikeClient>;
