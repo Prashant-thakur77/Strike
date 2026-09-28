@@ -1,0 +1,167 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+
+import {EpochManager} from "../../src/core/EpochManager.sol";
+import {Decimals} from "../../src/libraries/Decimals.sol";
+import {StrikeVault} from "../../src/vaults/StrikeVault.sol";
+import {MockERC20} from "../mocks/MockERC20.sol";
+import {StrikeBase} from "../utils/StrikeBase.sol";
+import {StrikeHandler} from "./StrikeHandler.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
+import {console2} from "forge-std/console2.sol";
+
+/// @notice The invariants from docs/design.md §6, checked after every step of random action sequences.
+abstract contract StrikeInvariants is StrikeBase {
+    uint256 internal constant ACC = 1e36;
+    StrikeHandler internal handler;
+    StrikeVault internal vault;
+
+    function _targetVault() internal view virtual returns (StrikeVault);
+
+    function setUp() public override {
+        super.setUp();
+        vault = _targetVault();
+        // Let the agent survive many reckless proposals so epochs keep running.
+        vm.prank(admin);
+        registry.setParams(MIN_BOND, SLASH, 10_000, 8 days);
+        usdg.mint(agent, 1_000_000e6);
+        vm.startPrank(agent);
+        usdg.approve(address(registry), 1_000_000e6);
+        registry.postBond(agentId, 1_000_000e6);
+        vm.stopPrank();
+
+        handler = new StrikeHandler(manager, vault, usdg, feed, calendar, agent, buyer);
+        targetContract(address(handler));
+    }
+
+    /// 1. Collateral locked for a live series always covers its worst-case payout, and never exceeds the vault.
+    function invariant_collateralCoversMaxPayout() public view {
+        (EpochManager.EpochState state,, uint256 id) = manager.epochs(address(vault));
+        if (state != EpochManager.EpochState.Selling) return;
+        EpochManager.Series memory s = manager.getSeries(id);
+        uint256 maxPayout = s.isCall ? s.sold : Decimals.valueInUsd(s.sold, s.strike, 18, 6, Math.Rounding.Floor);
+        assertGe(s.collateral, maxPayout, "collateral < max payout");
+        assertLe(s.collateral, vault.totalAssets(), "collateral > vault assets");
+    }
+
+    /// 2. Shares × price = assets, up to the ERC-4626 virtual-share rounding.
+    function invariant_shareAccounting() public view {
+        uint256 supply = vault.totalSupply();
+        uint256 assets = vault.totalAssets();
+        uint256 c = vault.convertToAssets(supply);
+        assertLe(c, assets, "shares worth more than assets");
+        assertLe(assets - c, assets / (supply + 1) + 1, "shares worth too little");
+    }
+
+    /// 3a. While locked, collateral changes only inside settlement.
+    function invariant_noLeakageWhileLocked() public view {
+        if (vault.locked()) assertEq(vault.totalAssets(), handler.assetsAtLock(), "assets moved while locked");
+    }
+
+    /// 3b. The vault holds every asset it accounts for.
+    function invariant_assetBacking() public view {
+        uint256 need = vault.totalAssets() + vault.pendingDepositAssets() + vault.reservedRedeemAssets();
+        if (!vault.isCall()) need += _premiumOwed();
+        assertGe(MockERC20(vault.asset()).balanceOf(address(vault)), need, "vault under-backed");
+    }
+
+    /// 4. A settled series stays settled at the price first recorded.
+    function invariant_settlementIsFinal() public view {
+        for (uint256 i; i < handler.seriesCount(); ++i) {
+            uint256 id = handler.seriesIds(i);
+            EpochManager.Series memory s = manager.getSeries(id);
+            uint256 recorded = handler.recordedSettlement(id);
+            if (recorded != 0) {
+                assertTrue(s.settled, "settled flag flipped");
+                assertEq(s.settlementPrice, recorded, "settlement price changed");
+                assertEq(oracle.settlementPrice(s.underlying, s.expiry), recorded, "oracle record changed");
+            }
+        }
+    }
+
+    /// 5. The manager can pay every option holder and every depositor what it owes them.
+    function invariant_managerSolvency() public view {
+        uint256 tokenOwed;
+        uint256 usdgOwed = manager.compensation(address(vault));
+        for (uint256 i; i < handler.seriesCount(); ++i) {
+            EpochManager.Series memory s = manager.getSeries(handler.seriesIds(i));
+            if (s.cancelled) usdgOwed += s.escrow;
+            else if (s.settled) s.isCall ? tokenOwed += s.escrow : usdgOwed += s.escrow;
+            else usdgOwed += s.premium; // escrowed until settlement
+        }
+        assertGe(tsla.balanceOf(address(manager)), tokenOwed, "manager short of payout tokens");
+        assertGe(usdg.balanceOf(address(manager)), usdgOwed, "manager short of USDG");
+    }
+
+    /// 6. The vault can pay every holder's accrued and claimable premium.
+    function invariant_premiumSolvency() public view {
+        uint256 bal = usdg.balanceOf(address(vault));
+        if (!vault.isCall()) {
+            bal -= Math.min(bal, vault.totalAssets() + vault.pendingDepositAssets() + vault.reservedRedeemAssets());
+        }
+        assertGe(bal, _premiumOwed(), "premium insolvent");
+    }
+
+    /// 8. Liveness: holders of settled (or cancelled) options can always redeem them.
+    function invariant_optionHoldersCanAlwaysRedeem() public view {
+        assertFalse(handler.redeemFailed(), "an option redemption reverted");
+    }
+
+    /// 7. Deposits and withdrawals alone never lower the share price.
+    function invariant_roundingNeverLowersSharePrice() public view {
+        assertFalse(handler.sharePriceDropped(), "share price fell on deposit/withdraw");
+    }
+
+    /// Coverage: how often each action actually ran (run with -vv to print).
+    function afterInvariant() external view {
+        assertGt(handler.calls(), 0);
+        string[12] memory names = [
+            "deposit",
+            "redeem",
+            "requestDeposit",
+            "requestRedeem",
+            "cancelDeposit",
+            "claim",
+            "transfer",
+            "propose",
+            "reckless",
+            "buy",
+            "settle",
+            "redeemOptions"
+        ];
+        for (uint256 i; i < names.length; ++i) {
+            console2.log(names[i], handler.counts(bytes32(bytes(names[i]))));
+        }
+    }
+
+    function _premiumOwed() internal view returns (uint256 owed) {
+        owed = vault.unallocatedPremium();
+        uint256 acc = vault.accPremiumPerShare();
+        for (uint256 i; i < handler.actorCount(); ++i) {
+            address a = handler.actors(i);
+            owed += vault.pendingPremium(a);
+            (uint64 dEpoch, uint192 dAmount) = vault.depositRequests(a);
+            if (dAmount != 0 && dEpoch <= vault.lastProcessedEpoch()) {
+                (,, uint256 accAt,) = vault.epochSnapshots(dEpoch);
+                owed += vault.claimableDepositShares(a) * (acc - accAt) / ACC;
+            }
+            (uint64 rEpoch, uint192 rAmount) = vault.redeemRequests(a);
+            if (rAmount != 0 && rEpoch <= vault.lastProcessedEpoch()) {
+                (,,, uint256 perShare) = vault.epochSnapshots(rEpoch);
+                owed += uint256(rAmount) * perShare / ACC;
+            }
+        }
+    }
+}
+
+contract CallVaultInvariantTest is StrikeInvariants {
+    function _targetVault() internal view override returns (StrikeVault) {
+        return callVault;
+    }
+}
+
+contract PutVaultInvariantTest is StrikeInvariants {
+    function _targetVault() internal view override returns (StrikeVault) {
+        return putVault;
+    }
+}
