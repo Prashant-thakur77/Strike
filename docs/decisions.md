@@ -73,3 +73,27 @@ DST-aware NYSE open/close computed on-chain; holidays kept as an admin list (see
 ## D18 · App visual style (2026-09-28)
 
 The app's layout, color and motion language follows a reference site the owner chose; screenshots stay in a gitignored `.design-ref/` folder. Strike uses its own copy, logo and imagery.
+
+## D19 · Price checks live in a separate StockOracle contract (2026-09-28)
+
+`SafeStockFeed` is a library; `StockOracle` applies it per registered token, holds the NYSE calendar and records settlement prices once per (token, expiry). **Why:** keeps `EpochManager` under the 24 KB limit (19–21 KB) and gives other Robinhood Chain protocols a deployed, reusable safe-price contract.
+
+## D20 · Real stock-token behaviour, not the spec, decides the interface (2026-09-28)
+
+Function names follow the live tokens on chain 4663 (`uiMultiplier`, `newUIMultiplier`, `effectiveAt`, `paused`, `oraclePaused`). `oraclePaused()` is missing on testnet tokens, so pause checks use `staticcall` and treat a missing function as "not paused". Mainnet feeds have a 24 h heartbeat and 0.5% deviation, so `maxPriceAge` is 25 h per feed rather than 15 min.
+
+## D21 · Testnets get MirrorFeeds (2026-09-28)
+
+Robinhood testnet has stock tokens but no Chainlink feeds; Arbitrum Sepolia has neither. A keeper-updated `MirrorFeed` copies mainnet Chainlink rounds, with full round history so settlement works exactly as on mainnet. Arbitrum Sepolia also gets `TestStockToken`s with a rate-limited faucet. Both are in `src/testnet/` and labelled testnet-only.
+
+## D22 · Stylus is used where it wins: on-chain strike solving (2026-09-28)
+
+Measured on a Nitro dev node: a single `quote` costs 1.1–1.6× more in Stylus (fixed entry cost), `strikeForDelta` (48 evaluations) costs 6.5× less. `EpochManager.proposeByDelta` uses it so an agent's intended delta survives spot moves between signing and inclusion. The table is published as measured, including the case Stylus loses.
+
+## D23 · CI pins Foundry v1.7.1 (2026-09-28)
+
+The latest Foundry formats nested struct literals differently from 1.7.1, which broke `forge fmt --check` in CI. Pinned, and the one affected call rewritten to format identically in both.
+
+## D24 · A fresh testnet deployer key was generated locally (2026-09-28)
+
+`contracts/.env` (gitignored, mode 600) holds a new testnet-only key; the owner only has to fund its address. It must never hold mainnet funds: mainnet deploys use the owner's own key or a Safe.
