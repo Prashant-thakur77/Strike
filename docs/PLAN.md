@@ -355,3 +355,13 @@ The phases run in order and each gate must pass before the next phase starts.
 - [FalconX: Robinhood Chain primer](https://www.falconx.io/newsroom/robinhood-chain-primer-early-traction-and-protocols-to-watch)
 - [Beosin: stock token contract analysis](https://beosin.com/resources/robinhood-chain-stock-token-practice-code-analysis-on-token-contract-and-blockchain-protocol)
 - [Arbitrum grants](https://arbitrum.foundation/grants) · [Global Dollar Network](https://globaldollar.com/build-with-usdg)
+
+## Cycle 1 (2026-09-28)
+
+Top five improvements, ranked by effect on the weighted score:
+
+1. Deploy and verify on Robinhood testnet and Arbitrum Sepolia (hard requirements; blocked on testnet funds, script ready).
+2. Buyer side: MCP `buy_options`, `redeem_options` and `hedge_plan` tools and a buyer agent, so agents both sell and buy options.
+3. Live app URL (Vercel) and the testnet feedback form linked from the app, to collect 10+ users.
+4. Robinhood-specific UX: per-share display from `uiMultiplier` and a US-person acknowledgement gate.
+5. Stylus pricer as the production pricer, deployed from a reproducible build so it can be verified.
