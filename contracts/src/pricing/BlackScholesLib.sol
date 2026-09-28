@@ -113,7 +113,7 @@ library BlackScholesLib {
         uint256 m = x >> k;
         uint256 z = _divWad(m - WAD, m + WAD);
         uint256 z2 = _mulWad(z, z);
-        uint256 sum;
+        uint256 sum = 0;
         uint256 term = z;
         uint256 n = 1;
         while (term != 0) {

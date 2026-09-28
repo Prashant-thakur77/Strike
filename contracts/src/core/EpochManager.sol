@@ -340,8 +340,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
             _reject(vault, v.agentId, reason, p, expiry);
             return (false, 0);
         }
+        seriesId = _createSeries(vault, v.agentId, ep, p, expiry);
         agents.recordAccepted(v.agentId);
-        return (true, _createSeries(vault, v.agentId, ep, p, expiry));
+        return (true, seriesId);
     }
 
     /// @notice Buy options. Price = Black-Scholes fair value at the current spot × the series' premium factor.
@@ -387,8 +388,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         Series storage s = _series[seriesId];
         if (block.timestamp < s.expiry) revert NotExpired(s.expiry);
 
-        uint256 payout;
-        uint256 payoutValue;
+        uint256 payout = 0;
+        uint256 payoutValue = 0;
         if (s.sold != 0) {
             uint256 price = oracle.recordSettlementPrice(s.underlying, s.expiry, roundId);
             (payout, payoutValue) = _settleMath(s, price);

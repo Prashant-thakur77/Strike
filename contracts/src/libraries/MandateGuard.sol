@@ -72,10 +72,10 @@ library MandateGuard {
         uint256 absDeltaBps = uint256(p.delta < 0 ? -p.delta : p.delta) * BPS / 1e18;
         if (absDeltaBps < m.minDeltaBps || absDeltaBps > m.maxDeltaBps) return Reason.DeltaOutOfBand;
 
-        // Premium per option relative to the collateral one option locks (a token for calls, the strike for puts).
-        uint256 premium = p.fairValue * p.premiumBps / BPS;
+        // Premium per option relative to the collateral one option locks (a token for calls, the strike for puts):
+        // fairValue × premiumBps / BPS ≥ collateral × minYieldBps / BPS, compared without dividing.
         uint256 collateralValue = p.isCall ? p.spot : p.strike;
-        if (premium * BPS < uint256(m.minYieldBps) * collateralValue) return Reason.PremiumTooSmall;
+        if (p.fairValue * p.premiumBps < uint256(m.minYieldBps) * collateralValue) return Reason.PremiumTooSmall;
         return Reason.None;
     }
 }

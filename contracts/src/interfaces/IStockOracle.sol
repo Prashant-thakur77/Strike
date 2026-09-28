@@ -13,7 +13,7 @@ interface IStockOracle {
     function status(address token)
         external
         view
-        returns (SafeStockFeed.Status status, uint256 priceWad, uint256 updatedAt);
+        returns (SafeStockFeed.Status feedStatus, uint256 priceWad, uint256 updatedAt);
 
     /// @notice Fix the settlement price for (token, expiry) from the first round at or after expiry. Idempotent.
     function recordSettlementPrice(address token, uint64 expiry, uint80 roundId) external returns (uint256 priceWad);

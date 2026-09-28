@@ -49,8 +49,10 @@ contract FeeManager is AccessControl {
     /// @param payoutValue Value paid to option holders (USDG).
     function computeFee(uint256 premium, uint256 payoutValue) public view returns (uint256 fee, uint256 agentCut) {
         if (premium <= payoutValue) return (0, 0);
-        fee = (premium - payoutValue) * perfFeeBps / BPS;
-        agentCut = fee * agentShareBps / BPS;
+        uint256 net = premium - payoutValue;
+        fee = net * perfFeeBps / BPS;
+        // One division, so the agent's share is not computed from an already-rounded fee (and never exceeds it).
+        agentCut = net * perfFeeBps * agentShareBps / (BPS * BPS);
     }
 
     /// @notice Record fees whose USDG the caller has already transferred here.
