@@ -2,6 +2,32 @@
 
 Resume here. Newest status first.
 
+## 2026-09-29 (day 2)
+
+### Phase status
+
+| Phase                  | Gate                | Status                                                                                                                   |
+| ---------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0–3                    | see day 1           | Passed                                                                                                                   |
+| 4 App + testnet        | Deployed + verified | Passed: v1 deployed on Robinhood Chain testnet (`v0.5.0`); v2 with every review fix deployed and verified (14 contracts) |
+| 5 Mainnet + submission | Submitted           | Waiting on owner items (HackQuest registration, Vercel, narrated videos, capped mainnet vault)                           |
+
+### Done today
+
+- Internal adversarial security review: 1 High, 3 Medium, 4 Low, 3 Info, each shown by a failing test. All fixed; the 19 audit tests now run as regression tests (418 Foundry tests). Details in [security/review-2026-09-29.md](security/review-2026-09-29.md), decisions D27–D30.
+- Robinhood testnet redeployed as v2 (Stylus pricer reused, verified); 5 TSLA in the covered-call vault, agent bonded 60 USDG; v1 bond unbonding.
+- SDK: settlement hints across Chainlink phases and corporate actions (`findSettlementHints`), snapshot-aware strike solver, `roundStrikeToCent`. The keeper falls back to it.
+- 8-year weekly backtest and litepaper ([backtest.md](backtest.md), [litepaper.md](litepaper.md)).
+- Automated 2:42 demo video ([media/strike-demo.mp4](media/strike-demo.mp4)).
+- Docs updated for the new behaviour: design, threat model (T19–T21), SafeStockFeed, operations, audit readiness, skill file, risk model.
+
+### Next
+
+1. Live epoch on v2 at 13:40 UTC (scheduled): commit the log with Blockscout links
+2. Halmos symbolic proofs for the libraries (in progress), then a `formal` CI job
+3. Settle the live epoch after Friday's close (2026-10-02 20:00 UTC)
+4. Scorecard cycle 2 in review.md; tag `v0.6.0`
+
 ## 2026-09-28 (day 1, evening)
 
 ### Phase status
