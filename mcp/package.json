@@ -1,0 +1,29 @@
+{
+  "name": "@strike/mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets AI agents quote, propose and monitor Strike options vaults",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "strike-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --clean",
+    "dev": "tsx --conditions=strike-source src/index.ts",
+    "lint": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.1",
+    "@strike/sdk": "workspace:*",
+    "viem": "^2.56.9",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  }
+}
