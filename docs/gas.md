@@ -13,6 +13,17 @@ Measured on a local Arbitrum Nitro dev node (`offchainlabs/nitro-node:v3.7.1`, A
 | `strikeForDelta` | 0.20-delta put, 7 days                |    1,530,713 |    232,166 | **6.6× less**      |
 | `strikeForDelta` | 0.35-delta call, 30 days              |    1,408,482 |    218,066 | **6.5× less**      |
 
+## Inside the protocol
+
+`scripts/stylus-e2e.sh` deploys the whole protocol and the Stylus pricer to the Nitro dev node, then runs the same epoch twice, once with `EpochManager.pricer` set to the Solidity reference and once to the Stylus contract. Figures are L2 execution gas (receipt `gasUsed` minus Arbitrum's L1 data component `gasUsedForL1`):
+
+| EpochManager transaction                                  | Solidity pricer | Stylus pricer | Saving    |
+| --------------------------------------------------------- | --------------: | ------------: | --------- |
+| `proposeByDelta` (0.20 delta; solves the strike on-chain) |       1,908,694 |       586,289 | 3.3× less |
+| `buy` 5 options (live Black-Scholes quote)                |         330,423 |       300,739 | 9% less   |
+
+Both runs chose the same strike ($390.51 at a $369 spot, 60% volatility, four-day tenor).
+
 ## What this means
 
 - A Stylus call has a fixed entry cost (about 35–40k gas uncached). For a single Black-Scholes quote, where the EVM's native 256-bit arithmetic is cheap, Solidity wins.

@@ -107,12 +107,16 @@ The unit suite found two real bugs in the vault before deployment (claims of zer
 
 ## Gas: Stylus vs Solidity
 
-| Call                                   |  Solidity |  Stylus |
-| -------------------------------------- | --------: | ------: |
-| `quote` (one Black-Scholes evaluation) |    33,969 |  40,624 |
-| `strikeForDelta` (48 evaluations)      | 1,546,443 | 235,880 |
+Measured on an Arbitrum Nitro dev node, L2 execution gas:
 
-A Stylus call pays a fixed entry cost, so for a single quote Solidity is cheaper. For real work Stylus is 6.5× cheaper, and that is where Strike uses it. Method and more rows in [docs/gas.md](docs/gas.md).
+| Call                                             |  Solidity |  Stylus |
+| ------------------------------------------------ | --------: | ------: |
+| `quote` (one Black-Scholes evaluation)           |    33,969 |  40,624 |
+| `strikeForDelta` (48 evaluations)                | 1,546,443 | 235,880 |
+| `EpochManager.proposeByDelta` (full transaction) | 1,908,694 | 586,289 |
+| `EpochManager.buy` (full transaction)            |   330,423 | 300,739 |
+
+A Stylus call pays a fixed entry cost, so a single quote is cheaper in Solidity. Real work is 6.5× cheaper in Stylus, and a full proposal transaction 3.3× cheaper, with the same strike chosen. Method and scripts in [docs/gas.md](docs/gas.md).
 
 ## Status
 

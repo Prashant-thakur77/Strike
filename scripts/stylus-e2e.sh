@@ -18,13 +18,18 @@ if ! curl -s -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0
   until curl -s -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' $RPC | grep -q result; do sleep 1; done
 fi
 CHAIN=$(cast chain-id --rpc-url $RPC)
-send() { cast send "$@" --rpc-url $RPC --private-key $KEY --json | python3 -c "import json,sys; r=json.load(sys.stdin); print(int(r['gasUsed'],16))"; }
+# Prints L2 execution gas: the receipt's gasUsed minus Arbitrum's L1 data component (gasUsedForL1). `cast send --json`
+# omits gasUsedForL1, so the raw receipt is read back.
+send() {
+  local h; h=$(cast send "$@" --rpc-url $RPC --private-key $KEY --json | python3 -c "import json,sys; print(json.load(sys.stdin)['transactionHash'])")
+  cast rpc eth_getTransactionReceipt "$h" --rpc-url $RPC | python3 -c "import json,sys; r=json.load(sys.stdin); print(int(r['gasUsed'],16) - int(r.get('gasUsedForL1','0x0'),16))"
+}
 j() { python3 -c "import json,sys; d=json.load(open('$ROOT/contracts/deployments/$CHAIN.json')); print(eval(sys.argv[1]))" "$1"; }
 jv() { python3 -c "import json,sys; d=json.load(open('$ROOT/contracts/deployments/$CHAIN-vaults.json')); print(eval(sys.argv[1]))" "$1"; }
 
 cd "$ROOT/contracts"
-PRIVATE_KEY=$KEY forge script script/Deploy.s.sol --rpc-url $RPC --broadcast >/dev/null
-STY=$(cd "$ROOT/stylus/pricer" && cargo stylus deploy --endpoint $RPC --private-key $KEY --no-verify 2>&1 | grep -oE "activated contract 0x[0-9a-fA-F]{40}" | awk '{print $3}')
+PRIVATE_KEY=$KEY forge script script/Deploy.s.sol --rpc-url $RPC --broadcast --slow --skip-simulation >/dev/null
+STY=$(cd "$ROOT/stylus/pricer" && cargo stylus deploy --endpoint $RPC --private-key $KEY --no-verify 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1)
 MANAGER=$(j "d['epochManager']"); SOL=$(j "d['pricer']"); TSLA=$(j "d['stocks']['TSLA']['token']"); FEED=$(j "d['stocks']['TSLA']['feed']")
 USDG=$(j "d['usdg']"); CAL=$(j "d['marketCalendar']")
 echo "chain $CHAIN · EpochManager $MANAGER · Solidity pricer $SOL · Stylus pricer $STY"
@@ -37,7 +42,7 @@ send $TSLA 'mint(address,uint256)' $ME 400000000000000000000 >/dev/null
 
 # Each pricer gets its own covered-call vault (a selling vault cannot be aborted before expiry).
 new_vault() {
-  PRIVATE_KEY=$KEY forge script script/Seed.s.sol --rpc-url $RPC --broadcast >/dev/null
+  PRIVATE_KEY=$KEY forge script script/Seed.s.sol --rpc-url $RPC --broadcast --slow --skip-simulation >/dev/null
   local v; v=$(jv "d['TSLA_covered_call']")
   send $TSLA 'approve(address,uint256)' $v 200000000000000000000 >/dev/null
   send $v 'deposit(uint256,address)' 200000000000000000000 $ME >/dev/null
@@ -59,7 +64,7 @@ run_epoch() { # $1 = pricer, $2 = vault; prints: proposeByDelta gas, buy gas, st
 read -r S_PROP S_BUY S_STRIKE < <(run_epoch $SOL $VAULT_SOL)
 read -r T_PROP T_BUY T_STRIKE < <(run_epoch $STY $VAULT_STY)
 echo
-echo "| Transaction (EpochManager) | Solidity pricer | Stylus pricer |"
+echo "| Transaction (EpochManager), L2 execution gas | Solidity pricer | Stylus pricer |"
 echo "| --- | ---: | ---: |"
 echo "| proposeByDelta (0.20 delta, solves the strike on-chain) | $S_PROP | $T_PROP |"
 echo "| buy 5 options (live Black-Scholes quote) | $S_BUY | $T_BUY |"

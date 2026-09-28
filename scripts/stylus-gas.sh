@@ -14,7 +14,7 @@ docker run -d --name "$NAME" -p 8547:8547 "$IMAGE" --dev --http.addr 0.0.0.0 --h
 trap 'docker rm -f "$NAME" >/dev/null 2>&1 || true' EXIT
 until curl -s -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' "$RPC" | grep -q result; do sleep 1; done
 
-STY=$(cd "$ROOT/stylus/pricer" && cargo stylus deploy --endpoint "$RPC" --private-key "$KEY" --no-verify 2>&1 | grep -oE "activated contract 0x[0-9a-fA-F]{40}" | awk '{print $3}')
+STY=$(cd "$ROOT/stylus/pricer" && cargo stylus deploy --endpoint "$RPC" --private-key "$KEY" --no-verify 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1)
 cd "$ROOT/contracts"
 SOL=$(forge create src/pricing/BlackScholesRef.sol:BlackScholesRef --rpc-url "$RPC" --private-key "$KEY" --broadcast | grep "Deployed to" | awk '{print $3}')
 PROBE=$(forge create script/gas/PricerGasProbe.sol:PricerGasProbe --rpc-url "$RPC" --private-key "$KEY" --broadcast | grep "Deployed to" | awk '{print $3}')
