@@ -1,0 +1,38 @@
+{
+  "agentRegistry": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+  "block": 125866639,
+  "chainId": 46630,
+  "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+  "epochManager": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+  "feeManager": "0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569",
+  "marketCalendar": "0xefD1121ef13F1187F9ac9A54076DFa09A586d31D",
+  "optionToken": "0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7",
+  "pricer": "0x79A4158900579FA0eE5b413B4724D010C8a0A8E2",
+  "stockOracle": "0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F",
+  "stocks": {
+    "AMD": {
+      "feed": "0x726a9c2a36Eb8511CB067A4FB06B49efB279eE1b",
+      "token": "0x71178BAc73cBeb415514eB542a8995b82669778d"
+    },
+    "AMZN": {
+      "feed": "0x1bE23389861F38FAdf8120134b967f7a991Daa82",
+      "token": "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02"
+    },
+    "NFLX": {
+      "feed": "0xaA6D2cfE7ad546499dddedFb0c96F88bA75439A5",
+      "token": "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93"
+    },
+    "PLTR": {
+      "feed": "0x7C6A9F05D52d8D10624522973258B28D87756Ff9",
+      "token": "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0"
+    },
+    "TSLA": {
+      "feed": "0x8401bcb990005fCEB1390C0b10dA5bE283d6cC0F",
+      "token": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+    }
+  },
+  "usdg": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+  "vaultFactory": "0x9DbaFfD488FC591947149E2b27189A201C0a74f4",
+  "vaultImplementation": "0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197",
+  "stylusPricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c"
+}

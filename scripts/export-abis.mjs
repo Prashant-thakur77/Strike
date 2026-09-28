@@ -42,7 +42,7 @@ const deployments = {};
 if (existsSync(depDir)) {
   for (const f of readdirSync(depDir)) {
     const m = f.match(/^(\d+)\.json$/);
-    if (!m) continue;
+    if (!m || m[1] === "412346") continue; // local Nitro dev node (gas measurements only)
     const chainId = Number(m[1]);
     const core = JSON.parse(readFileSync(join(depDir, f), "utf8"));
     const vaultsFile = join(depDir, `${chainId}-vaults.json`);
