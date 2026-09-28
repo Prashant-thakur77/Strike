@@ -153,3 +153,24 @@ jobs:
       - name: Matchstick tests
         working-directory: subgraph
         run: pnpm graph:test
+
+  e2e:
+    name: End-to-end demo (anvil + MCP agent)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Full story (deploy, propose, reject and slash, buy, settle, collect)
+        run: scripts/demo-local.sh
+      - name: In-the-money settlement
+        run: SETTLE_PRICE=400 scripts/demo-local.sh
