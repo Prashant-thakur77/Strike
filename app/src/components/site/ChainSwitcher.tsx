@@ -7,14 +7,17 @@ import { CHAIN_META, appChains, isAppChainId } from "@/lib/chains";
 import { findDeployment } from "@/lib/deployment";
 import styles from "./site.module.css";
 
-/** Network picker. Reads work without a wallet; a connected wallet is asked to follow. */
-export function ChainSwitcher() {
+/**
+ * Network picker. Reads work without a wallet; a connected wallet is asked to follow. `block` is the full-width
+ * version for the mobile menu: full network name, 44px tall.
+ */
+export function ChainSwitcher({ block = false }: { block?: boolean }) {
   const { chainId, setChainId, deployment } = useStrike();
   const { isConnected } = useConnection();
   const { mutate: switchChain } = useSwitchChain();
 
   return (
-    <label className={styles.chain} data-deployed={!!deployment}>
+    <label className={`${styles.chain} ${block ? styles.chainBlock : ""}`} data-deployed={!!deployment}>
       <span className="sr-only">Network</span>
       <span className={styles.chainDot} aria-hidden />
       <select
@@ -34,7 +37,7 @@ export function ChainSwitcher() {
         ))}
       </select>
       <span className={styles.chainShort} aria-hidden>
-        {CHAIN_META[chainId].short}
+        {block ? CHAIN_META[chainId].label : CHAIN_META[chainId].short}
       </span>
       <ChevronDown aria-hidden size={14} />
     </label>

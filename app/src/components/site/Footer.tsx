@@ -19,6 +19,9 @@ export function Footer() {
           <a className="micro" href={LINKS.skill} target="_blank" rel="noreferrer">
             SKILL.md <ArrowUpRight aria-hidden />
           </a>
+          <a className="micro" href={LINKS.feedback} target="_blank" rel="noreferrer">
+            Give feedback <ArrowUpRight aria-hidden />
+          </a>
         </nav>
         <a className={`micro ${styles.top}`} href="#top">
           Back to top <ArrowUp aria-hidden />

@@ -63,7 +63,7 @@ export function AgentsPage() {
               <Rail
                 index="01"
                 label="Leaderboard"
-                note="Ranked by accepted proposals, then fewest rejections. Straight from AgentRegistry."
+                note="Ranked by accepted proposals, then fewest rejections. Track record is AgentRegistry.track: epochs settled and their depositor PnL before fees."
               >
                 <Leaderboard registry={r} />
               </Rail>
@@ -104,11 +104,14 @@ function Leaderboard({ registry }: { registry: Registry }) {
             <th scope="col" className={styles.num}>
               Rejected
             </th>
+            <th scope="col" className={styles.num}>
+              Track record
+            </th>
             <th scope="col">Strikes</th>
             <th scope="col" className={styles.num}>
               Bond
             </th>
-            <th scope="col">ERC-8004</th>
+            <th scope="col">ERC-8004 id</th>
             <th scope="col">Runs</th>
           </tr>
         </thead>
@@ -131,6 +134,9 @@ function Leaderboard({ registry }: { registry: Registry }) {
               <td className={`mono ${styles.num}`} data-label="Rejected">
                 {a.rejected}
               </td>
+              <td className={styles.num} data-label="Track record">
+                <TrackRecord agent={a} decimals={registry.usdg.decimals} />
+              </td>
               <td data-label="Strikes">
                 <span className={styles.pips} aria-label={`${a.strikes} of ${registry.maxStrikes} strikes`}>
                   {Array.from({ length: registry.maxStrikes }, (_, k) => (
@@ -141,8 +147,12 @@ function Leaderboard({ registry }: { registry: Registry }) {
               <td className={`mono ${styles.num}`} data-label="Bond">
                 {fmtAmount(a.bond, registry.usdg.decimals)} USDG
               </td>
-              <td className="mono" data-label="ERC-8004">
-                {a.erc8004Id > 0n ? `#${a.erc8004Id.toString()}` : "—"}
+              <td data-label="ERC-8004 id">
+                {a.erc8004Id > 0n ? (
+                  <span className="mono">#{a.erc8004Id.toString()}</span>
+                ) : (
+                  <span className={styles.cellMuted}>Not linked</span>
+                )}
               </td>
               <td data-label="Runs">
                 {a.vaults.length === 0
@@ -158,6 +168,23 @@ function Leaderboard({ registry }: { registry: Registry }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/** `AgentRegistry.track(agentId)`: settled epochs and cumulative depositor PnL in USDG. */
+function TrackRecord({ agent, decimals }: { agent: AgentRow; decimals: number }) {
+  const pnl = agent.cumulativePnl;
+  const sign = pnl > 0n ? "+" : pnl < 0n ? "−" : "";
+  const n = agent.settledEpochs;
+  return (
+    <>
+      <span className={`mono ${styles.pnl}`} data-sign={pnl > 0n ? "gain" : pnl < 0n ? "loss" : "flat"}>
+        {n === 0 ? "—" : `${sign}${fmtAmount(pnl < 0n ? -pnl : pnl, decimals)} USDG`}
+      </span>
+      <span className={styles.cellMuted}>
+        {n} epoch{n === 1 ? "" : "s"} settled
+      </span>
+    </>
   );
 }
 

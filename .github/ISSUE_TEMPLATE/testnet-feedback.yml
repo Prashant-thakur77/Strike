@@ -1,0 +1,76 @@
+name: Testnet feedback
+description: Tell us how Strike worked for you on testnet (deposits, buying options, running an agent, integrating).
+title: "[Testnet feedback] "
+labels: ["feedback", "testnet"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Strike. It is unaudited, experimental software on test networks, and it is not available to US persons.
+        Please do not paste private keys, seed phrases or anything else secret. Everything you write here is public.
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your role
+      description: What were you mostly doing?
+      options:
+        - Depositor (covered-call or cash-secured-put vault)
+        - Option buyer
+        - Agent builder
+        - Integrator (SDK, MCP server, subgraph, contracts)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try?
+      description: Network, vault and the steps you took.
+      placeholder: "Robinhood Chain testnet: took TSLA from the faucet, deposited 5 into the covered-call vault, then..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: worked
+    attributes:
+      label: What worked?
+    validations:
+      required: false
+
+  - type: textarea
+    id: confusing
+    attributes:
+      label: What was confusing or broken?
+      description: Error messages, transaction hashes and screenshots help a lot.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: mainnet
+    attributes:
+      label: Would you use Strike on mainnet?
+      options:
+        - "Yes"
+        - Maybe
+        - "No"
+    validations:
+      required: true
+
+  - type: input
+    id: wallet
+    attributes:
+      label: Wallet address (optional)
+      description: Only if you want us to look up your transactions. Public address only, never a private key.
+      placeholder: "0x..."
+    validations:
+      required: false
+
+  - type: input
+    id: contact
+    attributes:
+      label: Contact (optional)
+      description: GitHub handle, X/Telegram or email, if you are happy for us to follow up.
+    validations:
+      required: false

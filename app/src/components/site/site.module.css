@@ -305,7 +305,22 @@
   opacity: 0.6;
 }
 
+.chainBlock {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 16px;
+}
+
+.chainBlock .chainShort {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .chainDot {
+  flex: none;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -428,8 +443,18 @@
 
 .menuExtra {
   display: grid;
-  gap: 12px;
+  gap: 20px;
   margin-top: 32px;
+}
+
+.menuField {
+  display: grid;
+  gap: 10px;
+}
+
+/* Full-size touch targets in the menu (the wallet pill is the small variant in the nav bar). */
+.menuField :global(.pill) {
+  min-height: 44px;
 }
 
 .menuFoot {

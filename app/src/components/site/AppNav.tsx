@@ -61,7 +61,18 @@ export function AppNav() {
         </div>
       </header>
       <MobileMenu open={open} onClose={close} items={ITEMS}>
-        <ConnectButton block />
+        <div className={styles.menuField}>
+          <span className="micro micro-muted" aria-hidden>
+            Network
+          </span>
+          <ChainSwitcher block />
+        </div>
+        <div className={styles.menuField}>
+          <span className="micro micro-muted" aria-hidden>
+            Wallet
+          </span>
+          <ConnectButton block />
+        </div>
       </MobileMenu>
     </>
   );
