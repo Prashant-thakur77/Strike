@@ -44,3 +44,9 @@ robinhood = "${ROBINHOOD_RPC_URL}"
 robinhood_testnet = "${ROBINHOOD_TESTNET_RPC_URL}"
 arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
 arbitrum_one = "${ARBITRUM_ONE_RPC_URL}"
+
+[lint]
+# Tests cast bounded fuzz values freely; lint the production code only.
+ignore = ["test/**/*.sol", "script/**/*.sol"]
+# Options expire at timestamps by design; sequencer timestamps drift by seconds, not hours.
+exclude_lints = ["block-timestamp"]
