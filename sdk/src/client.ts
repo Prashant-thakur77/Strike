@@ -527,6 +527,28 @@ export function createStrikeClient(config: StrikeClientConfig) {
       return { premium, collateral };
     },
 
+    /** Seconds before expiry when a series stops selling (`EpochManager.saleCutoff`, 1 hour by default). */
+    async saleCutoff(): Promise<number> {
+      return publicClient.readContract({ address: em, abi: epochManagerAbi, functionName: "saleCutoff" });
+    },
+
+    /**
+     * Ids of every series a vault has put on sale, newest first, from the EpochManager's `SeriesProposed` logs
+     * (scanned from `fromBlock`, default 0). Finds settled series to redeem after the vault's epoch moved on.
+     */
+    async vaultSeriesIds(vault: Address, opts: { fromBlock?: bigint } = {}): Promise<bigint[]> {
+      const logs = await publicClient.getContractEvents({
+        address: em,
+        abi: epochManagerAbi,
+        eventName: "SeriesProposed",
+        args: { vault: getAddress(vault) },
+        fromBlock: opts.fromBlock ?? 0n,
+        toBlock: "latest",
+        strict: true,
+      });
+      return logs.map((l) => l.args.seriesId).reverse();
+    },
+
     /**
      * Dry-run a proposal against the vault's mandate (`EpochManager.previewProposal`). Returns the verdict as a
      * `MandateGuard.Reason` name, the fair value and delta the contract measured, and the vault's capacity.

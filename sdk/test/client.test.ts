@@ -122,6 +122,7 @@ function chain(timestamp = MONDAY) {
         getSeries: ([id]: readonly unknown[]) => (id === 42n ? series : zeroSeries),
         previewProposal: [8, 9n * WAD, 520_000_000_000_000_000n, 10n * WAD],
         quoteBuy: [2_500_000n, WAD],
+        saleCutoff: 3600,
         usdgDecimals: 6,
         spot: 369n * WAD,
         pricer: PRICER,
@@ -291,6 +292,11 @@ describe("createStrikeClient (reads over a fake chain)", () => {
   it("quotes a purchase", async () => {
     const { strike } = chain();
     expect(await strike.quoteBuy(42n, WAD)).toEqual({ premium: 2_500_000n, collateral: WAD });
+  });
+
+  it("reads the sale cutoff", async () => {
+    const { strike } = chain();
+    expect(await strike.saleCutoff()).toBe(3600);
   });
 
   it("picks the next expiry inside the mandate's tenor", async () => {

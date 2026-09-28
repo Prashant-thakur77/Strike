@@ -154,6 +154,8 @@ describe.skipIf(unavailable !== null)("SDK against a local devnet", () => {
     expect(v.epoch.state).toBe("Selling");
     expect(v.series?.strike).toBe(res.strike);
     expect((await agent.agentStats(1n)).accepted).toBe(1);
+    expect(await agent.vaultSeriesIds(callVault)).toEqual([seriesId]);
+    expect(await agent.vaultSeriesIds(putVault)).toEqual([]);
   });
 
   it("sells options with auto-approval and a slippage bound", async () => {
@@ -186,7 +188,8 @@ describe.skipIf(unavailable !== null)("SDK against a local devnet", () => {
       slashed: 10_000_000n,
     });
     const stats = await agent.agentStats(1n);
-    expect(stats).toMatchObject({ rejected: 1, strikes: 1, bond: 40_000_000n, active: false });
+    // Seed bonds 100 USDG, so one slash leaves the agent above the 50 USDG minimum.
+    expect(stats).toMatchObject({ rejected: 1, strikes: 1, bond: 90_000_000n, active: true });
     expect((await agent.getVault(putVault)).compensation).toBe(10_000_000n);
   });
 
