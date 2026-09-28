@@ -249,6 +249,53 @@ pub fn quote(
     }
 }
 
+/// Bisection rounds for `strike_for_delta` (relative precision ~ 20 / 2^48 ≈ 7e-14 of spot).
+pub const STRIKE_SEARCH_ROUNDS: u32 = 48;
+pub const ERR_DELTA: u8 = 5;
+
+/// Strike whose |delta| equals `target_delta` (WAD, strictly between 0 and 1), found by a fixed number of
+/// bisection rounds over [spot / 10, spot * 10]. Deterministic, so the Solidity mirror returns the same strike.
+pub fn strike_for_delta(
+    spot: U256,
+    target_delta: U256,
+    time: U256,
+    sigma: U256,
+    is_call: bool,
+) -> Result<U256, u8> {
+    if target_delta.is_zero() || target_delta >= wad() {
+        return Err(ERR_DELTA);
+    }
+    let mut lo = spot / U256::from(10);
+    let mut hi = spot * U256::from(10);
+    if lo < u(MIN_PRICE) {
+        lo = u(MIN_PRICE);
+    }
+    if hi > u(MAX_PRICE) {
+        hi = u(MAX_PRICE);
+    }
+    for _ in 0..STRIKE_SEARCH_ROUNDS {
+        let mid = (lo + hi) >> 1;
+        let (_, d) = quote(spot, mid, time, sigma, is_call)?;
+        let abs = if d.is_negative() {
+            (-d).into_raw()
+        } else {
+            d.into_raw()
+        };
+        // Call |delta| falls as the strike rises; put |delta| rises with the strike.
+        let go_up = if is_call {
+            abs > target_delta
+        } else {
+            abs < target_delta
+        };
+        if go_up {
+            lo = mid;
+        } else {
+            hi = mid;
+        }
+    }
+    Ok((lo + hi) >> 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,6 +381,36 @@ mod tests {
         let (rp, rd) = ref_bs(250.0, 275.0, 7.0 * 86_400.0, 0.6, true);
         assert!((to_f(p) - rp).abs() < 1e-9, "call {} vs {}", to_f(p), rp);
         assert!((to_f(d.into_raw()) - rd).abs() < 1e-12);
+    }
+
+    #[test]
+    fn strike_for_delta_hits_target() {
+        for (call, target) in [(true, 0.20), (true, 0.35), (false, 0.20), (false, 0.10)] {
+            let t = U256::from(7 * 86_400u64);
+            let k = strike_for_delta(w(250.0), w(target), t, w(0.6), call).unwrap();
+            let (_, d) = quote(w(250.0), k, t, w(0.6), call).unwrap();
+            let abs = if d.is_negative() {
+                to_f((-d).into_raw())
+            } else {
+                to_f(d.into_raw())
+            };
+            assert!((abs - target).abs() < 1e-9, "delta {abs} vs {target}");
+            // OTM side: calls above spot, puts below.
+            assert_eq!(k > w(250.0), call);
+        }
+    }
+
+    #[test]
+    fn strike_for_delta_rejects_bad_target() {
+        let t = U256::from(86_400u64);
+        assert_eq!(
+            strike_for_delta(w(1.0), U256::ZERO, t, w(0.5), true),
+            Err(ERR_DELTA)
+        );
+        assert_eq!(
+            strike_for_delta(w(1.0), wad(), t, w(0.5), true),
+            Err(ERR_DELTA)
+        );
     }
 
     #[test]

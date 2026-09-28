@@ -28,6 +28,9 @@ library BlackScholesLib {
     uint8 internal constant ERR_STRIKE = 2;
     uint8 internal constant ERR_TIME = 3;
     uint8 internal constant ERR_VOL = 4;
+    uint8 internal constant ERR_DELTA = 5;
+    /// @dev Bisection rounds for `strikeForDelta` (relative precision ~ 20 / 2^48 of spot).
+    uint256 internal constant STRIKE_SEARCH_ROUNDS = 48;
 
     uint256 private constant A0 = 35_262_496_599_891_100;
     uint256 private constant A1 = 700_383_064_443_688_000;
@@ -48,7 +51,7 @@ library BlackScholesLib {
     uint256 private constant TAIL_ZERO = 37 * WAD;
     uint256 private constant EXP_ZERO = 42 * WAD;
 
-    /// @notice An input is outside the supported range. which: 1 spot, 2 strike, 3 time, 4 volatility.
+    /// @notice An input is outside the supported range. which: 1 spot, 2 strike, 3 time, 4 volatility, 5 delta.
     error PricerInputOutOfRange(uint8 which);
 
     /// @notice Premium (USD per token, WAD) and delta (WAD, negative for puts).
@@ -83,6 +86,31 @@ library BlackScholesLib {
             // forge-lint: disable-next-line(unsafe-typecast)
             delta = int256(nd1) - int256(WAD);
         }
+    }
+
+    /// @notice Strike whose |delta| equals `targetDelta` (WAD, strictly between 0 and 1): 48 bisection rounds over
+    ///         [spot / 10, spot × 10]. Same steps as the Stylus pricer, so both return the same strike.
+    function strikeForDelta(uint256 spot, uint256 targetDelta, uint256 time, uint256 sigma, bool isCall)
+        internal
+        pure
+        returns (uint256)
+    {
+        if (targetDelta == 0 || targetDelta >= WAD) revert PricerInputOutOfRange(ERR_DELTA);
+        uint256 lo = spot / 10;
+        uint256 hi = spot * 10;
+        if (lo < MIN_PRICE) lo = MIN_PRICE;
+        if (hi > MAX_PRICE) hi = MAX_PRICE;
+        for (uint256 i; i < STRIKE_SEARCH_ROUNDS; ++i) {
+            uint256 mid = (lo + hi) >> 1;
+            (, int256 d) = quote(spot, mid, time, sigma, isCall);
+            // |d| <= 1e18, so the cast is exact.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint256 abs = uint256(d < 0 ? -d : d);
+            // Call |delta| falls as the strike rises; put |delta| rises with the strike.
+            if (isCall ? abs > targetDelta : abs < targetDelta) lo = mid;
+            else hi = mid;
+        }
+        return (lo + hi) >> 1;
     }
 
     /// @notice Floor of the square root (integer Newton iteration, same as the Rust side).

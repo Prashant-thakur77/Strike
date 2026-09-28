@@ -23,7 +23,7 @@ use stylus_sdk::{
 
 sol! {
     /// Raised when an input is outside the supported range.
-    /// which: 1 = spot, 2 = strike, 3 = time to expiry, 4 = volatility.
+    /// which: 1 = spot, 2 = strike, 3 = time to expiry, 4 = volatility, 5 = target delta.
     error PricerInputOutOfRange(uint8 which);
 }
 
@@ -67,6 +67,25 @@ impl StylusPricer {
         is_call: bool,
     ) -> Result<U256, PricerError> {
         Ok(math::quote(spot, strike, time_to_expiry, sigma, is_call)?.0)
+    }
+
+    /// Strike whose |delta| equals `target_delta` (WAD), by 48 rounds of bisection.
+    /// This is where Stylus pays off: ~48 Black-Scholes evaluations in one call.
+    pub fn strike_for_delta(
+        &self,
+        spot: U256,
+        target_delta: U256,
+        time_to_expiry: U256,
+        sigma: U256,
+        is_call: bool,
+    ) -> Result<U256, PricerError> {
+        Ok(math::strike_for_delta(
+            spot,
+            target_delta,
+            time_to_expiry,
+            sigma,
+            is_call,
+        )?)
     }
 
     /// Delta only.

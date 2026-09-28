@@ -56,6 +56,38 @@ contract AgentMandateTest is StrikeBase {
         assertEq(registry.getAgent(agentId).accepted, 1);
     }
 
+    /// Propose by delta: the contract solves the strike at execution-time spot, so the series has the intended delta.
+    function test_proposeByDelta_hitsTargetDelta() public {
+        vm.prank(agent);
+        (bool ok, uint256 seriesId, uint256 strike) =
+            manager.proposeByDelta(address(callVault), 2000, FRIDAY_CLOSE, 50 * WAD, 10_000);
+        assertTrue(ok);
+        assertEq(strike % 1e16, 0, "strike rounded to a cent");
+        assertGt(strike, 250 * WAD);
+        (, int256 delta) = pricer.quote(250 * WAD, strike, FRIDAY_CLOSE - block.timestamp, 0.6e18, true);
+        assertApproxEqAbs(delta, 0.2e18, 0.001e18);
+        assertEq(manager.getSeries(seriesId).strike, strike);
+    }
+
+    /// Spot jumps 5% before the transaction lands: a precomputed strike would now break the delta band and be
+    /// slashed; proposing by delta still lands inside the mandate.
+    function test_proposeByDelta_survivesSpotMove() public {
+        uint256 precomputed = pricer.strikeForDelta(250 * WAD, 0.06e18, FRIDAY_CLOSE - block.timestamp, 0.6e18, true);
+        feed.set(237.5e8);
+        (MandateGuard.Reason r,,,) = manager.previewProposal(address(callVault), precomputed, FRIDAY_CLOSE, 1, 10_000);
+        assertEq(uint8(r), uint8(MandateGuard.Reason.DeltaOutOfBand));
+        vm.prank(agent);
+        (bool ok,,) = manager.proposeByDelta(address(callVault), 600, FRIDAY_CLOSE, 1, 10_000);
+        assertTrue(ok);
+    }
+
+    function test_proposeByDelta_outsideBandIsRejected() public {
+        vm.prank(agent);
+        (bool ok,,) = manager.proposeByDelta(address(callVault), 4500, FRIDAY_CLOSE, 1, 10_000);
+        assertFalse(ok);
+        assertEq(registry.getAgent(agentId).strikes, 1);
+    }
+
     function test_previewDoesNotSlash() public view {
         _reason(200 * WAD, FRIDAY_CLOSE, 50 * WAD, 10_000);
         assertEq(registry.getAgent(agentId).strikes, 0);

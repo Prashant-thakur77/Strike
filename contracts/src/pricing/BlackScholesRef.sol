@@ -26,6 +26,15 @@ contract BlackScholesRef is IPricer {
         (p,) = BlackScholesLib.quote(spot, strike, timeToExpiry, sigma, isCall);
     }
 
+    /// @inheritdoc IPricer
+    function strikeForDelta(uint256 spot, uint256 targetDelta, uint256 timeToExpiry, uint256 sigma, bool isCall)
+        external
+        pure
+        returns (uint256)
+    {
+        return BlackScholesLib.strikeForDelta(spot, targetDelta, timeToExpiry, sigma, isCall);
+    }
+
     /// @notice Delta only.
     function delta(uint256 spot, uint256 strike, uint256 timeToExpiry, uint256 sigma, bool isCall)
         external

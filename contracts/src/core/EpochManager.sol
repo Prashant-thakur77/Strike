@@ -328,6 +328,31 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         nonReentrant
         returns (bool accepted, uint256 seriesId)
     {
+        return _propose(vault, strike, expiry, size, premiumBps);
+    }
+
+    /// @notice Propose by target delta: the strike is solved on-chain at the current spot (Stylus pricer), so the
+    ///         series gets exactly the delta the agent intended even if spot moved while the transaction was pending.
+    /// @param targetDeltaBps |delta| in bps of 1 (2000 = 0.20). The strike is rounded down to a whole cent.
+    function proposeByDelta(address vault, uint16 targetDeltaBps, uint64 expiry, uint256 size, uint16 premiumBps)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (bool accepted, uint256 seriesId, uint256 strike)
+    {
+        address token = IStrikeVault(vault).underlying();
+        uint256 tenor = expiry > block.timestamp ? expiry - block.timestamp : 1;
+        strike = pricer.strikeForDelta(
+            _spot(token), uint256(targetDeltaBps) * 1e14, tenor, underlyings[token].sigma, IStrikeVault(vault).isCall()
+        );
+        strike -= strike % 1e16;
+        (accepted, seriesId) = _propose(vault, strike, expiry, size, premiumBps);
+    }
+
+    function _propose(address vault, uint256 strike, uint64 expiry, uint256 size, uint16 premiumBps)
+        internal
+        returns (bool accepted, uint256 seriesId)
+    {
         VaultConfig storage v = _vault(vault);
         if (msg.sender != agents.signerOf(v.agentId)) revert NotAgent(msg.sender);
         if (!agents.isActive(v.agentId)) revert AgentNotActive(v.agentId);

@@ -14,4 +14,10 @@ interface IPricer {
         external
         view
         returns (uint256 price, int256 delta);
+
+    /// @notice Strike whose |delta| equals `targetDelta` (WAD), found on-chain by bisection over `quote`.
+    function strikeForDelta(uint256 spot, uint256 targetDelta, uint256 timeToExpiry, uint256 sigma, bool isCall)
+        external
+        view
+        returns (uint256 strike);
 }

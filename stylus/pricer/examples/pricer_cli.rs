@@ -11,7 +11,25 @@ fn word(x: U256) -> String {
 }
 
 fn main() {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let mut args: Vec<String> = std::env::args().skip(1).collect();
+    // `pricer_cli strike <spot> <targetDelta> <time> <sigma> <isCall>` prints (bool ok, uint256 strike, uint8 code).
+    if args.first().map(String::as_str) == Some("strike") {
+        args.remove(0);
+        let parse = |s: &str| U256::from_str_radix(s, 10).unwrap();
+        let is_call = args[4] == "1" || args[4] == "true";
+        let out = match math::strike_for_delta(
+            parse(&args[0]),
+            parse(&args[1]),
+            parse(&args[2]),
+            parse(&args[3]),
+            is_call,
+        ) {
+            Ok(k) => [word(U256::from(1)), word(k), word(U256::ZERO)].concat(),
+            Err(code) => [word(U256::ZERO), word(U256::ZERO), word(U256::from(code))].concat(),
+        };
+        print!("0x{out}");
+        return;
+    }
     assert_eq!(
         args.len(),
         5,

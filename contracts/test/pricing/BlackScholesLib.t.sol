@@ -166,6 +166,24 @@ contract BlackScholesLibTest is Test {
         assertEq(dc - dp, int256(WAD));
     }
 
+    function test_strikeForDelta_hitsTarget() public view {
+        uint256 k = pricer.strikeForDelta(250 * WAD, 0.2e18, WEEK, 0.6e18, true);
+        (, int256 d) = pricer.quote(250 * WAD, k, WEEK, 0.6e18, true);
+        assertApproxEqAbs(d, 0.2e18, 1e9);
+        assertGt(k, 250 * WAD);
+        k = pricer.strikeForDelta(250 * WAD, 0.2e18, WEEK, 0.6e18, false);
+        (, d) = pricer.quote(250 * WAD, k, WEEK, 0.6e18, false);
+        assertApproxEqAbs(d, -0.2e18, 1e9);
+        assertLt(k, 250 * WAD);
+    }
+
+    function test_revert_strikeForDeltaBadTarget() public {
+        vm.expectRevert(abi.encodeWithSelector(BlackScholesLib.PricerInputOutOfRange.selector, uint8(5)));
+        pricer.strikeForDelta(WAD, 0, WEEK, 0.5e18, true);
+        vm.expectRevert(abi.encodeWithSelector(BlackScholesLib.PricerInputOutOfRange.selector, uint8(5)));
+        pricer.strikeForDelta(WAD, WAD, WEEK, 0.5e18, true);
+    }
+
     function test_gas_quote() public {
         uint256 g = gasleft();
         pricer.quote(250 * WAD, 275 * WAD, WEEK, 0.6e18, true);

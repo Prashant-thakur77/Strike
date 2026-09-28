@@ -57,6 +57,26 @@ contract PricerDifferentialTest is Test {
         }
     }
 
+    /// strikeForDelta: identical strike from both implementations.
+    function testFuzz_strikeForDeltaRustEqualsSolidity(uint256 s, uint256 d, uint256 t, uint256 v, bool isCall) public {
+        vm.skip(bytes(cli).length == 0);
+        s = bound(s, 1e18, 10_000e18);
+        d = bound(d, 0.05e18, 0.6e18);
+        t = bound(t, 1 days, 60 days);
+        v = bound(v, 0.1e18, 2e18);
+        string[] memory cmd = new string[](7);
+        cmd[0] = cli;
+        cmd[1] = "strike";
+        cmd[2] = vm.toString(s);
+        cmd[3] = vm.toString(d);
+        cmd[4] = vm.toString(t);
+        cmd[5] = vm.toString(v);
+        cmd[6] = isCall ? "1" : "0";
+        (bool ok, uint256 rustStrike,) = abi.decode(vm.ffi(cmd), (bool, uint256, uint8));
+        assertTrue(ok);
+        assertEq(BlackScholesLib.strikeForDelta(s, d, t, v, isCall), rustStrike);
+    }
+
     function solidityQuote(uint256 s, uint256 k, uint256 t, uint256 v, bool isCall)
         external
         pure
