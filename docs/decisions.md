@@ -56,7 +56,7 @@ Premiums sit in the manager during the epoch. At settlement the performance fee 
 
 ## D14 · Settlement price = first round at or after expiry, via a verified hint (2026-09-28)
 
-The caller passes a round id; the contract checks that round is at or after expiry and the previous round is before it. **Why:** nobody can pick a favourable later print; retries are idempotent.
+The caller passes a round id; the contract checks that round is at or after expiry and the previous round is before it. **Why:** nobody can pick a favourable later print; retries are idempotent. Extended by D30 for aggregator phase changes and corporate actions.
 
 ## D15 · Guardian pause never blocks settlement or idle withdrawals (2026-09-28)
 

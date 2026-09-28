@@ -39,14 +39,14 @@ Each vault runs one epoch per week. It moves through a small state machine ([des
 Idle --openEpoch--> Open --proposeSeries (passes mandate)--> Selling --settle--> Idle
                     Open --proposeSeries (fails)--> Open   (bond slashed, strike recorded)
                     Open --abortEpoch (timeout)--> Idle
-                    Selling --emergencyCancel (guardian, after grace)--> Idle
+                    Selling --emergencyCancel (guardian, after grace, no recorded price)--> Idle
 ```
 
-- `openEpoch` requires an open NYSE session and a safe price. It locks the vault: from then until settlement, deposits and redemptions are queued.
-- The agent's signer calls `proposeSeries(vault, strike, expiry, size, premiumBps)` or `proposeByDelta(vault, targetDeltaBps, …)`. The second solves the strike on-chain from the current spot, so the delta the agent intended survives price moves while the transaction is pending ([gas.md](gas.md)).
-- Anyone may `buy` until a cutoff before expiry. They pay the fair value at the current oracle price × `premiumBps`, with a slippage bound. Collateral for the new options is locked, and the premium is escrowed in the `EpochManager` until settlement.
-- Expiry is 16:00 New York time on an NYSE trading day. `settle` is permissionless and idempotent, and uses the first feed round at or after expiry.
-- If no proposal arrives, anyone can abort the epoch after `proposalTimeout`. If the feed dies after expiry, the guardian can cancel after `settlementGrace`: collateral returns to the vault and buyers reclaim their premium.
+- `openEpoch` requires an open NYSE session and a safe price. It snapshots spot and volatility, which the proposal is judged against, and locks the vault: from then until settlement, deposits and redemptions are queued.
+- The agent's signer calls `proposeSeries(vault, strike, expiry, size, premiumBps)` or `proposeByDelta(vault, targetDeltaBps, …)`. The second solves the strike on-chain from the opening snapshot and rounds it to a cent toward the middle of the mandate's delta band, so the agent knows the exact strike before it sends the transaction ([gas.md](gas.md)). If live spot has crossed the strike since the snapshot, the proposal reverts (`StrikeInTheMoney`) rather than selling an option in the money.
+- Anyone may `buy` until a cutoff before expiry. They pay the fair value × `premiumBps`, but never less than intrinsic value, at the current oracle price moved slightly against the buyer (§2.3), with a slippage bound. Collateral for the new options is locked, and the premium is escrowed in the `EpochManager` until settlement.
+- Expiry is 16:00 New York time on an NYSE trading day. `settle` is permissionless and idempotent, and uses the first feed round at or after expiry (§5).
+- If no proposal arrives, anyone can abort the epoch after `proposalTimeout`. If the feed dies after expiry, the guardian can cancel after `settlementGrace`: collateral returns to the vault and buyers reclaim their premium. The cancel reverts once a settlement price is recorded, so it cannot turn a payout into a refund.
 
 ### 2.2 Vault accounting
 
@@ -63,6 +63,8 @@ Idle --openEpoch--> Open --proposeSeries (passes mandate)--> Selling --settle-->
 
 Claims are lazy and use the snapshot of the epoch the request belonged to. So a depositor can neither enter just before a profitable settlement nor leave just before a losing one.
 
+During an epoch, `convertToAssets` ignores the open series: neither what the vault may owe option holders nor the escrowed premium. Shares remain transferable, so an integrator that values them mid-epoch has to mark the series itself ([design.md §5](design.md)).
+
 **Premium accumulator.** Premium is paid in USDG in both vault types, through a per-share accumulator with precision $10^{36}$ (`StrikeVault.sol`). An epoch whose net premium to depositors is $P$ over a supply of $N$ shares does:
 
 $$A \leftarrow A + \left\lfloor \frac{P \cdot 10^{36}}{N} \right\rfloor .$$
@@ -73,9 +75,13 @@ Each account $i$ holds a checkpoint $c_i$. Before any balance change, it is cred
 
 The agent does not set a price. It sets `premiumBps`, a multiplier on fair value. Each purchase pays
 
-$$\text{premium per option} = \mathrm{BS}(S_t, K, \tau_t, \sigma) \times \frac{\text{premiumBps}}{10^4},$$
+$$\text{premium per option} = \max\left(\mathrm{BS}(\tilde S_t, K, \tau_t, \sigma) \times \frac{\text{premiumBps}}{10^4},\; \text{intrinsic}(\tilde S_t, K)\right), \qquad \tilde S_t = S_t \left(1 \pm \frac{b}{10^4}\right),$$
 
-where $S_t$ is the `SafeStockFeed` price at the time of the purchase, $\tau_t$ is the time remaining, and $\sigma$ is the volatility for the underlying. A keeper sets $\sigma$ inside bounds set by the admin; the deploy script uses 20%–200%. A premium fixed on Monday would be free money for a buyer on Wednesday if the stock had moved, and re-pricing every purchase closes that ([decisions.md D9](decisions.md)). The agent cannot influence $\sigma$.
+where $S_t$ is the `SafeStockFeed` price at the time of the purchase, $\tau_t$ is the time remaining, $\sigma$ is the volatility for the underlying, and intrinsic value is $\max(\tilde S_t - K, 0)$ for a call and $\max(K - \tilde S_t, 0)$ for a put. A premium fixed on Monday would be free money for a buyer on Wednesday if the stock had moved, and re-pricing every purchase closes that ([decisions.md D9](decisions.md)).
+
+Two adjustments protect depositors from what the oracle cannot see. The spot buffer $b$ (`spotBufferBps`, `+` for calls, `−` for puts) moves spot against the buyer: a Chainlink stock feed prints only on a 0.5% move or its heartbeat, so the market can sit up to 0.5% from the last print, and for short-dated low-delta options that gap is a large share of the premium. The deployment sets $b = 50$ bps; the admin can set at most 200. The intrinsic floor stops a buyer from taking an in-the-money option below its exercise value when `premiumBps` is under 100%.
+
+A keeper sets $\sigma$ inside bounds set by the admin; the deploy script uses 20%–200%. Each keeper update may move $\sigma$ by at most 25% and comes at least an hour after the last one. The agent cannot influence $\sigma$.
 
 ### 2.4 Settlement and solvency
 
@@ -111,12 +117,12 @@ A vault's mandate is a tuple fixed at creation and never changed afterwards ([de
 
 $$m = (\delta_{\min}, \delta_{\max}, \beta_{\min}, y_{\min}, s_{\max}, \tau_{\min}, \tau_{\max}),$$
 
-with deltas, premium factor, yield and share sold in basis points. The agent chooses a proposal $\pi = (K, T, n, \beta)$: strike, expiry, size and premium factor. The contract then measures the state $\sigma$:
+with deltas, premium factor, yield and share sold in basis points. The contract refuses a mandate with $\beta_{\min} < 9\,000$ or $\tau_{\max} > 35$ days, among other consistency checks (`MandateGuard.validate`). The agent chooses a proposal $\pi = (K, T, n, \beta)$: strike, expiry, size and premium factor. The contract then measures the state $\sigma$:
 
-- spot $S$ from `SafeStockFeed`;
-- tenor $\tau = T - t$;
+- spot $S$ from `SafeStockFeed`, as snapshotted by `openEpoch`;
+- tenor $\tau = T - t$, at the proposal's block;
 - capacity $c$: `totalAssets` tokens for a call vault, `totalAssets`$/K$ for a put vault;
-- the keeper's volatility $\hat\sigma$;
+- the keeper's volatility $\hat\sigma$, as snapshotted by `openEpoch`;
 - from these, fair value $F = \mathrm{BS}(S,K,\tau,\hat\sigma)$ and delta $\Delta$.
 
 The mandate predicate implemented by `MandateGuard.check` is
@@ -132,16 +138,16 @@ M(\pi,\sigma) \iff
 \end{aligned}
 $$
 
-`check` returns the first clause that fails, as a reason code (`ZeroSize`, `TenorOutOfRange`, `InvalidExpiry`, `StrikeWrongSide`, `SizeTooLarge`, `PremiumBelowFair`, `PremiumAboveCap`, `DeltaOutOfBand`, `PremiumTooSmall`), instead of reverting. That is deliberate. A revert would also undo the slash, so `_propose` records the rejection, slashes and returns `accepted = false` ([decisions.md D12](decisions.md)). Failures that are not mandate violations still revert and are never slashed: market closed, stale feed, an unauthorised caller.
+`check` returns the first clause that fails, as a reason code (`ZeroSize`, `TenorOutOfRange`, `InvalidExpiry`, `StrikeWrongSide`, `SizeTooLarge`, `PremiumBelowFair`, `PremiumAboveCap`, `DeltaOutOfBand`, `PremiumTooSmall`), instead of reverting. That is deliberate. A revert would also undo the slash, so `_propose` records the rejection, slashes and returns `accepted = false` ([decisions.md D12](decisions.md)). Failures that are not mandate violations still revert and are never slashed: market closed, stale feed, an unauthorised caller, and a strike that live spot has crossed since the snapshot (`StrikeInTheMoney`). Because $S$ and $\hat\sigma$ are fixed for the epoch, the dry run `previewProposal` returns the verdict the transaction will get; a volatility update or a new print in between cannot turn an honest proposal into a slash.
 
 The demo vaults use $\delta \in [0.10, 0.35]$, $\beta_{\min} = 95\%$, $y_{\min} = 5$ bps, $s_{\max} = 80\%$ and a tenor of 1 to 8 days (`script/Seed.s.sol`).
 
 Two properties follow from the construction:
 
-- **The agent cannot move the inputs it is judged on.** Spot comes from Chainlink, volatility from the keeper, capacity from vault accounting. The agent controls only $\pi$.
-- **The mandate bounds the worst case per epoch.** No accepted series can lock more than $s_{\max}$ of capacity, sell below $\beta_{\min}$ of the model price, or sell an option in the money.
+- **The agent cannot move the inputs it is judged on.** Spot comes from Chainlink and volatility from the keeper, both fixed at `openEpoch`; capacity comes from vault accounting. The agent controls only $\pi$.
+- **The mandate bounds the worst case per epoch.** No accepted series can lock more than $s_{\max}$ of capacity, sell below $\beta_{\min}$ of the model price or below intrinsic value, or be created in the money.
 
-The backtest found one edge case. `proposeByDelta` rounds the solved strike down to a whole cent. For a put, that lowers $|\Delta|$, so a put proposed at exactly $\delta_{\min}$ measures $\delta_{\min} - 1$ bps and is rejected every time: 403 of 403 weeks in the simulation ([backtest.md](backtest.md#mandate-check)). The SDK's `clampDeltaToMandate` keeps targets one delta point inside the band, so its agents avoid this. Agents written without the SDK should do the same.
+The backtest found one edge case in an earlier version: `proposeByDelta` rounded the solved strike down to a whole cent, which for a put lowers $|\Delta|$, so a put proposed at exactly $\delta_{\min}$ measured $\delta_{\min} - 1$ bps and was rejected in 403 of 403 simulated weeks ([backtest.md](backtest.md#mandate-check)). The contract now rounds toward the middle of the band (a target in the upper half moves the call strike up and the put strike down; the lower half the opposite), so any target inside the band, edges included, passes the delta check (`testFuzz_proposeByDelta_bandEdgeNeverSlashed`).
 
 ### 3.2 When is a reckless proposal unprofitable?
 
@@ -166,7 +172,7 @@ where $V$ is the agent's continuation value (all future fees) and $C_{\text{top-
 
 $$q\,G < (1-q)\,(s + \mathbb{E}[\text{suspension and top-up losses}]).$$
 
-With $s = 10$ USDG, this deters only attacks with a tiny $qG$. Against a real bypass, the protection is the correctness of `MandateGuard` (40 unit tests, fuzzed proposals and invariant suites), not the slash. The slash exists to make careless and spam proposals cost something, and to pay depositors for them. It is sized relative to fee income. Using the backtest's base case (0.20 delta, VRP 1.15), the agent's expected fee at $100,000 of vault capital is about $5 a week for SPY calls and about $13 a week for TSLA calls. So one slash equals roughly one to two weeks of fees. A curator who expects larger vaults should ask for a larger bond.
+With $s = 10$ USDG, this deters only attacks with a tiny $qG$. Against a real bypass, the protection is the correctness of `MandateGuard` (42 unit tests, fuzzed proposals and invariant suites), not the slash. The slash exists to make careless and spam proposals cost something, and to pay depositors for them. It is sized relative to fee income. Using the backtest's base case (0.20 delta, VRP 1.15), the agent's expected fee at $100,000 of vault capital is about $5 a week for SPY calls and about $13 a week for TSLA calls. So one slash equals roughly one to two weeks of fees. A curator who expects larger vaults should ask for a larger bond.
 
 **Inside the mandate.** The agent's fee is $a f \max(\Pi, 0)$, with $a f = 5\%$: a call option on the epoch's profit and loss. Because $\max(\Pi,0) = \Pi + \max(-\Pi, 0)$,
 
@@ -180,7 +186,7 @@ The incentive is convex, so a fee-maximising agent prefers the riskier end of th
 
 $$(1 - \beta_{\min}/10^4) \cdot F \cdot \lfloor c\, s_{\max}/10^4 \rfloor,$$
 
-which is 5% of the model premium under the demo mandate. In the backtest, selling at 95% instead of 100% of fair value cost depositors 0.1–0.75 percentage points of annual return. A curator who does not want to allow this sets $\beta_{\min} = 10^4$.
+which is 5% of the model premium under the demo mandate, and at most 10% under any mandate the contract accepts ($\beta_{\min} \ge 9\,000$). The intrinsic floor also keeps an in-the-money option from being sold below its exercise value. In the backtest, selling at 95% instead of 100% of fair value cost depositors 0.1–0.75 percentage points of annual return. A curator who does not want to allow this sets $\beta_{\min} = 10^4$.
 
 ## 4. Pricing
 
@@ -242,13 +248,13 @@ A Stylus call has a fixed entry cost of about 35–40k gas, so for a single quot
 - the answer must be positive and not dated in the future;
 - the price must be younger than `maxPriceAge`;
 - the token must not be paused, and neither may its oracle (read defensively, because testnet tokens lack `oraclePaused()`);
-- no multiplier change may be pending until `effectiveAt` plus a grace period;
+- for live reads, no multiplier change may be pending until `effectiveAt` plus a grace period;
 - decimals are normalised once;
 - the price is never multiplied by `uiMultiplier`;
 - opening and selling require an open NYSE session (`MarketCalendar`, DST-aware, with an admin-maintained holiday list);
 - an optional L2 sequencer-uptime check can be enabled.
 
-Settlement uses the **first** round with `updatedAt ≥ expiry`. The caller supplies a hint, and the contract checks that the round before it predates expiry, so nobody can pick a convenient later print. The price for a (token, expiry) pair is recorded once and never changed.
+Settlement uses the **first** round with `updatedAt ≥ expiry`. The caller supplies a hint, and the contract checks that the round before it predates expiry, so nobody can pick a convenient later print. Chainlink round ids carry a phase that changes when an aggregator is upgraded; for round 1 of a new phase the caller also supplies the old phase's last round, which must predate expiry and have no successor. An upgrade therefore neither offers a second candidate price nor blocks settlement. If the chosen print is within the corporate-action grace of a multiplier change, settlement moves to the first print at or after `effectiveAt` plus the grace, proven the same way. The price for a (token, expiry) pair is recorded once and never changed, and the guardian cannot cancel a series once it is.
 
 **Invariants.** The Foundry invariant suite checks, after any sequence of calls ([design.md §6](design.md)):
 
@@ -260,13 +266,14 @@ Settlement uses the **first** round with `updatedAt ≥ expiry`. The caller supp
 6. the vault can pay all premium owed;
 7. deposits and withdrawals never lower the share price.
 
-**Threat model.** [threat-model.md](threat-model.md) lists 18 threats, each with a mitigation and the tests that cover it. The ones specific to this design:
+**Threat model.** [threat-model.md](threat-model.md) lists 21 threats, each with a mitigation and the tests that cover it. The ones specific to this design:
 
 - oracle manipulation (T1), stale weekend prices (T2), a double-counted multiplier (T3) and corporate actions mid-epoch (T4);
 - reckless or compromised agents (T6, T7), and an agent that withdraws its bond before punishment (T8, handled by the 8-day unbonding period, during which unbonding funds can still be slashed);
-- stale-premium arbitrage (T9, handled by re-pricing every purchase);
+- stale-premium arbitrage (T9, handled by re-pricing every purchase), sales below intrinsic value (T19) and oracle-latency arbitrage (T20, handled by the spot buffer);
+- a market-data race that slashes an honest agent (T21, handled by the opening snapshot);
 - price gaps past the strike (T10, handled by full collateralisation);
-- funds stuck when a feed dies (T14, handled by abort and guardian cancel).
+- funds stuck when a feed dies (T14, handled by abort and guardian cancel, which is refused once a settlement price exists).
 
 The trust assumptions are stated plainly:
 
@@ -337,7 +344,7 @@ These results match what the literature expects of option selling. Its return is
 - **Bond sizing.** A 10 USDG slash is small next to the capital an agent steers. The bond could scale with vault TVL.
 - **Scope.** There is one series per epoch, no spreads and no early exercise. Spreads (v1.1) would reduce the collateral put vaults need.
 - **Premium compounding.** Premium is paid as claimable USDG, and reinvesting it takes a manual claim and deposit. An auto-compounding option would make the covered call behave like the reinvested variant in the backtest.
-- **Audit.** The contracts are unaudited. Mainnet vaults are capped.
+- **Audit.** The contracts have had an internal security review, whose 11 findings are fixed with regression tests ([security/review-2026-09-29.md](security/review-2026-09-29.md)), but no external audit. Mainnet vaults are capped.
 
 ## References
 

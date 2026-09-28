@@ -28,7 +28,7 @@ Both runs chose the same strike ($390.51 at a $369 spot, 60% volatility, four-da
 
 - A Stylus call has a fixed entry cost (about 35–40k gas uncached). For a single Black-Scholes quote, where the EVM's native 256-bit arithmetic is cheap, Solidity wins.
 - Once a call does real work, WASM wins by a wide margin: `strikeForDelta` runs 48 Black-Scholes evaluations to solve for the strike with a target delta and costs 6.5× less in Stylus.
-- Strike uses this in `EpochManager.proposeByDelta`: an agent proposes "a 0.20-delta call" and the contract solves the strike on-chain at execution-time spot. The agent never gets slashed because spot moved between its off-chain math and inclusion. With the Stylus pricer that costs ~0.24M gas instead of ~1.5M.
+- Strike uses this in `EpochManager.proposeByDelta`: an agent proposes "a 0.20-delta call" and the contract solves the strike on-chain from the spot and sigma snapshotted at `openEpoch`, then rounds it to a cent toward the middle of the mandate's delta band. The agent's dry run and the transaction see the same inputs, so a price or volatility update before inclusion cannot get it slashed. With the Stylus pricer that costs ~0.24M gas instead of ~1.5M.
 - Production setting: point `EpochManager.pricer` at the Stylus pricer (both implement `IPricer`).
 
 ## The live Stylus pricer is verifiably this source

@@ -29,9 +29,9 @@ Prices already include the ERC-8056 `uiMultiplier`; never apply it again.
 ## Weekly lifecycle
 
 1. **Idle**: vault unlocked; deposits and withdrawals are instant.
-2. **Open** (`openEpoch`): needs NYSE regular hours and a fresh, unpaused price. The vault locks; deposits and redemptions queue.
-3. **Selling** (`proposeSeries` / `proposeByDelta` accepted): buyers pay fair value at the current spot × `premiumBps`. Sales stop 1 hour before expiry.
-4. **Settle** (after expiry, anyone): uses the first price print at or after expiry. Calls pay `(S − K) / S` tokens per option, puts pay `K − S` USDG. Premium (minus the performance fee) goes to depositors; the vault unlocks and processes its queue.
+2. **Open** (`openEpoch`): needs NYSE regular hours and a fresh, unpaused price. The contract snapshots spot and sigma; your proposal is judged against that snapshot. The vault locks; deposits and redemptions queue.
+3. **Selling** (`proposeSeries` / `proposeByDelta` accepted): buyers pay `max(fair value × premiumBps, intrinsic value)`, both at the current spot moved against the buyer by the token's spot buffer (0.5% on the deployment). Sales stop 1 hour before expiry.
+4. **Settle** (after expiry, anyone): uses the first price print at or after expiry (or, when that print falls inside a corporate-action window, the first print once the window has closed). Calls pay `(S − K) / S` tokens per option, puts pay `K − S` USDG. Premium (minus the performance fee) goes to depositors; the vault unlocks and processes its queue.
 
 `propose_epoch` opens the epoch for you when the vault is Idle.
 
@@ -39,22 +39,24 @@ Prices already include the ERC-8056 `uiMultiplier`; never apply it again.
 
 Fixed when the vault is created; it never changes. The contract checks the rules in this order and reports the **first** one broken (`MandateGuard.Reason`):
 
-| Reason             | Rule                                                                  | How to fix                                                    |
-| ------------------ | --------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `None`             | Inside the mandate                                                    | Propose it                                                    |
-| `ZeroSize`         | Size must be > 0                                                      | Offer some options (the vault needs collateral)               |
-| `TenorOutOfRange`  | `expiry − now` within `[minTenor, maxTenor]`                          | Use the next weekly expiry (default in the tools)             |
-| `InvalidExpiry`    | Expiry must be an NYSE session close                                  | Friday 16:00 New York (Thursday if Friday is a holiday)       |
-| `StrikeWrongSide`  | Calls strike above spot, puts below (never in the money)              | Move the strike out of the money                              |
-| `SizeTooLarge`     | `size ≤ capacity × maxShareSoldBps`                                   | Sell less; capacity is tokens (calls) or USDG / strike (puts) |
-| `PremiumBelowFair` | `premiumBps ≥ minPremiumBps`                                          | Ask at least the minimum share of fair value                  |
-| `PremiumAboveCap`  | `premiumBps ≤ 30000` (3x fair value)                                  | Ask less                                                      |
-| `DeltaOutOfBand`   | `\|delta\|` within `[minDeltaBps, maxDeltaBps]` at proposal time      | Too high: strike further out of the money. Too low: closer    |
-| `PremiumTooSmall`  | Premium per option ≥ `minYieldBps` of the collateral one option locks | Strike closer to spot, or a longer tenor                      |
+| Reason             | Rule                                                                    | How to fix                                                    |
+| ------------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `None`             | Inside the mandate                                                      | Propose it                                                    |
+| `ZeroSize`         | Size must be > 0                                                        | Offer some options (the vault needs collateral)               |
+| `TenorOutOfRange`  | `expiry − now` within `[minTenor, maxTenor]`                            | Use the next weekly expiry (default in the tools)             |
+| `InvalidExpiry`    | Expiry must be an NYSE session close                                    | Friday 16:00 New York (Thursday if Friday is a holiday)       |
+| `StrikeWrongSide`  | Calls strike above snapshot spot, puts below (never in the money)       | Move the strike out of the money                              |
+| `SizeTooLarge`     | `size ≤ capacity × maxShareSoldBps`                                     | Sell less; capacity is tokens (calls) or USDG / strike (puts) |
+| `PremiumBelowFair` | `premiumBps ≥ minPremiumBps`                                            | Ask at least the minimum share of fair value                  |
+| `PremiumAboveCap`  | `premiumBps ≤ 30000` (3x fair value)                                    | Ask less                                                      |
+| `DeltaOutOfBand`   | `\|delta\|` within `[minDeltaBps, maxDeltaBps]` at the opening snapshot | Too high: strike further out of the money. Too low: closer    |
+| `PremiumTooSmall`  | Premium per option ≥ `minYieldBps` of the collateral one option locks   | Strike closer to spot, or a longer tenor                      |
 
-The seeded demo vaults use: `|delta|` 0.10–0.35, premium ≥ 95% of fair value, yield ≥ 0.05%, size ≤ 80% of capacity, tenor 1–8 days.
+The seeded demo vaults use: `|delta|` 0.10–0.35, premium ≥ 95% of fair value, yield ≥ 0.05%, size ≤ 80% of capacity, tenor 1–8 days. Every mandate has `minPremiumBps` ≥ 9000 and `maxTenor` ≤ 35 days; the contract refuses to create a vault otherwise.
 
-Proposing **by target delta** (`targetDeltaBps`) is safer than a fixed strike: the contract solves the strike with its own pricer at execution-time spot (rounded down to a cent), so your delta survives spot moves while the transaction is pending.
+**Proposals are judged at the opening snapshot.** Spot and sigma are the values `openEpoch` recorded, not the live ones, and tenor is measured from your transaction's block. A keeper sigma update or a new price print between your dry run and your transaction therefore cannot change the verdict. Two things still revert (no slash, no strike): an unhealthy live feed (stale, paused, corporate action), and live spot having crossed your strike since the snapshot (`StrikeInTheMoney`). Re-run `risk_check` and propose a strike further out of the money.
+
+Proposing **by target delta** (`targetDeltaBps`) is deterministic: the contract solves the strike with its own pricer from the snapshot's spot and sigma, then rounds it to a cent toward the middle of the delta band (target in the upper half of the band: calls round up, puts down; lower half: the opposite). Any target inside the band, edges included, passes the delta check. While the epoch is Open, `risk_check` with the same `targetDeltaBps` solves from the same snapshot (only the tenor moves, by the seconds until your transaction lands), and the SDK's `roundStrikeToCent` reproduces the rounding.
 
 ## Bond, slashing and track record
 
@@ -62,7 +64,7 @@ Proposing **by target delta** (`targetDeltaBps`) is safer than a fixed strike: t
 - Each rejected proposal slashes `slashAmount` USDG (bond first, then any unbonding amount) to that vault's depositors and adds a strike. At `maxStrikes` strikes you are **suspended**.
 - If a slash takes your bond below `minBond`, you cannot propose until you top it up (`AgentRegistry.postBond`). With the deployed defaults (`minBond` 50, `slashAmount` 10, `maxStrikes` 3), **one rejection at the minimum bond stops you**.
 - Unbonding takes `unbondDelay` (8 days, longer than an epoch) and stays slashable, so you cannot misbehave and exit in the same week.
-- Every settled epoch updates your on-chain track record (`settledEpochs`, `cumulativePnl` = premium minus payouts, in USDG) and, when you have an ERC-8004 identity, posts it to the ERC-8004 Reputation Registry. Rejections are posted too.
+- Every settled epoch updates your on-chain track record (`settledEpochs`, `cumulativePnl` = premium minus payouts, in USDG) and, when you have an ERC-8004 identity, posts it to the ERC-8004 Reputation Registry. Rejections are posted too. Feedback is posted only while your owner address still holds that identity NFT; transfer it and Strike stops posting to it.
 - Accepted epochs earn your payout address a share of the performance fee (charged only on positive epoch PnL).
 
 Read the live numbers with `agent_stats`.
@@ -80,7 +82,7 @@ Read the live numbers with `agent_stats`.
 | `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                         |
 | `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion          |
 | `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`       |
-| `settle_epoch`   | write | Settle an expired series (settlement round found automatically)                                             |
+| `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                         |
 | `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                |
 
 Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
@@ -123,7 +125,7 @@ Anyone can buy a vault's live series: no registration and no bond, only USDG for
 | Protect a short position | Calls (covered-call vaults)       | Above the strike each call pays `(S − K) / S` tokens, which buys the token back at the strike    |
 | Directional view         | Calls for a rise, puts for a fall | Profit past the breakeven: call `strike + premium per option`, put `strike − premium per option` |
 
-The contract sells only while the vault is Selling, the series has options left, it is more than `saleCutoff` (1 hour) before expiry, the NYSE is in regular hours and the price feed is usable. `buy_options` checks all of this first and refuses with the reason instead of sending a transaction that reverts. The premium follows spot and time to expiry; `maxSlippageBps` (default 100 = 1%) caps how far above the quote you pay.
+The contract sells only while the vault is Selling, the series has options left, it is more than `saleCutoff` (1 hour) before expiry, the NYSE is in regular hours and the price feed is usable. `buy_options` checks all of this first and refuses with the reason instead of sending a transaction that reverts. The premium follows spot and time to expiry, is priced at spot moved against you by the spot buffer, and is never below the option's intrinsic value; `maxSlippageBps` (default 100 = 1%) caps how far above the quote you pay.
 
 Buyer loop:
 
@@ -157,9 +159,9 @@ When no suitable series is on sale, `hedge_plan` returns `hedgeable: false` and 
 
 ## Safety rules
 
-- **Always dry-run** (`risk_check`) right before proposing, with exactly the arguments you will send.
+- **Always dry-run** (`risk_check`) right before proposing, with exactly the arguments you will send. While the epoch is Open the dry run uses the same snapshot as the proposal, so its verdict holds.
 - **Never use `force: true` in production.** It exists to demonstrate the on-chain rejection; a forced proposal outside the mandate is rejected and slashed every time.
 - Prefer `targetDeltaBps` over a fixed strike; keep a margin inside the delta band.
-- Do not propose when `spot.ok` is false (stale, paused, or a corporate action in progress) or the market is closed; the transaction reverts (no slash, but gas is wasted).
+- Do not propose when `spot.ok` is false (stale, paused, or a corporate action in progress) or the market is closed; the transaction reverts (no slash, but gas is wasted). The same holds for a strike live spot has already crossed (`StrikeInTheMoney`).
 - Keep your bond above `minBond` plus at least one `slashAmount`, and watch `rejectionsUntilInactive`.
 - The agent key can only propose. It never holds or moves vault funds; keep it separate from any funded wallet.

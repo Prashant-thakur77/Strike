@@ -6,22 +6,22 @@ Everything an auditor needs to start on day one. Strike has not been audited; th
 
 | File                              |           nSLOC | What it does                                                                    |
 | --------------------------------- | --------------: | ------------------------------------------------------------------------------- |
-| `src/core/EpochManager.sol`       |             579 | Epoch state machine; the only contract that moves vault collateral              |
+| `src/core/EpochManager.sol`       |             617 | Epoch state machine; the only contract that moves vault collateral              |
 | `src/vaults/StrikeVault.sol`      |             272 | ERC-4626 vault clone: epoch queue, premium accumulator                          |
-| `src/agents/AgentRegistry.sol`    |             244 | Agents, USDG bonds, slashing, ERC-8004 link and reputation feedback             |
+| `src/agents/AgentRegistry.sol`    |             254 | Agents, USDG bonds, slashing, ERC-8004 link and reputation feedback             |
 | `src/pricing/BlackScholesLib.sol` |             200 | Fixed-point Black-Scholes and strike solver (mirrors the Rust pricer)           |
-| `src/libraries/SafeStockFeed.sol` |             106 | Price safety: staleness, pauses, corporate actions, sequencer, settlement round |
+| `src/libraries/SafeStockFeed.sol` |             134 | Price safety: staleness, pauses, corporate actions, sequencer, settlement round |
+| `src/oracle/StockOracle.sol`      |              91 | Feed registry, settlement price record                                          |
 | `src/oracle/MarketCalendar.sol`   |              79 | NYSE sessions, holidays, early closes                                           |
-| `src/oracle/StockOracle.sol`      |              79 | Feed registry, settlement price record                                          |
 | `src/core/FeeManager.sol`         |              69 | Performance fee split, pull payments                                            |
-| `src/libraries/MandateGuard.sol`  |              60 | Pure mandate predicate                                                          |
+| `src/libraries/MandateGuard.sol`  |              62 | Pure mandate predicate and protocol limits                                      |
 | `src/vaults/VaultFactory.sol`     |              60 | EIP-1167 vault clones                                                           |
 | `src/libraries/NyseTime.sol`      |              49 | Civil-date and DST arithmetic                                                   |
 | `src/tokens/OptionToken.sol`      |              37 | ERC-1155 option positions                                                       |
 | `src/pricing/BlackScholesRef.sol` |              33 | `IPricer` wrapper for the Solidity pricer                                       |
 | `src/libraries/Decimals.sol`      |              32 | Unit conversions with explicit rounding                                         |
-| Interfaces                        |              90 |                                                                                 |
-| **Total in scope**                |       **1,989** |                                                                                 |
+| Interfaces                        |              93 |                                                                                 |
+| **Total in scope**                |       **2,082** |                                                                                 |
 | `stylus/pricer/src/{lib,math}.rs` | about 680 lines | Rust pricer deployed on Stylus (same algorithm)                                 |
 
 Out of scope: `src/testnet/*` (testnet-only mocks: MirrorFeed, TestStockToken, TestUSDG), tests, scripts, off-chain packages.
@@ -31,47 +31,52 @@ Compiler: Solidity 0.8.30, EVM `cancun`, optimizer 200 runs. Dependencies: OpenZ
 ## Where to start
 
 1. [design.md](design.md): the specification (units, lifecycle, formulas, invariants, oracle rules).
-2. [threat-model.md](threat-model.md): 18 threats, each with the mitigation and the test.
-3. `EpochManager.settle` → `StrikeVault.settleEpoch`: the path where money moves.
-4. `EpochManager.buy` and `_quoteBuy`: oracle-anchored pricing and collateral locking.
-5. `StrikeVault` queue and accumulator: `requestDeposit`, `requestRedeem`, `_claim*IfProcessed`, `_update`, `_distributePremium`.
+2. [threat-model.md](threat-model.md): 21 threats, each with the mitigation and the test.
+3. [security/review-2026-09-29.md](security/review-2026-09-29.md): the internal review, its 11 findings and the fixes.
+4. `EpochManager.settle` → `StrikeVault.settleEpoch`: the path where money moves.
+5. `SafeStockFeed.settlementPrice` / `_firstAtOrAfter`: settlement round proofs across Chainlink phases and corporate actions.
+6. `EpochManager.buy` and `_quoteBuy`: oracle-anchored pricing (spot buffer, intrinsic floor) and collateral locking.
+7. `StrikeVault` queue and accumulator: `requestDeposit`, `requestRedeem`, `_claim*IfProcessed`, `_update`, `_distributePremium`.
 
 ## Roles and trust
 
-| Role                                                                                        | Holder (testnet)            | Powers                                                                                                                       | Cannot                                                                         |
-| ------------------------------------------------------------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| `DEFAULT_ADMIN_ROLE` (EpochManager, StockOracle, AgentRegistry, FeeManager, MarketCalendar) | Deployer; a Safe on mainnet | List tokens and feeds, set volatility bounds, pricer, fee parameters (capped at 30%), timings (bounded), registry parameters | Move user funds, change a vault's mandate, set sigma outside the bounds it set |
-| `GUARDIAN_ROLE`                                                                             | Deployer; a Safe on mainnet | Pause new epochs, proposals and buys; cancel a series only after `expiry + settlementGrace` with no settlement               | Block settlement or idle withdrawals; take funds                               |
-| `KEEPER_ROLE`                                                                               | Deployer / keeper bot       | Update sigma within bounds; open epochs; push MirrorFeed rounds (testnet only)                                               | Anything else                                                                  |
-| `FACTORY_ROLE`                                                                              | VaultFactory                | Register new vaults                                                                                                          |                                                                                |
-| `SLASHER_ROLE` (AgentRegistry)                                                              | EpochManager                | Slash bonds, record results                                                                                                  |                                                                                |
-| Curator                                                                                     | Whoever created the vault   | Replace the vault's agent; abort an open epoch                                                                               | Change the mandate or touch funds                                              |
-| Agent signer                                                                                | Registered agent key        | Open epochs, propose inside the mandate                                                                                      | Hold or move vault funds                                                       |
+| Role                                                                                        | Holder (testnet)            | Powers                                                                                                                                                      | Cannot                                                                         |
+| ------------------------------------------------------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `DEFAULT_ADMIN_ROLE` (EpochManager, StockOracle, AgentRegistry, FeeManager, MarketCalendar) | Deployer; a Safe on mainnet | List tokens and feeds, set volatility bounds, spot buffer (at most 200 bps), pricer, fee parameters (capped at 30%), timings (bounded), registry parameters | Move user funds, change a vault's mandate, set sigma outside the bounds it set |
+| `GUARDIAN_ROLE`                                                                             | Deployer; a Safe on mainnet | Pause new epochs, proposals and buys; cancel a series only after `expiry + settlementGrace` with no settlement price recorded                               | Block settlement or idle withdrawals; take funds                               |
+| `KEEPER_ROLE`                                                                               | Deployer / keeper bot       | Update sigma within bounds (at most 25% per update, once an hour); open epochs; push MirrorFeed rounds (testnet only)                                       | Anything else                                                                  |
+| `FACTORY_ROLE`                                                                              | VaultFactory                | Register new vaults                                                                                                                                         |                                                                                |
+| `SLASHER_ROLE` (AgentRegistry)                                                              | EpochManager                | Slash bonds, record results                                                                                                                                 |                                                                                |
+| Curator                                                                                     | Whoever created the vault   | Replace the vault's agent; abort an open epoch                                                                                                              | Change the mandate or touch funds                                              |
+| Agent signer                                                                                | Registered agent key        | Open epochs, propose inside the mandate                                                                                                                     | Hold or move vault funds                                                       |
 
 No contract is upgradeable. Vault clones and the manager are immutable code; a new version means new deployments.
 
 ## Known issues and accepted risks
 
-| Item                                                                                         | Status                                                                   |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| USDG is priced at exactly $1                                                                 | Accepted; documented in design.md                                        |
-| Zero interest rate and 365-day year in Black-Scholes                                         | Accepted for weekly tenors; documented                                   |
-| `emergencyCancel` refunds premium pro rata by options held, not by the price each buyer paid | Accepted (emergency path only)                                           |
-| A corporate action scheduled far ahead blocks sales until `effectiveAt + grace`              | Accepted: the protocol refuses rather than guesses                       |
-| Testnet MirrorFeeds are keeper-controlled                                                    | Testnet only; mainnet uses Chainlink directly                            |
-| Slither findings                                                                             | 0 High; all others triaged in [security/slither.md](security/slither.md) |
-| Findings of internal reviews                                                                 | See the latest `security/review-*.md`                                    |
+| Item                                                                                                      | Status                                                                                                                                         |
+| --------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| USDG is priced at exactly $1                                                                              | Accepted; documented in design.md                                                                                                              |
+| Zero interest rate and 365-day year in Black-Scholes                                                      | Accepted for weekly tenors; documented                                                                                                         |
+| `emergencyCancel` refunds premium pro rata by options held, not by the price each buyer paid              | Accepted (emergency path only)                                                                                                                 |
+| Weekly performance fee has no high-water mark: a week that only recovers an earlier loss still pays a fee | Accepted for v2; a per-vault loss carry-forward is planned (decisions.md D31)                                                                  |
+| A corporate action scheduled far ahead blocks sales until `effectiveAt + grace`                           | Accepted: the protocol refuses rather than guesses                                                                                             |
+| Testnet MirrorFeeds are keeper-controlled                                                                 | Testnet only; mainnet uses Chainlink directly                                                                                                  |
+| `convertToAssets` ignores the open series (liability and escrowed premium) during an epoch                | Accepted; documented for integrators in design.md §5                                                                                           |
+| The keeper can still move sale prices through sigma (within bounds, 25% per hour)                         | Accepted; proposals are judged at the opening snapshot, so it cannot cause a slash                                                             |
+| Slither findings                                                                                          | 0 High; all others triaged in [security/slither.md](security/slither.md)                                                                       |
+| Findings of internal reviews                                                                              | 11 findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed with regression tests: [security/review-2026-09-29.md](security/review-2026-09-29.md) |
 
 ## Evidence already available
 
-| Kind                            | Where                                                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| Unit, integration, fuzz         | `contracts/test` (397 tests), 99.2% line and 95.8% branch coverage                                            |
-| Invariants with mutation checks | `contracts/test/invariant`, [testing.md](testing.md)                                                          |
-| Fork tests on chain 4663        | `contracts/test/fork` (real tokens, feeds, USDG, ERC-8004)                                                    |
-| Differential Rust vs Solidity   | `contracts/test/differential`, vectors, on-chain equality check at deploy                                     |
-| Formal properties               | `contracts/test/formal` and [security/formal-verification.md](security/formal-verification.md) (when present) |
-| End-to-end                      | `scripts/demo-local.sh` in CI; live epochs on Robinhood Chain testnet in `docs/testnet-epochs/`               |
+| Kind                            | Where                                                                                                                      |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Unit, integration, fuzz         | `contracts/test` (418 tests, 19 of them audit regressions in `contracts/test/audit`), 99.1% line and 97.4% branch coverage |
+| Invariants with mutation checks | `contracts/test/invariant`, [testing.md](testing.md)                                                                       |
+| Fork tests on chain 4663        | `contracts/test/fork` (real tokens, feeds, USDG, ERC-8004)                                                                 |
+| Differential Rust vs Solidity   | `contracts/test/differential`, vectors, on-chain equality check at deploy                                                  |
+| Formal properties               | `contracts/test/formal` and [security/formal-verification.md](security/formal-verification.md) (when present)              |
+| End-to-end                      | `scripts/demo-local.sh` in CI; live epochs on Robinhood Chain testnet in `docs/testnet-epochs/`                            |
 
 ## How to run
 

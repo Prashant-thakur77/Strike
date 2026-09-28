@@ -41,20 +41,29 @@ contract MyLendingMarket {
 
 `status(config, token)` is the non-reverting version for front ends and agents: it returns `Ok`, `InvalidPrice`, `StalePrice`, `TokenPaused`, `FeedPaused` or `CorporateActionPending` together with the price.
 
-`settlementPrice(config, token, roundId, target)` returns the first round published at or after `target`, verifying that the round before it predates the target. Use it for anything that settles "at time T" (options, futures, auctions) so nobody can choose a convenient later print.
+`settlementPrice(config, token, hints, target)` returns the price of the first round published at or after `target`, proven by an array of round ids. Use it for anything that settles "at time T" (options, futures, auctions) so nobody can choose a convenient later print. The rules:
+
+- `hints[0]` is the candidate: published at or after `target`. Inside a Chainlink phase, the round before it must predate `target`.
+- Round ids are `phase << 64 | aggregatorRound`. When the candidate is round 1 of phase p > 1 (an aggregator upgrade), the next hint must be the last round of phase p − 1: it must predate `target` and have no successor. An upgrade therefore neither offers a second candidate price nor blocks settlement, however late the new phase starts.
+- Round 1 of the first phase has no predecessor to check, so it must be within `maxPriceAge` of `target`.
+- If the chosen print is within `corporateActionGrace` of the token's ERC-8056 `effectiveAt`, the feed and the multiplier may disagree. The target moves to `effectiveAt + grace` and the remaining hints prove the first round at or after it, by the same rules.
+- A missing hint reverts `MissingHint(index)`; a round that fails a check reverts `InvalidSettlementRound(roundId)`.
+
+In the common case (one phase, no corporate action) one hint is enough. The Strike SDK's `findSettlementHints` computes the full array from the feed.
 
 ## Or call the deployed StockOracle
 
 `StockOracle` holds a registry of stock tokens and their feeds, the NYSE calendar, and a record of settlement prices shared by every consumer:
 
-| Function                                        | Returns                                                                          |
-| ----------------------------------------------- | -------------------------------------------------------------------------------- |
-| `latestPrice(token)`                            | `(priceWad, updatedAt)` or a `SafeStockFeed` error                               |
-| `status(token)`                                 | non-reverting status and price                                                   |
-| `recordSettlementPrice(token, expiry, roundId)` | the price of the first round at or after `expiry`, stored once and never changed |
-| `settlementPrice(token, expiry)`                | the recorded price (0 if none yet)                                               |
-| `isMarketOpen()`                                | whether a regular NYSE session is open now                                       |
-| `isValidExpiry(ts)`                             | whether `ts` is an NYSE session close                                            |
+| Function                                               | Returns                                                                                                                        |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `latestPrice(token)`                                   | `(priceWad, updatedAt)` or a `SafeStockFeed` error                                                                             |
+| `status(token)`                                        | non-reverting status and price                                                                                                 |
+| `recordSettlementPrice(token, expiry, roundId)`        | the price of the first round at or after `expiry`, stored once and never changed (the one-hint case)                           |
+| `recordSettlementPriceWithHints(token, expiry, hints)` | the same, with the full hint array (phase change or corporate action); records once for every consumer of that (token, expiry) |
+| `settlementPrice(token, expiry)`                       | the recorded price (0 if none yet)                                                                                             |
+| `isMarketOpen()`                                       | whether a regular NYSE session is open now                                                                                     |
+| `isValidExpiry(ts)`                                    | whether `ts` is an NYSE session close                                                                                          |
 
 `MarketCalendar` computes NYSE sessions on-chain (DST-aware, matched against Python `zoneinfo` for every day from 2026 to 2030) with holidays and 13:00 early closes kept as an admin list. It also answers `weeklyExpiry(ts)` (Friday close, or Thursday when Friday is a holiday) and `nextSessionClose(ts)`.
 
@@ -62,6 +71,7 @@ Addresses are listed in the README once deployed.
 
 ## Tests
 
-- Unit and fuzz: `contracts/test/oracle/StockOracle.t.sol` (19 tests), `contracts/test/oracle/MarketCalendar.t.sol` (13 tests)
+- Unit and fuzz: `contracts/test/oracle/StockOracle.t.sol` (21 tests), `contracts/test/oracle/MarketCalendar.t.sol` (13 tests)
 - Fork against chain 4663: `contracts/test/fork/RobinhoodFork.t.sol` (real TSLA, NVDA and SPY feeds, real pause flags and multipliers)
-- Coverage: 100% of lines for `SafeStockFeed` and `StockOracle`
+- Audit regression: `contracts/test/audit/AuditSettlement.t.sol` (phase changes, corporate action at expiry, round uniqueness)
+- Coverage: 97.5% of lines for `SafeStockFeed`, 100% for `StockOracle`
