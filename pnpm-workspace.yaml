@@ -3,4 +3,5 @@ packages:
   - mcp
   - app
   - agents/*
+  - bots/*
   - subgraph
