@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-09",
+  "chainTimeIso": "2026-10-09T20:01:01.000Z",
+  "chain": {
+    "id": 31337,
+    "name": "Anvil",
+    "explorer": null
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "vault": {
+    "address": "0x8aCd85898458400f7Db866d53FCFF6f0D49741FF",
+    "symbol": "sTSLA-CC",
+    "name": "Strike TSLA Covered Call",
+    "kind": "covered-call",
+    "underlying": "TSLA",
+    "collateral": "10",
+    "collateralAsset": "TSLA",
+    "epochState": "Selling",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "369",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-05T15:00:10.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "settle",
+      "hash": "0xb7de0b927b62573de9fa5f0bf67ef03632784a09d8c313e58cd9005d641cd5b2",
+      "url": null
+    }
+  ],
+  "result": {
+    "status": "settled",
+    "summary": "Settled at $400: 0.0723 TSLA to option holders, 8.898629 USDG premium to depositors after a 0 USDG fee. The vault is unlocked.",
+    "seriesId": "82704486548296460466137399048234592122040480043184794643538196096873311146115",
+    "settlementPrice": "400",
+    "payout": "0.0723 TSLA",
+    "premium": "8.898629",
+    "fee": "0",
+    "settledBy": "agent"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 2,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "90",
+    "settledEpochs": 2,
+    "cumulativePnl": "-20.021371",
+    "claimableFees": "0"
+  }
+}

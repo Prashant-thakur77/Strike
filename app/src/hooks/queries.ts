@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { erc20Abi, type Address } from "viem";
 import { useConnection } from "wagmi";
+import { AGENT_LOG_STALE_MS, AgentLogError, fetchAgentLog } from "@/lib/agentLog";
 import { affordableOptions } from "@/lib/hedge";
 import {
   faucetTokens,
@@ -107,6 +108,21 @@ export function useRejections() {
     enabled: ready && !!client && !!deployment,
     refetchInterval: 30_000,
     queryFn: () => rejections(client!, deployment!),
+  });
+}
+
+/**
+ * The weekly agent's newest decision records from docs/agent-log on GitHub (not the chain, so it ignores the
+ * selected network). Kept fresh for 10 minutes: the folder changes twice a week and the API allows 60 calls an hour.
+ */
+export function useAgentLog() {
+  return useQuery({
+    queryKey: ["agent-log"],
+    queryFn: ({ signal }) => fetchAgentLog(fetch, signal),
+    staleTime: AGENT_LOG_STALE_MS,
+    gcTime: AGENT_LOG_STALE_MS * 3,
+    // A rate limit won't lift in a second: show the fallback instead of spending another call.
+    retry: (count, err) => !(err instanceof AgentLogError && err.kind === "rate-limit") && count < 1,
   });
 }
 

@@ -10,6 +10,7 @@ import { explorerNftUrl, explorerUrl } from "@/lib/chains";
 import { fmtAmount, fmtBps, fmtNy, fmtWadUsd, shortAddr } from "@/lib/format";
 import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
+import { DecisionLog } from "./DecisionLog";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
 import { Rail } from "../Rail";
@@ -41,46 +42,63 @@ export function AgentsPage() {
       />
       <Gate isLoading={reg.isLoading} error={reg.error} loading={<Skeleton width="40%" />}>
         {r ? (
-          <>
-            <MetaStrip
-              cells={[
-                {
-                  label: "Agents registered",
-                  value: String(r.agents.length),
-                  sub: `${r.agents.filter((a) => a.status === 1).length} active`,
-                },
-                {
-                  label: "Minimum bond",
-                  value: `${fmtAmount(r.minBond, r.usdg.decimals, 0)} USDG`,
-                  sub: "to propose at all",
-                },
-                {
-                  label: "Slash per rejection",
-                  value: `${fmtAmount(r.slashAmount, r.usdg.decimals, 0)} USDG`,
-                  sub: "to the vault's depositors",
-                },
-                { label: "Suspended at", value: `${r.maxStrikes} strikes`, sub: "until an admin reinstates" },
-              ]}
-            />
-            <div className={styles.detailBody}>
-              <Rail
-                index="01"
-                label="Leaderboard"
-                note="Ranked by accepted proposals, then fewest rejections. Open a row for the track record (AgentRegistry.track), the ERC-8004 identity and reputation, and the vaults it runs."
-              >
-                <Leaderboard registry={r} />
-              </Rail>
-              <Rail
-                index="02"
-                label="Rejected proposals"
-                note="Every ProposalRejected event: what the agent asked for and the rule it broke."
-              >
-                <RejectionFeed />
-              </Rail>
-            </div>
-          </>
+          <MetaStrip
+            cells={[
+              {
+                label: "Agents registered",
+                value: String(r.agents.length),
+                sub: `${r.agents.filter((a) => a.status === 1).length} active`,
+              },
+              {
+                label: "Minimum bond",
+                value: `${fmtAmount(r.minBond, r.usdg.decimals, 0)} USDG`,
+                sub: "to propose at all",
+              },
+              {
+                label: "Slash per rejection",
+                value: `${fmtAmount(r.slashAmount, r.usdg.decimals, 0)} USDG`,
+                sub: "to the vault's depositors",
+              },
+              { label: "Suspended at", value: `${r.maxStrikes} strikes`, sub: "until an admin reinstates" },
+            ]}
+          />
         ) : null}
       </Gate>
+      {/* The decision log comes from GitHub, not the chain: it shows whatever the network or its state. */}
+      <div className={styles.detailBody}>
+        {r ? (
+          <Rail
+            index="01"
+            label="Leaderboard"
+            note="Ranked by accepted proposals, then fewest rejections. Open a row for the track record (AgentRegistry.track), the ERC-8004 identity and reputation, and the vaults it runs."
+          >
+            <Leaderboard registry={r} />
+          </Rail>
+        ) : null}
+        <Rail
+          index="02"
+          id="decision-log"
+          label="Decision log"
+          note={
+            <>
+              Every Monday the example agent proposes for each Robinhood Chain testnet vault and every Friday
+              it settles, by itself, from a scheduled GitHub Actions job. Each run commits a record of what it
+              saw, what it chose and why, and what the contract said. Newest first.
+            </>
+          }
+        >
+          <DecisionLog />
+        </Rail>
+        {r ? (
+          <Rail
+            index="03"
+            label="Rejected proposals"
+            note="Every ProposalRejected event: what the agent asked for and the rule it broke."
+          >
+            <RejectionFeed />
+          </Rail>
+        ) : null}
+      </div>
     </>
   );
 }

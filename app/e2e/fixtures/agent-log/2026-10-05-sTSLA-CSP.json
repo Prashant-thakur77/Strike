@@ -1,0 +1,97 @@
+{
+  "version": 1,
+  "action": "reckless",
+  "date": "2026-10-05",
+  "chainTimeIso": "2026-10-05T15:00:12.000Z",
+  "chain": {
+    "id": 31337,
+    "name": "Anvil",
+    "explorer": null
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "vault": {
+    "address": "0xe082b26cEf079a095147F35c9647eC97c2401B83",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "50000",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "369",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-05T15:00:14.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": true
+  },
+  "decision": {
+    "strategy": "reckless",
+    "targetDeltaBps": null,
+    "premiumBps": null,
+    "reasoning": "Strike $368.99 against spot $369: |delta| near 0.5, far outside the mandate's band. Sent with force: true on purpose, to show the contract rejecting it and slashing the agent's bond.",
+    "notes": []
+  },
+  "dryRun": {
+    "ok": false,
+    "reason": "DeltaOutOfBand",
+    "explanation": "The option's |delta| is outside the mandate's delta band. |delta| is 0.4870; the band is 0.10 to 0.35. Move the strike further out of the money. Proposing it anyway would be rejected on-chain and slash the agent's bond.",
+    "optionType": "put",
+    "strike": "368.99",
+    "delta": 0.487,
+    "targetDeltaBps": null,
+    "expiryIso": "2026-10-09T20:00:00.000Z",
+    "size": "108.40402178920837963",
+    "capacity": "135.505027236510474538",
+    "premiumBps": 10000,
+    "fairValue": "9.4771",
+    "yieldBps": 256.84
+  },
+  "transactions": [
+    {
+      "label": "openEpoch",
+      "hash": "0x3eb928d9300da2d4005ad45ab4385590386481026a9f33153068f974ef84cd9e",
+      "url": null
+    },
+    {
+      "label": "proposeSeries",
+      "hash": "0x7c3b92bdbd804ff3450033f0049bddcdc5340d250952116932193edd68f2b12b",
+      "url": null
+    }
+  ],
+  "result": {
+    "status": "rejected",
+    "summary": "Rejected on-chain (DeltaOutOfBand): The option's |delta| is outside the mandate's delta band. |delta| is 0.4870; the band is 0.10 to 0.35. Move the strike further out of the money. 10 USDG of the agent's bond was slashed to the vault's depositors; strikes 1/3.",
+    "strike": "368.99",
+    "reason": "DeltaOutOfBand",
+    "slashed": "10"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 1,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "90",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  }
+}

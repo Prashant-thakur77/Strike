@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-09",
+  "chainTimeIso": "2026-10-09T20:01:03.000Z",
+  "chain": {
+    "id": 31337,
+    "name": "Anvil",
+    "explorer": null
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "vault": {
+    "address": "0xe082b26cEf079a095147F35c9647eC97c2401B83",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "50000",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "400",
+    "sigma": 0.6,
+    "source": "live",
+    "openedAtIso": null,
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "settle (keeper)",
+      "hash": "0xdeca17a8c856bef565d4778574092d50f93efa7af021501b564a078f5be676aa",
+      "url": null
+    }
+  ],
+  "result": {
+    "status": "settled",
+    "summary": "Already settled by the keeper without a price: nothing was sold. The vault is unlocked.",
+    "seriesId": "87046782739396502368748079462233554518811797290482649301746633349720584960926",
+    "settlementPrice": null,
+    "payout": "0 USDG",
+    "premium": "0",
+    "fee": "0",
+    "settledBy": "keeper"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 2,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "90",
+    "settledEpochs": 2,
+    "cumulativePnl": "-20.021371",
+    "claimableFees": "0"
+  }
+}

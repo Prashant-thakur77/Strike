@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "action": "propose",
+  "date": "2026-10-05",
+  "chainTimeIso": "2026-10-05T15:00:14.000Z",
+  "chain": {
+    "id": 31337,
+    "name": "Anvil",
+    "explorer": null
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+  },
+  "vault": {
+    "address": "0xe082b26cEf079a095147F35c9647eC97c2401B83",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "50000",
+    "collateralAsset": "USDG",
+    "epochState": "Open",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "369",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-05T15:00:14.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": true
+  },
+  "decision": {
+    "strategy": "default",
+    "targetDeltaBps": 2000,
+    "premiumBps": 10000,
+    "reasoning": "Target 0.20 delta: far enough out of the money that the stock rarely gets called away, close enough to earn a meaningful premium. Price at 100% of Black-Scholes fair value.",
+    "notes": [
+      "Claude was unavailable (Could not resolve authentication method. Expected one of apiKey, authToken, credentials, config, or profile to be set. Or for one of the \"X-Api-Key\" or \"Authorization\" headers to be explicitly omitted); the agent used the default strategy."
+    ]
+  },
+  "dryRun": {
+    "ok": true,
+    "reason": "None",
+    "explanation": "Inside the mandate: the contract would accept this proposal.",
+    "optionType": "put",
+    "strike": "350.26",
+    "delta": 0.2001,
+    "targetDeltaBps": 2000,
+    "expiryIso": "2026-10-09T20:00:00.000Z",
+    "size": "114.200879346770970136",
+    "capacity": "142.75109918346371267",
+    "premiumBps": 10000,
+    "fairValue": "2.7392",
+    "yieldBps": 78.21
+  },
+  "transactions": [
+    {
+      "label": "proposeByDelta",
+      "hash": "0x48b112425e5506f91346c53fc01631a072bec255236bf70519ed6b71fa14504b",
+      "url": null
+    }
+  ],
+  "result": {
+    "status": "accepted",
+    "summary": "Accepted: series 87046782739396502368748079462233554518811797290482649301746633349720584960926 is on sale (strike $350.26, |delta| 0.2001, expiry 2026-10-09T20:00:00.000Z).",
+    "seriesId": "87046782739396502368748079462233554518811797290482649301746633349720584960926",
+    "strike": "350.26",
+    "expiryIso": "2026-10-09T20:00:00.000Z",
+    "size": "114.200879346770970136"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 2,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "90",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  }
+}
