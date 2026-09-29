@@ -545,7 +545,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "Quote options",
       description:
-        "USDG premium to buy options of a vault's live series (or a series id) right now: fair value at the current spot × the series' premium factor.",
+        "USDG premium to buy options of a vault's live series (or a series id) right now: fair value × the series' premium factor, at the oracle spot moved against the buyer by the token's spot buffer (the feed's 0.5% deviation threshold), and never below intrinsic value.",
       inputSchema: {
         vault: vaultInput.optional(),
         seriesId: z

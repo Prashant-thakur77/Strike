@@ -119,7 +119,7 @@ export async function buyOptions(mcp: StrikeMcp, opts: BuyOptions, log: Log): Pr
     const q = await mcp.call<QuoteResult>("quote", { vault, amount: String(one) });
     perOption = Number(q.premiumPerOption);
     log.say(
-      `One option costs ${q.premiumPerOption} USDG now: Black-Scholes fair value at the current spot × ${pct(q.premiumBps)}.`,
+      `One option costs ${q.premiumPerOption} USDG now: Black-Scholes fair value × ${pct(q.premiumBps)} at the oracle spot moved 0.5% against the buyer, never below intrinsic value.`,
     );
     cap = Math.min(cap, Number(q.remaining));
   }

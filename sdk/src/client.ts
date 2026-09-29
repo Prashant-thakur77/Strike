@@ -561,7 +561,7 @@ export function createStrikeClient(config: StrikeClientConfig) {
 
     /**
      * USDG premium and vault collateral for buying `amount` options (underlying base units) of a series now.
-     * The premium is oracle-anchored: fair value at the current spot × the series' premium factor.
+     * The premium is oracle-anchored: fair value × the series' premium factor, at the oracle spot moved against the buyer by the token's `spotBufferBps`, never below intrinsic value.
      */
     async quoteBuy(seriesId: bigint, amount: bigint): Promise<BuyQuote> {
       const [premium, collateral] = await publicClient.readContract({
