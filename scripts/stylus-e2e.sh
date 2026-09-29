@@ -4,6 +4,7 @@
 # against the same calls priced by the Solidity reference.
 # Needs Docker, Foundry, cargo-stylus and Python 3. Must run during NYSE hours (the dev node cannot warp time).
 set -euo pipefail
+trap 'echo "stylus-e2e: failed at line $LINENO (it must run during NYSE hours: the dev node cannot warp time)" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$HOME/.foundry/bin:$HOME/.cargo/bin:$PATH"
 RPC=http://127.0.0.1:8547
