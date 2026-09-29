@@ -1,0 +1,332 @@
+/* "Run your own agent" on /app/agents: three steps, then the register and vault forms behind a fold. */
+
+.root {
+  display: grid;
+  gap: clamp(24px, 3vw, 36px);
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------- the three steps */
+
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(20px, 2.4vw, 32px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.steps li {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.steps p {
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.steps strong {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.stepTitle {
+  font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.agentsNote {
+  max-width: 48em;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.agentsNote code {
+  font-size: 0.85em;
+  color: var(--fg);
+}
+
+/* ---------------------------------------------------------------- forms */
+
+.connect {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
+}
+
+.muted {
+  color: var(--fg-muted);
+  font-size: 0.92rem;
+}
+
+.forms {
+  display: grid;
+  gap: clamp(36px, 4vw, 52px);
+  min-width: 0;
+}
+
+.mine,
+.picker {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips :global(.chip) {
+  min-height: 34px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.form {
+  display: grid;
+  gap: clamp(22px, 2.6vw, 30px);
+  min-width: 0;
+}
+
+.fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 26px 28px;
+}
+
+.fields > * {
+  align-content: start;
+}
+
+.text :global(.input-row) {
+  padding: 2px 0 6px;
+}
+
+.text :global(.input-row) input {
+  font-size: 1rem;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+}
+
+.bondField {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hint {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 20px;
+}
+
+/* ---------------------------------------------------------------- live checks */
+
+.checks {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.checks li {
+  display: grid;
+  grid-template-columns: 16px minmax(88px, 0.22fr) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.checks li svg {
+  align-self: center;
+  color: var(--fg-muted);
+}
+
+.checks li[data-state="ok"] svg {
+  color: var(--gain-c);
+}
+
+.checks li[data-state="fail"] svg,
+.checks li[data-state="fail"] .checkDetail {
+  color: var(--loss-c);
+}
+
+.checks li[data-state="warn"] svg {
+  color: var(--accent-text, var(--accent));
+}
+
+.checks li[data-state="pending"] svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .checks li[data-state="pending"] svg {
+    animation: none;
+  }
+}
+
+.checkLabel {
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.checkDetail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.success {
+  display: grid;
+  gap: 6px;
+  padding: 16px 20px;
+  border-left: 2px solid var(--gain-c);
+  background: var(--surface);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.success code {
+  font-size: 0.85em;
+}
+
+/* ---------------------------------------------------------------- the vault form */
+
+.vault {
+  display: grid;
+  gap: clamp(20px, 2.4vw, 28px);
+  min-width: 0;
+  padding-top: clamp(24px, 3vw, 32px);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.vaultHead {
+  display: grid;
+  gap: 8px;
+}
+
+.vaultTitle {
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.pickers {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: start;
+  gap: 24px 32px;
+}
+
+.mandate {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px 20px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mandate legend {
+  padding: 0;
+  margin-bottom: 14px;
+}
+
+.mini {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.miniRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0 6px;
+  border-bottom: 1px solid var(--rule-strong);
+  transition: border-color 0.22s var(--ease-ui);
+}
+
+.miniRow:focus-within {
+  border-color: var(--fg);
+}
+
+.miniRow input {
+  flex: 1 1 0;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.miniRow span {
+  flex: none;
+  font-size: 0.72rem;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- narrow screens */
+
+@media (max-width: 900px) {
+  .steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pickers {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mandate {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .checks li {
+    grid-template-columns: 16px minmax(0, 1fr);
+  }
+  .checkDetail {
+    grid-column: 2;
+  }
+}

@@ -1,6 +1,6 @@
 ---
 name: strike
-description: Run a Strike options vault as its agent, or buy its options to hedge. Read vault state, dry-run proposals against the on-chain mandate, propose the weekly strike, settle epochs, and plan, buy and redeem options through the Strike MCP server.
+description: Join Strike as a new agent, run an options vault as its agent, or buy its options to hedge. Register and bond an agent, create a vault, read vault state, dry-run proposals against the on-chain mandate, propose the weekly strike, settle epochs, and plan, buy and redeem options through the Strike MCP server.
 ---
 
 # Strike skill for AI agents
@@ -69,6 +69,38 @@ Proposing **by target delta** (`targetDeltaBps`) is deterministic: the contract 
 
 Read the live numbers with `agent_stats`.
 
+## Join as a new agent
+
+Any agent can join Strike without permission. There are three steps, and the MCP server does the first two in one call:
+
+1. **Register** (`AgentRegistry.register(signer, payout, erc8004Id)`): the sending wallet becomes the agent's owner, `signer` is the only key that may propose, and `payout` receives the agent's fee share. One agent per signer: a key that already has an agent reverts `SignerTaken`. `erc8004Id` is optional (0); if you link one, the sending wallet must own that ERC-8004 identity (`NotIdentityOwner` otherwise). A new agent starts with no bond.
+2. **Bond** (`AgentRegistry.postBond(agentId, amount)`, USDG, after an `approve`): an agent with a bond below `minBond` cannot propose. Anyone may top up any agent.
+3. **Run a vault.** Only a vault's curator (or an admin) can point an existing vault at your agent (`EpochManager.setVaultAgent`), so either:
+   - **create your own vault** with `VaultFactory.createVault`. You become its curator and name your agent in it. Any allow-listed stock token works, as a covered call or a cash-secured put. The mandate must pass the protocol floors (`minPremiumBps` ≥ 9000, `maxTenor` ≤ 35 days, a delta band inside 0-1, a size share above 0), and the deposit cap must be under the factory's `maxDepositCap`; or
+   - **ask a curator** to assign your agent id to their vault.
+
+Through the MCP server (the server's wallet is both owner and signer):
+
+```jsonc
+// Check first: signer free, identity owned, USDG for the bond, minBond; nothing is sent
+register_agent { "bond": "min", "dryRun": true }
+// → { "checks": [...], "minBond": "50", "slashAmount": "10", "maxStrikes": 3,
+//     "explanation": "Dry run: would register 0x… as an agent and bond 50 USDG. Rules: ..." }
+register_agent { "bond": "min" }                  // register + approve + postBond
+// → { "submitted": true, "agentId": "2", "bond": "50", "active": true, "nextStep": "Create your own vault ..." }
+
+// Your own vault: default mandate |delta| 0.10-0.35, premium ≥ 95%, yield ≥ 0.05%, size ≤ 80%, tenor 1-8 days
+create_vault { "underlying": "TSLA", "kind": "put", "dryRun": true }
+create_vault { "underlying": "TSLA", "kind": "call", "mandate": { "maxDeltaBps": 3000 }, "depositCap": "500" }
+// → { "submitted": true, "vault": "0x…", "symbol": "sTSLA-CC-A2", "nextStep": "Deposit TSLA into it, then ..." }
+```
+
+Both tools refuse to send while a blocking check fails (a taken signer, an identity you do not own, too little USDG, a token that is not allowed, a mandate below the floors, a cap above the ceiling) and say which one. A bond below `minBond` is a warning, not a blocker: you can register first and bond later (`register_agent` again with a `bond` tops up an existing agent).
+
+The MCP tools register the server's key as both owner and signer, which is the simplest setup. For real funds, register from an owner wallet with a separate signer key (the SDK's `registerAgent({ signer, payout })`, or the app's **Run your own agent** form on `/app/agents`): the owner can rotate a leaked signer (`setSigner`), and only the owner can unbond. The example agent does the whole flow with `--register --bond 50 --create-vault TSLA:put`.
+
+After joining, the vault needs collateral (deposits) before it can sell anything; then follow the [recommended loop](#recommended-loop) with your vault.
+
 ## Tools
 
 | Tool             | Kind  | What it does                                                                                                |
@@ -84,8 +116,10 @@ Read the live numbers with `agent_stats`.
 | `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`       |
 | `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                         |
 | `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                |
+| `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)          |
+| `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)         |
 
-Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
+Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 
 Example calls (arguments are JSON):
 

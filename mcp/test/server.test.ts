@@ -277,11 +277,13 @@ describe("Strike MCP server", () => {
     expect(Object.keys(byName).sort()).toEqual([
       "agent_stats",
       "buy_options",
+      "create_vault",
       "hedge_plan",
       "list_vaults",
       "propose_epoch",
       "quote",
       "redeem_options",
+      "register_agent",
       "risk_check",
       "settle_epoch",
       "strike_info",
@@ -392,6 +394,8 @@ describe("Strike MCP server", () => {
       ["settle_epoch", { vault: VAULT }],
       ["buy_options", { vault: VAULT, amount: "1" }],
       ["redeem_options", { vault: VAULT }],
+      ["register_agent", { bond: "min" }],
+      ["create_vault", { underlying: "TSLA", kind: "put" }],
     ] as const) {
       const r = await call(c, name, args);
       expect(r.isError, name).toBe(true);

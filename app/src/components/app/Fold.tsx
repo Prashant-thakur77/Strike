@@ -12,7 +12,7 @@ interface FoldProps {
   openSummary?: ReactNode;
   /** Media query under which the fold starts closed; it starts open everywhere else. */
   closedBelow?: number;
-  /** Always start closed, whatever the width. */
+  /** Always start closed, whatever the width (the toggle then shows on wide screens too). */
   closed?: boolean;
   children: ReactNode;
 }
@@ -28,6 +28,7 @@ export function Fold({ summary, openSummary, closedBelow = 820, closed = false, 
   return (
     <details
       className={styles.fold}
+      data-toggle={closed ? "always" : undefined}
       open={open}
       onToggle={(e) => {
         // Only a reader's own click differs from what we rendered; ignore toggles we caused.

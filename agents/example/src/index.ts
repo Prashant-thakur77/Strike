@@ -6,6 +6,7 @@ import { Journal, marketInputs } from "./journal.js";
 import { CLAUDE_MODEL } from "./llm.js";
 import { describeClaudeError, planWithClaude } from "./llm.js";
 import { type StrikeMcp, connectStrikeMcp } from "./mcp.js";
+import { joinStrike, parseBond, parseVaultSpec } from "./onboard.js";
 import { type RecordAction, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
@@ -53,6 +54,15 @@ Buyer modes (STRIKE_AGENT_PRIVATE_KEY is the buyer's key; it pays the premium in
   --hedge <tokens>   With --buy: protect a holding of this many stock tokens; hedge_plan picks
                      the put series and sizes the purchase.
   --redeem           Redeem this wallet's options of settled series (--vault, or every vault).
+
+Join as a new agent (STRIKE_AGENT_PRIVATE_KEY becomes the agent's owner and signer; it pays the bond):
+  --register         Dry-run register_agent (signer free, USDG for the bond, the minimum bond,
+                     slash and strike rules), then register and bond. Safe to re-run.
+  --bond <usdg>      With --register: USDG to bond (default: the registry's minimum bond; an
+                     agent that is already bonded is left alone).
+  --create-vault <SYMBOL:call|put>
+                     With --register: then dry-run and create your own vault on that stock
+                     (e.g. TSLA:put), run by this agent, with the default mandate.
 
 Environment: STRIKE_CHAIN_ID, STRIKE_RPC_URL, STRIKE_AGENT_PRIVATE_KEY (passed to the MCP server),
 STRIKE_MCP_COMMAND (server command; default: pnpm --silent --filter @strike/mcp dev).`;
@@ -424,6 +434,9 @@ async function main() {
       amount: { type: "string" },
       hedge: { type: "string" },
       log: { type: "string" },
+      register: { type: "boolean" },
+      bond: { type: "string" },
+      "create-vault": { type: "string" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -449,16 +462,25 @@ async function main() {
   const logArg = values.log?.trim();
   const logDir = logArg ? resolve(process.env.INIT_CWD ?? process.cwd(), logArg) : undefined;
 
+  if (!values.register && (values.bond !== undefined || values["create-vault"] !== undefined)) {
+    throw new Error("--bond and --create-vault go with --register");
+  }
+  const bond = values.register ? parseBond(values.bond) : undefined;
+  const createVault =
+    values["create-vault"] !== undefined ? parseVaultSpec(values["create-vault"]) : undefined;
+
   const log = new Narrator();
-  const mode = values.buy
-    ? " (buyer mode)"
-    : values.redeem
-      ? " (buyer: redeem)"
-      : values.reckless
-        ? " (reckless mode)"
-        : values.llm
-          ? " (Claude mode)"
-          : "";
+  const mode = values.register
+    ? " (joining as a new agent)"
+    : values.buy
+      ? " (buyer mode)"
+      : values.redeem
+        ? " (buyer: redeem)"
+        : values.reckless
+          ? " (reckless mode)"
+          : values.llm
+            ? " (Claude mode)"
+            : "";
   console.log(`Strike example agent${mode}`);
   const mcp = await connectStrikeMcp();
   try {
@@ -466,6 +488,15 @@ async function main() {
     console.log(
       `Connected to the Strike MCP server: chain ${info.chainId}, ${info.mode} mode${info.agentAddress ? ` as ${info.agentAddress}` : ""}.`,
     );
+    if (values.register) {
+      if (info.mode === "read-only")
+        throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the new agent's key) to register");
+      const joined = await joinStrike(mcp, { bond, createVault }, log);
+      console.log(
+        `\nAgent #${joined.agentId} ${joined.active ? "is bonded and may propose" : "is registered but cannot propose yet"}${joined.vault ? `; it runs ${joined.vaultSymbol} (${joined.vault})` : ""}.`,
+      );
+      return;
+    }
     if (values.buy || values.redeem) {
       if (info.mode === "read-only")
         throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the buyer's key) to buy or redeem");

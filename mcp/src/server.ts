@@ -3,8 +3,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   BPS,
+  DEFAULT_MANDATE,
   ERROR_HINTS,
   FEED_STATUS_DESCRIPTIONS,
+  MAX_PREMIUM_BPS,
+  MAX_TENOR_CAP,
+  MIN_PREMIUM_FLOOR_BPS,
+  type Mandate,
   type ProposalPreview,
   STRIKE_SDK_VERSION,
   type SeriesState,
@@ -16,6 +21,8 @@ import {
   explainMandateReason,
   roundStrikeToCent,
   formatAmount,
+  getDeployment,
+  mandateProblems,
   maxProposalSize,
   numberToWad,
   parseAmount,
@@ -25,13 +32,15 @@ import {
   vaultCapacity,
   wadToNumber,
 } from "@strike/sdk";
-import { type Address, getAddress, isAddress } from "viem";
+import { type Address, erc20Abi, getAddress, isAddress } from "viem";
 import { z } from "zod";
 import { absDelta, failure, iso, mandateView, result, usd, usdg, vaultView } from "./format.js";
 import {
   agentSchema,
+  createVaultShape,
   hedgePlanShape,
   hedgeSchema,
+  registerAgentShape,
   riskCheckShape,
   suggestionSchema,
   vaultSchema,
@@ -375,10 +384,93 @@ function nextStep(v: VaultState, now: bigint, marketOpen: boolean, feedOk: boole
   }
 }
 
+// ------------------------------------------------------------------ joining as a new agent
+
+interface Check {
+  check: string;
+  ok: boolean;
+  blocking: boolean;
+  detail: string;
+}
+
+const check = (name: string, ok: boolean, detail: string, blocking = true): Check => ({
+  check: name,
+  ok,
+  blocking,
+  detail,
+});
+
+/** The failed blocking checks as one string, or null when nothing blocks. */
+function blockers(checks: Check[]): string | null {
+  const failed = checks.filter((c) => c.blocking && !c.ok);
+  return failed.length === 0 ? null : failed.map((c) => `${c.check}: ${c.detail}`).join(" ");
+}
+
+/** The failed warnings (non-blocking checks), one sentence each. */
+const warnings = (checks: Check[]) =>
+  checks
+    .filter((c) => !c.blocking && !c.ok)
+    .map((c) => c.detail)
+    .join(" ");
+
+const oneLine = (s: string) => s.replace(/\s+/g, " ").trim();
+
+const bpsField = z.number().int().nonnegative().optional();
+const mandateInput = z
+  .object({
+    minDeltaBps: bpsField,
+    maxDeltaBps: bpsField,
+    minPremiumBps: bpsField,
+    minYieldBps: bpsField,
+    maxShareSoldBps: bpsField,
+    minTenor: bpsField.describe("Seconds"),
+    maxTenor: bpsField.describe("Seconds"),
+  })
+  .describe(
+    `Mandate fields to change from the default (${JSON.stringify(DEFAULT_MANDATE)}): bps of 1 for delta, premium, yield and size share; seconds for tenor. Floors: minPremiumBps >= ${MIN_PREMIUM_FLOOR_BPS}, maxTenor <= ${MAX_TENOR_CAP} (35 days), minDeltaBps <= maxDeltaBps <= 10000, 0 < maxShareSoldBps <= 10000, 0 < minTenor <= maxTenor.`,
+  );
+
+/** Default collateral cap of a new vault, before the factory's ceiling: 10,000 tokens or 1,000,000 USDG. */
+const DEFAULT_CAP = { call: "10000", put: "1000000" } as const;
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+/** A stock token by symbol (existing vaults' underlyings, then the deployment map) or address. */
+async function resolveUnderlying(
+  strike: StrikeClient,
+  chainId: number,
+  ref: string,
+): Promise<{ address: Address; symbol: string; decimals: number }> {
+  const read = async (address: Address) => {
+    const pc = strike.viem.publicClient;
+    const [symbol, decimals] = await Promise.all([
+      pc.readContract({ address, abi: erc20Abi, functionName: "symbol" }),
+      pc.readContract({ address, abi: erc20Abi, functionName: "decimals" }),
+    ]);
+    return { address, symbol, decimals };
+  };
+  if (isAddress(ref)) return read(getAddress(ref));
+  const wanted = ref.trim().toUpperCase();
+  const vaults = await strike.listVaults();
+  const v = vaults.find((x) => x.underlyingSymbol.toUpperCase() === wanted);
+  if (v) return { address: v.underlying, symbol: v.underlyingSymbol, decimals: v.underlyingDecimals };
+  let stocks: Record<string, { token: Address }> = {};
+  try {
+    stocks = getDeployment(chainId).stocks;
+  } catch {
+    // no deployment map entry: only vault underlyings are known
+  }
+  const hit = Object.entries(stocks).find(([sym]) => sym.toUpperCase() === wanted);
+  if (hit) return read(getAddress(hit[1].token));
+  const known = [...new Set([...vaults.map((x) => x.underlyingSymbol), ...Object.keys(stocks)])];
+  throw new StrikeError(
+    `unknown stock token "${ref}"; known on chain ${chainId}: ${known.join(", ") || "none"} (or pass its 0x address)`,
+  );
+}
+
 /**
  * Build the Strike MCP server: tools to list and inspect vaults, quote, plan hedges with, buy and redeem options,
- * dry-run and send an agent's proposal, settle epochs and read agent track records, plus the STRIKE_SKILL.md
- * resource.
+ * dry-run and send an agent's proposal, settle epochs, read agent track records, and join as a new agent
+ * (register_agent, create_vault), plus the STRIKE_SKILL.md resource.
  */
 export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
   const { chainId, client } = options;
@@ -1311,6 +1403,362 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           minBond: usdg(s.params.minBond),
           slashAmount: usdg(s.params.slashAmount),
           reputationRegistry: s.params.reputationRegistry,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "register_agent",
+    {
+      title: "Join Strike as an agent",
+      description:
+        "Register this server's wallet as a Strike agent (AgentRegistry.register: the wallet is owner and signer; one agent per signer) and optionally bond USDG (approve + postBond). Checks first and explains the constraints: the signer must be free, a linked ERC-8004 identity must belong to this wallet, the wallet must hold the bond, and an agent bonded below minBond cannot propose. Each rejected proposal slashes slashAmount of the bond; maxStrikes rejections suspend the agent. dryRun: true only checks. Already registered: tops up the bond when one is given. Next: create_vault (your own vault), or ask a vault's curator to assign your agent id.",
+      inputSchema: {
+        payout: addressInput
+          .optional()
+          .describe("Receives the agent's share of performance fees (default: this wallet)"),
+        erc8004Id: z
+          .union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)])
+          .optional()
+          .describe("ERC-8004 identity to link (this wallet must own it); default none"),
+        bond: z
+          .union([decimalInput, z.literal("min")])
+          .optional()
+          .describe('USDG to bond now, e.g. "50", or "min" for the minimum bond; default: no bond'),
+        dryRun: z.boolean().optional().describe("Only check and explain; send nothing"),
+      },
+      outputSchema: registerAgentShape,
+      annotations: WRITE,
+    },
+    async ({ payout, erc8004Id, bond, dryRun }) =>
+      run(async () => {
+        const strike = client();
+        const me = requireWallet(strike);
+        const payoutAddress = payout === undefined ? me : getAddress(payout);
+        const identity = BigInt(erc8004Id ?? 0);
+        const [params, existingId, balance, usdgDecimals] = await Promise.all([
+          strike.agentRegistryParams(),
+          strike.agentOfSigner(me),
+          strike.tokenBalance(strike.addresses.usdg, me),
+          strike.usdgDecimals(),
+        ]);
+        const bondAmount =
+          bond === undefined ? 0n : bond === "min" ? params.minBond : parseAmount(bond, usdgDecimals);
+        const existing = existingId === 0n ? null : await strike.getAgent(existingId);
+        const minBond = usdg(params.minBond);
+        const checks: Check[] = [];
+
+        if (existing) {
+          checks.push(
+            check(
+              "Signer free",
+              bondAmount > 0n,
+              bondAmount > 0n
+                ? `${me} is already agent #${existingId}; this call only adds to its bond.`
+                : `${me} is already agent #${existingId} (one agent per signer). Pass a bond to top it up.`,
+            ),
+          );
+        } else {
+          checks.push(check("Signer free", true, `${me} has no agent yet: it becomes signer and owner.`));
+          if (identity === 0n) {
+            checks.push(
+              check("ERC-8004 identity", true, "None linked (optional; setIdentity links one later)."),
+            );
+          } else if (params.identityRegistry === ZERO_ADDRESS) {
+            checks.push(
+              check(
+                "ERC-8004 identity",
+                true,
+                `No identity registry on this chain: #${identity} is stored unchecked.`,
+              ),
+            );
+          } else {
+            const holder = await strike.identityOwner(identity);
+            const owned = holder !== null && getAddress(holder) === getAddress(me);
+            checks.push(
+              check(
+                "ERC-8004 identity",
+                owned,
+                owned
+                  ? `This wallet owns identity #${identity}.`
+                  : holder === null
+                    ? `Identity #${identity} does not exist on ${params.identityRegistry}.`
+                    : `Identity #${identity} belongs to ${holder}, not this wallet (register would revert NotIdentityOwner).`,
+              ),
+            );
+          }
+        }
+        if (bondAmount > 0n) {
+          checks.push(
+            check(
+              "USDG for the bond",
+              balance >= bondAmount,
+              balance >= bondAmount
+                ? `The wallet holds ${usdg(balance)} USDG, enough for the ${usdg(bondAmount)} USDG bond.`
+                : `The bond is ${usdg(bondAmount)} USDG but the wallet holds ${usdg(balance)} USDG.`,
+            ),
+          );
+        }
+        const bondAfter = (existing?.bond ?? 0n) + bondAmount;
+        checks.push(
+          check(
+            "Bond at least minBond",
+            bondAfter >= params.minBond,
+            bondAfter >= params.minBond
+              ? `A bond of ${usdg(bondAfter)} USDG meets the ${minBond} USDG minimum.`
+              : `An agent with bond below minBond (${minBond} USDG) cannot propose; the bond would be ${usdg(bondAfter)} USDG.`,
+            false,
+          ),
+        );
+
+        const rules = `Rules: at least ${minBond} USDG bonded to propose; ${usdg(params.slashAmount)} USDG slashed per rejected proposal (paid to that vault's depositors); suspended at ${params.maxStrikes} strikes.`;
+        const base = {
+          alreadyRegistered: existing !== null,
+          signer: me,
+          owner: existing?.owner ?? me,
+          payout: existing?.payout ?? payoutAddress,
+          erc8004Id: (existing?.erc8004Id ?? identity).toString(),
+          minBond,
+          slashAmount: usdg(params.slashAmount),
+          maxStrikes: params.maxStrikes,
+          usdgBalance: usdg(balance),
+          checks,
+        };
+        const blocked = blockers(checks);
+        if (dryRun === true || blocked) {
+          const plan = existing
+            ? `would add ${usdg(bondAmount)} USDG to agent #${existingId}'s bond.`
+            : `would register ${me} as an agent${bondAmount > 0n ? ` and bond ${usdg(bondAmount)} USDG` : ""}.`;
+          return result({
+            ...base,
+            dryRun: dryRun === true,
+            submitted: false,
+            agentId: existing ? existingId.toString() : null,
+            bondPosted: "0",
+            bond: usdg(existing?.bond ?? 0n),
+            active: existing?.active ?? false,
+            registerTxHash: null,
+            bondTxHash: null,
+            explanation: oneLine(
+              `${blocked ? `Not sent. ${blocked}` : `Dry run: ${plan}`} ${warnings(checks)} ${rules}`,
+            ),
+            nextStep: blocked
+              ? "Fix the failed checks and call register_agent again."
+              : "Call register_agent again without dryRun to send it.",
+          });
+        }
+
+        let agentId = existingId;
+        let registerTxHash: string | null = null;
+        if (!existing) {
+          const reg = await strike.registerAgent({ signer: me, payout: payoutAddress, erc8004Id: identity });
+          agentId = reg.agentId;
+          registerTxHash = reg.hash;
+        }
+        const bondTxHash = bondAmount > 0n ? (await strike.postBond(agentId, bondAmount)).hash : null;
+        const after = await strike.getAgent(agentId);
+        const did = existing
+          ? `Added ${usdg(bondAmount)} USDG to agent #${agentId}'s bond.`
+          : `Registered agent #${agentId} (signer and owner ${me}, payout ${payoutAddress})${bondAmount > 0n ? ` and bonded ${usdg(bondAmount)} USDG` : ""}.`;
+        return result({
+          ...base,
+          dryRun: false,
+          submitted: true,
+          agentId: agentId.toString(),
+          bondPosted: usdg(bondAmount),
+          bond: usdg(after.bond),
+          active: after.active,
+          registerTxHash,
+          bondTxHash,
+          explanation: oneLine(
+            `${did} ${after.active ? "It may propose." : `It cannot propose until its bond reaches ${minBond} USDG.`} ${rules}`,
+          ),
+          nextStep: after.active
+            ? `Create your own vault with create_vault (agent ${agentId}), or ask a vault's curator to call EpochManager.setVaultAgent(vault, ${agentId}).`
+            : `Bond at least ${minBond} USDG (register_agent with bond "min"), then create_vault.`,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "create_vault",
+    {
+      title: "Create a vault run by your agent",
+      description: `Create a Strike vault (VaultFactory.createVault) on an allow-listed stock token, with a mandate and an agent (default: this wallet's). This wallet becomes the curator; the agent's signer opens epochs and proposes. Checks first and explains: the token must be allowed, the agent must exist (and should be bonded to minBond to propose), the deposit cap must be under the factory's ceiling, and the mandate must pass the protocol floors (minPremiumBps >= ${MIN_PREMIUM_FLOOR_BPS}, maxTenor <= 35 days). The mandate is fixed for the vault's lifetime. dryRun: true only checks.`,
+      inputSchema: {
+        underlying: z.string().min(1).describe("Stock token symbol (e.g. TSLA) or 0x address"),
+        kind: z
+          .enum(["call", "put"])
+          .describe(
+            "call: covered calls (collateral: the stock token); put: cash-secured puts (collateral: USDG)",
+          ),
+        agentId: z
+          .union([z.number().int().positive(), z.string().regex(/^\d+$/)])
+          .optional()
+          .describe("Agent that runs the vault (default: this wallet's agent)"),
+        mandate: mandateInput.optional(),
+        depositCap: decimalInput
+          .optional()
+          .describe(
+            `Most collateral the vault takes, in collateral units (default ${DEFAULT_CAP.call} tokens for calls, ${DEFAULT_CAP.put} USDG for puts, capped by the factory)`,
+          ),
+        name: z.string().min(1).max(64).optional().describe("Share token name (default derived)"),
+        symbol: z
+          .string()
+          .min(1)
+          .max(24)
+          .optional()
+          .describe("Share token symbol (default e.g. sTSLA-CSP-A2)"),
+        dryRun: z.boolean().optional().describe("Only check and explain; send nothing"),
+      },
+      outputSchema: createVaultShape,
+      annotations: WRITE,
+    },
+    async (input) =>
+      run(async () => {
+        const strike = client();
+        const me = requireWallet(strike);
+        const isCall = input.kind === "call";
+        const token = await resolveUnderlying(strike, chainId, input.underlying);
+        const [allowed, maxCap, params, vaults, ownAgent, usdgDecimals] = await Promise.all([
+          strike.isUnderlyingAllowed(token.address),
+          strike.maxDepositCap(),
+          strike.agentRegistryParams(),
+          strike.listVaults(),
+          strike.agentOfSigner(me),
+          strike.usdgDecimals(),
+        ]);
+        const agentId = input.agentId !== undefined ? BigInt(input.agentId) : ownAgent;
+        const agent = agentId === 0n ? null : await strike.getAgent(agentId);
+        const known = agent !== null && agent.status !== "None";
+        const mandate: Mandate = { ...DEFAULT_MANDATE };
+        for (const [k, v] of Object.entries(input.mandate ?? {})) {
+          if (v !== undefined) mandate[k as keyof Mandate] = v;
+        }
+        const problems = mandateProblems(mandate);
+        const dec = isCall ? token.decimals : usdgDecimals;
+        const collateral = isCall ? token.symbol : "USDG";
+        const wantedCap = parseAmount(input.depositCap ?? DEFAULT_CAP[input.kind], dec);
+        const depositCap = input.depositCap === undefined && wantedCap > maxCap ? maxCap : wantedCap;
+        const kindName = isCall ? "Covered Call" : "Cash-Secured Put";
+        const tag = isCall ? "CC" : "CSP";
+        const taken = new Set(vaults.map((v) => v.symbol.toLowerCase()));
+        let symbol = input.symbol ?? `s${token.symbol}-${tag}-A${agentId}`;
+        for (let n = 2; input.symbol === undefined && taken.has(symbol.toLowerCase()); n++) {
+          symbol = `s${token.symbol}-${tag}-A${agentId}-${n}`;
+        }
+        const name = input.name ?? `Strike ${token.symbol} ${kindName} (agent ${agentId})`;
+        const minBond = usdg(params.minBond);
+        const fmtCap = (x: bigint) => `${formatAmount(x, dec)} ${collateral}`;
+
+        const checks: Check[] = [
+          check(
+            "Stock token allowed",
+            allowed,
+            allowed
+              ? `${token.symbol} (${token.address}) is allow-listed for vaults.`
+              : `${token.symbol} (${token.address}) is not allow-listed on this deployment (createVault would revert UnderlyingNotAllowed).`,
+          ),
+          check(
+            "Agent registered",
+            known,
+            agentId === 0n
+              ? "This wallet has no agent: run register_agent first, or pass agentId."
+              : known
+                ? `Agent #${agentId} signs with ${agent.signer}: that key opens this vault's epochs and proposes.`
+                : `Agent #${agentId} is not registered.`,
+          ),
+          check(
+            "Agent bonded",
+            agent?.active ?? false,
+            agent?.active
+              ? `Agent #${agentId} is bonded (${usdg(agent.bond)} USDG) and may propose.`
+              : `Agent #${agentId} cannot propose yet: an agent with bond below minBond (${minBond} USDG) cannot propose. The vault can still be created.`,
+            false,
+          ),
+          check(
+            "Mandate inside the floors",
+            problems.length === 0,
+            problems.length === 0
+              ? `The mandate passes MandateGuard.validate (premium at least ${MIN_PREMIUM_FLOOR_BPS / 100}% of fair value, tenor at most 35 days).`
+              : `${problems.join("; ")}.`,
+          ),
+          check(
+            "Deposit cap",
+            depositCap > 0n && depositCap <= maxCap,
+            depositCap === 0n
+              ? "The deposit cap must be positive."
+              : depositCap <= maxCap
+                ? `${fmtCap(depositCap)}, within the factory's ${fmtCap(maxCap)} ceiling.`
+                : `${fmtCap(depositCap)} is above the factory's ${fmtCap(maxCap)} ceiling (DepositCapTooHigh).`,
+          ),
+        ];
+        if (known && getAddress(agent.signer) !== getAddress(me)) {
+          checks.push(
+            check(
+              "Agent signer",
+              false,
+              `Agent #${agentId}'s signer is ${agent.signer}, not this wallet: only that key (or a keeper) can run the vault.`,
+              false,
+            ),
+          );
+        }
+
+        const view = mandateView(mandate);
+        const base = {
+          curator: me,
+          agentId: agentId.toString(),
+          underlying: { address: token.address, symbol: token.symbol },
+          kind: isCall ? ("covered-call" as const) : ("cash-secured-put" as const),
+          collateral,
+          name,
+          symbol,
+          depositCap: formatAmount(depositCap, dec),
+          maxDepositCap: formatAmount(maxCap, dec),
+          mandate: view,
+          floors: {
+            minPremiumBps: MIN_PREMIUM_FLOOR_BPS,
+            maxPremiumBps: MAX_PREMIUM_BPS,
+            maxTenorDays: MAX_TENOR_CAP / 86_400,
+          },
+          checks,
+        };
+        const what = `${symbol}, a ${token.symbol} ${kindName.toLowerCase()} vault run by agent #${agentId} (mandate: ${view.summary})`;
+        const blocked = blockers(checks);
+        if (input.dryRun === true || blocked) {
+          return result({
+            ...base,
+            dryRun: input.dryRun === true,
+            submitted: false,
+            vault: null,
+            txHash: null,
+            explanation: oneLine(
+              `${blocked ? `Not sent. ${blocked}` : `Dry run: would create ${what}.`} ${warnings(checks)} The mandate is fixed for the vault's lifetime.`,
+            ),
+            nextStep: blocked
+              ? "Fix the failed checks and call create_vault again."
+              : "Call create_vault again without dryRun to send it.",
+          });
+        }
+        const res = await strike.createVault({
+          underlying: token.address,
+          isCall,
+          agentId,
+          depositCap,
+          name,
+          symbol,
+          mandate,
+        });
+        return result({
+          ...base,
+          dryRun: false,
+          submitted: true,
+          vault: res.vault,
+          txHash: res.hash,
+          explanation: oneLine(
+            `Created ${what} at ${res.vault}. This wallet is its curator (it can replace the agent with EpochManager.setVaultAgent). ${warnings(checks)}`,
+          ),
+          nextStep: `Deposit ${collateral} into it, then during NYSE hours run risk_check and propose_epoch with vault "${symbol}" from agent #${agentId}'s signer key.`,
         });
       }),
   );

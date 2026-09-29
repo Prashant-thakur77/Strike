@@ -10,10 +10,12 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
+  DEFAULT_MANDATE,
   type StrikeClient,
   StrikeError,
   WAD,
   createStrikeClient,
+  describeError,
   mirrorFeedAbi,
   strikeLocalChain,
   testStockTokenAbi,
@@ -253,5 +255,70 @@ describe.skipIf(unavailable !== null)("SDK against a local devnet", () => {
     const premium = await agent.pendingPremium(putVault, agentAccount.address);
     expect(premium).toBeGreaterThan(9_999_990n);
     expect(premium).toBeLessThanOrEqual(10_000_000n);
+  });
+
+  it("lets a third party join: register, bond, and create a vault its agent runs", async () => {
+    const account = privateKeyToAccount(ANVIL_KEYS[2]);
+    const chain = chainFor(devnet.rpcUrl);
+    const wallet = createWalletClient({ account, chain, transport: http(devnet.rpcUrl) });
+    const newcomer = createStrikeClient({
+      publicClient: pub,
+      walletClient: wallet,
+      chainId: 31337,
+      addresses: devnet.deployment,
+    });
+    await pub.waitForTransactionReceipt({
+      hash: await wallet.writeContract({
+        address: devnet.deployment.usdg,
+        abi: usdgFaucetAbi,
+        functionName: "faucet",
+        args: [1_000_000_000n],
+      }),
+    });
+
+    const params = await newcomer.agentRegistryParams();
+    expect(params).toMatchObject({ minBond: 50_000_000n, slashAmount: 10_000_000n, maxStrikes: 3 });
+    expect(await newcomer.agentOfSigner(account.address)).toBe(0n);
+
+    const reg = await newcomer.registerAgent({ signer: account.address, payout: account.address });
+    expect(reg).toMatchObject({
+      agentId: 2n,
+      owner: account.address,
+      signer: account.address,
+      erc8004Id: 0n,
+    });
+    expect(await newcomer.agentOfSigner(account.address)).toBe(2n);
+    // Registered but unbonded: it may not propose yet.
+    expect(await newcomer.getAgent(2n)).toMatchObject({ status: "Active", bond: 0n, active: false });
+
+    await newcomer.postBond(2n, params.minBond);
+    expect(await newcomer.getAgent(2n)).toMatchObject({ bond: params.minBond, active: true });
+
+    // One agent per signer: the registry refuses a second registration with a decoded error.
+    const again = await newcomer
+      .registerAgent({ signer: account.address, payout: account.address })
+      .catch((e: unknown) => e);
+    expect(describeError(again)).toMatch(/^SignerTaken/);
+
+    const created = await newcomer.createVault({
+      underlying: tsla,
+      isCall: false,
+      agentId: 2n,
+      depositCap: 100_000_000_000n,
+      name: "Strike TSLA Cash-Secured Put (agent 2)",
+      symbol: "sTSLA-CSP-A2",
+      mandate: DEFAULT_MANDATE,
+    });
+    expect(created).toMatchObject({ curator: account.address, agentId: 2n });
+    const v = await newcomer.getVault(created.vault);
+    expect(v).toMatchObject({
+      kind: "cash-secured-put",
+      symbol: "sTSLA-CSP-A2",
+      curator: account.address,
+      agentId: 2n,
+      mandate: DEFAULT_MANDATE,
+      epoch: { state: "Idle" },
+    });
+    expect(await newcomer.vaultAddresses()).toContain(created.vault);
   });
 });

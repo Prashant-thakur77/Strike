@@ -244,4 +244,65 @@ describe.skipIf(unavailable !== null)("Strike MCP server on a local devnet", () 
     const rest = await buyerCall("redeem_options", { seriesId: puts.seriesId });
     expect(rest).toMatchObject({ amount: "6", remaining: "0" });
   });
+
+  it("a new agent joins through its own MCP server: register_agent, then create_vault", async () => {
+    const chain = { ...strikeLocalChain, rpcUrls: { default: { http: [devnet.rpcUrl] } } };
+    const transport = http(devnet.rpcUrl);
+    const newcomerWallet = createWalletClient({
+      account: privateKeyToAccount(ANVIL_KEYS[2]),
+      chain,
+      transport,
+    });
+    const newcomer = createStrikeClient({
+      publicClient: strike.viem.publicClient,
+      walletClient: newcomerWallet,
+      chainId: 31337,
+      addresses: devnet.deployment,
+    });
+    const joinMcp = await connect(newcomer);
+    const join = (name: string, args: Record<string, unknown> = {}) => callOn(joinMcp, name, args);
+    try {
+      // No USDG yet: the dry run says the bond cannot be paid and sends nothing.
+      const broke = await join("register_agent", { bond: "min" });
+      expect(broke).toMatchObject({ submitted: false, agentId: null, minBond: "50", slashAmount: "10" });
+      expect(broke.explanation).toMatch(/wallet holds 0 USDG/);
+
+      await strike.viem.publicClient.waitForTransactionReceipt({
+        hash: await newcomerWallet.writeContract({
+          address: devnet.deployment.usdg,
+          abi: parseAbi(["function faucet(uint256 amount)"]),
+          functionName: "faucet",
+          args: [100_000_000n],
+        }),
+      });
+      const dry = await join("register_agent", { bond: "min", dryRun: true });
+      expect(dry).toMatchObject({ dryRun: true, submitted: false });
+
+      const reg = await join("register_agent", { bond: "min" });
+      expect(reg).toMatchObject({
+        submitted: true,
+        agentId: "2",
+        signer: newcomerWallet.account.address,
+        bond: "50",
+        active: true,
+      });
+      expect(await newcomer.agentOfSigner(newcomerWallet.account.address)).toBe(2n);
+
+      const vault = await join("create_vault", { underlying: "TSLA", kind: "put", depositCap: "100000" });
+      expect(vault).toMatchObject({
+        submitted: true,
+        agentId: "2",
+        symbol: "sTSLA-CSP-A2",
+        depositCap: "100000",
+        curator: newcomerWallet.account.address,
+      });
+      const listed = (await join("list_vaults")) as { vaults: { symbol: string; agentId: string }[] };
+      expect(listed.vaults.find((v) => v.symbol === "sTSLA-CSP-A2")).toMatchObject({ agentId: "2" });
+      // The new agent's own vault is the one it can run: vault_state points it at risk_check / propose_epoch.
+      const state = await join("vault_state", { vault: "sTSLA-CSP-A2" });
+      expect(state).toMatchObject({ agent: { agentId: "2", active: true } });
+    } finally {
+      await joinMcp.close();
+    }
+  });
 });

@@ -36,6 +36,14 @@ export const ERROR_HINTS: Record<string, string> = {
   PricerInputOutOfRange:
     "The pricer rejected an input (spot, strike, tenor, volatility or delta out of range).",
   EnforcedPause: "The protocol is paused by the guardian.",
+  SignerTaken: "That signer key already belongs to an agent (one agent per signer); use a fresh key.",
+  NotIdentityOwner: "The sending wallet does not own that ERC-8004 identity on the identity registry.",
+  UnknownAgent: "No agent is registered under that id.",
+  NotOwner: "Only the agent's owner (the wallet that registered it) can do that.",
+  InvalidMandate:
+    "The mandate breaks a protocol rule: delta band inside 0-1, premium 90%-300% of fair value, size share 0.01%-100%, tenor 1 second to 35 days.",
+  UnderlyingNotAllowed: "That stock token is not allow-listed for vaults on this deployment.",
+  DepositCapTooHigh: "The deposit cap is above the factory's maxDepositCap.",
 };
 
 function formatArg(value: unknown): string {

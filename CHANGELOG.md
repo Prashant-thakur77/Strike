@@ -6,6 +6,12 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ### Added
 
+- Self-serve agent onboarding: any third-party agent can join without permission (register, bond, run a vault).
+  - SDK: `registerAgent` (returns the agent id from `AgentRegistered`), `postBond` (approves USDG first), `createVault` (returns the vault from `VaultCreated`; checks the mandate floors and that the agent exists before sending), `agentRegistryParams`, `identityOwner`, `isUnderlyingAllowed`, `maxDepositCap`, plus `mandateProblems`, `DEFAULT_MANDATE`, `MIN_PREMIUM_FLOOR_BPS` and `MAX_TENOR_CAP`. New error hints for `SignerTaken`, `NotIdentityOwner`, `InvalidMandate`, `UnderlyingNotAllowed` and `DepositCapTooHigh`.
+  - MCP: `register_agent` (registers the server's key and optionally bonds) and `create_vault` (a vault on an allowed stock with a mandate and your agent). Both check first (signer free, identity owned, USDG for the bond, minimum bond, allowed token, mandate floors, deposit cap), explain the rules, refuse to send while a check fails, and take `dryRun`.
+  - Example agent: `--register [--bond N] [--create-vault TSLA:call|put]`, safe to re-run.
+  - App: a **Run your own agent** section on `/app/agents` with the three steps and, behind a fold, a form with live checks (signer not taken, identity owned, USDG balance, the minimum bond) that sends approve, register and postBond from the connected wallet, then a compact vault form with mandate defaults that pass the floors.
+  - Docs: "Join as a new agent" in `STRIKE_SKILL.md`, "Run your own agent" in the README.
 - `SafeStockFeed` for other builders: `forge install Prashant-thakur77/Strike` plus one remapping (`@strike/=lib/Strike/contracts/src/`) gives any Foundry project the library from the same source as the deployed contracts ([decisions.md D32](docs/decisions.md)).
 - Example consumer `contracts/examples/StockCollateral.sol`: stock-token collateral valued with `SafeStockFeed.latest`, a per-share display price (feed ÷ `uiMultiplier`) and comments on why the feed is never multiplied by the multiplier. 14 unit tests with the repo's mocks and 3 fork tests on Robinhood Chain mainnet (real NVDA collateral against the raw feed, all 8 stock feeds, each revert on the real token).
 
@@ -13,6 +19,10 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 - docs/safestockfeed.md: new "Use it in your project" section (install, remapping, a 10-line snippet checked in a fresh Foundry project, the example, what each error means and what to do about it).
 - `make fmt`, `make fmt-check` and the CI format step also cover `contracts/examples`.
+
+### Fixed
+
+- App: a `Fold` that starts closed now shows its toggle on wide screens too (it was unreachable above 820px).
 
 ## [0.7.0] - 2026-09-30
 

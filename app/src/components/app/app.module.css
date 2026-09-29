@@ -2426,10 +2426,13 @@ a.idChip:hover {
   gap: var(--fold-gap, 24px);
 }
 
-/* Wide screens: the fold is simply open; the toggle only exists on phones. */
+/* Wide screens: the fold is simply open; the toggle only exists on phones (unless the fold starts closed). */
 @media (min-width: 821px) {
   .foldSummary {
     display: none;
+  }
+  .fold[data-toggle="always"] > .foldSummary {
+    display: inline-flex;
   }
 }
 

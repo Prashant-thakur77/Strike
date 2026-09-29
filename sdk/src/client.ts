@@ -21,9 +21,11 @@ import {
   optionTokenAbi,
   stockOracleAbi,
   strikeVaultAbi,
+  vaultFactoryAbi,
 } from "./abi/index.js";
 import { getDeployment } from "./deployments.js";
 import { StrikeError } from "./errors.js";
+import { mandateProblems } from "./mandate.js";
 import { agentStatusName, epochStateName, feedStatusName, mandateReasonName } from "./names.js";
 import { roundStrikeToCent } from "./pricing.js";
 import { type CorporateAction, type FeedRound, findSettlementHints } from "./settlement.js";
@@ -34,6 +36,8 @@ import type {
   BuyQuote,
   BuyResult,
   Claimables,
+  CreateVaultParams,
+  CreateVaultResult,
   DeltaProposalParams,
   DeltaProposalPreview,
   Mandate,
@@ -43,6 +47,8 @@ import type {
   ProposeResult,
   QueueableTxResult,
   RedeemOptionsResult,
+  RegisterAgentParams,
+  RegisterAgentResult,
   SeriesState,
   SettleResult,
   TxResult,
@@ -60,6 +66,19 @@ const erc8056EffectiveAtAbi = [
     outputs: [{ name: "", type: "uint256" }],
   },
 ] as const;
+
+/** ERC-721 `ownerOf`, for ERC-8004 identities. */
+const ownerOfAbi = [
+  {
+    type: "function",
+    name: "ownerOf",
+    stateMutability: "view",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ name: "", type: "address" }],
+  },
+] as const;
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
 /** Contract addresses the client talks to. */
 export interface StrikeAddresses {
@@ -707,6 +726,56 @@ export function createStrikeClient(config: StrikeClientConfig) {
     /** Bond, slash and strike parameters of the agent registry, and its ERC-8004 registries. */
     registryParams,
 
+    /**
+     * What joining costs: `minBond` (USDG an agent must keep bonded to propose), `slashAmount` (lost per rejected
+     * proposal), `maxStrikes` (rejections that suspend it), plus the unbond delay and the ERC-8004 registries.
+     * The same read as `registryParams`.
+     */
+    agentRegistryParams: registryParams,
+
+    /**
+     * Holder of an ERC-8004 identity on the registry the AgentRegistry checks (`ownerOf`). Null when the registry is
+     * disabled (zero address: any id links unchecked) or the identity does not exist.
+     */
+    async identityOwner(erc8004Id: bigint): Promise<Address | null> {
+      const registry = await publicClient.readContract({
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "identityRegistry",
+      });
+      if (registry === ZERO_ADDRESS) return null;
+      try {
+        return await publicClient.readContract({
+          address: registry,
+          abi: ownerOfAbi,
+          functionName: "ownerOf",
+          args: [erc8004Id],
+        });
+      } catch {
+        return null;
+      }
+    },
+
+    /** Whether vaults may be created on a stock token (`EpochManager.underlyings(token).allowed`). */
+    async isUnderlyingAllowed(token: Address): Promise<boolean> {
+      const cfg = await publicClient.readContract({
+        address: em,
+        abi: epochManagerAbi,
+        functionName: "underlyings",
+        args: [getAddress(token)],
+      });
+      return cfg[1];
+    },
+
+    /** Largest deposit cap a new vault may set (`VaultFactory.maxDepositCap`, collateral base units). */
+    async maxDepositCap(): Promise<bigint> {
+      return publicClient.readContract({
+        address: addresses.vaultFactory,
+        abi: vaultFactoryAbi,
+        functionName: "maxDepositCap",
+      });
+    },
+
     /** An agent's registry entry, track record, remaining room before suspension, and claimable fees. */
     async agentStats(agentId: bigint): Promise<AgentStats> {
       const [agent, params] = await Promise.all([getAgent(agentId), registryParams()]);
@@ -1111,6 +1180,81 @@ export function createStrikeClient(config: StrikeClientConfig) {
         functionName: "abortEpoch",
         args: [getAddress(vault)],
       });
+    },
+
+    // ------------------------------------------------------------------ joining as an agent
+
+    /**
+     * Register an agent (`AgentRegistry.register`); the wallet becomes its owner. One agent per signer: a taken
+     * signer reverts `SignerTaken`. With an `erc8004Id`, the wallet must own that identity (`NotIdentityOwner`).
+     * The agent starts unbonded: it cannot propose until `postBond` brings its bond to `minBond`.
+     */
+    async registerAgent(p: RegisterAgentParams): Promise<RegisterAgentResult> {
+      const tx = await execute({
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "register",
+        args: [getAddress(p.signer), getAddress(p.payout), p.erc8004Id ?? 0n],
+      });
+      const ev = parseEventLogs({
+        abi: agentRegistryAbi,
+        logs: tx.receipt.logs,
+        eventName: "AgentRegistered",
+      }).find((l) => getAddress(l.address) === addresses.agentRegistry);
+      if (!ev) throw new StrikeError(`transaction ${tx.hash} emitted no AgentRegistered event`);
+      const { agentId, owner, signer, erc8004Id } = ev.args;
+      return { ...tx, agentId, owner, signer, erc8004Id };
+    },
+
+    /**
+     * Add `amount` USDG (base units) to an agent's bond (`AgentRegistry.postBond`; anyone may top up any agent).
+     * Approves USDG to the registry if needed. The bond is slashable: `slashAmount` per rejected proposal.
+     */
+    async postBond(agentId: bigint, amount: bigint): Promise<TxResult> {
+      if (amount <= 0n) throw new StrikeError("bond amount must be positive");
+      await ensureAllowance(addresses.usdg, addresses.agentRegistry, amount);
+      return execute({
+        address: addresses.agentRegistry,
+        abi: agentRegistryAbi,
+        functionName: "postBond",
+        args: [agentId, amount],
+      });
+    },
+
+    /**
+     * Create a vault (`VaultFactory.createVault`); the wallet becomes its curator and `agentId`'s signer runs its
+     * epochs. The mandate is checked against the protocol's floors first (`mandateProblems`: premium at least 90%
+     * of fair value, tenor at most 35 days, ...), and the agent must exist, so a bad vault is never deployed.
+     */
+    async createVault(p: CreateVaultParams): Promise<CreateVaultResult> {
+      const problems = mandateProblems(p.mandate);
+      if (problems.length > 0) throw new StrikeError(`invalid mandate: ${problems.join("; ")}`);
+      if ((await getAgent(p.agentId)).status === "None") {
+        throw new StrikeError(`agent #${p.agentId} is not registered`);
+      }
+      const tx = await execute({
+        address: addresses.vaultFactory,
+        abi: vaultFactoryAbi,
+        functionName: "createVault",
+        args: [
+          {
+            underlying: getAddress(p.underlying),
+            isCall: p.isCall,
+            agentId: p.agentId,
+            depositCap: p.depositCap,
+            name: p.name,
+            symbol: p.symbol,
+            mandate: p.mandate,
+          },
+        ],
+      });
+      const ev = parseEventLogs({
+        abi: vaultFactoryAbi,
+        logs: tx.receipt.logs,
+        eventName: "VaultCreated",
+      }).find((l) => getAddress(l.address) === addresses.vaultFactory);
+      if (!ev) throw new StrikeError(`transaction ${tx.hash} emitted no VaultCreated event`);
+      return { ...tx, vault: ev.args.vault, curator: ev.args.curator, agentId: ev.args.agentId };
     },
   };
 }

@@ -11,6 +11,7 @@ import { fmtAmount, fmtBps, fmtNy, fmtWadUsd, shortAddr } from "@/lib/format";
 import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
 import { DecisionLog } from "./DecisionLog";
+import { RegisterAgent } from "./RegisterAgent";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
 import { Rail } from "../Rail";
@@ -36,7 +37,11 @@ export function AgentsPage() {
           <p className="lead">
             Agents pick each week&apos;s strike, but only inside the vault&apos;s mandate. Each one posts a
             USDG bond; every proposal the contract rejects costs part of it, paid to that vault&apos;s
-            depositors.
+            depositors. Any wallet can{" "}
+            <a href="#run-your-own-agent" className="text-link">
+              run its own agent
+            </a>
+            .
           </p>
         }
       />
@@ -96,6 +101,16 @@ export function AgentsPage() {
             note="Every ProposalRejected event: what the agent asked for and the rule it broke."
           >
             <RejectionFeed />
+          </Rail>
+        ) : null}
+        {r ? (
+          <Rail
+            index="04"
+            id="run-your-own-agent"
+            label="Run your own agent"
+            note="Any wallet can register an AI agent, bond it and run a vault with it. No permission needed: the contracts enforce the rules."
+          >
+            <RegisterAgent registry={r} />
           </Rail>
         ) : null}
       </div>

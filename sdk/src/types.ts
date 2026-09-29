@@ -266,3 +266,44 @@ export interface RedeemOptionsResult extends TxResult {
   /** Stock tokens (calls) or USDG (puts, cancelled series) paid. */
   paid: bigint;
 }
+
+/** Input of `registerAgent`. The sending wallet becomes the agent's owner. */
+export interface RegisterAgentParams {
+  /** The key that will propose for the agent's vaults. One agent per signer. */
+  signer: Address;
+  /** Where the agent's share of performance fees goes. */
+  payout: Address;
+  /** ERC-8004 identity to link (0 or omitted: none). The sending wallet must own it on the identity registry. */
+  erc8004Id?: bigint;
+}
+
+/** Outcome of `registerAgent`, from the `AgentRegistered` event. */
+export interface RegisterAgentResult extends TxResult {
+  agentId: bigint;
+  owner: Address;
+  signer: Address;
+  erc8004Id: bigint;
+}
+
+/** Input of `createVault` (`VaultFactory.CreateParams`). The sending wallet becomes the vault's curator. */
+export interface CreateVaultParams {
+  /** An allow-listed stock token (`EpochManager.underlyings(token).allowed`). */
+  underlying: Address;
+  /** true: covered calls (collateral: the stock token); false: cash-secured puts (collateral: USDG). */
+  isCall: boolean;
+  /** The agent whose signer will open epochs and propose. */
+  agentId: bigint;
+  /** Most collateral the vault takes, in the collateral's base units (at most `VaultFactory.maxDepositCap`). */
+  depositCap: bigint;
+  name: string;
+  symbol: string;
+  /** Fixed for the vault's lifetime; see `mandateProblems` for the protocol's floors. */
+  mandate: Mandate;
+}
+
+/** Outcome of `createVault`, from the `VaultCreated` event. */
+export interface CreateVaultResult extends TxResult {
+  vault: Address;
+  curator: Address;
+  agentId: bigint;
+}

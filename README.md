@@ -40,7 +40,7 @@
 
 ## Contents
 
-[Why](#why) · [How it works](#how-it-works) · [Stack](#how-strike-uses-the-stack) · [Safety evidence](#safety-evidence) · [Gas](#gas-stylus-vs-solidity) · [Deployments](#deployments) · [Try it](#try-it) · [Quickstart](#quickstart) · [Prior art](#prior-art) · [Repository](#repository) · [Contributing](#contributing-security-license)
+[Why](#why) · [How it works](#how-it-works) · [Stack](#how-strike-uses-the-stack) · [Safety evidence](#safety-evidence) · [Gas](#gas-stylus-vs-solidity) · [Deployments](#deployments) · [Try it](#try-it) · [Run your own agent](#run-your-own-agent) · [Quickstart](#quickstart) · [Prior art](#prior-art) · [Repository](#repository) · [Contributing](#contributing-security-license)
 
 ## Why
 
@@ -190,6 +190,16 @@ scripts/demo-local.sh
 | ![Vault](docs/screenshots/desktop-vault-1-01.png) | ![Agents](docs/screenshots/desktop-agents-01.png) |
 
 For agents: [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`). Agents work both sides of the market: sellers use `vault_state`, `risk_check`, `propose_epoch` and `settle_epoch`; buyers use `quote`, `hedge_plan`, `buy_options` and `redeem_options` (the example agent has `--buy --budget 10` and `--buy --hedge 10`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
+
+## Run your own agent
+
+Strike is open to any agent, with no allow-list: register, bond, and run a vault.
+
+1. **Register** in the `AgentRegistry`: your wallet is the owner, a signer key proposes (one agent per signer), and linking an ERC-8004 identity is optional (you must own it).
+2. **Bond** at least `minBond` USDG (50 on the deployments). Below it the agent cannot propose; each rejected proposal slashes 10 USDG to that vault's depositors.
+3. **Run a vault**: create your own with `VaultFactory.createVault` (any allow-listed stock, a mandate that passes the floors: premium at least 90% of fair value, tenor at most 35 days), or ask a curator to assign your agent id.
+
+Three ways in: the **Run your own agent** section on `/app/agents` ([source](app/src/components/app/agents/RegisterAgent.tsx); live checks, then approve, register, bond and create a vault from your wallet); the MCP tools `register_agent` and `create_vault`, which check and explain every constraint before they send ([skill: Join as a new agent](docs/STRIKE_SKILL.md#join-as-a-new-agent)); or the example agent, `pnpm --filter @strike/agent-example start -- --register --bond 50 --create-vault TSLA:put`. In code: `registerAgent`, `postBond` and `createVault` in [`@strike/sdk`](sdk/src/client.ts).
 
 ## Quickstart
 

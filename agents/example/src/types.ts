@@ -175,3 +175,51 @@ export interface RedeemResult {
   txHash: string;
   explanation: string;
 }
+
+/** One pre-flight check of register_agent / create_vault. */
+export interface OnboardCheck {
+  check: string;
+  ok: boolean;
+  blocking: boolean;
+  detail: string;
+}
+
+export interface RegisterAgentResult {
+  dryRun: boolean;
+  submitted: boolean;
+  alreadyRegistered: boolean;
+  agentId: string | null;
+  signer: string;
+  payout: string;
+  bondPosted: string;
+  bond: string;
+  minBond: string;
+  slashAmount: string;
+  maxStrikes: number;
+  active: boolean;
+  usdgBalance: string;
+  checks: OnboardCheck[];
+  registerTxHash: string | null;
+  bondTxHash: string | null;
+  explanation: string;
+  nextStep: string;
+}
+
+export interface CreateVaultResult {
+  dryRun: boolean;
+  submitted: boolean;
+  vault: string | null;
+  agentId: string;
+  underlying: { address: string; symbol: string };
+  kind: "covered-call" | "cash-secured-put";
+  collateral: string;
+  name: string;
+  symbol: string;
+  depositCap: string;
+  mandate: MandateView;
+  floors: { minPremiumBps: number; maxPremiumBps: number; maxTenorDays: number };
+  checks: OnboardCheck[];
+  txHash: string | null;
+  explanation: string;
+  nextStep: string;
+}

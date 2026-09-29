@@ -164,3 +164,59 @@ export const agentSchema = z.object({
   slashAmount: decimal.describe("USDG"),
   reputationRegistry: address,
 });
+
+/** One pre-flight check of an onboarding tool. A failed blocking check stops the transaction. */
+export const checkSchema = z.object({
+  check: z.string(),
+  ok: z.boolean(),
+  blocking: z.boolean().describe("true: sending is refused while this check fails; false: a warning"),
+  detail: z.string(),
+});
+
+export const registerAgentShape = {
+  dryRun: z.boolean(),
+  submitted: z.boolean().describe("Whether any transaction was sent"),
+  alreadyRegistered: z.boolean(),
+  agentId: z.string().nullable(),
+  signer: address,
+  owner: address,
+  payout: address,
+  erc8004Id: z.string(),
+  bondPosted: decimal.describe("USDG added to the bond by this call"),
+  bond: decimal.describe("USDG bond after this call"),
+  minBond: decimal.describe("USDG an agent must keep bonded to propose"),
+  slashAmount: decimal.describe("USDG slashed per rejected proposal"),
+  maxStrikes: z.number(),
+  active: z.boolean().describe("Whether the agent may propose now"),
+  usdgBalance: decimal.describe("The wallet's USDG before this call"),
+  checks: z.array(checkSchema),
+  registerTxHash: z.string().nullable(),
+  bondTxHash: z.string().nullable(),
+  explanation: z.string(),
+  nextStep: z.string(),
+};
+
+export const createVaultShape = {
+  dryRun: z.boolean(),
+  submitted: z.boolean(),
+  vault: address.nullable(),
+  curator: address,
+  agentId: z.string(),
+  underlying: z.object({ address, symbol: z.string() }),
+  kind: z.enum(["covered-call", "cash-secured-put"]),
+  collateral: z.string().describe("What depositors put in: the stock token (calls) or USDG (puts)"),
+  name: z.string(),
+  symbol: z.string(),
+  depositCap: decimal.describe("In collateral units"),
+  maxDepositCap: decimal.describe("The factory's ceiling, in collateral units"),
+  mandate: mandateSchema,
+  floors: z.object({
+    minPremiumBps: z.number().describe("Lowest minPremiumBps any mandate may set"),
+    maxPremiumBps: z.number(),
+    maxTenorDays: z.number().describe("Longest maxTenor any mandate may allow"),
+  }),
+  checks: z.array(checkSchema),
+  txHash: z.string().nullable(),
+  explanation: z.string(),
+  nextStep: z.string(),
+};
