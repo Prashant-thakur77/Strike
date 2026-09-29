@@ -4,6 +4,8 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-30
+
 ### Added
 
 - Self-serve agent onboarding: any third-party agent can join without permission (register, bond, run a vault).
@@ -128,7 +130,8 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 - Project skeleton: Foundry workspace, Stylus Black-Scholes pricer crate, pnpm workspace, SDK, MCP, app and subgraph skeletons, CI, design spec and decision log.
 
-[Unreleased]: https://github.com/Prashant-thakur77/Strike/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/Prashant-thakur77/Strike/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.4.0...v0.5.0
