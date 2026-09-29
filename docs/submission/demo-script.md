@@ -6,7 +6,7 @@ Record on Robinhood Chain testnet with the app and a terminal side by side. Time
 
 Screen: app landing page, the "three numbers" section.
 
-> Robinhood Chain has tokenized TSLA, NVDA and SPY, but holding them earns nothing, and there are no options on the chain. Strike turns stock tokens into weekly income, paid in USDG, with AI agents that can only act inside limits the contract enforces.
+> Robinhood Chain has tokenized TSLA, NVDA and SPY, but holding them earns nothing, and options on the chain have only just arrived. Strike turns stock tokens into weekly income, paid in USDG, with AI agents that can only act inside limits the contract enforces.
 
 ## 0:20 to 0:50 · Deposit
 
@@ -20,7 +20,7 @@ Screen: `/app/faucet`, then the TSLA covered-call vault.
 Screen: terminal running `pnpm --filter @strike/agent-example start`.
 
 1. The agent reads the vault through the Strike MCP server, dry-runs `risk_check`, and proposes a 0.20-delta call with `proposeByDelta`. The contract solves the strike on-chain with the Stylus pricer. Show the accepted `SeriesProposed` event and the strike.
-2. Run `pnpm --filter @strike/agent-example start -- --reckless`. The agent forces an at-the-money call (delta about 0.5). Show the transaction: `ProposalRejected(DeltaOutOfBand)`, and the agent's bond down by the slash amount. Open `/app/agents`: one strike on the agent, the rejection in the feed.
+2. Run `pnpm --filter @strike/agent-example start -- --reckless --vault sTSLA-CSP`. The agent forces an at-the-money put on the put vault (|delta| about 0.49; the call vault is already selling). Show the transaction: `ProposalRejected(DeltaOutOfBand)`, and the agent's bond down by the 10 USDG slash. Open `/app/agents`: one strike on the agent, the rejection in the feed.
 
 > The agent never touches vault funds. A reckless proposal costs it real USDG, and that USDG goes to the depositors.
 
@@ -28,16 +28,16 @@ Screen: terminal running `pnpm --filter @strike/agent-example start`.
 
 Screen: vault page buy panel, then the terminal.
 
-1. In the app, quote 2 options. The premium is Black-Scholes fair value at the live oracle price. Buy with USDG and show the ERC-1155 position.
-2. In the terminal, `pnpm --filter @strike/agent-example start -- --hedge 10`: a buyer agent sizes puts to protect 10 TSLA, shows the cost, protected price and max loss, and buys through the MCP server.
+1. In the app, quote 2 options. The premium is the Black-Scholes fair value times the proposal's premium factor, at the oracle spot moved 0.5% against the buyer, and never below intrinsic value. Buy with USDG and show the ERC-1155 position.
+2. In the terminal, `pnpm --filter @strike/agent-example start -- --buy --hedge 10`: a buyer agent sizes puts to protect 10 TSLA, shows the cost, protected price and max loss, and buys through the MCP server.
 
 ## 2:10 to 2:45 · Expiry and settlement
 
 Screen: epoch timeline and terminal.
 
-1. After Friday 16:00 New York, the keeper (or anyone) calls `settle`. It uses the first Chainlink round after expiry.
+1. After Friday 16:00 New York, the keeper (or anyone) calls `settle`. It uses the first Chainlink round at or after expiry (on testnet, the MirrorFeed copy of it).
 2. Show the payout redeemed by the buyer and the USDG premium claimable by the depositor, including the slashed bond.
-3. Paused oracle case: on the Arbitrum Sepolia test stock token (Strike controls it), pause the oracle and show that settlement refuses to run (`FeedPaused`), then succeeds after unpausing.
+3. Paused oracle case, shown as tests (on testnet Strike cannot pause a stock token or its oracle: the TSLA token is Robinhood's, the 46630 MirrorFeeds have no pause, and Arbitrum Sepolia is not deployed). Run `forge test --root contracts --match-test test_revert_recordSettlementPrice_pausedOrCorporateAction -vvvv`: recording the settlement price reverts with `TokenPaused`, then `FeedPaused`, a print inside a corporate-action window is skipped, and the first print after the window settles. Then `ROBINHOOD_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --root contracts --match-test test_fork_pauseFlagsReadable -vv` reads both pause flags from the real mainnet TSLA token.
 
 ## 2:45 to 3:00 · Close
 

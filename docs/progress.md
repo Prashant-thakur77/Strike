@@ -18,12 +18,12 @@ Resume here. Newest status first.
 - Robinhood testnet redeployed as v2 (Stylus pricer reused, verified); 5 TSLA in the covered-call vault, agent bonded 60 USDG; v1 bond unbonding.
 - SDK: settlement hints across Chainlink phases and corporate actions (`findSettlementHints`), snapshot-aware strike solver, `roundStrikeToCent`. The keeper falls back to it.
 - 8-year weekly backtest and litepaper ([backtest.md](backtest.md), [litepaper.md](litepaper.md)).
-- Automated 2:42 demo video ([media/strike-demo.mp4](media/strike-demo.mp4)).
+- Automated 2:40 demo video ([media/strike-demo.mp4](media/strike-demo.mp4)).
 - Docs updated for the new behaviour: design, threat model (T19–T21), SafeStockFeed, operations, audit readiness, skill file, risk model.
 
 ### Next
 
-1. Live epoch on v2 at 13:40 UTC (scheduled): commit the log with Blockscout links
+1. Live epoch on v2: done at 17:07 UTC, log with Blockscout links in [testnet-epochs/2026-09-29.md](testnet-epochs/2026-09-29.md)
 2. Halmos symbolic proofs for the libraries (in progress), then a `formal` CI job
 3. Settle the live epoch after Friday's close (2026-10-02 20:00 UTC)
 4. Scorecard cycle 2 in review.md; tag `v0.6.0`

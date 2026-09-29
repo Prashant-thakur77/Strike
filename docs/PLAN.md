@@ -2,6 +2,8 @@
 
 Sep 28, 2026 · @Prashant Thakur
 
+> **Note (2026-09-29):** this plan is kept as written. Two premises no longer hold: options already exist on Robinhood Chain (Stonkhouse live on mainnet, Archer Markets on testnet; [research.md §8](research.md#8-competitors-and-options-on-robinhood-chain)), so "no options" and "first options vaults" below are outdated, and the $14M / $400M market figures were never verified. Current claims are in the [README](../README.md#prior-art).
+
 ## The bet
 
 **Build Strike: options vaults on Robinhood Chain stock tokens, paid in USDG, run by AI agents that must stay inside limits enforced by the contract.** Users deposit TSLA, NVDA or SPY tokens (or USDG). The vault sells weekly covered calls or cash-secured puts and pays the premium in USDG. Agents choose strikes, but only within an on-chain mandate fixed when the vault is created.
@@ -10,7 +12,7 @@ It targets every scoring lever this edition has:
 
 - **Reserved Robinhood Chain podium spot, in both tracks.** It is deployed on chain 46630/4663 and built only for stock tokens.
 - **USDG bonus.** USDG is the settlement and premium asset, not a mention.
-- **Innovation.** CertiK says Robinhood Chain has perps but no options.
+- **Innovation.** CertiK says Robinhood Chain has perps but no options. _(Outdated: see the note at the top.)_
 - **Real problem.** Stock-token holders earn nothing and can't hedge. The market cap is about $14M against about $400M of idle stablecoins.
 - **Contract quality.** Fuzz and invariant tests, handling of stock-token edge cases, and a Stylus pricing engine.
 - **Promising Products track.** The agent mandate layer and the MCP server are a new primitive for AI agents doing finance.
@@ -23,7 +25,7 @@ Robinhood Chain has users and stablecoins but almost no productive use for stock
 
 | Gap / bug | Evidence | What Strike does |
 | --- | --- | --- |
-| No options or hedging on stock tokens | CertiK (Aug 2026): only perps exist | Covered-call and cash-secured-put vaults |
+| No options or hedging on stock tokens | CertiK (Aug 2026): only perps exist (outdated: see the note at the top) | Covered-call and cash-secured-put vaults |
 | Stock tokens earn no yield | Market cap is about $14M, vs Ondo at about $851M; Morpho Earn only takes USDG/USDe as collateral | Weekly premium income paid in USDG |
 | Activity is mostly memecoins | FalconX: 75–80% of DEX volume is memecoins | Gives holders a reason to keep blue-chip stock tokens |
 | Dividends/splits are applied twice by mistake | ERC-8056 `uiMultiplier`: Chainlink prices already include it, the REST API does not | `SafeStockFeed` library normalises this once |
@@ -269,7 +271,7 @@ The phases run in order and each gate must pass before the next phase starts.
 | --- | --- | --- |
 | Smart contract quality | CI badge, invariant list, fork tests on 4663, Slither output, threat model, Stylus gas table | README top section, `docs/` |
 | Product-market fit | Stock-token holders earn 0% today; covered calls on the BXM index have decades of history in TradFi; wallets can embed the vaults via the SDK | Pitch video, deck slides 2–4 |
-| Innovation | First options vaults on Robinhood Chain; agents act only inside a contract-enforced mandate; Stylus pricing | Deck slide 5, demo |
+| Innovation | First options vaults on Robinhood Chain (outdated: see the note at the top); agents act only inside a contract-enforced mandate; Stylus pricing | Deck slide 5, demo |
 | Real problem | The gap table from this plan (options, yield, multiplier and weekend bugs), each with its source | README "Why" section |
 | Robinhood Chain reservation | Deployed on 46630 and mainnet 4663; uses stock tokens and their Chainlink feeds | README addresses table |
 | USDG consideration | USDG is the premium and settlement asset; addresses on both chains | README, demo |

@@ -1,44 +1,105 @@
 # HackQuest submission answers
 
-Addresses below are the live Robinhood Chain testnet deployment (also in the README and `contracts/deployments/46630.json`).
+Paste-ready answers for the HackQuest form. Every organizer text field takes at most 300 characters ([hackathon.md](../hackathon.md)); the count after each heading is the answer's length in characters (Python `len`, line breaks included), and every answer is within the limit.
 
-## Link to frontend / demo
+Addresses are the live v2 deployment on Robinhood Chain testnet (chain 46630, deploy block 125880607), the one with every fix from the [internal security review](../security/review-2026-09-29.md). They match the README and [`contracts/deployments/46630.json`](../../contracts/deployments/46630.json) / [`46630-vaults.json`](../../contracts/deployments/46630-vaults.json). The pre-review v1 addresses in `46630-v1*.json` are not submitted.
 
-`<live app URL>`
+## Project name (6 characters)
 
-## Core protocol / smart contract addresses
-
-One per line, `network: address — label`:
-
-```
-Robinhood Chain — Robinhood Chain testnet: 0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99 — EpochManager (epoch state machine)
-Robinhood Chain — Robinhood Chain testnet: 0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89 — StockOracle (SafeStockFeed + NYSE calendar)
-Robinhood Chain — Robinhood Chain testnet: 0xE5b76249041e59C74Ee317fC2729f26249618D32 — AgentRegistry (ERC-8004 link, USDG bonds, slashing)
-Robinhood Chain — Robinhood Chain testnet: 0x6b23819bC44EEbE1BD004208c0F00f2ed002B621 — FeeManager
-Robinhood Chain — Robinhood Chain testnet: 0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4 — MarketCalendar
-Robinhood Chain — Robinhood Chain testnet: 0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c — Stylus Black-Scholes pricer (Rust/WASM, active pricer)
-Robinhood Chain — Robinhood Chain testnet: 0x4261d47E6487e2533EdB9D5F91242F28121d5A1A — BlackScholesRef (Solidity reference pricer)
+```text
+Strike
 ```
 
-## Factory / pool contracts
+## One-line intro (212 characters)
 
-```
-Robinhood Chain — Robinhood Chain testnet: 0x5665E02878fA592513C1633af2F07b08cF606beC — VaultFactory (EIP-1167 vault clones)
-Robinhood Chain — Robinhood Chain testnet: 0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e — StrikeVault clone (TSLA covered call)
-Robinhood Chain — Robinhood Chain testnet: 0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7 — StrikeVault clone (TSLA cash-secured put)
-Robinhood Chain — Robinhood Chain testnet: 0x900e7C78598C3AbC38FDD411756c38CF7931797D — StrikeVault implementation
+```text
+Weekly options vaults for Robinhood Chain stock tokens, paid in USDG. A bonded AI agent picks each strike; the contract rejects any proposal outside the vault's mandate and slashes the agent's bond to depositors.
 ```
 
-## Token contracts
+## Sector (49 characters)
 
+```text
+DeFi (options, structured products) and AI agents
 ```
-Robinhood Chain — Robinhood Chain testnet: 0x557060266F4aE09ae723541AC8E7E27A99B0c9DB — ERC-1155 option positions
+
+## Tags (103 characters)
+
+```text
+DeFi, Options, AI Agents, Robinhood Chain, Stock Tokens, USDG, Arbitrum Stylus, MCP, ERC-4626, ERC-8004
 ```
 
-## Which parts of the code were produced during the buildathon?
+## Detailed description (298 characters)
 
-All of it. The repository was started on 2026-09-28 and every line was written during the buildathon; the commit history shows each step (setup, pricer, vault, epoch manager, oracle layer, agents, tests, deploy tooling, SDK, MCP server, app, subgraph).
+```text
+Stock-token options vaults paid in USDG. An AI agent only proposes strikes; the contract enforces an immutable mandate, slashes bad proposals to depositors and solves strikes in Stylus. Live on 46630. Addresses: https://github.com/Prashant-thakur77/Strike/blob/main/contracts/deployments/46630.json
+```
 
-## Sponsor technologies used
+Aimed at the Promising Products track (AI agents, new financial primitives). The README carries the long version.
 
-Robinhood Chain, Paxos/USDG, OpenZeppelin.
+## Link to frontend / demo (190 characters)
+
+```text
+https://github.com/Prashant-thakur77/Strike (live app URL pending Vercel). Demo video: docs/media/strike-demo.mp4. Live testnet epoch with Blockscout links: docs/testnet-epochs/2026-09-29.md
+```
+
+Replace the repository URL with the Vercel URL once the app is deployed ([deploy-app.md](../deploy-app.md)).
+
+## Core protocol / smart contract addresses (250 characters)
+
+```text
+Robinhood Chain testnet: 0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99 — EpochManager
+Robinhood Chain testnet: 0xE5b76249041e59C74Ee317fC2729f26249618D32 — AgentRegistry
+Robinhood Chain testnet: 0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c — Stylus pricer
+```
+
+One per line, `network: address — label`. Every other address (oracle, calendar, fee manager, option token, Solidity reference pricer, MirrorFeeds) is linked from the detailed description.
+
+## Factory / pool contracts (261 characters)
+
+```text
+Robinhood Chain testnet: 0x5665E02878fA592513C1633af2F07b08cF606beC — VaultFactory
+Robinhood Chain testnet: 0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e — TSLA covered-call vault
+Robinhood Chain testnet: 0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7 — TSLA put vault
+```
+
+## Token contracts (100 characters)
+
+```text
+Robinhood Chain testnet: 0x557060266F4aE09ae723541AC8E7E27A99B0c9DB — OptionToken (ERC-1155 options)
+```
+
+The two vaults above are also their ERC-4626 share tokens (`sTSLA-CC`, `sTSLA-CSP`). TSLA and USDG are Robinhood's and Paxos's own testnet tokens, not deployed by Strike.
+
+## Contract address (42 characters)
+
+```text
+0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99
+```
+
+The `EpochManager` on Robinhood Chain testnet (46630).
+
+## Which parts of the code were produced during the buildathon? (297 characters)
+
+```text
+All of Strike's own code. The repo's first commit is 2026-09-28, during the buildathon, and the history shows each step: contracts, Stylus pricer, oracle layer, agents, SDK, MCP server, app, subgraph, review fixes, deploys. Pinned libraries (forge-std, OpenZeppelin, stylus-sdk, npm) are not ours.
+```
+
+## Progress during the hackathon (274 characters)
+
+```text
+Sep 28: contracts, Stylus pricer, invariant/fork/differential tests, agents, SDK, MCP, app, subgraph. Sep 29: deployed to Robinhood Chain testnet, internal review (1 High, 3 Medium, 4 Low, 3 Info) fixed, v2 redeployed, live epoch with an on-chain slash, backtest, litepaper.
+```
+
+## Fundraising status (11 characters)
+
+```text
+Not raised.
+```
+
+## Sponsor technologies used (41 characters)
+
+```text
+Robinhood Chain, Paxos/USDG, OpenZeppelin
+```
+
+A checkbox field; tick these three. Also used, not on the list: Arbitrum Stylus and Chainlink stock feeds.

@@ -13,7 +13,7 @@
 | Promising Products (AI agents, new financial primitives) | $7,000        | $5,000  | $3,000  |
 | Grants (milestone-based)                                 | up to $30,000 |         |         |
 
-At least one of the top three in each track is reserved for a Robinhood Chain project. Extra consideration for projects integrating Paxos USDG. Overall prizes pay 50% upfront and 50% on milestones.
+At least one of the top three in each track is reserved for a project building on Robinhood Chain, and at least one for a project building on Arbitrum. Extra consideration for projects integrating Paxos USDG. Overall prizes pay 50% upfront and 50% on milestones.
 
 ## Judging criteria
 
@@ -26,11 +26,16 @@ Must be deployed on an Arbitrum chain (Arbitrum One, Arbitrum Sepolia, Robinhood
 
 ## Submission form (all mandatory)
 
+Every organizer text field takes at most 300 characters. Paste-ready answers, each with its character count: [submission/hackquest-answers.md](submission/hackquest-answers.md).
+
 1. Link to the frontend / demo.
 2. Core contract addresses, one per line: `network: address — label`.
 3. Factory / pool contracts (vaults created by the factory go here).
 4. Token contracts (the ERC-1155 option token).
 5. Which code was produced during the buildathon (logical, structured commits help).
-6. Sponsor technologies used: **Robinhood Chain, Paxos/USDG, OpenZeppelin**.
+6. Sponsor technologies used (checkbox): **Robinhood Chain, Paxos/USDG, OpenZeppelin**.
+7. Contract address (one address).
+
+HackQuest's own project fields (name, intro, description, sector, tags, progress, fundraising status) are drafted in the same file.
 
 Verified chain facts, addresses and competitor notes are in [research.md](research.md).
