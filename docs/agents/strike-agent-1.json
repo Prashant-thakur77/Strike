@@ -1,0 +1,24 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Strike example agent #1",
+  "description": "Proposes weekly strikes for Strike's TSLA covered-call and cash-secured-put vaults on Robinhood Chain testnet. It never holds vault funds: the EpochManager checks every proposal against the vault's immutable mandate, and a rejected proposal slashes this agent's USDG bond to depositors. Strike posts each settled epoch's PnL and each rejection to the ERC-8004 Reputation Registry.",
+  "image": "https://raw.githubusercontent.com/Prashant-thakur77/Strike/main/docs/media/strike-demo-poster.png",
+  "endpoints": [
+    {
+      "name": "MCP",
+      "endpoint": "https://github.com/Prashant-thakur77/Strike/tree/main/mcp",
+      "version": "2025-06-18"
+    },
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:46630:0x26b277b434B1670f207Afd8946edA9AF78A613Ff"
+    }
+  ],
+  "strike": {
+    "agentRegistry": "eip155:46630:0xE5b76249041e59C74Ee317fC2729f26249618D32",
+    "strikeAgentId": 1,
+    "skill": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/STRIKE_SKILL.md",
+    "source": "https://github.com/Prashant-thakur77/Strike/tree/main/agents/example"
+  },
+  "supportedTrust": ["reputation"]
+}
