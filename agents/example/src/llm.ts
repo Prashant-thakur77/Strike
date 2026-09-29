@@ -106,5 +106,8 @@ export function describeClaudeError(err: unknown): string {
   if (err instanceof Anthropic.RateLimitError) return "rate limited by the Claude API";
   if (err instanceof Anthropic.APIConnectionError) return "could not reach the Claude API";
   if (err instanceof Anthropic.APIError) return `Claude API error ${err.status}: ${err.message}`;
-  return err instanceof Error ? err.message : String(err);
+  const message = err instanceof Error ? err.message : String(err);
+  // The SDK throws a long configuration error when no key is set; say that plainly.
+  if (/authentication method|apiKey|X-Api-Key/i.test(message)) return "no ANTHROPIC_API_KEY is set";
+  return message;
 }
