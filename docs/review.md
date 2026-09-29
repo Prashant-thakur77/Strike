@@ -20,13 +20,13 @@ Repository: a professional README, CHANGELOG, SECURITY, CONTRIBUTING, templates,
 
 ### A. Hard requirements
 
-| Requirement                                                     | Status        | Evidence                                                                                                                                                                     |
-| --------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Deployed and verified on an Arbitrum chain, addresses in README | **YES**       | Robinhood Chain testnet 46630 (an Arbitrum Orbit chain), v2: 14 contracts verified on Blockscout plus the verified Stylus pricer ([README](../README.md#deployed-contracts)) |
-| Also deployed on Arbitrum Sepolia or One                        | NO (optional) | Script ready; needs Sepolia ETH ([req-you](req-you.md)). The rules accept any Arbitrum chain                                                                                 |
-| USDG is the premium and settlement asset                        | **YES**       | Real Robinhood testnet USDG (`0x7E95…802F`) bonds the agent and backs the put vault                                                                                          |
-| Public repo, live demo URL, demo video, pitch video             | PARTIAL       | Repo public with CI; automated [demo video](media/strike-demo.mp4); live URL (Vercel) and narrated videos need the owner                                                     |
-| HackQuest submission before the deadline                        | NO            | Owner: register before 2026-10-02 17:01 UTC; answers in [submission/hackquest-answers.md](submission/hackquest-answers.md)                                                   |
+| Requirement                                                     | Status        | Evidence                                                                                                                                                              |
+| --------------------------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deployed and verified on an Arbitrum chain, addresses in README | **YES**       | Robinhood Chain testnet 46630 (an Arbitrum Orbit chain), v2: 14 contracts verified on Blockscout plus the verified Stylus pricer ([README](../README.md#deployments)) |
+| Also deployed on Arbitrum Sepolia or One                        | NO (optional) | Script ready; needs Sepolia ETH ([req-you](req-you.md)). The rules accept any Arbitrum chain                                                                          |
+| USDG is the premium and settlement asset                        | **YES**       | Real Robinhood testnet USDG (`0x7E95…802F`) bonds the agent and backs the put vault                                                                                   |
+| Public repo, live demo URL, demo video, pitch video             | PARTIAL       | Repo public with CI; automated [demo video](media/strike-demo.mp4); live URL (Vercel) and narrated videos need the owner                                              |
+| HackQuest submission before the deadline                        | NO            | Owner: register before 2026-10-02 17:01 UTC; answers in [submission/hackquest-answers.md](submission/hackquest-answers.md)                                            |
 
 ### B. Weighted score
 

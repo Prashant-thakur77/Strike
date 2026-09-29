@@ -26,11 +26,11 @@ Start with the [project README](../README.md). This page indexes every document 
 
 ## See it run
 
-| Document                                               | What it covers                                                                 |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| [Live epoch, 2026-09-29](testnet-epochs/2026-09-29.md) | The first agent-run epoch on Robinhood Chain testnet, with Blockscout links    |
-| [Tester guide](testers.md)                             | Five minutes on testnet: tokens, the app, the example agent, the feedback form |
-| [Backtest](backtest.md)                                | Eight years of weekly epochs on TSLA, NVDA, AMZN and SPY                       |
+| Document                                               | What it covers                                                                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| [Live epoch, 2026-09-29](testnet-epochs/2026-09-29.md) | The first agent-run epoch on Robinhood Chain testnet, with Blockscout links                                   |
+| [Tester guide](testers.md)                             | Five minutes: the no-wallet playground, then testnet tokens, the app, the example agent and the feedback form |
+| [Backtest](backtest.md)                                | Eight years of weekly epochs on TSLA, NVDA, AMZN and SPY                                                      |
 
 ## Build on it or run it
 

@@ -2,6 +2,24 @@
 
 Resume here. Newest status first.
 
+## 2026-09-30 (day 3)
+
+Cycle 3 ([plan](plans/2026-09-29-cycle3.md)) done; cycle 4 ([plan](plans/2026-09-30-cycle4.md)) started.
+
+- **Try without a wallet:** mandate playground (`/app/playground`), stock-token safety monitor on mainnet (`/app/monitor`), proof page with a live on-chain activity feed (`/app/proof`)
+- **Telegram bot** (`bots/telegram`, 60 tests): alerts and commands, dry-run verified against the live chain
+- **ERC-8004:** agent #1 linked to identity #114 on the official testnet registry
+- **Formal verification:** 9 Halmos-proven properties in CI, 16 marked unproven ([formal-verification.md](security/formal-verification.md)); coverage gate in CI (99.1% lines)
+- **UI polish:** hero, nav, payoff chart and buy-price breakdown, agents table, faucet balances, mobile folds; all routes checked at 1440 and 390 on live data
+- **Repository:** README rewrite, CHANGELOG, SECURITY, CONTRIBUTING, templates, versioned deployments, `v0.6.0` tag
+- **Submission kit** refreshed; cycle 3 re-score: quality 9.5, PMF 7.3, innovation 8.6, real problem 8.7 ([review.md](review.md))
+
+### Next
+
+1. Autonomous weekly agent with a published decision log (in progress), and a re-cut demo video (in progress)
+2. Settle the live epoch after Friday 2026-10-02 20:00 UTC; the ERC-8004 feedback for #114 goes on-chain
+3. Tag `v0.7.0`; re-score cycle 4
+
 ## 2026-09-29 (day 2)
 
 ### Phase status

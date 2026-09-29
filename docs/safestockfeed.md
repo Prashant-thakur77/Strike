@@ -67,7 +67,7 @@ In the common case (one phase, no corporate action) one hint is enough. The Stri
 
 `MarketCalendar` computes NYSE sessions on-chain (DST-aware, matched against Python `zoneinfo` for every day from 2026 to 2030) with holidays and 13:00 early closes kept as an admin list. It also answers `weeklyExpiry(ts)` (Friday close, or Thursday when Friday is a holiday) and `nextSessionClose(ts)`.
 
-On Robinhood Chain testnet (46630) the live `StockOracle` is [`0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89`](https://explorer.testnet.chain.robinhood.com/address/0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89) and the `MarketCalendar` [`0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4`](https://explorer.testnet.chain.robinhood.com/address/0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4); every address is in the [README](../README.md#deployed-contracts).
+On Robinhood Chain testnet (46630) the live `StockOracle` is [`0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89`](https://explorer.testnet.chain.robinhood.com/address/0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89) and the `MarketCalendar` [`0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4`](https://explorer.testnet.chain.robinhood.com/address/0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4); every address is in the [README](../README.md#deployments).
 
 ## Tests
 
