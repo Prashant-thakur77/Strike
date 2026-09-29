@@ -174,3 +174,26 @@ jobs:
         run: scripts/demo-local.sh
       - name: In-the-money settlement
         run: SETTLE_PRICE=400 scripts/demo-local.sh
+
+  coverage:
+    name: Coverage (forge, src/ only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - name: Coverage summary (fails below 95% of lines)
+        working-directory: contracts
+        run: |
+          forge coverage --ir-minimum --report summary --no-match-coverage "(test|script|lib)/" | tee coverage.txt
+          { echo '### Contract coverage'; echo; grep -E '^\|' coverage.txt; } >> "$GITHUB_STEP_SUMMARY"
+          python3 - <<'PY'
+          import re, sys
+          total = [l for l in open("coverage.txt") if l.startswith("| Total")][0]
+          lines = float(re.findall(r"([0-9.]+)%", total)[0])
+          print(f"line coverage {lines}%")
+          sys.exit(0 if lines >= 95 else 1)
+          PY
