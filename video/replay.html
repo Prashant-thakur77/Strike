@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Strike terminal replay</title>
+    <title>Strike video cards</title>
     <style>
       /*__FONTS__*/
       :root {
@@ -32,10 +32,17 @@
         font-family: var(--sans);
         overflow: hidden;
       }
+      .mode {
+        display: none;
+      }
+      .mode.on {
+        display: flex;
+      }
+
+      /* ------------------------------------------------------------ terminal */
       .stage {
         position: absolute;
         inset: 56px 96px 170px;
-        display: flex;
         flex-direction: column;
       }
       .label {
@@ -50,6 +57,9 @@
       }
       .label span.n {
         color: var(--dim);
+        text-transform: none;
+        letter-spacing: 0.02em;
+        font: 500 15px/1 var(--mono);
       }
       .win {
         flex: 1;
@@ -140,6 +150,10 @@
         color: var(--paper);
         font-weight: 700;
       }
+      .tx {
+        color: var(--amber);
+        font-weight: 600;
+      }
       .l.hl {
         background: rgba(117, 208, 203, 0.09);
         box-shadow: inset 3px 0 0 var(--mint);
@@ -149,54 +163,243 @@
         box-shadow: inset 3px 0 0 var(--red);
       }
 
-      /* closing card */
+      /* ------------------------------------------------------------ problem card */
+      .problem {
+        position: absolute;
+        inset: 0 0 150px;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 120px;
+        gap: 34px;
+      }
+      .problem .row {
+        display: flex;
+        align-items: baseline;
+        gap: 44px;
+        opacity: 0.16;
+        transform: translateX(-10px);
+        transition:
+          opacity 600ms ease,
+          transform 600ms ease;
+      }
+      .problem .row.seen {
+        opacity: 0.3;
+        transform: none;
+      }
+      .problem .row.on {
+        opacity: 1;
+        transform: none;
+      }
+      .problem .row span {
+        font: 600 24px/1 var(--mono);
+        color: var(--mint);
+        width: 60px;
+        flex: none;
+      }
+      .problem .row b {
+        font: 800 150px/0.95 var(--sans);
+        letter-spacing: -0.045em;
+      }
+      .problem .row b em {
+        font-style: normal;
+        color: var(--mint);
+      }
+
+      /* ------------------------------------------------------------ telegram mock */
+      .tg {
+        position: absolute;
+        inset: 0 0 150px;
+        align-items: center;
+        justify-content: center;
+        gap: 90px;
+        padding: 0 110px;
+      }
+      .tg .side {
+        width: 520px;
+        flex: none;
+      }
+      .tg .side .kicker {
+        font: 600 15px/1 var(--sans);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--mint);
+        margin: 0 0 22px;
+      }
+      .tg .side h2 {
+        font: 800 76px/0.98 var(--sans);
+        letter-spacing: -0.04em;
+        margin: 0 0 28px;
+      }
+      .tg .side p {
+        font: 500 22px/1.45 var(--sans);
+        color: #b9c4c3;
+        margin: 0 0 14px;
+      }
+      .tg .side code {
+        font: 500 18px/1.4 var(--mono);
+        color: var(--paper);
+        background: rgba(255, 255, 255, 0.07);
+        border-radius: 6px;
+        padding: 2px 8px;
+      }
+      .phone {
+        width: 900px;
+        height: 830px;
+        flex: none;
+        display: flex;
+        flex-direction: column;
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+        font-family: "Inter Tight", "Segoe UI", Roboto, system-ui, sans-serif;
+      }
+      .phone .head {
+        flex: none;
+        height: 76px;
+        background: #ffffff;
+        border-bottom: 1px solid #e3e6e8;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 0 24px;
+        color: #0f1419;
+      }
+      .phone .ava {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: linear-gradient(160deg, #75d0cb, #3c9f9a);
+        color: #0d0d0d;
+        font: 800 22px/46px var(--sans);
+        text-align: center;
+      }
+      .phone .head b {
+        display: block;
+        font: 700 20px/1.2 var(--sans);
+      }
+      .phone .head small {
+        font: 500 15px/1.2 var(--sans);
+        color: #708499;
+      }
+      .phone .chat {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+        background: #d7e4d2;
+        background-image:
+          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35) 0 2px, transparent 3px),
+          radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.3) 0 2px, transparent 3px);
+        background-size: 46px 46px;
+        padding: 20px 26px 26px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        gap: 12px;
+      }
+      .msg {
+        max-width: 780px;
+        padding: 11px 16px 12px;
+        border-radius: 14px;
+        font:
+          400 19px/1.42 "Inter Tight",
+          system-ui,
+          sans-serif;
+        color: #0f1419;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+        opacity: 0;
+        transform: translateY(14px) scale(0.98);
+        transition:
+          opacity 380ms ease,
+          transform 380ms ease;
+      }
+      .msg.in {
+        opacity: 1;
+        transform: none;
+      }
+      .msg.bot {
+        align-self: flex-start;
+        background: #ffffff;
+        border-bottom-left-radius: 4px;
+      }
+      .msg.me {
+        align-self: flex-end;
+        background: #e1fec6;
+        border-bottom-right-radius: 4px;
+      }
+      .msg .who {
+        display: block;
+        font: 700 16px/1.3 var(--sans);
+        color: #2a9d97;
+        margin-bottom: 3px;
+      }
+      .msg a {
+        color: #168acd;
+        text-decoration: none;
+      }
+      .msg .cmd {
+        color: #168acd;
+      }
+      .msg.hl {
+        box-shadow:
+          0 1px 1px rgba(0, 0, 0, 0.12),
+          0 0 0 3px rgba(117, 208, 203, 0.9);
+      }
+
+      /* ------------------------------------------------------------ closing card */
       .close {
         position: absolute;
         inset: 0;
-        display: none;
         flex-direction: column;
         justify-content: center;
-        padding: 0 120px 80px;
-      }
-      .close.on {
-        display: flex;
+        padding: 0 120px 40px;
       }
       .close .logo {
         font: 800 64px/1 var(--sans);
         letter-spacing: -0.04em;
         color: var(--paper);
-        margin-bottom: 42px;
+        margin-bottom: 40px;
       }
       .close .logo em {
         font-style: normal;
         color: var(--mint);
       }
       .close h1 {
-        font: 800 118px/0.95 var(--sans);
+        font: 800 104px/0.95 var(--sans);
         letter-spacing: -0.045em;
         margin: 0 0 56px;
-        max-width: 1500px;
+        max-width: 1560px;
       }
       .close ul {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: 1fr 1fr 1fr 1.25fr 1.9fr;
         gap: 0;
         border-top: 1px solid #294040;
       }
       .close li {
         padding: 26px 28px 0 0;
-        font: 500 26px/1.3 var(--sans);
+        font: 500 24px/1.3 var(--sans);
         color: #c9d3d2;
       }
       .close li strong {
         display: block;
-        font: 800 64px/1 var(--sans);
+        font: 800 56px/1 var(--sans);
         letter-spacing: -0.03em;
         color: var(--mint);
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        white-space: nowrap;
+      }
+      .close .link {
+        margin-top: 60px;
+        font: 600 30px/1 var(--mono);
+        color: var(--paper);
+      }
+      .close .link span {
+        color: var(--mint);
       }
       .fade {
         opacity: 0;
@@ -212,32 +415,50 @@
     </style>
   </head>
   <body>
-    <div class="stage" id="stage">
+    <div class="stage mode" id="terminal">
       <p class="label"><span id="label">Terminal</span><span class="n" id="labelN"></span></p>
       <div class="win">
-        <div class="bar">
-          <i></i><i></i><i></i><b id="wintitle">~/strike · local devnet (anvil, chain 31337)</b>
-        </div>
+        <div class="bar"><i></i><i></i><i></i><b id="wintitle">~/strike</b></div>
         <div class="screen" id="screen"></div>
       </div>
     </div>
-    <div class="close" id="close">
+
+    <div class="problem mode" id="problem"></div>
+
+    <div class="tg mode" id="telegram">
+      <div class="side">
+        <p class="kicker">Telegram bot (bots/telegram)</p>
+        <h2>Alerts from the chain</h2>
+        <p id="tgNote"></p>
+      </div>
+      <div class="phone">
+        <div class="head">
+          <div class="ava">S</div>
+          <div><b id="tgName">Strike Alerts</b><small>bot</small></div>
+        </div>
+        <div class="chat" id="chat"></div>
+      </div>
+    </div>
+
+    <div class="close mode" id="close">
       <div class="logo fade">Strike<em>.</em></div>
       <h1 class="fade">Options on Robinhood Chain, run by agents that cannot break the rules.</h1>
-      <ul class="fade">
-        <li><strong>500+</strong>tests</li>
-        <li><strong>9</strong>invariants</li>
-        <li><strong>Fork</strong>tests against real Robinhood mainnet tokens</li>
-        <li><strong>To the wei</strong>Rust and Solidity pricers agree</li>
-      </ul>
+      <ul class="fade" id="closeList"></ul>
+      <p class="link fade" id="closeLink"></p>
     </div>
+
     <script>
-      // Filled in by video/record.mjs: { mode: "terminal" | "close", label, segments: [...] }
+      // Filled in by video/record.mjs: { mode: "terminal" | "problem" | "telegram" | "close", ... }
       const DATA = /*__DATA__*/ null;
       const screen = document.getElementById("screen");
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 
+      function caption(text, tag) {
+        if (window.__caption) window.__caption(text, tag);
+      }
+
+      // ---------------------------------------------------------------- terminal
       function classify(line) {
         const t = line.trim();
         if (/^\[\d+\]/.test(t)) return "step";
@@ -257,29 +478,25 @@
         return div;
       }
 
-      async function typeCommand(cmd) {
+      async function typeCommand(cmd, speed = 1) {
         const div = addLine(
           '<span class="prompt">strike $ </span><span class="cmd"></span><span class="caret"></span>',
         );
         const span = div.querySelector(".cmd");
-        await sleep(500);
+        await sleep(400);
         for (const ch of cmd) {
           span.textContent += ch;
-          await sleep(ch === " " ? 45 : 26);
+          await sleep((ch === " " ? 40 : 22) * speed);
         }
-        await sleep(450);
+        await sleep(350);
         div.querySelector(".caret").remove();
-      }
-
-      function caption(text) {
-        if (window.__caption) window.__caption(text);
       }
 
       async function runSegment(seg) {
         if (seg.clear) screen.innerHTML = "";
         if (seg.label) document.getElementById("label").textContent = seg.label;
         if (seg.caption) caption(seg.caption);
-        await typeCommand(seg.command);
+        await typeCommand(seg.command, seg.typeSpeed ?? 1);
         for (const raw of seg.lines) {
           const line = raw.replace(/\s+$/, "");
           const cls = classify(line);
@@ -288,9 +505,11 @@
           if (rule && rule.caption) caption(rule.caption);
           const indented = /^ {4}/.test(line);
           const text = indented ? line.slice(4) : line;
-          const div = addLine(line ? `<span class="${cls}">${esc(text)}</span>` : "", indented ? "ind" : "");
+          // Transaction hashes stand out in every line.
+          const html = esc(text).replace(/0x[0-9a-fA-F]{64}/g, '<span class="tx">$&</span>');
+          const div = addLine(line ? `<span class="${cls}">${html}</span>` : "", indented ? "ind" : "");
           if (rule && rule.highlight) div.classList.add(rule.highlight);
-          await sleep(line ? (seg.linePause ?? 170) : 60);
+          await sleep(line ? (seg.linePause ?? 170) : 40);
           if (rule && rule.hold) await sleep(rule.hold);
         }
         addLine('<span class="prompt">strike $ </span><span class="caret"></span>');
@@ -298,21 +517,78 @@
         screen.lastChild.querySelector(".caret")?.remove();
       }
 
-      async function main() {
-        if (DATA.mode === "close") {
-          document.getElementById("stage").style.display = "none";
-          const close = document.getElementById("close");
-          close.classList.add("on");
-          const items = close.querySelectorAll(".fade");
-          for (const el of items) {
-            await sleep(450);
-            el.classList.add("in");
-          }
-          await sleep(DATA.hold ?? 6000);
-          return;
-        }
+      async function terminal() {
         document.getElementById("labelN").textContent = DATA.sublabel || "";
+        if (DATA.wintitle) document.getElementById("wintitle").textContent = DATA.wintitle;
         for (const seg of DATA.segments) await runSegment(seg);
+      }
+
+      // ---------------------------------------------------------------- problem card
+      async function problem() {
+        const root = document.getElementById("problem");
+        root.innerHTML = DATA.rows
+          .map((r, i) => `<div class="row"><span>0${i + 1}</span><b>${r.word}</b></div>`)
+          .join("");
+        const rows = [...root.querySelectorAll(".row")];
+        for (let i = 0; i < rows.length; i++) {
+          rows.forEach((el, j) => {
+            el.classList.toggle("on", j === i);
+            el.classList.toggle("seen", j < i);
+          });
+          caption(DATA.rows[i].caption, DATA.rows[i].tag);
+          await sleep(DATA.rows[i].hold);
+        }
+      }
+
+      // ---------------------------------------------------------------- telegram mock
+      function linkify(text) {
+        return esc(text)
+          .replace(/https?:\/\/\S+/g, (u) => `<a>${u}</a>`)
+          .replace(/^\/\w+/, (c) => `<span class="cmd">${c}</span>`);
+      }
+
+      async function telegram() {
+        document.getElementById("tgNote").innerHTML = DATA.note;
+        if (DATA.botName) document.getElementById("tgName").textContent = DATA.botName;
+        const chat = document.getElementById("chat");
+        for (const m of DATA.messages) {
+          if (m.caption) caption(m.caption, m.tag);
+          if (m.before) await sleep(m.before);
+          const div = document.createElement("div");
+          div.className = `msg ${m.from}`;
+          div.innerHTML =
+            (m.from === "bot" && m.who ? `<span class="who">${esc(m.who)}</span>` : "") + linkify(m.text);
+          chat.appendChild(div);
+          await sleep(30);
+          div.classList.add("in");
+          if (m.highlight) {
+            chat.querySelectorAll(".msg.hl").forEach((el) => el.classList.remove("hl"));
+            div.classList.add("hl");
+          }
+          await sleep(m.hold ?? 1500);
+        }
+      }
+
+      // ---------------------------------------------------------------- closing card
+      async function close() {
+        document.getElementById("closeList").innerHTML = DATA.items
+          .map((it) => `<li><strong>${esc(it.big)}</strong>${esc(it.small)}</li>`)
+          .join("");
+        document.getElementById("closeLink").innerHTML = DATA.link;
+        const items = document.querySelectorAll("#close .fade");
+        for (const el of items) {
+          await sleep(380);
+          el.classList.add("in");
+        }
+        await sleep(DATA.hold ?? 5000);
+      }
+
+      async function main() {
+        document.getElementById(DATA.mode).classList.add("on");
+        if (DATA.mode === "terminal") return terminal();
+        if (DATA.mode === "problem") return problem();
+        if (DATA.mode === "telegram") return telegram();
+        if (DATA.mode === "close") return close();
       }
       window.__run = () => main();
     </script>

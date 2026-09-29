@@ -6,6 +6,8 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ### Added
 
+- Re-cut 2:43 demo video on live data (playground verdicts, the real testnet epoch with Blockscout, price breakdown and payoff chart, ERC-8004 #114, Telegram alerts, mainnet monitor, proof page), with burned-in captions and an `.srt` for voice-over.
+- Autonomous weekly agent (`.github/workflows/agent.yml`): Monday proposals and Friday settlements with published decision records in `docs/agent-log/`.
 - Mandate playground (`/app/playground`): anyone can test a proposal against a live testnet vault's mandate without a wallet, through the read-only `EpochManager.previewProposal`. Presets: an honest 0.20-delta call (accepted), a reckless at-the-money put (`DeltaOutOfBand`), an oversized proposal (`SizeTooLarge`) and one at half of fair value (`PremiumBelowFair`); a rejection shows the bond a real proposal would lose.
 - Stock-token safety monitor (`/app/monitor`): live Robinhood Chain mainnet data for the 8 stock tokens with a Chainlink feed (TSLA, NVDA, AMZN, PLTR, AMD, SPY, AAPL, QQQ): ERC-8056 multiplier, pending changes, both pause flags, feed age, NYSE session, and the `SafeStockFeed` verdict.
 - Proof page (`/app/proof`): every claim with its evidence (verified contracts, the active Stylus pricer, gas, tests, coverage, invariants, formal proofs, the security review).
