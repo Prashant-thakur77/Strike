@@ -2,7 +2,70 @@
 
 Updated at the end of every phase and every improvement cycle. A score without linked evidence counts as 5.
 
-## Latest: end of Phase 2, Phase 3 contracts done (2026-09-28)
+## Latest: improvement cycle 2 (2026-09-29)
+
+### A. Hard requirements
+
+| Requirement                                                     | Status        | Evidence                                                                                                                                                                     |
+| --------------------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Deployed and verified on an Arbitrum chain, addresses in README | **YES**       | Robinhood Chain testnet 46630 (an Arbitrum Orbit chain), v2: 14 contracts verified on Blockscout plus the verified Stylus pricer ([README](../README.md#deployed-contracts)) |
+| Also deployed on Arbitrum Sepolia or One                        | NO (optional) | Script ready; needs Sepolia ETH ([req-you](req-you.md)). The rules accept any Arbitrum chain                                                                                 |
+| USDG is the premium and settlement asset                        | **YES**       | Real Robinhood testnet USDG (`0x7E95…802F`) bonds the agent and backs the put vault                                                                                          |
+| Public repo, live demo URL, demo video, pitch video             | PARTIAL       | Repo public with CI; automated [demo video](media/strike-demo.mp4); live URL (Vercel) and narrated videos need the owner                                                     |
+| HackQuest submission before the deadline                        | NO            | Owner: register before 2026-10-02 17:01 UTC; answers in [submission/hackquest-answers.md](submission/hackquest-answers.md)                                                   |
+
+### B. Weighted score
+
+| Criterion                     | Weight | Score | Evidence                                                                                                                                                                                                                                                                                                                 | Gap to 10                                                          |
+| ----------------------------- | ------ | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| Smart contract quality        | 30%    | 9.3   | 418 Foundry tests, an adversarial [internal review](security/review-2026-09-29.md) whose 8 findings (plus 3 Info) are all fixed with regression tests, 9 invariants with mutation checks, fork tests on 4663, exact Rust/Solidity differential, Slither 0 High, [21-threat model](threat-model.md), v2 verified on 46630 | Symbolic proofs (Halmos, in progress); an external audit           |
+| Real problem solving          | 20%    | 8.0   | Every stock-token trap has a fix and a test, including the two the review found in our own oracle layer (corporate action at expiry, Chainlink phase change)                                                                                                                                                             | Live testnet epoch log with Blockscout links (scheduled 13:40 UTC) |
+| Product-market fit            | 20%    | 7.0   | Two-sided agent market (seller and buyer agents, MCP), SDK, fee model, feedback form, and an [8-year backtest](backtest.md) with the protocol's own pricer that states where the strategy loses                                                                                                                          | Real users (10+ testers), live app URL                             |
+| Innovation                    | 15%    | 8.0   | Contract-enforced mandates with slashing to depositors, ERC-8004 reputation, on-chain strike solving by delta in Stylus, proposals judged at a deterministic snapshot                                                                                                                                                    | Nothing structural; presentation (narrated video)                  |
+| Robinhood + USDG + agents fit | 15%    | 8.0   | Live on 46630 with Robinhood's own TSLA token, real USDG, mirrored Chainlink feeds, ERC-8056 multiplier and pause handling, ERC-8004 link                                                                                                                                                                                | A capped vault on mainnet 4663 (owner approval and funds)          |
+
+**Weighted: 8.2 / 10** (cycle 1: 7.9). The gap that remains is mostly owner-side: the live URL, narrated videos, testers and the submission.
+
+### C. Judge simulation (cycle 2)
+
+**Arbitrum DevRel engineer.** "Deployed and verified, Stylus in the hot path and verified against source, and an internal review with every finding fixed and pinned by a test. But:"
+
+1. Only on Robinhood testnet. Medium (the rules allow it). Task: Arbitrum Sepolia once the owner gets Sepolia ETH; the script is one command.
+2. `proposeByDelta` gas in [gas.md](gas.md) was measured before the snapshot change. Low. Task: re-measure on the Nitro dev node with `scripts/stylus-gas.sh`.
+3. Invariants are fuzzed, not proven. Medium. Task: Halmos proofs of the math libraries and the settlement rules (in progress).
+
+**Robinhood Chain PM.** "It handles our tokens better than anything else in the batch. But:"
+
+1. Show one real epoch running on our chain. **Serious** for credibility. Task: live epoch at 13:40 UTC today, settled after Friday's close, with the log and tx links in the repo.
+2. Mainnet presence. Medium. Task: a capped 4663 vault (owner).
+
+**DeFi VC.** "The backtest is honest, which is rare. But:"
+
+1. The covered-call vault trails buy-and-hold on every ticker. Medium: it is the known trade (income and lower volatility for capped upside); the pitch must say so plainly, with the 25–46% volatility cut and the Sharpe ratios.
+2. The weekly fee has no high-water mark (backtest: about 8% of gross premium even in losing stretches). Medium. Task: loss carry-forward in the next version (D31); listed as a known issue.
+3. Still no users. **Serious.** Task: owner recruits 10+ testers through the feedback form.
+
+### D. Competitor check (changes since cycle 1)
+
+| Project                        | Change                                                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HarvestBot                     | Their edge was being deployed. Strike is now deployed too, and its mandate protects third-party depositors' money, with slashed bonds paid to them |
+| StockGuard                     | Strike's oracle layer now also survives a Chainlink phase change and a corporate action at expiry, each with a test                                |
+| Past winners (test discipline) | Strike adds an adversarial review with fixes, a backtest and (in progress) symbolic proofs, on top of invariants, fork and differential tests      |
+| Live daily-options product     | Still the one to respect; Strike's pitch stays "agent-run, mandate-bound, depositor-protected", never "first options"                              |
+
+### Cycle 2 results
+
+| Improvement                           | Status                         | Evidence                                                                                |
+| ------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------- |
+| Deploy on 46630                       | Done (v1, v2)                  | [contracts/deployments/46630.json](../contracts/deployments/46630.json), Blockscout     |
+| Adversarial review, fix every finding | Done                           | [security/review-2026-09-29.md](security/review-2026-09-29.md), `contracts/test/audit/` |
+| Backtest and litepaper                | Done                           | [backtest.md](backtest.md), [litepaper.md](litepaper.md)                                |
+| Demo video                            | Done (automated, no narration) | [media/strike-demo.mp4](media/strike-demo.mp4)                                          |
+| Symbolic proofs                       | In progress                    | `contracts/test/formal/`                                                                |
+| Live epoch with tx links              | Scheduled                      | `scripts/live-epoch.sh`, 2026-09-29 13:40 UTC                                           |
+
+## Earlier: end of Phase 2, Phase 3 contracts done (2026-09-28)
 
 ### A. Hard requirements
 
