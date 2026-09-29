@@ -9,6 +9,8 @@ export interface VaultView extends VaultChoice {
   underlying: { symbol: string };
   asset: { symbol: string };
   totalAssets: string;
+  /** Implied volatility the EpochManager prices with (0.6 = 60%). */
+  sigma?: number;
   mandate: MandateView;
   series: {
     id: string;
@@ -73,6 +75,8 @@ export interface ProposeResult {
   explanation: string;
   seriesId: string | null;
   strike: string;
+  /** Unix seconds. */
+  expiry?: number;
   size: string;
   slashed: string;
   txHash: string | null;

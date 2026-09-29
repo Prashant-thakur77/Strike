@@ -1,0 +1,150 @@
+name: Weekly agent
+
+# Agent #1 (the example agent, agents/example) runs the live Robinhood Chain testnet vaults by itself and publishes
+# a decision record per vault in docs/agent-log (markdown and JSON), committed back to main.
+#   Monday: refresh prices with the keeper, check the NYSE session, then propose this week's option on each vault
+#           (Claude picks the delta with --llm when ANTHROPIC_API_KEY is set).
+#   Friday after the close: the keeper settles the expired series (it also does so every 10 minutes in keeper.yml);
+#           the agent then records each settlement, and settles itself only if nothing has yet.
+# Switches: secret KEEPER_PRIVATE_KEY (agent #1's signer, which is also the keeper key), variable AGENT_ENABLED =
+# true, optional secret ANTHROPIC_API_KEY.
+on:
+  schedule:
+    # 15:00 UTC is 11:00 New York in summer (EDT) and 10:00 in winter (EST): inside the 09:30-16:00 session all year,
+    # with room for GitHub's schedule delays. Holidays are caught by the market check below.
+    - cron: "0 15 * * 1"
+    # 21:15 UTC is after the 16:00 New York close in summer (20:00 UTC) and in winter (21:00 UTC).
+    - cron: "15 21 * * 5"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "propose (the Monday run) or settle (the Friday run)"
+        type: choice
+        options: [propose, settle]
+        default: propose
+
+permissions:
+  contents: write
+
+jobs:
+  agent:
+    if: ${{ vars.AGENT_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # One signer, one nonce: never send at the same time as the keeper (keeper.yml uses the same group).
+    concurrency:
+      group: strike-signer-46630
+      cancel-in-progress: false
+    env:
+      CHAIN_ID: "46630"
+      RPC_URL: https://rpc.testnet.chain.robinhood.com
+      STRIKE_CHAIN_ID: "46630"
+      STRIKE_RPC_URL: https://rpc.testnet.chain.robinhood.com
+    steps:
+      - uses: actions/checkout@v6
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Mode
+        id: mode
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          INPUT_MODE: ${{ inputs.mode }}
+          KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::Set the repository secret KEEPER_PRIVATE_KEY (agent #1's signer key)."
+            exit 1
+          fi
+          if [ "$SCHEDULE" = "15 21 * * 5" ]; then mode=settle; else mode="${INPUT_MODE:-propose}"; fi
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+          echo "Mode: $mode"
+
+      - name: NYSE session check (propose only; uses the SDK's marketOpen())
+        id: market
+        if: steps.mode.outputs.mode == 'propose'
+        run: pnpm --silent --filter @strike/agent-example market-open
+
+      - name: Gate
+        id: gate
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+          OPEN: ${{ steps.market.outputs.open }}
+        run: |
+          if [ "$MODE" = settle ] || [ "$OPEN" = true ]; then
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "The NYSE is closed (holiday?): epochs open only during regular hours. Nothing to do this week."
+          fi
+
+      - name: Refresh prices (keeper, once; also settles expired series)
+        if: steps.gate.outputs.go == 'true'
+        env:
+          PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: scripts/keeper.sh --once
+
+      - name: Run the agent on each vault
+        id: agent
+        if: steps.gate.outputs.go == 'true'
+        env:
+          MODE: ${{ steps.mode.outputs.mode }}
+          STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          flags=(--log "$GITHUB_WORKSPACE/docs/agent-log")
+          if [ "$MODE" = settle ]; then
+            flags+=(--settle)
+          elif [ -n "$ANTHROPIC_API_KEY" ]; then
+            flags+=(--llm)
+            echo "ANTHROPIC_API_KEY is set: Claude plans each epoch (--llm)."
+          fi
+          failed=0
+          for key in TSLA_covered_call TSLA_cash_secured_put; do
+            vault=$(jq -r ".$key" "contracts/deployments/$CHAIN_ID-vaults.json")
+            echo "::group::$key ($vault) ${flags[*]}"
+            if ! pnpm --silent --filter @strike/agent-example start --vault "$vault" "${flags[@]}"; then
+              failed=1
+              echo "::warning::the agent stopped on $key; its decision record says why"
+            fi
+            echo "::endgroup::"
+          done
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+
+      - name: Commit the decision records
+        if: ${{ !cancelled() && steps.gate.outputs.go == 'true' && github.ref == 'refs/heads/main' }}
+        env:
+          DATE: ${{ steps.mode.outputs.date }}
+        run: |
+          pnpm exec prettier --write docs/agent-log >/dev/null
+          git add docs/agent-log
+          if git diff --cached --quiet; then
+            echo "No new decision records."
+            exit 0
+          fi
+          for f in $(git diff --cached --name-only -- 'docs/agent-log/*.md'); do
+            { cat "$f"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "agent-log: weekly epoch $DATE"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
+            echo "push attempt $attempt failed; retrying"
+            sleep $((attempt * 5))
+          done
+          exit 1
+
+      - name: Fail when an agent run stopped
+        if: steps.agent.outputs.failed == '1'
+        run: |
+          echo "::error::At least one vault's agent run stopped; see its decision record in docs/agent-log."
+          exit 1

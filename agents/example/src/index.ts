@@ -1,7 +1,12 @@
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { DEFAULT_BUDGET, DEFAULT_SLIPPAGE_BPS, buyOptions, redeemOptions } from "./buyer.js";
+import { epochSnapshot, lastSettlement, readClient } from "./chain.js";
+import { Journal, marketInputs } from "./journal.js";
+import { CLAUDE_MODEL } from "./llm.js";
 import { describeClaudeError, planWithClaude } from "./llm.js";
 import { type StrikeMcp, connectStrikeMcp } from "./mcp.js";
+import { type RecordAction, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
   type Plan,
@@ -34,6 +39,11 @@ Usage: pnpm --filter @strike/agent-example start [options]
   --vault <v>        Vault address or share symbol (default: the first vault this agent runs
                      that can take a proposal, covered calls first).
   --target-delta <d> Target |delta| for the default strategy (default ${DEFAULT_TARGET_DELTA}).
+  --log <dir>        After a propose, --reckless or --settle run, write a decision record to
+                     <dir>/<YYYY-MM-DD>-<vault symbol>.md and .json (relative to the directory the
+                     command was run from; inputs, reasoning, dry run,
+                     transactions, result, track record). With --settle, a series the keeper already
+                     settled this week is recorded instead of failing.
 
 Buyer modes (STRIKE_AGENT_PRIVATE_KEY is the buyer's key; it pays the premium in USDG):
   --buy              Find a live series (--vault to choose) and buy options within the budget,
@@ -78,9 +88,15 @@ async function chooseVault(
   return first.address;
 }
 
-async function readVault(mcp: StrikeMcp, vault: string, log: Narrator): Promise<VaultState> {
+async function readVault(
+  mcp: StrikeMcp,
+  vault: string,
+  log: Narrator,
+  journal?: Journal,
+): Promise<VaultState> {
   log.step("Read the vault");
   const s = await mcp.call<VaultState>("vault_state", { vault });
+  journal?.vaultRead(s);
   const v = s.vault;
   log.say(
     `${v.symbol} (${v.name}), ${v.kind}: epoch ${v.epochState}, ${v.totalAssets} ${v.asset.symbol} of collateral`,
@@ -96,9 +112,10 @@ async function readVault(mcp: StrikeMcp, vault: string, log: Narrator): Promise<
   return s;
 }
 
-async function trackRecord(mcp: StrikeMcp, log: Narrator, agentId: string) {
+async function trackRecord(mcp: StrikeMcp, log: Narrator, agentId: string, journal?: Journal) {
   log.step("Track record");
   const a = await mcp.call<AgentStats>("agent_stats", { agentId });
+  journal?.tracked(a);
   log.say(
     `Agent #${a.agentId} (${a.status}${a.active ? "" : ", cannot propose"}): ${a.accepted} accepted, ${a.rejected} rejected, ${a.strikes}/${a.maxStrikes} strikes, bond ${a.bond} USDG`,
   );
@@ -112,8 +129,10 @@ async function decide(
   state: VaultState,
   opts: { llm: boolean; targetDelta: number },
   log: Narrator,
+  journal: Journal,
 ): Promise<Plan> {
   const mandate = state.vault.mandate;
+  const notes: string[] = [];
   if (opts.llm) {
     log.step("Ask Claude for this epoch's plan");
     try {
@@ -132,16 +151,37 @@ async function decide(
           `Claude's plan: ${delta(enforced.targetDeltaBps)} delta at ${pct(enforced.premiumBps)} of fair value`,
         );
         log.say(`Why: ${enforced.reasoning}`);
+        journal.decided({
+          strategy: "claude",
+          targetDeltaBps: enforced.targetDeltaBps,
+          premiumBps: enforced.premiumBps,
+          reasoning: enforced.reasoning,
+          notes: [
+            `Model ${CLAUDE_MODEL}.`,
+            ...adjustments.map((a) => `Mandate guard in the agent code adjusted Claude's plan: ${a}.`),
+          ],
+        });
         return enforced;
       }
       log.say("Claude submitted no plan; using the default strategy.");
+      notes.push("Claude submitted no plan; the agent used the default strategy.");
     } catch (err) {
       log.say(`Claude is unavailable (${describeClaudeError(err)}); using the default strategy.`);
+      notes.push(
+        `Claude was unavailable (${describeClaudeError(err)}); the agent used the default strategy.`,
+      );
     }
   }
   log.step("Choose the target delta");
   const plan = deterministicPlan(mandate, opts.targetDelta);
   log.say(plan.reasoning);
+  journal.decided({
+    strategy: "default",
+    targetDeltaBps: plan.targetDeltaBps,
+    premiumBps: plan.premiumBps,
+    reasoning: plan.reasoning,
+    notes,
+  });
   return plan;
 }
 
@@ -150,16 +190,17 @@ async function propose(
   vault: string,
   opts: { llm: boolean; targetDelta: number },
   log: Narrator,
+  journal: Journal,
 ) {
-  const state = await readVault(mcp, vault, log);
+  const state = await readVault(mcp, vault, log, journal);
   if (state.vault.epochState === "Selling") {
-    throw new Error(
-      `${state.vault.symbol} is already selling this week's series; settle it after expiry first`,
-    );
+    const message = `${state.vault.symbol} is already selling this week's series; settle it after expiry first`;
+    journal.finish({ status: "skipped", summary: `${message}.`, seriesId: state.vault.series?.id ?? null });
+    throw new Error(message);
   }
   if (!state.agent.active) throw new Error(`agent #${state.agent.agentId} cannot propose (bond or strikes)`);
 
-  let plan = await decide(mcp, state, opts, log);
+  let plan = await decide(mcp, state, opts, log, journal);
 
   log.step("Compute the strike (risk_check suggestion)");
   let check = await mcp.call<RiskCheck>("risk_check", {
@@ -178,8 +219,24 @@ async function propose(
   if (!check.ok) {
     log.say(`Not compliant (${check.reason}): ${check.explanation}`);
     const s = check.suggestion;
-    if (!s?.ok) throw new Error("no compliant proposal found; not proposing");
+    journal.dryRan(check);
+    journal.note(`The first dry run was not compliant (${check.reason}): ${check.explanation}`);
+    if (!s?.ok) {
+      journal.finish({
+        status: "not-sent",
+        summary: "No compliant proposal found, so the agent did not propose.",
+        reason: check.reason,
+      });
+      throw new Error("no compliant proposal found; not proposing");
+    }
     log.say(`Taking the suggestion: ${delta(s.targetDeltaBps)} delta, strike $${s.strike}, size ${s.size}.`);
+    journal.note(
+      `Took the risk check's suggestion: ${delta(s.targetDeltaBps)} delta at ${pct(s.premiumBps)} of fair value, size ${s.size}.`,
+    );
+    if (journal.decision) {
+      journal.decision.targetDeltaBps = s.targetDeltaBps;
+      journal.decision.premiumBps = s.premiumBps;
+    }
     plan = { ...plan, targetDeltaBps: s.targetDeltaBps, premiumBps: s.premiumBps };
     size = s.size;
   }
@@ -188,19 +245,28 @@ async function propose(
   const args = { vault, targetDeltaBps: plan.targetDeltaBps, size, premiumBps: plan.premiumBps };
   check = await mcp.call<RiskCheck>("risk_check", args);
   log.say(`Verdict: ${check.reason}. ${check.explanation}`);
-  if (!check.ok) throw new Error("the dry run failed; a careful agent does not propose");
+  journal.dryRan(check);
+  if (!check.ok) {
+    journal.finish({
+      status: "not-sent",
+      summary: `The dry run failed (${check.reason}); a careful agent does not propose.`,
+      reason: check.reason,
+    });
+    throw new Error("the dry run failed; a careful agent does not propose");
+  }
 
   log.step("Propose on-chain (proposeByDelta)");
   const res = await mcp.call<ProposeResult>("propose_epoch", args);
+  journal.proposed(res, "proposeByDelta", check.proposal.expiryIso);
   if (res.openTxHash) log.say(`Opened the epoch (tx ${res.openTxHash}); the vault is locked.`);
   log.say(res.explanation);
   if (res.txHash) log.say(`tx ${res.txHash}`);
   if (!res.accepted) throw new Error(`proposal rejected: ${res.reason}`);
-  await trackRecord(mcp, log, state.agent.agentId);
+  await trackRecord(mcp, log, state.agent.agentId, journal);
 }
 
-async function reckless(mcp: StrikeMcp, vault: string, log: Narrator) {
-  const state = await readVault(mcp, vault, log);
+async function reckless(mcp: StrikeMcp, vault: string, log: Narrator, journal: Journal) {
+  const state = await readVault(mcp, vault, log, journal);
   if (state.vault.epochState === "Selling") {
     throw new Error(
       `${state.vault.symbol} is already selling; pick a vault in the Idle or Open state (--vault)`,
@@ -212,10 +278,18 @@ async function reckless(mcp: StrikeMcp, vault: string, log: Narrator) {
   log.say(
     `Strike $${strike} against spot $${state.spot.price}: |delta| near 0.5, far outside the mandate's band.`,
   );
+  journal.decided({
+    strategy: "reckless",
+    targetDeltaBps: null,
+    premiumBps: null,
+    reasoning: `Strike $${strike} against spot $${state.spot.price}: |delta| near 0.5, far outside the mandate's band. Sent with force: true on purpose, to show the contract rejecting it and slashing the agent's bond.`,
+    notes: [],
+  });
 
   log.step("Dry run (risk_check)");
   const check = await mcp.call<RiskCheck>("risk_check", { vault, strike });
   log.say(`Verdict: ${check.reason} (|delta| ${check.measured.delta}). ${check.explanation}`);
+  journal.dryRan(check);
   log.say("A careful agent stops here. --reckless sends it anyway with force: true.");
 
   log.step("Force the proposal on-chain (proposeSeries)");
@@ -226,6 +300,7 @@ async function reckless(mcp: StrikeMcp, vault: string, log: Narrator) {
     premiumBps: check.proposal.premiumBps,
     force: true,
   });
+  journal.proposed(res, "proposeSeries", check.proposal.expiryIso);
   if (res.openTxHash) log.say(`Opened the epoch (tx ${res.openTxHash}).`);
   if (res.accepted) throw new Error("the reckless proposal was accepted, which the mandate should prevent");
   log.say(
@@ -235,16 +310,99 @@ async function reckless(mcp: StrikeMcp, vault: string, log: Narrator) {
   log.say(
     `Agent now: bond ${res.agent.bond} USDG, strikes ${res.agent.strikes}/${res.agent.maxStrikes}, ${res.agent.active ? "still active" : "can no longer propose"}.`,
   );
-  await trackRecord(mcp, log, state.agent.agentId);
+  await trackRecord(mcp, log, state.agent.agentId, journal);
 }
 
-async function settle(mcp: StrikeMcp, vault: string, log: Narrator) {
-  const state = await readVault(mcp, vault, log);
+/** Days back a settlement still counts as this week's, for a --settle --log run after the keeper settled. */
+const RECENT_SETTLEMENT_DAYS = 7;
+
+async function settle(mcp: StrikeMcp, vault: string, log: Narrator, journal: Journal, recording: boolean) {
+  const state = await readVault(mcp, vault, log, journal);
+  if (recording && state.vault.epochState !== "Selling") {
+    // The keeper (keeper.yml, every 10 minutes) settles expired series itself; record its settlement.
+    await recordKeeperSettlement(mcp, state, log, journal);
+    return;
+  }
+  if (recording) await readMarket(state, journal); // the running epoch's opening snapshot, before it closes
   log.step("Settle the expired series");
   const res = await mcp.call<SettleResult>("settle_epoch", { vault });
   log.say(res.explanation);
   log.say(`Series ${res.seriesId}, settlement round ${res.roundId}, tx ${res.txHash}`);
-  await trackRecord(mcp, log, state.agent.agentId);
+  journal.tx("settle", res.txHash);
+  journal.finish({
+    status: "settled",
+    summary: res.explanation,
+    seriesId: res.seriesId,
+    settlementPrice: res.settlementPrice,
+    payout: `${res.payout} ${state.vault.asset.symbol}`,
+    premium: res.premium,
+    fee: res.fee,
+    settledBy: "agent",
+  });
+  await trackRecord(mcp, log, state.agent.agentId, journal);
+}
+
+async function recordKeeperSettlement(mcp: StrikeMcp, state: VaultState, log: Narrator, journal: Journal) {
+  log.step("Look up this week's settlement");
+  const last = await lastSettlement(readClient(chainEnv(journal.chainId)), state.vault.address);
+  const now = Date.parse(state.blockTimeIso) / 1000;
+  if (!last || last.expiry < now - RECENT_SETTLEMENT_DAYS * 86_400) {
+    const summary = `${state.vault.symbol} has no live series (epoch ${state.vault.epochState}) and no settlement in the last ${RECENT_SETTLEMENT_DAYS} days: nothing to settle.`;
+    log.say(summary);
+    journal.finish({ status: "skipped", summary });
+  } else {
+    const summary =
+      last.settlementPrice === null
+        ? `Already settled by the keeper without a price: nothing was sold. The vault is unlocked.`
+        : `Already settled by the keeper at $${last.settlementPrice}: ${last.payout} to option holders, ${last.premium} USDG premium collected, ${last.fee} USDG fee. The vault is unlocked.`;
+    log.say(summary);
+    log.say(`Series ${last.seriesId}, tx ${last.txHash}`);
+    journal.tx("settle (keeper)", last.txHash);
+    journal.finish({
+      status: "settled",
+      summary,
+      seriesId: last.seriesId,
+      settlementPrice: last.settlementPrice,
+      payout: last.payout,
+      premium: last.premium,
+      fee: last.fee,
+      settledBy: "keeper",
+    });
+  }
+  await trackRecord(mcp, log, state.agent.agentId, journal);
+}
+
+/** STRIKE_* environment for direct chain reads, pinned to the chain the MCP server reported. */
+const chainEnv = (chainId: number) => ({ ...process.env, STRIKE_CHAIN_ID: String(chainId) });
+
+/** Fill the record's market inputs (once): the epoch's opening snapshot while one runs, else live values. */
+async function readMarket(state: VaultState, journal: Journal) {
+  if (journal.market) return;
+  const snapshot = await epochSnapshot(readClient(chainEnv(journal.chainId)), state.vault.address);
+  journal.market = marketInputs(state, snapshot);
+}
+
+/** Write the decision record of a finished (or stopped) run; never hides the run's own error. */
+async function writeDecisionRecord(mcp: StrikeMcp, journal: Journal, dir: string, error?: string) {
+  const state = journal.state;
+  if (!state) return;
+  try {
+    await readMarket(state, journal);
+  } catch (err) {
+    journal.market = marketInputs(state, null);
+    console.error(`(decision record: could not read the epoch snapshot, using live inputs: ${String(err)})`);
+  }
+  if (!journal.track) {
+    try {
+      journal.tracked(await mcp.call<AgentStats>("agent_stats", { agentId: state.agent.agentId }));
+    } catch {
+      // leave the track record out rather than fail the record
+    }
+  }
+  const record = journal.build(error);
+  if (!record) return;
+  const paths = await writeRecord(dir, record);
+  console.log(`\nDecision record: ${paths.md} (and ${paths.json})`);
 }
 
 async function main() {
@@ -265,6 +423,7 @@ async function main() {
       budget: { type: "string" },
       amount: { type: "string" },
       hedge: { type: "string" },
+      log: { type: "string" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -284,6 +443,11 @@ async function main() {
   const budget = positive("budget", values.budget) ?? DEFAULT_BUDGET;
   const amount = positive("amount", values.amount);
   const hedge = positive("hedge", values.hedge);
+  if (values.log !== undefined && !values.log.trim()) throw new Error("--log needs a directory");
+  // Relative to where the command was run: pnpm runs the script in agents/example but sets INIT_CWD to the caller's
+  // directory, so `pnpm --filter @strike/agent-example start --log docs/agent-log` from the repo root works.
+  const logArg = values.log?.trim();
+  const logDir = logArg ? resolve(process.env.INIT_CWD ?? process.cwd(), logArg) : undefined;
 
   const log = new Narrator();
   const mode = values.buy
@@ -324,9 +488,26 @@ async function main() {
     }
     if (info.mode === "read-only")
       throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the agent signer's key) to act");
-    if (values.settle) await settle(mcp, vault, log);
-    else if (values.reckless) await reckless(mcp, vault, log);
-    else await propose(mcp, vault, { llm: values.llm === true, targetDelta }, log);
+    const action: RecordAction = values.settle ? "settle" : values.reckless ? "reckless" : "propose";
+    const journal = new Journal(action, info.chainId, info.agentAddress);
+    let failure: string | undefined;
+    try {
+      if (values.settle) await settle(mcp, vault, log, journal, logDir !== undefined);
+      else if (values.reckless) await reckless(mcp, vault, log, journal);
+      else await propose(mcp, vault, { llm: values.llm === true, targetDelta }, log, journal);
+    } catch (err) {
+      failure = err instanceof Error ? err.message : String(err);
+      throw err;
+    } finally {
+      if (logDir) {
+        try {
+          await writeDecisionRecord(mcp, journal, logDir, failure && `Agent stopped: ${failure}`);
+        } catch (err) {
+          console.error(`\nCould not write the decision record: ${String(err)}`);
+          process.exitCode = 1;
+        }
+      }
+    }
   } finally {
     await mcp.close();
   }
