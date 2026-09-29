@@ -1,0 +1,238 @@
+/* ================================================================ live EpochManager activity feed */
+
+.feed {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.statusText {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.live {
+  position: relative;
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--gain-c);
+}
+
+.live::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid var(--gain-c);
+  animation: activity-ping 2.2s var(--ease-out) infinite;
+}
+
+.live[data-busy] {
+  background: var(--accent-bright);
+}
+
+.live[data-busy]::after {
+  border-color: var(--accent-bright);
+}
+
+@keyframes activity-ping {
+  from {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  to {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.contract {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-muted);
+  border-bottom: 1px solid var(--rule-strong);
+  transition: border-color 0.2s var(--ease-ui);
+}
+
+.contract:hover {
+  border-color: currentColor;
+}
+
+.refresh {
+  margin-left: auto;
+}
+
+.stale {
+  padding: 12px 16px;
+  border-left: 2px solid var(--loss-c);
+  background: var(--surface);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+/* ---------------------------------------------------------------- rows */
+
+.list {
+  display: grid;
+  list-style: none;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 8.5rem) minmax(0, 7rem) minmax(0, 1fr) auto;
+  gap: 8px 24px;
+  align-items: baseline;
+  padding: 18px 0 20px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.time {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-muted);
+  white-space: nowrap;
+  cursor: help;
+  text-decoration: underline dotted var(--rule-strong);
+  text-underline-offset: 4px;
+}
+
+.vault {
+  font-size: 0.95rem;
+  font-weight: 680;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.what {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 12px;
+  min-width: 0;
+}
+
+.tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--fg-muted);
+}
+
+.tag[data-tone="ok"] {
+  color: var(--gain-c);
+}
+
+.tag[data-tone="bad"] {
+  color: var(--loss-c);
+}
+
+.text {
+  flex: 1 1 18rem;
+  min-width: 0;
+  font-size: 1rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.tx {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-self: end;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule-strong);
+  transition: border-color 0.2s var(--ease-ui);
+}
+
+a.tx:hover {
+  border-color: currentColor;
+}
+
+/* ---------------------------------------------------------------- empty and error */
+
+.state {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: clamp(24px, 3vw, 40px) 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.stateTitle {
+  font-size: var(--fs-h3);
+  font-weight: 680;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.stateText {
+  max-width: 38em;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 16px;
+    padding: 16px 0 18px;
+  }
+  .time {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .vault {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    font-size: 0.85rem;
+  }
+  .what {
+    grid-column: 1 / -1;
+  }
+  .text {
+    flex-basis: 100%;
+    font-size: 0.95rem;
+  }
+  .tx {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+  .refresh {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live::after {
+    animation: none;
+  }
+}
