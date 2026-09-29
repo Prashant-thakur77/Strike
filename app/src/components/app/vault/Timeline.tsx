@@ -8,6 +8,8 @@ import styles from "../app.module.css";
 interface Step {
   name: string;
   time?: number | bigint;
+  /** Shown instead of the time when the step has no timestamp to show. */
+  text?: string;
   note?: string;
   done: boolean;
 }
@@ -15,7 +17,14 @@ interface Step {
 function steps(vault: VaultSummary, cur: EpochEvents | undefined, prev: EpochEvents | undefined): Step[] {
   const settled = cur?.settledAt ?? cur?.abortedAt;
   return [
-    { name: "Idle", time: prev?.settledAt ?? prev?.abortedAt, note: "Unlocked", done: true },
+    {
+      name: "Idle",
+      time: prev?.settledAt ?? prev?.abortedAt,
+      // The first epoch has no previous settlement: the vault was taking its first deposits.
+      text: prev ? undefined : "First deposits, before epoch 1",
+      note: "Unlocked",
+      done: true,
+    },
     { name: "Open", time: cur?.openedAt, note: "Vault locked", done: !!cur?.openedAt },
     {
       name: "Selling",
@@ -25,11 +34,13 @@ function steps(vault: VaultSummary, cur: EpochEvents | undefined, prev: EpochEve
           ? `Accepted after ${cur.rejections} rejection${cur.rejections > 1 ? "s" : ""}`
           : `${cur.rejections} proposal${cur.rejections > 1 ? "s" : ""} rejected so far`
         : "Series accepted",
+      text: "Waiting for a proposal",
       done: !!cur?.proposedAt,
     },
     {
       name: cur?.abortedAt ? "Aborted" : "Settled",
       time: settled ?? (vault.series ? vault.series.expiry : undefined),
+      text: "At the series' expiry",
       note: settled ? "Vault unlocked" : vault.series ? "Expiry" : undefined,
       done: !!settled,
     },
@@ -57,7 +68,11 @@ export function Timeline({ vault, history }: { vault: VaultSummary; history: Vau
             <span className={styles.tlDot} aria-hidden />
             <span className="index">{String(i + 1).padStart(2, "0")}</span>
             <strong className="h3">{s.name}</strong>
-            <span className={styles.tlTime}>{s.time ? fmtNy(s.time) : "—"}</span>
+            {s.time ? (
+              <span className={styles.tlTime}>{fmtNy(s.time)}</span>
+            ) : (
+              <span className={styles.tlText}>{s.text ?? "—"}</span>
+            )}
             {s.note ? (
               <span className="micro micro-muted">{s.done || i === active ? s.note : "Next"}</span>
             ) : null}

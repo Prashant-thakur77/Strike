@@ -14,8 +14,8 @@
 .body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: clamp(64px, 8vw, 120px);
-  padding-top: clamp(48px, 6vw, 96px);
+  gap: clamp(56px, 6vw, 96px); /* same rhythm as app.module.css .detailBody */
+  padding-top: clamp(48px, 5.5vw, 88px);
 }
 
 .sectionTop {
@@ -414,7 +414,7 @@
 
 .verdict {
   position: sticky;
-  top: calc(var(--banner-h) + var(--app-nav-h) + 20px);
+  top: calc(var(--banner-h) + var(--app-nav-h) + var(--index-h, 0px) + 20px);
   display: grid;
   gap: 22px;
   min-width: 0;
@@ -597,6 +597,8 @@
 
 .figures div {
   display: grid;
+  /* Pack label and figure at the top, so figures in a row share a baseline when a note wraps. */
+  align-content: start;
   gap: 6px;
   min-width: 0;
 }
@@ -767,7 +769,7 @@
 /* ---------------------------------------------------------------- what this proves */
 
 .proves {
-  margin-top: clamp(72px, 9vw, 136px);
+  margin-top: clamp(56px, 6vw, 96px);
   padding: clamp(48px, 6vw, 96px) var(--gutter);
 }
 

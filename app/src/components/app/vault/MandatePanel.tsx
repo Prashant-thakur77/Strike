@@ -49,9 +49,9 @@ export function MandatePanel({ vault }: { vault: VaultSummary }) {
         ))}
       </div>
       <p className={styles.hint}>
-        Run by agent{" "}
-        <Link className="text-link" href="/app/agents">
-          #{vault.agentId.toString()}
+        Run by{" "}
+        <Link className={styles.inlineLink} href="/app/agents">
+          agent #{vault.agentId.toString()}
         </Link>{" "}
         · curator <span className="mono">{shortAddr(vault.curator)}</span>. A rejected proposal slashes the
         agent&apos;s bond to this vault&apos;s depositors.

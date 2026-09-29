@@ -81,65 +81,101 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
   const estimate =
     inShares && amount && vault.totalSupply > 0n ? (amount * vault.totalAssets) / vault.totalSupply : null;
 
+  const tabs = (
+    <div className={styles.tabs} role="tablist" aria-label="Deposit or withdraw">
+      {(["deposit", "withdraw"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          role="tab"
+          aria-selected={mode === m}
+          aria-pressed={mode === m}
+          className="chip"
+          onClick={() => {
+            setMode(m);
+            setText("");
+            tx.reset();
+          }}
+        >
+          {m === "deposit"
+            ? locked
+              ? "Queue deposit"
+              : "Deposit"
+            : locked
+              ? "Queue withdrawal"
+              : "Withdraw"}
+        </button>
+      ))}
+    </div>
+  );
+
+  const hint = (
+    <p className={styles.hint}>
+      {inShares && estimate !== null
+        ? `≈ ${fmtAmount(estimate, assetDec, 4)} ${vault.asset.symbol} at today's share price, before this week's result.`
+        : mode === "deposit"
+          ? `Deposit cap left: ${fmtAmount(capLeft, assetDec)} ${vault.asset.symbol}.`
+          : "Withdrawals are paid in the vault's asset. Claim premium separately."}
+      {tooMuch ? " More than you can move." : ""}
+    </p>
+  );
+
+  const action = isConnected ? (
+    <button type="button" className="pill" disabled={invalid || tx.busy} onClick={submit}>
+      {needsApproval ? `Approve & ${verb.toLowerCase()}` : verb}
+    </button>
+  ) : (
+    <ConnectButton />
+  );
+
+  if (locked) {
+    // While the epoch runs nothing moves: a compact request form, processed at settlement.
+    return (
+      <div className={styles.queue}>
+        <div className={styles.queueHead}>
+          <h3 className={styles.queueTitle}>
+            {mode === "deposit" ? "Queue a deposit for the next epoch" : "Queue a withdrawal for settlement"}
+          </h3>
+          {tabs}
+        </div>
+        <p className={styles.hint}>
+          <strong>Locked until settlement.</strong> This week&apos;s options are backed by the vault. A queued
+          deposit becomes shares at the epoch&apos;s closing price; a queued withdrawal pays out at that
+          price, including the week&apos;s premium. Claim either one after settlement.
+        </p>
+        <div className={styles.queueRow}>
+          <AmountField
+            label={inShares ? "Shares to withdraw" : "Amount to queue"}
+            value={text}
+            onChange={setText}
+            unit={inShares ? vault.symbol : vault.asset.symbol}
+            decimals={decimals}
+            max={max}
+            disabled={!isConnected}
+            compact
+          />
+          {action}
+        </div>
+        {hint}
+        <TxNote tx={tx} />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.panel}>
-      <div className={styles.tabs} role="tablist" aria-label="Deposit or withdraw">
-        {(["deposit", "withdraw"] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            role="tab"
-            aria-selected={mode === m}
-            aria-pressed={mode === m}
-            className="chip"
-            onClick={() => {
-              setMode(m);
-              setText("");
-              tx.reset();
-            }}
-          >
-            {m === "deposit"
-              ? locked
-                ? "Queue deposit"
-                : "Deposit"
-              : locked
-                ? "Queue withdrawal"
-                : "Withdraw"}
-          </button>
-        ))}
-      </div>
-      {locked ? (
-        <p className={styles.callout}>
-          <strong>Locked until settlement.</strong> This week&apos;s options are backed by the vault, so
-          nothing moves in or out until the epoch settles. A queued deposit becomes shares at that
-          epoch&apos;s closing price; a queued withdrawal pays out at the same price, including that
-          week&apos;s premium. Claim either one after settlement.
-        </p>
-      ) : null}
+      {tabs}
       <AmountField
-        label={inShares ? "Shares to withdraw" : mode === "deposit" ? "Amount" : "Amount to withdraw"}
+        label={mode === "deposit" ? "Amount" : "Amount to withdraw"}
         value={text}
         onChange={setText}
-        unit={inShares ? vault.symbol : vault.asset.symbol}
+        unit={vault.asset.symbol}
         decimals={decimals}
         max={max}
         disabled={!isConnected}
       />
-      <p className={styles.hint}>
-        {inShares && estimate !== null
-          ? `≈ ${fmtAmount(estimate, assetDec, 4)} ${vault.asset.symbol} at today's share price, before this week's result.`
-          : mode === "deposit"
-            ? `Deposit cap left: ${fmtAmount(capLeft, assetDec)} ${vault.asset.symbol}.`
-            : "Withdrawals are paid in the vault's asset. Claim premium separately."}
-        {tooMuch ? " More than you can move." : ""}
-      </p>
-      {isConnected ? (
-        <button type="button" className="pill" disabled={invalid || tx.busy} onClick={submit}>
-          {needsApproval ? `Approve & ${verb.toLowerCase()}` : verb}
-        </button>
-      ) : (
-        <ConnectButton />
-      )}
+      {hint}
+      {action}
       <TxNote tx={tx} />
     </div>
   );

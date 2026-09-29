@@ -15,6 +15,7 @@ import {
   vaultAddresses,
   vaultHistory,
   vaultSummary,
+  walletBalances,
   type VaultSummary,
 } from "@/lib/reads";
 import { useStrike } from "./useStrike";
@@ -116,6 +117,18 @@ export function useFaucetTokens() {
     queryKey: ["strike", chainId, "faucet", address],
     enabled: ready && !!client && !!deployment,
     queryFn: () => faucetTokens(client!, deployment!, address),
+  });
+}
+
+/** The connected wallet's gas, USDG and stock-token balances on the selected network. */
+export function useWalletBalances() {
+  const { client, deployment, chainId, ready } = useStrike();
+  const { address } = useConnection();
+  return useQuery({
+    queryKey: ["strike", chainId, "wallet", address],
+    enabled: ready && !!client && !!deployment && !!address,
+    refetchInterval: REFRESH,
+    queryFn: () => walletBalances(client!, deployment!, address!),
   });
 }
 

@@ -13,6 +13,8 @@ interface AmountFieldProps {
   max?: bigint;
   maxLabel?: string;
   disabled?: boolean;
+  /** Smaller figures, for secondary forms. */
+  compact?: boolean;
 }
 
 export function AmountField({
@@ -24,10 +26,11 @@ export function AmountField({
   max,
   maxLabel = "Max",
   disabled,
+  compact,
 }: AmountFieldProps) {
   const id = useId();
   return (
-    <div className="field">
+    <div className={compact ? `field ${styles.fieldCompact}` : "field"}>
       <div className={styles.fieldTop}>
         <label htmlFor={id} className="micro micro-muted">
           {label}

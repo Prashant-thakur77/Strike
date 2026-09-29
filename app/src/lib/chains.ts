@@ -58,3 +58,9 @@ export const RPC_OVERRIDES: Partial<Record<AppChainId, string>> = {
   421614: process.env.NEXT_PUBLIC_RPC_421614 || undefined,
   4663: process.env.NEXT_PUBLIC_RPC_4663 || undefined,
 };
+
+/** An ERC-721 token instance on the chain's Blockscout explorer (ERC-8004 identities are ERC-721s). */
+export function explorerNftUrl(id: AppChainId, contract: string, tokenId: bigint): string | null {
+  const base = getAppChain(id).blockExplorers?.default.url;
+  return base ? `${base}/token/${contract}/instance/${tokenId.toString()}` : null;
+}

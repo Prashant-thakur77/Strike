@@ -30,6 +30,8 @@ import {
 import { AmountField } from "../AmountField";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
+import { Fold } from "../Fold";
+import { PageIndex } from "../PageIndex";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import appStyles from "../app.module.css";
@@ -39,6 +41,13 @@ import { EpochNote, VaultPicker } from "./VaultPicker";
 import { VerdictPanel, measuresOf } from "./VerdictPanel";
 import { WhatThisProves } from "./WhatThisProves";
 import styles from "./playground.module.css";
+
+const SECTIONS = [
+  { id: "pg-presets", label: "Presets" },
+  { id: "pg-verdict", label: "Verdict" },
+  { id: "pg-rules", label: "Rules" },
+  { id: "pg-proves", label: "What it proves" },
+];
 
 const REFRESH_MS = 30_000;
 const DEBOUNCE_MS = 350;
@@ -153,7 +162,7 @@ export function PlaygroundPage() {
   return (
     <>
       <PageHero
-        index="05"
+        index="02"
         label="Playground"
         right="Robinhood Chain testnet · 46630"
         title={<span className={styles.title}>Playground</span>}
@@ -174,7 +183,9 @@ export function PlaygroundPage() {
 
       <Strip snap={snap} failed={snapQ.isError} />
 
-      <div className={styles.body}>
+      <PageIndex items={SECTIONS} />
+
+      <div className={`${styles.body} ${appStyles.indexed}`}>
         <section className="gutter" aria-labelledby="pg-presets">
           <div className={styles.sectionTop}>
             <h2 id="pg-presets" className="micro">
@@ -313,6 +324,7 @@ export function PlaygroundPage() {
 
         <Rail
           index="03"
+          id="pg-rules"
           label="The mandate, rule by rule"
           note={
             <>
@@ -322,7 +334,22 @@ export function PlaygroundPage() {
             </>
           }
         >
-          {rules ? <MandateRules rules={rules} /> : <RulesSkeleton />}
+          {rules ? (
+            <Fold
+              summary={`Show all ${rules.length} rules · ${
+                rules.some((r) => r.mark === "fail")
+                  ? `1 broken: ${rules.find((r) => r.mark === "fail")!.title}`
+                  : rules.every((r) => r.mark === "pass")
+                    ? "all pass"
+                    : "in check order"
+              }`}
+              openSummary="Hide the rules"
+            >
+              <MandateRules rules={rules} />
+            </Fold>
+          ) : (
+            <RulesSkeleton />
+          )}
         </Rail>
       </div>
 

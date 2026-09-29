@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { Address } from "viem";
 import { useVault, useVaultHistory } from "@/hooks/queries";
 import { FEED_STATUS } from "@/lib/labels";
-import { fmtAmount, fmtPct, fmtUsd, fmtWadUsd } from "@/lib/format";
+import { fmtAmount, fmtDay, fmtPct, fmtUsd, fmtWadUsd } from "@/lib/format";
 import { LINKS } from "@/lib/links";
 import { hasMultiplier } from "@/lib/shares";
 import { AddressLink } from "../AddressLink";
@@ -76,8 +76,19 @@ export function VaultDetail({ address }: { address: Address }) {
               },
               {
                 label: "Premium APY",
-                value: history.data ? fmtPct(history.data.apy) : <Skeleton />,
-                sub: "trailing, from settled epochs",
+                value: !history.data ? (
+                  <Skeleton />
+                ) : history.data.apy === null ? (
+                  <span className={styles.metaPending}>After the first settlement</span>
+                ) : (
+                  fmtPct(history.data.apy)
+                ),
+                sub:
+                  history.data && history.data.apy === null
+                    ? v.series
+                      ? `Trailing, from settled epochs. First one ${fmtDay(v.series.expiry)}.`
+                      : "Trailing, from settled epochs."
+                    : "trailing, from settled epochs",
               },
               {
                 label: `Epoch ${v.currentEpoch.toString()}`,
@@ -108,7 +119,7 @@ export function VaultDetail({ address }: { address: Address }) {
             <Rail
               index="03"
               label="This week's option"
-              note="Buyers pay USDG; the price is fair value at the moment of purchase times the series' premium factor."
+              note="Buyers pay USDG: fair value at the moment of purchase times the series' premium factor, never below intrinsic value."
             >
               <SeriesPanel vault={v} />
             </Rail>

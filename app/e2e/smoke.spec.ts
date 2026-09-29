@@ -151,13 +151,19 @@ test.describe("with a local devnet", () => {
 
     await page.goto("/app/agents");
     await expect(page.getByText(/StrikeWrongSide/).first()).toBeVisible();
-    await expect(page.locator("th", { hasText: "Track record" })).toBeAttached(); // thead is hidden on phones
+    // The top agent's details row starts open: track record, identity, reputation, runs.
+    const details = page.getByRole("button", { name: /about agent/ }).first();
+    await expect(details).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("Track record", { exact: true }).first()).toBeVisible();
     await expect(page.getByText(/\d+ epochs? settled/).first()).toBeVisible();
     await scrollThrough(page);
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 
     await page.goto("/app/faucet");
-    await expect(page.getByRole("heading", { name: "Stock tokens" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Your test tokens" })).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Test token balances" }).getByText("USDG", { exact: true }),
+    ).toBeVisible();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
     expect(errors).toEqual([]);
   });

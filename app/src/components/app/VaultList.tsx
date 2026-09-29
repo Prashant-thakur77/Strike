@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useMarket, useVaults } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
-import { fmtAmount, fmtNy, fmtPct, fmtUsd, fmtWadUsd, toNumber } from "@/lib/format";
+import { fmtAmount, fmtDay, fmtNy, fmtPct, fmtUsd, fmtWadUsd, toNumber } from "@/lib/format";
 import type { VaultHistory, VaultSummary } from "@/lib/reads";
 import { Gate } from "./Gate";
 import { MetaStrip } from "./MetaStrip";
@@ -126,10 +126,13 @@ function VaultRow({
     >
       <span className="index">{String(index + 1).padStart(2, "0")}</span>
       <span className={styles.rowName}>
-        <span className={styles.rowTicker}>{vault.underlying.symbol}</span>
-        <span className="micro micro-muted">
-          {strategyName(vault)} · {vault.asset.symbol} in, USDG out
+        <span className={styles.rowTitle}>
+          <span className={styles.rowTicker}>{vault.underlying.symbol}</span>
+          <span className={styles.kind} data-tone={vault.isCall ? "call" : "put"}>
+            {strategyName(vault)}
+          </span>
         </span>
+        <span className="micro micro-muted">{vault.asset.symbol} in · USDG premium out</span>
       </span>
       <span className={styles.rowCell} data-label="Value locked">
         <span className="mono">{fmtUsd(vault.tvlUsd)}</span>
@@ -155,8 +158,17 @@ function VaultRow({
         )}
       </span>
       <span className={`${styles.rowCell} ${styles.right}`} data-label="Premium APY">
-        <span className={styles.rowApy}>{history ? fmtPct(history.apy) : "—"}</span>
-        <span className={styles.rowSub}>trailing</span>
+        {history && history.apy !== null ? (
+          <>
+            <span className={styles.rowApy}>{fmtPct(history.apy)}</span>
+            <span className={styles.rowSub}>trailing</span>
+          </>
+        ) : (
+          <>
+            <span className={styles.rowApyPending}>After the first settlement</span>
+            <span className={styles.rowSub}>{s ? fmtDay(s.expiry) : "once an epoch settles"}</span>
+          </>
+        )}
       </span>
       <span className={styles.rowArrow} aria-hidden>
         <ArrowUpRight strokeWidth={1.25} />
@@ -170,15 +182,16 @@ function ListSkeleton() {
     <section className={`gutter ${styles.list}`} aria-busy="true" aria-label="Loading vaults">
       {[0, 1].map((i) => (
         <div key={i} className={styles.row} data-tone="none">
-          <Skeleton width="2em" />
+          <span className="index">{String(i + 1).padStart(2, "0")}</span>
           <span className={styles.rowName}>
             <Skeleton width="5em" />
           </span>
-          <Skeleton width="6em" />
-          <Skeleton width="5em" />
-          <Skeleton width="7em" />
-          <Skeleton width="4em" />
-          <span />
+          {["Value locked", "Epoch", "Live series", "Premium APY"].map((label) => (
+            <span key={label} className={styles.rowCell} data-label={label}>
+              <Skeleton width="4.5em" />
+            </span>
+          ))}
+          <span className={styles.rowArrow} aria-hidden />
         </div>
       ))}
     </section>

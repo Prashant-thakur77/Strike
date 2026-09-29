@@ -9,14 +9,15 @@
 .body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: clamp(72px, 9vw, 136px);
-  padding-top: clamp(56px, 7vw, 104px);
+  gap: clamp(56px, 6vw, 96px); /* same rhythm as app.module.css .detailBody */
+  padding-top: clamp(48px, 5.5vw, 88px);
 }
 
-/* Rail bodies stack their blocks with generous air. */
+/* Rail bodies stack their blocks with generous air (folded blocks too). */
 .body > section > div:last-child {
+  --fold-gap: clamp(36px, 4vw, 56px);
   display: grid;
-  gap: clamp(36px, 4vw, 56px);
+  gap: var(--fold-gap);
   align-content: start;
 }
 

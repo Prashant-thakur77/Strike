@@ -78,6 +78,8 @@ export interface VaultSummary {
   spot: Spot;
   /** ERC-8056 `uiMultiplier` of the underlying (1e18 = one share per raw token; 1e18 when not implemented). */
   multiplier: bigint;
+  /** `EpochManager.underlyings(token)`: annualised volatility (WAD) and the spot buffer buys are priced with. */
+  pricing: { sigma: bigint; spotBufferBps: number } | null;
   tvlUsd: number | null;
   sharePrice: number | null;
 }
@@ -171,6 +173,35 @@ export async function uiMultiplierOf(client: PublicClient, token: Address): Prom
   }
 }
 
+/** Thrown when an address is not a vault registered with this network's EpochManager. */
+export class NotAVaultError extends Error {
+  readonly address: Address;
+  constructor(address: Address) {
+    super("There is no Strike vault at this address on this network.");
+    this.name = "NotAVaultError";
+    this.address = address;
+  }
+}
+
+/** Sigma and spot buffer the EpochManager prices buys of `token` with (null if the read fails). */
+export async function underlyingPricing(
+  client: PublicClient,
+  dep: Deployment,
+  token: Address,
+): Promise<{ sigma: bigint; spotBufferBps: number } | null> {
+  try {
+    const u = await client.readContract({
+      address: dep.epochManager,
+      abi: epochManagerAbi,
+      functionName: "underlyings",
+      args: [token],
+    });
+    return { sigma: u[2], spotBufferBps: u[5] };
+  } catch {
+    return null;
+  }
+}
+
 export async function vaultSummary(
   client: PublicClient,
   dep: Deployment,
@@ -231,17 +262,18 @@ export async function vaultSummary(
         args: [vault],
       })
       .catch(() => null);
-    if (!cfg?.registered) throw new Error("There is no Strike vault at this address on this network.");
+    if (!cfg?.registered) throw new NotAVaultError(vault);
     throw err;
   });
   const [state, openedAt, seriesId] = epoch;
-  const [asset, underlying, usdg, spot, series, multiplier] = await Promise.all([
+  const [asset, underlying, usdg, spot, series, multiplier, pricing] = await Promise.all([
     tokenInfo(client, assetAddr),
     tokenInfo(client, underlyingAddr),
     tokenInfo(client, dep.usdg),
     spotOf(client, dep, underlyingAddr),
     seriesId === 0n ? Promise.resolve(null) : getSeries(client, dep, seriesId),
     uiMultiplierOf(client, underlyingAddr),
+    underlyingPricing(client, dep, underlyingAddr),
   ]);
 
   const assetsUsd = isCall
@@ -277,6 +309,7 @@ export async function vaultSummary(
     mandate: config.mandate,
     spot,
     multiplier,
+    pricing,
     tvlUsd: assetsUsd,
     sharePrice,
   };
@@ -547,6 +580,10 @@ export interface AgentRow {
   /** `AgentRegistry.track`: cumulative depositor PnL of those epochs, USDG base units (6 decimals). */
   cumulativePnl: bigint;
   vaults: Address[];
+  /** `tokenURI` of the agent's ERC-8004 identity: its registration file (null when unlinked or unreadable). */
+  registrationUri: string | null;
+  /** `ReputationFeedback` events the registry posted for this agent (null when the logs could not be read). */
+  feedbackPosted: number | null;
 }
 
 export interface Registry {
@@ -555,18 +592,36 @@ export interface Registry {
   slashAmount: bigint;
   maxStrikes: number;
   usdg: TokenInfo;
+  /** ERC-8004 Identity and Reputation registries the AgentRegistry links to (null when disabled or unreadable). */
+  identityRegistry: Address | null;
+  reputationRegistry: Address | null;
+}
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+const tokenUriAbi = parseAbi(["function tokenURI(uint256) view returns (string)"]);
+
+async function optionalAddress(read: Promise<Address>): Promise<Address | null> {
+  try {
+    const a = await read;
+    return a.toLowerCase() === ZERO ? null : a;
+  } catch {
+    return null;
+  }
 }
 
 export async function registry(client: PublicClient, dep: Deployment): Promise<Registry> {
   const r = { address: dep.agentRegistry, abi: agentRegistryAbi } as const;
-  const [count, minBond, slashAmount, maxStrikes, usdg, vaults] = await Promise.all([
-    client.readContract({ ...r, functionName: "agentCount" }),
-    client.readContract({ ...r, functionName: "minBond" }),
-    client.readContract({ ...r, functionName: "slashAmount" }),
-    client.readContract({ ...r, functionName: "maxStrikes" }),
-    tokenInfo(client, dep.usdg),
-    vaultAddresses(client, dep),
-  ]);
+  const [count, minBond, slashAmount, maxStrikes, usdg, vaults, identityRegistry, reputationRegistry] =
+    await Promise.all([
+      client.readContract({ ...r, functionName: "agentCount" }),
+      client.readContract({ ...r, functionName: "minBond" }),
+      client.readContract({ ...r, functionName: "slashAmount" }),
+      client.readContract({ ...r, functionName: "maxStrikes" }),
+      tokenInfo(client, dep.usdg),
+      vaultAddresses(client, dep),
+      optionalAddress(client.readContract({ ...r, functionName: "identityRegistry" })),
+      optionalAddress(client.readContract({ ...r, functionName: "reputationRegistry" })),
+    ]);
   const ids = Array.from({ length: Number(count) }, (_, i) => BigInt(i + 1));
   const [agents, tracks, configs] = await Promise.all([
     Promise.all(ids.map((id) => client.readContract({ ...r, functionName: "getAgent", args: [id] }))),
@@ -582,6 +637,27 @@ export async function registry(client: PublicClient, dep: Deployment): Promise<R
       ),
     ),
   ]);
+  const [feedback, uris] = await Promise.all([
+    client
+      .getContractEvents({ ...r, eventName: "ReputationFeedback", fromBlock: fromBlock(dep) })
+      .then((logs) => logs.filter((l) => l.args.posted))
+      .catch(() => null),
+    Promise.all(
+      agents.map((a) =>
+        identityRegistry && a.erc8004Id > 0n
+          ? client
+              .readContract({
+                address: identityRegistry,
+                abi: tokenUriAbi,
+                functionName: "tokenURI",
+                args: [a.erc8004Id],
+              })
+              .then((u) => u || null)
+              .catch(() => null)
+          : Promise.resolve(null),
+      ),
+    ),
+  ]);
   return {
     agents: agents.map((a, i) => {
       const [settledEpochs, cumulativePnl] = tracks[i]!;
@@ -591,12 +667,16 @@ export async function registry(client: PublicClient, dep: Deployment): Promise<R
         settledEpochs,
         cumulativePnl,
         vaults: vaults.filter((_, j) => configs[j]?.agentId === ids[i]),
+        registrationUri: uris[i] ?? null,
+        feedbackPosted: feedback ? feedback.filter((l) => l.args.agentId === ids[i]).length : null,
       };
     }),
     minBond,
     slashAmount,
     maxStrikes,
     usdg,
+    identityRegistry,
+    reputationRegistry,
   };
 }
 
@@ -706,4 +786,27 @@ export async function faucetTokens(
       }
     }),
   );
+}
+
+export interface WalletBalances {
+  /** Native gas token, 18 decimals. */
+  gas: bigint;
+  usdg: TokenInfo & { balance: bigint };
+  /** Every stock token in the deployment (with the in-app faucet's terms where the token has one). */
+  stocks: FaucetToken[];
+}
+
+/** What `account` holds of everything the app needs: gas, USDG and the deployment's stock tokens. */
+export async function walletBalances(
+  client: PublicClient,
+  dep: Deployment,
+  account: Address,
+): Promise<WalletBalances> {
+  const [gas, usdg, usdgBalance, stocks] = await Promise.all([
+    client.getBalance({ address: account }),
+    tokenInfo(client, dep.usdg),
+    client.readContract({ address: dep.usdg, abi: erc20Abi, functionName: "balanceOf", args: [account] }),
+    faucetTokens(client, dep, account),
+  ]);
+  return { gas, usdg: { ...usdg, balance: usdgBalance }, stocks };
 }

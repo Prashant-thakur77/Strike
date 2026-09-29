@@ -21,6 +21,7 @@ import { UNIT_MULTIPLIER, fmtMultiplier, perSharePrice } from "@/lib/shares";
 import { errorMessage } from "@/hooks/useTx";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
+import { Fold } from "../Fold";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import appStyles from "../app.module.css";
@@ -157,7 +158,9 @@ export function MonitorPage() {
             </>
           }
         >
-          <CheckList />
+          <Fold summary="Show the six checks" openSummary="Hide the checks">
+            <CheckList />
+          </Fold>
         </Rail>
       </div>
     </>
@@ -312,8 +315,8 @@ function TokenRowView({ row, snap, nowMs }: { row: TokenRow; snap: MonitorSnapsh
     }
     if (scheduled) return `Change pending · effective ${fmtNy(at)}`;
     if (ca.pending) return `In grace until ${fmtNy(graceEnd)}`;
-    if (at === 0n) return "No change ever scheduled";
-    return `No change pending · last took effect ${fmtNy(at)}`;
+    if (at === 0n) return null;
+    return "No change pending";
   })();
 
   return (
@@ -347,9 +350,15 @@ function TokenRowView({ row, snap, nowMs }: { row: TokenRow; snap: MonitorSnapsh
             <span className={styles.sub} data-stale={age !== null && age > MAX_PRICE_AGE ? true : undefined}>
               updated {fmtAge(age ?? 0)} ago
             </span>
-            <span className={`mono ${styles.round}`} title={`answeredInRound ${round.answeredInRound}`}>
-              round {round.roundId.toString()}
-            </span>
+            <details className={styles.round}>
+              <summary>Round</summary>
+              <dl className={styles.kv}>
+                <dt>roundId</dt>
+                <dd className="mono">{round.roundId.toString()}</dd>
+                <dt>answeredInRound</dt>
+                <dd className="mono">{round.answeredInRound.toString()}</dd>
+              </dl>
+            </details>
           </>
         ) : (
           <span className={styles.sub}>feed unreadable</span>
@@ -377,11 +386,15 @@ function TokenRowView({ row, snap, nowMs }: { row: TokenRow; snap: MonitorSnapsh
             {reads.newUIMultiplier !== null ? fmtMultiplier(reads.newUIMultiplier) : "—"}
           </dd>
           <dt>effectiveAt</dt>
-          <dd className="mono">{reads.effectiveAt === null ? "—" : at === 0n ? "0" : at.toString()}</dd>
+          <dd className={at === 0n ? undefined : "mono"} title={at === 0n ? undefined : `effectiveAt ${at}`}>
+            {reads.effectiveAt === null ? "—" : at === 0n ? "no change scheduled" : fmtNy(at)}
+          </dd>
         </dl>
-        <span className={styles.sub} data-pending={ca.pending || undefined}>
-          {caText}
-        </span>
+        {caText ? (
+          <span className={styles.sub} data-pending={ca.pending || undefined}>
+            {caText}
+          </span>
+        ) : null}
       </div>
 
       <div className={styles.cell} role="cell" data-label="Pause flags">

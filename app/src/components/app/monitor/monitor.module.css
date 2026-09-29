@@ -19,8 +19,8 @@
 .body {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: clamp(72px, 9vw, 136px);
-  padding-top: clamp(56px, 7vw, 104px);
+  gap: clamp(56px, 6vw, 96px); /* same rhythm as app.module.css .detailBody */
+  padding-top: clamp(48px, 5.5vw, 88px);
 }
 
 .tableTop {
@@ -201,7 +201,33 @@
 .round {
   font-size: 0.75rem;
   color: var(--fg-muted);
-  overflow-wrap: anywhere;
+}
+
+.round summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px dotted currentColor;
+}
+
+.round summary::-webkit-details-marker {
+  display: none;
+}
+
+.round summary::after {
+  content: "+";
+  font-family: var(--font-mono);
+}
+
+.round[open] summary::after {
+  content: "−";
+}
+
+.round .kv {
+  margin-top: 6px;
+  font-size: 0.72rem;
 }
 
 .verdict {

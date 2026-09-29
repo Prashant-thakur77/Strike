@@ -1,12 +1,19 @@
 "use client";
 
-import { useMarket } from "@/hooks/queries";
+import { blackScholes } from "@strike/sdk";
+import type { ReactNode } from "react";
+import { useMarket, useQuoteBuy } from "@/hooks/queries";
 import { fmtAmount, fmtBps, fmtDuration, fmtNy, fmtWadUsd, toNumber } from "@/lib/format";
-import type { VaultSummary } from "@/lib/reads";
+import { buyPrice } from "@/lib/payoff";
+import type { Series, VaultSummary } from "@/lib/reads";
 import { hasMultiplier } from "@/lib/shares";
 import { PerShare } from "../PerShare";
 import { BuyPanel } from "./BuyPanel";
+import { PayoffChart } from "./PayoffChart";
 import styles from "../app.module.css";
+
+const money = (n: number, frac = 2) =>
+  `$${n.toLocaleString("en-US", { minimumFractionDigits: frac, maximumFractionDigits: frac })}`;
 
 export function SeriesPanel({ vault }: { vault: VaultSummary }) {
   const s = vault.series;
@@ -30,6 +37,10 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
   const size = toNumber(s.size, dec);
   const left = market ? Number(s.expiry) - market.now : null;
   const scaled = hasMultiplier(vault.multiplier);
+  const strike = toNumber(s.strike, 18);
+  const spot = toNumber(vault.spot.price, 18);
+  // What buyers actually paid, on average; before the first sale, the live quote.
+  const paid = sold > 0 ? toNumber(s.premium, vault.usdg.decimals) / sold : null;
 
   return (
     <div className={styles.panel}>
@@ -79,6 +90,24 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
           {fmtAmount(s.sold, dec)} of {fmtAmount(s.size, dec)} sold · {fmtAmount(s.size - s.sold, dec)} left
         </p>
       </div>
+      <PriceNote vault={vault} series={s} now={market?.now}>
+        {(quote) =>
+          spot > 0 && (paid ?? quote) ? (
+            <PayoffChart
+              isCall={s.isCall}
+              symbol={vault.underlying.symbol}
+              strike={strike}
+              spot={spot}
+              premium={(paid ?? quote)!}
+              premiumNote={
+                paid !== null
+                  ? `the average buyers paid in this series, ${money(paid)} (${fmtAmount(s.premium, vault.usdg.decimals)} USDG for ${fmtAmount(s.sold, dec)} options)`
+                  : `today's live quote, ${money(quote!)}`
+              }
+            />
+          ) : null
+        }
+      </PriceNote>
       {s.sold < s.size ? (
         <BuyPanel vault={vault} series={s} />
       ) : (
@@ -91,5 +120,89 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * How the displayed "% of fair" becomes the buy price: fair value at the oracle spot moved `spotBufferBps` against the
+ * buyer, times the premium factor, never below intrinsic value. Next to it, the contract's own quote for one option.
+ */
+function PriceNote({
+  vault,
+  series,
+  now,
+  children,
+}: {
+  vault: VaultSummary;
+  series: Series;
+  now: number | undefined;
+  children: (quotePerOption: number | null) => ReactNode;
+}) {
+  const dec = vault.underlying.decimals;
+  const one = 10n ** BigInt(dec);
+  const quote = useQuoteBuy(series.id, one);
+  const live = quote.data !== undefined ? toNumber(quote.data, vault.usdg.decimals) : null;
+  const p = vault.pricing;
+  const spot = toNumber(vault.spot.price, 18);
+  const tenor = now !== undefined ? Number(series.expiry) - now : null;
+  const model =
+    p && spot > 0 && tenor !== null && tenor > 0
+      ? buyPrice(
+          {
+            spot,
+            strike: toNumber(series.strike, 18),
+            tenorSeconds: tenor,
+            sigma: toNumber(p.sigma, 18),
+            isCall: series.isCall,
+            premiumBps: series.premiumBps,
+            spotBufferBps: p.spotBufferBps,
+          },
+          (...args) => blackScholes(...args).price,
+        )
+      : null;
+  const buf = p ? fmtBps(p.spotBufferBps, 2) : "";
+
+  return (
+    <>
+      {model && p ? (
+        <section className={styles.priceNote} aria-label="How the buy price is set">
+          <h3 className="micro">How the buy price is set</h3>
+          <ol className={styles.priceSteps}>
+            <li>
+              <span className="micro micro-muted">Priced spot</span>
+              <strong className="mono">{money(model.pricedSpot)}</strong>
+              <span>
+                oracle {money(spot)} {series.isCall ? "+" : "−"} {buf}, against the buyer
+              </span>
+            </li>
+            <li>
+              <span className="micro micro-muted">Fair value</span>
+              <strong className="mono">{money(model.fair)}</strong>
+              <span>
+                Black-Scholes, σ {fmtBps(Number((p.sigma * 10_000n) / 10n ** 18n))}, {fmtDuration(tenor!)}{" "}
+                left
+              </span>
+            </li>
+            <li>
+              <span className="micro micro-muted">× {fmtBps(series.premiumBps)} of fair</span>
+              <strong className="mono">{money(model.perOption)}</strong>
+              <span>
+                {model.floorBinds
+                  ? `raised to intrinsic value, ${money(model.intrinsic)}`
+                  : `never below intrinsic value (${money(model.intrinsic)} now)`}
+              </span>
+            </li>
+            <li>
+              <span className="micro micro-muted">Live quote</span>
+              <strong className="mono">{live !== null ? money(live, 4) : quote.isError ? "—" : "…"}</strong>
+              <span>
+                <code className="mono">quoteBuy</code> for one option
+              </span>
+            </li>
+          </ol>
+        </section>
+      ) : null}
+      {children(live ?? model?.perOption ?? null)}
+    </>
   );
 }

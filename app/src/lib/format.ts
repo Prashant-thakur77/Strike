@@ -100,3 +100,15 @@ export function parseAmount(text: string, decimals: number): bigint | null {
     BigInt((frac + "0".repeat(decimals)).slice(0, decimals) || "0")
   );
 }
+
+const dayFmt = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+});
+
+/** A unix timestamp as a New York calendar day: "Fri, Oct 2". */
+export function fmtDay(ts: bigint | number): string {
+  return dayFmt.format(new Date(Number(ts) * 1000));
+}
