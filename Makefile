@@ -12,10 +12,10 @@ ci-test:
 	cd contracts && FOUNDRY_PROFILE=ci forge test
 
 fmt:
-	cd contracts && forge fmt
+	cd contracts && forge fmt && forge fmt examples
 
 fmt-check:
-	cd contracts && forge fmt --check
+	cd contracts && forge fmt --check && forge fmt --check examples
 
 snapshot:
 	cd contracts && forge snapshot

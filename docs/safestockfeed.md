@@ -16,30 +16,96 @@ Lending markets, perps, index products and payments on Robinhood Chain all read 
 
 It never multiplies the feed price by `uiMultiplier`. The Chainlink stock feeds already price one raw token including the multiplier; applying it again overprices the token (NVDA's live multiplier is 1.000775). The fork test `test_fork_multiplierIsNotAppliedTwice` proves this against chain 4663.
 
-## Use the library
+## Use it in your project
+
+### 1. Install
+
+```sh
+forge install Prashant-thakur77/Strike
+```
+
+This clones the repo into `lib/Strike`. The library needs nothing else: `SafeStockFeed` and the two interfaces it imports (`IAggregatorV3`, `IStockToken`) have no dependencies. Only `StockOracle` and `MarketCalendar` need OpenZeppelin, which comes in as Strike's own submodule.
+
+### 2. Add one remapping
+
+```text
+# remappings.txt
+@strike/=lib/Strike/contracts/src/
+```
+
+`@strike/` points at Strike's own `contracts/src`, the files the deployed contracts are built from. There is no packaged copy that could drift from them ([decisions.md D32](decisions.md)). Without the line, Foundry's auto-remapping exposes the same files as `Strike/src/...`.
+
+The files pin `pragma solidity 0.8.30;`, the compiler the deployment was verified with. Contracts that import them compile with 0.8.30 too: set `solc_version = "0.8.30"` or leave Foundry's auto-detection on (a `^0.8.20` pragma works).
+
+Prefer to vendor it? Copy three files and keep their relative layout, since the library imports `../interfaces/...`: `contracts/src/libraries/SafeStockFeed.sol`, `contracts/src/interfaces/IAggregatorV3.sol` and `contracts/src/interfaces/IStockToken.sol` (for example to `src/strike/libraries/` and `src/strike/interfaces/`). Note the commit you copied, and do not edit them. Your own linter will then flag the library's `block.timestamp` comparisons, which are intended.
+
+### 3. Read a price
 
 ```solidity
-import {SafeStockFeed} from "strike/contracts/src/libraries/SafeStockFeed.sol";
-import {IAggregatorV3} from "strike/contracts/src/interfaces/IAggregatorV3.sol";
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
 
-contract MyLendingMarket {
-    using SafeStockFeed for SafeStockFeed.Config;
+import {IAggregatorV3} from "@strike/interfaces/IAggregatorV3.sol";
+import {SafeStockFeed} from "@strike/libraries/SafeStockFeed.sol";
 
-    SafeStockFeed.Config internal tslaFeed = SafeStockFeed.Config({
-        feed: IAggregatorV3(0x4A1166a659A55625345e9515b32adECea5547C38), // Chainlink TSLA / USD on chain 4663
-        maxPriceAge: 25 hours,
-        corporateActionGrace: 1 days,
-        feedDecimals: 8
-    });
+contract NvdaCollateral {
+    address constant NVDA = 0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC; // Robinhood Chain 4663
+    IAggregatorV3 constant NVDA_USD = IAggregatorV3(0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15); // Chainlink
 
-    function collateralValue(uint256 rawTslaAmount) external view returns (uint256 usdWad) {
-        (uint256 priceWad,) = tslaFeed.latest(0x322F0929c4625eD5bAd873c95208D54E1c003b2d); // TSLA token
-        return rawTslaAmount * priceWad / 1e18; // raw balance × feed price; no multiplier
+    /// USD value (18 decimals) of `raw` NVDA: raw balance × feed price, never × uiMultiplier.
+    function valueOf(uint256 raw) external view returns (uint256) {
+        SafeStockFeed.Config memory c = SafeStockFeed.Config(NVDA_USD, 25 hours, 1 days, 8);
+        (uint256 priceWad,) = SafeStockFeed.latest(c, NVDA); // reverts on stale, paused or corporate action
+        return raw * priceWad / 1e18;
     }
 }
 ```
 
+This exact contract was built in a fresh Foundry project through the remapping above and checked against the live NVDA feed on chain 4663. The `Config` fields:
+
+- `feed`: the token's Chainlink **Standard** proxy. Every Robinhood Chain stock feed is listed in [research.md](research.md) (token and feed side by side).
+- `maxPriceAge`: 25 hours fits the feeds' 24 h heartbeat. The feeds do not print over weekends and US holidays, so `latest` reverts `StalePrice` then. For liquidations that is the point. To show a value anyway, use `status`, which returns the last price together with `StalePrice`.
+- `corporateActionGrace`: how long after an ERC-8056 multiplier change prices are refused (Strike uses 1 day).
+- `feedDecimals`: 8 for every Robinhood Chain stock feed; read `feed.decimals()` once in your constructor if you prefer.
+
+The price is USD per **raw** token. Multiply it by `balanceOf`, never by `balanceOfUI` and never by `uiMultiplier`: the feed already includes the multiplier, so either one counts a split or dividend twice. The only correct use of the multiplier is dividing by it, to show the price of one share as a wallet displays it (`priceWad × 1e18 / uiMultiplier`). The UI balance times that share price gives back the same value.
+
+Sequencer: call `SafeStockFeed.checkSequencer(uptimeFeed, grace)` before `latest`. Chainlink has not published an L2 sequencer uptime feed for Robinhood Chain yet ([research.md §7](research.md#7-chainlink-l2-sequencer-uptime-feeds)). A zero address skips the check, so wire it in now and set the feed once one exists.
+
+### 4. The full example
+
+[`contracts/examples/StockCollateral.sol`](../contracts/examples/StockCollateral.sol) is the collateral side of a lending market for one stock token: `deposit`, `withdraw`, `collateralValue` (raw balance × feed price), `borrowLimit` (value × LTV), `sharePrice` (feed price ÷ `uiMultiplier`, display only) and an optional sequencer feed. Its comments walk through the double-multiplier bug and why the multiplier is only ever divided by. Every USD read reverts with the library's errors.
+
+- Unit tests with the repo's mocks: [`contracts/test/examples/StockCollateral.t.sol`](../contracts/test/examples/StockCollateral.t.sol) (14 tests: a 2-for-1 split leaves the value unchanged, fuzzed multipliers, each revert, the testnet token without `oraclePaused`, a plain ERC-20).
+- Fork tests on chain 4663: [`contracts/test/fork/StockCollateralFork.t.sol`](../contracts/test/fork/StockCollateralFork.t.sol) (3 tests). They value real NVDA collateral against the raw feed answer, show both double-counting variants are strictly larger, check all 8 mainnet stock tokens that have a feed, and trigger each revert on the real token. They are skipped when the RPC is unset or unreachable.
+
+```sh
+cd contracts
+forge test --match-path "test/examples/*"
+ROBINHOOD_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --match-path "test/fork/*"
+```
+
+### 5. What each error means
+
+| Error                                        | Raised by                   | Meaning                                                                                                                 | What a lending or perps protocol should do                                            |
+| -------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `InvalidPrice(answer)`                       | `latest`, `settlementPrice` | The round's answer is zero or negative, or its timestamp is in the future                                               | Treat the feed as broken; stop price-dependent actions                                |
+| `StalePrice(updatedAt, maxAge)`              | `latest`                    | The newest round is older than `maxPriceAge`. Normal over weekends and holidays                                         | Pause borrows and liquidations until the next print; never fall back to the old price |
+| `TokenPaused(token)`                         | `latest`, `settlementPrice` | The issuer paused the token (`paused()`)                                                                                | Pause liquidations: seized collateral could not move anyway                           |
+| `FeedPaused(token)`                          | `latest`, `settlementPrice` | The issuer paused the token's oracle side (`oraclePaused()`)                                                            | Pause price-dependent actions                                                         |
+| `CorporateActionPending(token, effectiveAt)` | `latest`                    | A split or dividend is scheduled (`newUIMultiplier ≠ uiMultiplier`) or took effect less than `corporateActionGrace` ago | Wait until `effectiveAt + grace`; the feed and the multiplier can disagree until then |
+| `SequencerDown()`                            | `checkSequencer`            | The uptime feed reports the sequencer down                                                                              | Pause; users cannot top up positions                                                  |
+| `SequencerGracePeriod(since)`                | `checkSequencer`            | The sequencer came back less than `grace` ago                                                                           | Wait, so users can top up before liquidations resume                                  |
+| `MissingHint(index)`                         | `settlementPrice`           | The hint array ended before the proof was complete (a phase change or corporate action needs extra hints)               | Supply the full array (the SDK's `findSettlementHints`)                               |
+| `InvalidSettlementRound(roundId)`            | `settlementPrice`           | That round is not the first at or after the target, or a phase hint is wrong                                            | Supply the correct round; nobody can pick a later, more convenient print              |
+
+### Other functions
+
 `status(config, token)` is the non-reverting version for front ends and agents: it returns `Ok`, `InvalidPrice`, `StalePrice`, `TokenPaused`, `FeedPaused` or `CorporateActionPending` together with the price.
+
+`corporateAction(token, grace)` returns whether a multiplier change is in progress and its `effectiveAt`, and `checkToken(token, grace)` runs the pause and corporate-action checks alone. Both read the token defensively, so a plain ERC-20 passes.
+
+### Settlement prices
 
 `settlementPrice(config, token, hints, target)` returns the price of the first round published at or after `target`, proven by an array of round ids. Use it for anything that settles "at time T" (options, futures, auctions) so nobody can choose a convenient later print. The rules:
 
@@ -53,7 +119,7 @@ In the common case (one phase, no corporate action) one hint is enough. The Stri
 
 ## Or call the deployed StockOracle
 
-`StockOracle` holds a registry of stock tokens and their feeds, the NYSE calendar, and a record of settlement prices shared by every consumer:
+`StockOracle` holds a registry of stock tokens and their feeds, the NYSE calendar, and a record of settlement prices shared by every consumer. With the remapping above, `import {IStockOracle} from "@strike/interfaces/IStockOracle.sol";` is all a caller needs:
 
 | Function                                               | Returns                                                                                                                        |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -73,5 +139,6 @@ On Robinhood Chain testnet (46630) the live `StockOracle` is [`0x7bb3cAb211E7Ce5
 
 - Unit and fuzz: `contracts/test/oracle/StockOracle.t.sol` (21 tests), `contracts/test/oracle/MarketCalendar.t.sol` (13 tests)
 - Fork against chain 4663: `contracts/test/fork/RobinhoodFork.t.sol` (real TSLA, NVDA and SPY feeds, real pause flags and multipliers)
+- Example consumer: `contracts/test/examples/StockCollateral.t.sol` (14 unit and fuzz tests) and `contracts/test/fork/StockCollateralFork.t.sol` (3 fork tests: NVDA collateral against the raw feed, all 8 mainnet feeds, each revert on the real token)
 - Audit regression: `contracts/test/audit/AuditSettlement.t.sol` (phase changes, corporate action at expiry, round uniqueness)
-- Coverage: 97.5% of lines for `SafeStockFeed`, 100% for `StockOracle`
+- Coverage: 97.5% of lines for `SafeStockFeed`, 100% for `StockOracle` and for the `StockCollateral` example

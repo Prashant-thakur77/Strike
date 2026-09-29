@@ -4,6 +4,16 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Added
+
+- `SafeStockFeed` for other builders: `forge install Prashant-thakur77/Strike` plus one remapping (`@strike/=lib/Strike/contracts/src/`) gives any Foundry project the library from the same source as the deployed contracts ([decisions.md D32](docs/decisions.md)).
+- Example consumer `contracts/examples/StockCollateral.sol`: stock-token collateral valued with `SafeStockFeed.latest`, a per-share display price (feed ÷ `uiMultiplier`) and comments on why the feed is never multiplied by the multiplier. 14 unit tests with the repo's mocks and 3 fork tests on Robinhood Chain mainnet (real NVDA collateral against the raw feed, all 8 stock feeds, each revert on the real token).
+
+### Changed
+
+- docs/safestockfeed.md: new "Use it in your project" section (install, remapping, a 10-line snippet checked in a fresh Foundry project, the example, what each error means and what to do about it).
+- `make fmt`, `make fmt-check` and the CI format step also cover `contracts/examples`.
+
 ## [0.7.0] - 2026-09-30
 
 ### Added
