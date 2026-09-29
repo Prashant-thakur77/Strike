@@ -2,7 +2,21 @@
 
 Updated at the end of every phase and every improvement cycle. A score without linked evidence counts as 5.
 
-## Latest: improvement cycle 2 (2026-09-29)
+## Latest: end of improvement cycle 3 (2026-09-30)
+
+The four official criteria are unweighted. Each score cites evidence a judge can open.
+
+| Criterion              | Cycle 2 | Cycle 3 | What changed                                                                                                                                                                                                                                                                                                                           | Remaining gap                                                                            |
+| ---------------------- | ------: | ------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Smart contract quality |     9.3 |     9.5 | [9 Halmos-proven properties](security/formal-verification.md) in CI (16 more honestly marked unproven), a coverage gate in CI (99.1% lines), agent #1 linked to a real ERC-8004 identity (#114)                                                                                                                                        | External audit; fee high-water mark (D31)                                                |
+| Product-market fit     |     7.0 |     7.3 | Anyone can try the core idea without a wallet ([playground](../app/src/components/app/playground/PlaygroundPage.tsx)); a [Telegram bot](../bots/telegram/README.md) for alerts; a [tester guide](testers.md); the [mainnet safety monitor](../app/src/components/app/monitor/MonitorPage.tsx) is useful to any Robinhood Chain builder | No live URL and no users yet (owner); agents run when started, not on their own schedule |
+| Innovation, creativity |     8.0 |     8.6 | The mandate is interactive and verdicts come from the deployed contract; the agent has an on-chain ERC-8004 identity that settlement feedback will land on; a live on-chain activity feed                                                                                                                                              | An agent that runs every week by itself and publishes its reasoning                      |
+| Real problem solving   |     8.0 |     8.7 | The stock-token traps are shown on live mainnet data (8 tokens, per-token SafeStockFeed verdicts); the first real epoch ran on testnet; accurate prior-art comparison (Stonkhouse, Archer Markets)                                                                                                                                     | Settlement of the live epoch (Friday 2 Oct)                                              |
+| Paxos USDG (extra)     |     8.5 |     8.5 | Premium, collateral, bonds and fees in USDG                                                                                                                                                                                                                                                                                            | none                                                                                     |
+
+Repository: a professional README, CHANGELOG, SECURITY, CONTRIBUTING, templates, versioned deployments and the `v0.6.0` tag. Owner items that still block the submission are in [req-you.md](req-you.md): HackQuest registration, the Vercel URL, the narrated videos, the keeper secret and testers.
+
+## Earlier: improvement cycle 2 (2026-09-29)
 
 ### A. Hard requirements
 
