@@ -1,0 +1,47 @@
+name: Bug report
+description: Something in Strike does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Security vulnerabilities go through [private reporting](https://github.com/Prashant-thakur77/Strike/security/advisories/new), not here.**
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Contracts
+        - Stylus pricer
+        - App
+        - SDK
+        - MCP server or example agent
+        - Telegram bot
+        - Subgraph
+        - Scripts or CI
+        - Docs
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands, transaction hashes, vault addresses, or a failing test.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or deployment
+      description: e.g. the commit hash, or "testnet v2".
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      render: shell

@@ -1,0 +1,6 @@
+# Every change is reviewed by the maintainer. Contract, deployment and CI changes need explicit review.
+*                     @Prashant-thakur77
+/contracts/src/       @Prashant-thakur77
+/contracts/deployments/ @Prashant-thakur77
+/stylus/              @Prashant-thakur77
+/.github/workflows/   @Prashant-thakur77

@@ -34,5 +34,10 @@
   "usdg": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
   "vaultFactory": "0x9DbaFfD488FC591947149E2b27189A201C0a74f4",
   "vaultImplementation": "0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197",
-  "stylusPricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c"
+  "stylusPricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
+  "version": "v1",
+  "status": "superseded by v2 (2026-09-29 internal review fixes)",
+  "sourceCommit": "bb654ad",
+  "deployCommit": "fc21316",
+  "activePricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c"
 }

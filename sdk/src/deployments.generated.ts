@@ -68,6 +68,12 @@ export const generatedDeployments = {
     "vaultFactory": "0x5665E02878fA592513C1633af2F07b08cF606beC",
     "vaultImplementation": "0x900e7C78598C3AbC38FDD411756c38CF7931797D",
     "stylusPricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
+    "version": "v2",
+    "status": "current",
+    "sourceCommit": "1ff5382",
+    "deployCommit": "beb4281",
+    "activePricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
+    "activePricerNote": "EpochManager.pricer() is the Stylus pricer; `pricer` is the Solidity reference kept for the on-chain equality check",
     "vaults": {
       "TSLA_cash_secured_put": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
       "TSLA_covered_call": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",

@@ -1,32 +1,46 @@
-# Strike
+<h1 align="center">Strike</h1>
 
-[![CI](https://github.com/Prashant-thakur77/Strike/actions/workflows/ci.yml/badge.svg)](https://github.com/Prashant-thakur77/Strike/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE) ![Solidity 0.8.30](https://img.shields.io/badge/Solidity-0.8.30-363636) ![Arbitrum Stylus](https://img.shields.io/badge/Arbitrum-Stylus-28a0f0)
-
-Weekly options vaults for Robinhood Chain stock tokens. Depositors earn premium in USDG. An AI agent picks each week's strike, and the contract rejects any proposal outside the vault's mandate and slashes the agent's bond.
-
-Built for the Arbitrum Open House Singapore buildathon. Unaudited: testnet first, and any mainnet vault is capped.
-
-|                  |                                                                                                                                                                                                                                                                                                                      |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Live app         | pending Vercel setup ([docs/deploy-app.md](docs/deploy-app.md)); contracts are [live on Robinhood Chain testnet](#deployed-contracts)                                                                                                                                                                                |
-| Demo video       | [2:40 walkthrough](docs/media/strike-demo.mp4) (automated recording: app, seller agent, reckless agent slashed, hedging buyer); narrated video pending                                                                                                                                                               |
-| Research         | [Litepaper](docs/litepaper.md) · [8-year backtest](docs/backtest.md) (TSLA, NVDA, AMZN, SPY, with the protocol's own pricer)                                                                                                                                                                                         |
-| Security         | [Internal review](docs/security/review-2026-09-29.md): 1 High, 3 Medium, 4 Low, 3 Info, all fixed with regression tests · [Slither](docs/security/slither.md)                                                                                                                                                        |
-| Try it           | [5-minute tester guide](docs/testers.md) (testnet tokens, app, example agent, feedback form)                                                                                                                                                                                                                         |
-| Tools            | [Stock-token safety monitor](app/src/components/app/monitor/MonitorPage.tsx) (`/app/monitor`: live Robinhood Chain mainnet multipliers, pauses, feed age and the SafeStockFeed verdict per token) · [Telegram bot](bots/telegram/README.md) (epoch, slash, buy and settlement alerts; `/vaults`, `/quote`, `/agent`) |
-| Agent skill file | [docs/STRIKE_SKILL.md](docs/STRIKE_SKILL.md)                                                                                                                                                                                                                                                                         |
-| Design spec      | [docs/design.md](docs/design.md)                                                                                                                                                                                                                                                                                     |
-| Threat model     | [docs/threat-model.md](docs/threat-model.md)                                                                                                                                                                                                                                                                         |
-| Audit readiness  | Scope, roles, trust assumptions, known issues: [docs/audit-readiness.md](docs/audit-readiness.md); runbook: [docs/operations.md](docs/operations.md)                                                                                                                                                                 |
-
-<p>
-  <a href="docs/media/strike-demo.mp4"><img src="docs/media/strike-demo.gif" alt="Strike demo (first 12 seconds; click for the full video)" width="66%"></a>
+<p align="center">
+  <b>Weekly options vaults for Robinhood Chain stock tokens, run by AI agents that cannot break the rules.</b><br>
+  Depositors earn premium in USDG. An agent proposes each week's strike; the contract rejects anything outside the vault's mandate and slashes the agent's bond to depositors.
 </p>
 
-<p>
-  <img src="docs/screenshots/desktop-landing-00-hero.png" alt="Strike landing page" width="66%">
-  <img src="docs/screenshots/mobile-landing-00-hero.png" alt="Strike on mobile" width="22%">
+<p align="center">
+  <a href="https://github.com/Prashant-thakur77/Strike/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Prashant-thakur77/Strike/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="docs/testing.md"><img alt="Coverage 99%" src="https://img.shields.io/badge/coverage-99%25%20lines-brightgreen"></a>
+  <a href="https://github.com/Prashant-thakur77/Strike/tags"><img alt="Version" src="https://img.shields.io/github/v/tag/Prashant-thakur77/Strike?label=version&sort=semver"></a>
+  <a href="#deployments"><img alt="Robinhood Chain testnet" src="https://img.shields.io/badge/Robinhood%20Chain%20testnet-live%20(v2)-00c805"></a>
+  <img alt="Solidity 0.8.30" src="https://img.shields.io/badge/Solidity-0.8.30-363636">
+  <img alt="Arbitrum Stylus" src="https://img.shields.io/badge/Arbitrum-Stylus-28a0f0">
+  <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
+
+<p align="center">
+  <b>App</b>: pending Vercel (<a href="docs/deploy-app.md">setup</a>) ·
+  <a href="docs/media/strike-demo.mp4"><b>Demo video</b></a> ·
+  <a href="docs/README.md"><b>Docs</b></a> ·
+  <a href="docs/litepaper.md"><b>Litepaper</b></a> ·
+  <a href="docs/testnet-epochs/2026-09-29.md"><b>Live epoch</b></a> ·
+  <a href="docs/security/review-2026-09-29.md"><b>Security review</b></a> ·
+  <a href="CHANGELOG.md"><b>Changelog</b></a>
+</p>
+
+<p align="center">
+  <a href="docs/media/strike-demo.mp4"><img src="docs/media/strike-demo.gif" alt="Strike demo (first 12 seconds; click for the full video)" width="80%"></a>
+</p>
+
+> **Status: v0.6.0, live on Robinhood Chain testnet (v2), unaudited.** Built for the Arbitrum Open House Singapore buildathon. Do not use real funds; any mainnet vault will be capped until an external audit.
+
+|                |                                                                                                                                                                                                    |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Try it**     | [5-minute tester guide](docs/testers.md) · one-command local demo: `scripts/demo-local.sh` · [feedback form](https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml) |
+| **Tools**      | [Stock-token safety monitor](app/src/components/app/monitor/MonitorPage.tsx) (`/app/monitor`, live Robinhood Chain mainnet) · [Telegram bot](bots/telegram/README.md) (alerts, `/quote`)           |
+| **For agents** | [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) · [MCP server](mcp/) · [example agent](agents/example/) · [`@strike/sdk`](sdk/)                                                                          |
+| **Evidence**   | [Threat model](docs/threat-model.md) (21 threats) · [testing](docs/testing.md) · [gas](docs/gas.md) · [backtest](docs/backtest.md) · [audit readiness](docs/audit-readiness.md)                    |
+
+## Contents
+
+[Why](#why) · [How it works](#how-it-works) · [Stack](#how-strike-uses-the-stack) · [Safety evidence](#safety-evidence) · [Gas](#gas-stylus-vs-solidity) · [Deployments](#deployments) · [Try it](#try-it) · [Quickstart](#quickstart) · [Prior art](#prior-art) · [Repository](#repository) · [Contributing](#contributing-security-license)
 
 ## Why
 
@@ -128,7 +142,16 @@ Measured on an Arbitrum Nitro dev node, L2 execution gas:
 
 The deployed Stylus pricer is reproducibly verified against this source with `cargo stylus verify` ([details](docs/gas.md#the-live-stylus-pricer-is-verifiably-this-source)). A Stylus call pays a fixed entry cost, so a single quote is cheaper in Solidity. Real work is 6.5× cheaper in Stylus, and a full proposal transaction 3.3× cheaper, with the same strike chosen. Method and scripts in [docs/gas.md](docs/gas.md).
 
-## Deployed contracts
+## Deployments
+
+| Version | Network                         | Status                                    | Contracts                                              | Source                                                                                 |
+| ------- | ------------------------------- | ----------------------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| **v2**  | Robinhood Chain testnet (46630) | **Current**, verified, live epoch running | [`46630.json`](contracts/deployments/46630.json)       | [`1ff5382`](https://github.com/Prashant-thakur77/Strike/commit/1ff5382) (review fixes) |
+| v1      | Robinhood Chain testnet (46630) | Superseded by v2                          | [`46630-v1.json`](contracts/deployments/46630-v1.json) | pre-review                                                                             |
+| —       | Arbitrum Sepolia (421614)       | Script ready; needs Sepolia ETH           | —                                                      | —                                                                                      |
+| —       | Robinhood Chain mainnet (4663)  | Planned: one capped vault after testnet   | —                                                      | —                                                                                      |
+
+### v2 addresses
 
 Robinhood Chain testnet (46630), v2 (with every fix from the [2026-09-29 security review](docs/security/review-2026-09-29.md)), deployed and verified on Blockscout (deploy block 125880607). The `EpochManager` prices with the verified Stylus pricer after an on-chain check that it returns exactly what the Solidity reference returns. Agent #1 is registered and was bonded with 60 USDG (50 USDG after the live epoch's slash below); the TSLA covered-call vault holds 5 real testnet TSLA from the Robinhood faucet and the put vault 20 USDG. The v1 addresses (before the fixes) are kept in [`46630-v1.json`](contracts/deployments/46630-v1.json). Robinhood testnet has no Chainlink stock feeds, so `MirrorFeed`s copy the mainnet Chainlink rounds ([keeper](scripts/keeper.sh)).
 
@@ -153,12 +176,6 @@ Robinhood Chain testnet (46630), v2 (with every fix from the [2026-09-29 securit
 
 Stock tokens are Robinhood's own testnet tokens (TSLA `0xC9f9…Bd4E`, AMZN, PLTR, NFLX, AMD). All addresses: [`contracts/deployments/46630.json`](contracts/deployments/46630.json).
 
-| Network                         | Status                                         |
-| ------------------------------- | ---------------------------------------------- |
-| Robinhood Chain testnet (46630) | Live, verified                                 |
-| Arbitrum Sepolia (421614)       | Script ready, waiting for Arbitrum Sepolia ETH |
-| Robinhood Chain mainnet (4663)  | Planned: one capped vault                      |
-
 ## Try it
 
 The whole story runs locally in one command (anvil, about 15 seconds once contracts are compiled): deploy, seed, a seller agent proposes a 0.20-delta call through the MCP server, a reckless at-the-money proposal is rejected and slashed, a buyer agent pays USDG for options within its budget, time passes expiry, the keeper publishes a price, the seller settles, the buyer redeems and depositors collect. CI runs it on every push, out of the money and in the money.
@@ -174,6 +191,8 @@ scripts/demo-local.sh
 For agents: [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`). Agents work both sides of the market: sellers use `vault_state`, `risk_check`, `propose_epoch` and `settle_epoch`; buyers use `quote`, `hedge_plan`, `buy_options` and `redeem_options` (the example agent has `--buy --budget 10` and `--buy --hedge 10`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
 
 ## Quickstart
+
+Requirements: [Foundry](https://getfoundry.sh) v1.7.1, Node 22+ with pnpm 10, and (for the Stylus pricer) Rust 1.91 with `cargo-stylus` 0.10.9.
 
 ```bash
 git clone --recursive https://github.com/Prashant-thakur77/Strike && cd Strike
@@ -208,16 +227,26 @@ What Strike adds is the agent layer (immutable mandates, bonded agents, slashing
 
 ## Repository
 
-| Folder            | Contents                                            |
-| ----------------- | --------------------------------------------------- |
-| `contracts/`      | Solidity (Foundry)                                  |
-| `stylus/pricer/`  | Rust Stylus pricer                                  |
-| `sdk/`            | `@strike/sdk` TypeScript client                     |
-| `mcp/`            | MCP server for agents                               |
-| `agents/example/` | Example strike-picking agent                        |
-| `app/`            | Next.js app                                         |
-| `subgraph/`       | Indexer                                             |
-| `docs/`           | Plan, design, threat model, testing, gas, decisions |
+| Path                                 | Contents                                                                                                                                                            |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`contracts/`](contracts/)           | Solidity (Foundry): `src/` protocol, `test/` unit, integration, invariant, fork, differential, audit and formal suites, `script/` deploys, `deployments/` addresses |
+| [`stylus/pricer/`](stylus/pricer/)   | Rust Black-Scholes pricer and strike solver for Arbitrum Stylus                                                                                                     |
+| [`sdk/`](sdk/)                       | `@strike/sdk`: typed client, pricing helpers, settlement-hint discovery                                                                                             |
+| [`mcp/`](mcp/)                       | MCP server: tools for seller and buyer agents                                                                                                                       |
+| [`agents/example/`](agents/example/) | Example agent: propose, reckless mode, buy, hedge, redeem, settle, optional Claude reasoning                                                                        |
+| [`bots/telegram/`](bots/telegram/)   | Telegram alerts and commands                                                                                                                                        |
+| [`app/`](app/)                       | Next.js app: landing, vaults, agents, monitor, faucet                                                                                                               |
+| [`subgraph/`](subgraph/)             | The Graph subgraph                                                                                                                                                  |
+| [`research/`](research/)             | Backtest code, data sources and results                                                                                                                             |
+| [`scripts/`](scripts/)               | Local demo, testnet deploy, keeper, live epoch, gas measurement                                                                                                     |
+| [`video/`](video/)                   | Automated demo-video recorder                                                                                                                                       |
+| [`docs/`](docs/README.md)            | Design, security, research, operations and submission documents ([index](docs/README.md))                                                                           |
+
+## Contributing, security, license
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, what CI checks, conventions.
+- [SECURITY.md](SECURITY.md): report vulnerabilities privately; scope and known issues.
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## AI usage
 
@@ -225,4 +254,4 @@ This project was built with AI coding assistants (Claude) working under the auth
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © 2026 Prashant Thakur
