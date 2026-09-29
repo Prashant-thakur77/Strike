@@ -1,14 +1,21 @@
-# Deck outline (10 slides)
+# Deck outline (11 slides)
 
-The finished deck: https://claude.ai/artifact/9TBBg2RwFueF3oEG6Qq5Eg (private until shared from its Share menu; Share › Export gives PPTX or PDF). Fill the bracketed placeholders on the business and roadmap slides: testnet users, feedback reports, live vaults, team, live app and video URLs.
+The finished deck: https://claude.ai/artifact/9TBBg2RwFueF3oEG6Qq5Eg (private until shared from its Share menu; Share › Export gives PPTX or PDF). It has ten slides with the live testnet facts already in; slide 9 below ("Try it") is a proposed addition, not yet in the deck. Before sharing, fill the bracketed placeholders: the tester count on the business slide, and the team, live app URL and video link on the last slide.
 
-1. Title: Strike · Weekly options vaults for Robinhood Chain stock tokens, paid in USDG, run by mandate-bound agents.
-2. Problem: stock tokens earn 0% on their own; options only just arriving ([CertiK](https://www.certik.com/blog/robinhood-chain-onchain-capital-market) found only perps in Aug 2026; Stonkhouse and Archer Markets since, neither agent-run); the integration traps (multiplier, weekend prices, pauses). No market-size figures unless a checked source is cited on the slide.
-3. Users: stock holder (covered calls), USDG holder (cash-secured puts), option buyer (hedge), strategy agent (fee share), integrator (SDK/MCP).
-4. Product: the weekly epoch in five steps with the payoff formulas (calls pay `(S − K)/S` tokens, puts pay `K − S` USDG).
-5. Agents: propose-only, immutable mandate, reject-and-slash flow, `proposeByDelta` with the Stylus strike solver (solver 6.5× cheaper than Solidity, whole transaction 3.3×). Screenshot of the rejected proposal ([live epoch](../testnet-epochs/2026-09-29.md)).
-6. Safety: SafeStockFeed rules, invariants list, fork tests on chain 4663, differential Rust/Solidity, Slither 0 High, threat model.
-7. Demo screenshots: vault page, buy panel, agent leaderboard.
-8. Business model: 10% performance fee on positive net premium, half to the agent; at $1M TVL and a 0.5% weekly premium ($260K a year), the fee is at most about $26K a year (all options expiring worthless; payouts to buyers reduce it), half to the protocol and half to agents.
-9. Roadmap: testnet now, capped mainnet vault, more tickers and spreads, USDG gas paymaster, agent reputation via ERC-8004, wallet integrations through the SDK.
-10. Team and links: GitHub, live app, demo video, contact.
+The pitch ([pitch-script.md](pitch-script.md)) uses these slide numbers.
+
+1. **Title** (`cover`): Strike · Weekly options vaults for Robinhood Chain stock tokens. Premium paid in USDG. Strikes chosen by AI agents the contract keeps inside a mandate.
+2. **Stock tokens sit idle** (`problem`): 0% yield on a held stock token; 4 integration traps; options on the chain today are order books and vaults run by people (Stonkhouse on mainnet, Archer Markets on testnet), so no agent can run one without holding the money. Sources on the slide. No market-size figures unless a checked source is cited.
+3. **Four traps in every stock-token integration** (`traps`): the ERC-8056 multiplier (Chainlink already includes it; NVDA's live multiplier is 1.000775), weekend and holiday feeds, two pause layers, splits mid-epoch, each with what `SafeStockFeed` does.
+4. **Five users, one vault** (`users`): stock holder (covered calls), USDG holder (cash-secured puts), option buyer (hedge), strategy agent (half the performance fee), integrator (SDK/MCP).
+5. **One epoch, every week** (`epoch`): open, propose, sell, expire, settle; calls pay `(S − K)/S` tokens, puts pay `K − S` USDG; collateral locked per option sold; buy price never below intrinsic value.
+6. **Agents propose. The contract decides.** (`agents`): the live 29 Sep pair: `SeriesProposed` (0.20-delta TSLA call, strike $369.86, solved by the Stylus pricer) and `ProposalRejected · DeltaOutOfBand` (|delta| 0.489, 10 USDG slashed to depositors). Immutable mandate, agents never hold funds, three strikes suspend. Stylus: solver 6.5× cheaper than Solidity, whole proposal transaction 3.3×. Suggested addition: "Agent #1 is ERC-8004 identity #114" next to the reputation line ([registration](../agents/strike-agent-1.json), [log](../testnet-epochs/2026-09-29.md#erc-8004-identity-added-2026-09-29-1930-utc)).
+7. **Evidence, not claims** (`safety`): 418 Foundry tests; 9 invariants on a call and a put vault, three injected bugs all caught; 99% line coverage checked in CI (99.1%, gate at 95%); 8 of 8 review findings fixed (1 High, 3 Medium, 4 Low, plus 3 Info); fork tests on chain 4663; Stylus and Solidity pricers equal on 10,000 fuzz inputs. Footer: unaudited, Slither 0 High, 21-threat model. Suggested addition: "9 properties proven with Halmos in CI, 16 marked unproven" ([formal-verification.md](../security/formal-verification.md)).
+8. **The app** (`demo`): landing page, TSLA covered-call vault page, agent leaderboard with the rejection feed. When refreshing screenshots, use the vault page with the buy-price breakdown and payoff chart.
+9. **Try it, no wallet** (new, proposed): three doors, as on the landing page's "Try it without a wallet" section:
+   - **Playground** (`/app/playground`): test a proposal against a live vault's mandate through `EpochManager.previewProposal`. The honest 0.20-delta call is Accepted; the reckless at-the-money put gets `DeltaOutOfBand`; "too big" gets `SizeTooLarge`; half of fair value gets `PremiumBelowFair`.
+   - **Monitor** (`/app/monitor`): 8 Robinhood Chain mainnet stock tokens, live, judged by the `SafeStockFeed` rules.
+   - **Proof** (`/app/proof`): every claim with its evidence, and the live activity feed from the `EpochManager` logs.
+   - Footer: the live app URL once it is on Vercel (pending), and the Telegram bot (`/vaults`, `/quote`, `/agent`, `/status`) once it is deployed.
+10. **Paid only when depositors win** (`business`): 10% of each week's positive net premium, half to the agent, half to the treasury, fee capped at 30% by the contract. Illustration: $1M in vaults at 0.5% a week is $260K of premium a year; the fee is at most $26K (every week profitable), $13K each to agents and treasury. On-chain so far: 2 vaults live, 1 agent-run epoch with 4 calls sold for 10.01 USDG, 1 reckless proposal rejected with 10 USDG slashed, [\_\_] testers.
+11. **What comes next** (`roadmap`): now, live and verified on Robinhood Chain testnet; next, Arbitrum Sepolia, a capped mainnet vault on 4663, then an audit; v1.1 fee high-water mark, more tickers, put spreads; v1.2 gas in USDG; v2 agent track records as credit, wallet integrations through the SDK. Team and links: GitHub, [live app URL], [demo video URL], contact.

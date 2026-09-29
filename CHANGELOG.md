@@ -6,10 +6,23 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ### Added
 
-- Stock-token safety monitor (`/app/monitor`): live Robinhood Chain mainnet data for every stock token with a Chainlink feed (ERC-8056 multiplier, pending changes, both pause flags, feed age, NYSE session) and the `SafeStockFeed` verdict.
-- Telegram bot (`bots/telegram`): alerts for epochs opened, proposals accepted and rejected (with the slash), options bought and settlements, read from contract logs; `/vaults`, `/quote`, `/agent`, `/status`.
-- CI coverage job (fails below 95% line coverage).
+- Mandate playground (`/app/playground`): anyone can test a proposal against a live testnet vault's mandate without a wallet, through the read-only `EpochManager.previewProposal`. Presets: an honest 0.20-delta call (accepted), a reckless at-the-money put (`DeltaOutOfBand`), an oversized proposal (`SizeTooLarge`) and one at half of fair value (`PremiumBelowFair`); a rejection shows the bond a real proposal would lose.
+- Stock-token safety monitor (`/app/monitor`): live Robinhood Chain mainnet data for the 8 stock tokens with a Chainlink feed (TSLA, NVDA, AMZN, PLTR, AMD, SPY, AAPL, QQQ): ERC-8056 multiplier, pending changes, both pause flags, feed age, NYSE session, and the `SafeStockFeed` verdict.
+- Proof page (`/app/proof`): every claim with its evidence (verified contracts, the active Stylus pricer, gas, tests, coverage, invariants, formal proofs, the security review).
+- Live on-chain activity feed on the proof page and the landing page, read from the `EpochManager` logs on Robinhood Chain testnet.
+- Telegram bot (`bots/telegram`, 60 tests): alerts for epochs opened, proposals accepted and rejected (with the slash), options bought and settlements, read from contract logs; `/vaults`, `/quote`, `/agent`, `/status`; a dry run that prints the alerts without a token.
+- ERC-8004: agent #1 registered on the official identity registry on Robinhood Chain testnet as identity #114 and linked to `AgentRegistry`, so settled PnL and rejections post to its reputation ([registration file](docs/agents/strike-agent-1.json), [transactions](docs/testnet-epochs/2026-09-29.md#erc-8004-identity-added-2026-09-29-1930-utc)).
+- Formal verification with Halmos: 9 properties proven for every input in range (mandate rules, fee caps, NYSE sessions, call payout) in a `formal` CI job; 16 more kept as `unproven_*` and marked not proven ([formal-verification.md](docs/security/formal-verification.md)).
+- CI coverage job: fails below 95% line coverage (currently 99.1%).
+- Vault page: a payoff chart (buyer's and depositor's result at expiry) and a buy-price breakdown (fair value at the buffered oracle spot, times the premium factor, never below intrinsic value, next to the contract's own quote).
+- Repository files: `SECURITY.md` (private vulnerability reporting), `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `CODEOWNERS`, bug report and feature request issue templates (next to the testnet feedback form), a pull request template, Dependabot.
 - Tester guide, social posts, accurate prior-art comparison (Stonkhouse, Archer Markets), HackQuest answers within the 300-character limit.
+
+### Changed
+
+- App navigation: Vaults, Playground, Agents, Monitor, Proof, Faucet; the landing page links the playground, monitor and proof page under "Try it without a wallet".
+- README rewritten: badges, how it works, safety evidence, gas, deployments with the live epoch, try it, prior art, repository map.
+- Submission kit refreshed: HackQuest answers, pitch and demo scripts in the new video's scene order, deck outline with a "Try it" slide, social posts, tester guide starting with the playground.
 
 ## [0.6.0] - 2026-09-29
 

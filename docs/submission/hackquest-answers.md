@@ -10,10 +10,10 @@ Addresses are the live v2 deployment on Robinhood Chain testnet (chain 46630, de
 Strike
 ```
 
-## One-line intro (212 characters)
+## One-line intro (245 characters)
 
 ```text
-Weekly options vaults for Robinhood Chain stock tokens, paid in USDG. A bonded AI agent picks each strike; the contract rejects any proposal outside the vault's mandate and slashes the agent's bond to depositors.
+Weekly options vaults for Robinhood Chain stock tokens, paid in USDG. A bonded AI agent picks each strike; the contract rejects any proposal outside the vault's mandate and slashes the agent's bond to depositors. Live on Robinhood Chain testnet.
 ```
 
 ## Sector (49 characters)
@@ -22,27 +22,27 @@ Weekly options vaults for Robinhood Chain stock tokens, paid in USDG. A bonded A
 DeFi (options, structured products) and AI agents
 ```
 
-## Tags (103 characters)
+## Tags (124 characters)
 
 ```text
-DeFi, Options, AI Agents, Robinhood Chain, Stock Tokens, USDG, Arbitrum Stylus, MCP, ERC-4626, ERC-8004
+DeFi, Options, AI Agents, Robinhood Chain, Stock Tokens, USDG, Arbitrum Stylus, MCP, ERC-4626, ERC-8004, Formal Verification
 ```
 
-## Detailed description (298 characters)
+## Detailed description (290 characters)
 
 ```text
-Stock-token options vaults paid in USDG. An AI agent only proposes strikes; the contract enforces an immutable mandate, slashes bad proposals to depositors and solves strikes in Stylus. Live on 46630. Addresses: https://github.com/Prashant-thakur77/Strike/blob/main/contracts/deployments/46630.json
+Stock-token options vaults paid in USDG. An AI agent only proposes; the contract enforces an immutable mandate, slashes bad proposals to depositors and solves strikes in Stylus. Live on 46630. Addresses: https://github.com/Prashant-thakur77/Strike/blob/main/contracts/deployments/46630.json
 ```
 
-Aimed at the Promising Products track (AI agents, new financial primitives). The README carries the long version.
+Aimed at the Promising Products track (AI agents, new financial primitives). The README carries the long version: 418 Foundry tests, 9 Halmos-proven properties, 99.1% line coverage, agent #1 linked to ERC-8004 identity #114.
 
-## Link to frontend / demo (190 characters)
+## Link to frontend / demo (256 characters)
 
 ```text
-https://github.com/Prashant-thakur77/Strike (live app URL pending Vercel). Demo video: docs/media/strike-demo.mp4. Live testnet epoch with Blockscout links: docs/testnet-epochs/2026-09-29.md
+https://github.com/Prashant-thakur77/Strike (live app URL pending Vercel; once live, try /app/playground and /app/proof first, no wallet needed). Video: docs/media/strike-demo.mp4. Live testnet epoch with Blockscout links: docs/testnet-epochs/2026-09-29.md
 ```
 
-Replace the repository URL with the Vercel URL once the app is deployed ([deploy-app.md](../deploy-app.md)).
+The live app is not deployed yet. Once it is on Vercel ([deploy-app.md](../deploy-app.md)), replace the repository URL with the app URL and recount. The two fastest things for a judge to try need no wallet: `/app/playground` (test a proposal against a live vault's mandate and see Accepted or the rejection reason) and `/app/proof` (every claim with its evidence, plus the live on-chain activity feed).
 
 ## Core protocol / smart contract addresses (250 characters)
 
@@ -78,16 +78,16 @@ The two vaults above are also their ERC-4626 share tokens (`sTSLA-CC`, `sTSLA-CS
 
 The `EpochManager` on Robinhood Chain testnet (46630).
 
-## Which parts of the code were produced during the buildathon? (297 characters)
+## Which parts of the code were produced during the buildathon? (294 characters)
 
 ```text
-All of Strike's own code. The repo's first commit is 2026-09-28, during the buildathon, and the history shows each step: contracts, Stylus pricer, oracle layer, agents, SDK, MCP server, app, subgraph, review fixes, deploys. Pinned libraries (forge-std, OpenZeppelin, stylus-sdk, npm) are not ours.
+All of Strike's own code. First commit 2026-09-28, during the buildathon; the history shows each step: contracts, Stylus pricer, oracle layer, agents, SDK, MCP, app, Telegram bot, subgraph, review fixes, Halmos proofs, deploys. Libraries (forge-std, OpenZeppelin, stylus-sdk, npm) are not ours.
 ```
 
-## Progress during the hackathon (274 characters)
+## Progress during the hackathon (292 characters)
 
 ```text
-Sep 28: contracts, Stylus pricer, invariant/fork/differential tests, agents, SDK, MCP, app, subgraph. Sep 29: deployed to Robinhood Chain testnet, internal review (1 High, 3 Medium, 4 Low, 3 Info) fixed, v2 redeployed, live epoch with an on-chain slash, backtest, litepaper.
+Sep 28: contracts, Stylus pricer, tests, agents, SDK, MCP, app, subgraph. Sep 29: testnet deploy, review (1 High, 3 Medium, 4 Low) fixed, v2 live epoch with an on-chain slash, agent linked to ERC-8004 #114. Then: mandate playground, mainnet monitor, proof page, Telegram bot, 9 Halmos proofs.
 ```
 
 ## Fundraising status (11 characters)

@@ -1,46 +1,61 @@
 # Demo video script (3 minutes)
 
-Record on Robinhood Chain testnet with the app and a terminal side by side. Timestamps are targets.
+Narration for the re-cut demo video, [docs/media/strike-demo.mp4](../media/strike-demo.mp4), which is captioned. The scenes below follow the new cut's order. Each scene gives a target window, what is on screen, and a narration line to read over the captions; the lines run at about 150 words a minute and leave a few seconds of slack. Every number is from the repo.
 
-## 0:00 to 0:20 · The problem
+If a timing drifts in the final cut, keep the order and shorten the narration, not the claims.
 
-Screen: app landing page, the "three numbers" section.
+## 0:00 to 0:14 · Hero
 
-> Robinhood Chain has tokenized TSLA, NVDA and SPY, but holding them earns nothing, and options on the chain have only just arrived. Strike turns stock tokens into weekly income, paid in USDG, with AI agents that can only act inside limits the contract enforces.
+Screen: the landing page hero, "Stock tokens that pay every week", with the covered-call payoff line.
 
-## 0:20 to 0:50 · Deposit
+> Stock tokens on Robinhood Chain earn nothing on their own. Strike turns them into weekly income, paid in USDG, with AI agents that can only act inside limits the contract enforces.
 
-Screen: `/app/faucet`, then the TSLA covered-call vault.
+## 0:14 to 0:42 · Playground: accepted, then rejected
 
-1. Show the wallet has testnet TSLA (Robinhood faucet) and USDG (Paxos faucet).
-2. Deposit 10 TSLA into the covered-call vault. Point at the mandate panel: delta band 0.10 to 0.35, premium at least 95% of fair value, at most 80% of the vault sold, 1 to 8 day tenor.
+Screen: `/app/playground`, no wallet connected. Pick the presets in order: **Honest agent** (0.20-delta call) shows **Accepted**; **Reckless agent** (at-the-money put) shows **DeltaOutOfBand** and the bond a real proposal would lose; then flash **Too big** (`SizeTooLarge`) and **50% of fair value** (`PremiumBelowFair`).
 
-## 0:50 to 1:40 · The agent, and the contract saying no
+> No wallet needed. The playground asks the live EpochManager on Robinhood Chain testnet to judge a proposal, with previewProposal. An honest 0.20-delta call: accepted. A reckless at-the-money put: DeltaOutOfBand, and a real proposal like this would cost the agent part of its bond. Too big, or priced below fair value: rejected too.
 
-Screen: terminal running `pnpm --filter @strike/agent-example start`.
+## 0:42 to 1:14 · The real testnet epoch, on Blockscout
 
-1. The agent reads the vault through the Strike MCP server, dry-runs `risk_check`, and proposes a 0.20-delta call with `proposeByDelta`. The contract solves the strike on-chain with the Stylus pricer. Show the accepted `SeriesProposed` event and the strike.
-2. Run `pnpm --filter @strike/agent-example start -- --reckless --vault sTSLA-CSP`. The agent forces an at-the-money put on the put vault (|delta| about 0.49; the call vault is already selling). Show the transaction: `ProposalRejected(DeltaOutOfBand)`, and the agent's bond down by the 10 USDG slash. Open `/app/agents`: one strike on the agent, the rejection in the feed.
+Screen: [testnet-epochs/2026-09-29.md](../testnet-epochs/2026-09-29.md), then its Blockscout links: the accepted `proposeByDelta` ([0x92169eac…a9d4](https://explorer.testnet.chain.robinhood.com/tx/0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4)), the rejection with `ProposalRejected(DeltaOutOfBand)` and the slash ([0x3df523aa…c6a0](https://explorer.testnet.chain.robinhood.com/tx/0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0)), and the buyer agent's purchase ([0x425e5b63…e9f9](https://explorer.testnet.chain.robinhood.com/tx/0x425e5b63ddeb1fcff5d63aa9f5a9fd11f4d3c0f52facd05e0fb44096f2ede9f9)).
 
-> The agent never touches vault funds. A reckless proposal costs it real USDG, and that USDG goes to the depositors.
+> This happened on-chain on September 29. Our agent asked for a 0.20-delta TSLA call; the Stylus pricer solved the strike, $369.86, and the contract accepted it. Stylus makes that transaction 3.3 times cheaper, and the solver 6.5 times. Then a reckless agent forced an at-the-money put: rejected, and 10 USDG of its bond went to depositors. A buyer agent bought 4 calls for about 10 USDG.
 
-## 1:40 to 2:10 · Buyers: a person and an agent
+## 1:14 to 1:40 · Vault page: price breakdown and payoff chart
 
-Screen: vault page buy panel, then the terminal.
+Screen: the TSLA covered-call vault page. The mandate panel, then the live series with its buy-price breakdown and payoff chart.
 
-1. In the app, quote 2 options. The premium is the Black-Scholes fair value times the proposal's premium factor, at the oracle spot moved 0.5% against the buyer, and never below intrinsic value. Buy with USDG and show the ERC-1155 position.
-2. In the terminal, `pnpm --filter @strike/agent-example start -- --buy --hedge 10`: a buyer agent sizes puts to protect 10 TSLA, shows the cost, protected price and max loss, and buys through the MCP server.
+> Each vault shows its mandate and its live series. The breakdown shows how a buyer's price is made: Black-Scholes fair value at the oracle price moved against the buyer, times the agent's premium factor, never below intrinsic value, next to the contract's own quote. The payoff chart shows what buyer and depositor get at expiry.
 
-## 2:10 to 2:45 · Expiry and settlement
+## 1:40 to 1:58 · Agents: ERC-8004 identity #114
 
-Screen: epoch timeline and terminal.
+Screen: `/app/agents`, agent #1's row open: bond, one strike, accepted and rejected proposals, and the **ERC-8004 #114** link.
 
-1. After Friday 16:00 New York, the keeper (or anyone) calls `settle`. It uses the first Chainlink round at or after expiry (on testnet, the MirrorFeed copy of it).
-2. Show the payout redeemed by the buyer and the USDG premium claimable by the depositor, including the slashed bond.
-3. Paused oracle case, shown as tests (on testnet Strike cannot pause a stock token or its oracle: the TSLA token is Robinhood's, the 46630 MirrorFeeds have no pause, and Arbitrum Sepolia is not deployed). Run `forge test --root contracts --match-test test_revert_recordSettlementPrice_pausedOrCorporateAction -vvvv`: recording the settlement price reverts with `TokenPaused`, then `FeedPaused`, a print inside a corporate-action window is skipped, and the first print after the window settles. Then `ROBINHOOD_RPC_URL=https://rpc.mainnet.chain.robinhood.com forge test --root contracts --match-test test_fork_pauseFlagsReadable -vv` reads both pause flags from the real mainnet TSLA token.
+> Every agent posts a USDG bond, and three strikes suspend it. Agent one is linked to ERC-8004 identity 114 on the official Robinhood testnet registry, so each settled epoch and each rejection feeds its public reputation.
 
-## 2:45 to 3:00 · Close
+## 1:58 to 2:14 · Telegram alert
 
-Screen: README safety table.
+Screen: the Telegram alert for the rejection ("sTSLA-CSP: agent 1 proposal rejected, DeltaOutOfBand … Slashed 10 USDG"), then a `/quote` reply. If the bot is not deployed yet, show `pnpm --filter @strike/telegram-bot dry-run "/quote sTSLA-CC 1"` instead: it prints the same alerts from the real testnet logs and sends nothing.
 
-> Over 500 tests, nine invariants, fork tests against real Robinhood mainnet tokens, Rust and Solidity pricers that agree to the wei. Strike: options on Robinhood Chain, run by agents that cannot break the rules.
+> The Telegram bot reads the same contract logs. Here is its alert for that rejection, with the slash and a Blockscout link. It also answers vaults, quote, agent and status.
+
+## 2:14 to 2:32 · Mainnet safety monitor
+
+Screen: `/app/monitor`, eight Robinhood Chain mainnet stock tokens with their verdicts; open NVDA.
+
+> The monitor reads eight stock tokens on Robinhood Chain mainnet, live, and judges each one by our SafeStockFeed rules: multiplier, both pause flags, feed age, market hours. NVDA's multiplier is 1.000775, and Strike never applies it twice.
+
+Check that the NVDA multiplier on screen still reads 1.000775 (it was read on 2026-09-29); if it changed, say the number on screen.
+
+## 2:32 to 2:50 · Proof
+
+Screen: `/app/proof`: the headline numbers, the security section, then the live activity feed.
+
+> The proof page puts each claim next to its evidence: 418 Foundry tests, 9 properties proven with Halmos, all 8 review findings fixed, one High, three Medium, four Low, plus three Info notes, and a live feed of the EpochManager's events.
+
+## 2:50 to the end · Close
+
+Screen: the landing page, "Try it without a wallet" (Playground, Monitor, Proof).
+
+> Strike: options on Robinhood Chain, run by agents that cannot break the rules, paid in USDG. Unaudited, live on testnet.
