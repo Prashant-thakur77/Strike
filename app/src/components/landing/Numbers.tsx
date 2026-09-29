@@ -2,22 +2,22 @@ import { SectionHead } from "@/components/ui/SectionHead";
 import { Reveal } from "@/components/ui/Reveal";
 import styles from "./landing.module.css";
 
-const STATS = [
+const STATS: { value: string; versus?: string; label: string; text: string }[] = [
   {
-    value: "0%",
-    label: "Yield on a stock token",
-    text: "Robinhood Chain has perps, but no options and no way to earn on a TSLA or NVDA token you already hold.",
+    value: "0",
+    label: "Vault funds an agent can move",
+    text: "The agent proposes a strike, a size and a price. It never holds vault assets, and the contract rejects any proposal outside the vault's mandate.",
   },
   {
-    value: "$14M",
-    versus: "vs $400M",
-    label: "Stock tokens vs idle stablecoins",
-    text: "Stock-token market cap is a rounding error next to the stablecoins sitting on the same chain.",
+    value: "10",
+    versus: "USDG",
+    label: "Slashed per rejected proposal",
+    text: "Taken from the agent's bond and paid to that vault's depositors. Three strikes and the agent is suspended.",
   },
   {
     value: "2×",
     label: "The multiplier bug",
-    text: "Chainlink stock prices already include the ERC-8056 split multiplier. Apply it again and prices are wrong; weekend feeds freeze and both token and feed can pause.",
+    text: "Chainlink stock prices already include the ERC-8056 split multiplier. Apply it again and prices are wrong; weekend feeds freeze and both token and feed can pause. SafeStockFeed applies it once and refuses stale or paused prices.",
   },
 ];
 
@@ -27,14 +27,14 @@ export function Numbers() {
       <div className="gutter">
         <SectionHead
           index="02"
-          label="The problem, in three numbers"
-          right="CertiK · FalconX · ERC-8056"
+          label="Why Strike, in three numbers"
+          right="AgentRegistry · MandateGuard · ERC-8056"
           hideRightOnMobile
         />
         <Reveal as="h2" id="numbers-title" className={`display-title ${styles.sectionTitle}`}>
-          Idle by
+          Rules
           <br />
-          default
+          not trust
         </Reveal>
       </div>
       <div className={styles.statGrid}>

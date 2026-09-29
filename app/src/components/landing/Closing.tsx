@@ -57,13 +57,13 @@ export function Closing() {
           style={reduce ? undefined : { clipPath: curtain }}
         >
           <span className={styles.closingGhost} aria-hidden>
-            07
+            08
           </span>
           <div className={`gutter ${styles.curtainInner}`}>
             <div className={styles.closingHead}>
               <span className="rule" />
               <div>
-                <span className="index">07</span>
+                <span className="index">08</span>
                 <span className="micro">Start</span>
               </div>
             </div>

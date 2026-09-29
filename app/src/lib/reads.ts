@@ -221,7 +221,19 @@ export async function vaultSummary(
       functionName: "vaultConfig",
       args: [vault],
     }),
-  ]);
+  ]).catch(async (err: unknown) => {
+    // A mistyped or foreign address fails on the first vault read; say so instead of showing the RPC error.
+    const cfg = await client
+      .readContract({
+        address: dep.epochManager,
+        abi: epochManagerAbi,
+        functionName: "vaultConfig",
+        args: [vault],
+      })
+      .catch(() => null);
+    if (!cfg?.registered) throw new Error("There is no Strike vault at this address on this network.");
+    throw err;
+  });
   const [state, openedAt, seriesId] = epoch;
   const [asset, underlying, usdg, spot, series, multiplier] = await Promise.all([
     tokenInfo(client, assetAddr),

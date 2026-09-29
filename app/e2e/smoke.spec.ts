@@ -80,8 +80,9 @@ test("honours prefers-reduced-motion", async ({ page }) => {
 });
 
 test("shows the not-deployed state on a network without contracts", async ({ page }) => {
-  await page.goto("/app?chain=46630");
-  await expect(page.getByText("Not deployed on Robinhood Chain testnet yet.")).toBeVisible();
+  // Robinhood Chain mainnet: in the network menu, no deployment in the SDK map yet.
+  await page.goto("/app?chain=4663");
+  await expect(page.getByText("Not deployed on Robinhood Chain yet.")).toBeVisible();
 });
 
 test("mobile menu opens and closes", async ({ page }, info) => {

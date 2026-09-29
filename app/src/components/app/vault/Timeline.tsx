@@ -21,7 +21,9 @@ function steps(vault: VaultSummary, cur: EpochEvents | undefined, prev: EpochEve
       name: "Selling",
       time: cur?.proposedAt,
       note: cur?.rejections
-        ? `${cur.rejections} proposal${cur.rejections > 1 ? "s" : ""} rejected first`
+        ? cur.proposedAt
+          ? `Accepted after ${cur.rejections} rejection${cur.rejections > 1 ? "s" : ""}`
+          : `${cur.rejections} proposal${cur.rejections > 1 ? "s" : ""} rejected so far`
         : "Series accepted",
       done: !!cur?.proposedAt,
     },

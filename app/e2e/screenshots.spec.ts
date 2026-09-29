@@ -66,7 +66,7 @@ test("eligibility notice", async ({ page }, info) => {
 test("not deployed", async ({ page }, info) => {
   const out = dir(info.project.name);
   await acknowledge(page);
-  await page.goto("/app?chain=46630");
+  await page.goto("/app?chain=4663");
   await page.getByText(/Not deployed on/).waitFor();
   await settle(page, 1000);
   await page.screenshot({ path: join(out, "app-not-deployed.png") });

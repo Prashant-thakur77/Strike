@@ -25,8 +25,20 @@ export function VaultsPage() {
   const rows = vaults.data ?? [];
   const tvl = rows.reduce((s, r) => s + (r.summary.tvlUsd ?? 0), 0);
   const live = rows.filter((r) => r.summary.state === 2).length;
+  const onSale = rows.filter(
+    (r) => r.summary.state === 2 && r.summary.series && r.summary.series.sold < r.summary.series.size,
+  ).length;
   const premium = rows.reduce(
     (s, r) => s + (r.history ? toNumber(r.history.premiumPaid, r.summary.usdg.decimals) : 0),
+    0,
+  );
+  // Premium buyers have paid into live series: escrowed until settlement, so not in `premium` yet.
+  const escrowed = rows.reduce(
+    (s, r) =>
+      s +
+      (r.summary.state === 2 && r.summary.series
+        ? toNumber(r.summary.series.premium, r.summary.usdg.decimals)
+        : 0),
     0,
   );
 
@@ -52,8 +64,19 @@ export function VaultsPage() {
               value: fmtUsd(tvl),
               sub: `${rows.length} vault${rows.length === 1 ? "" : "s"}`,
             },
-            { label: "Live series", value: String(live), sub: "options on sale now" },
-            { label: "Premium to depositors", value: fmtUsd(premium), sub: "all epochs, USDG" },
+            {
+              label: "Live series",
+              value: String(live),
+              sub: onSale === live ? "options on sale now" : `${onSale} with options left to buy`,
+            },
+            {
+              label: "Premium to depositors",
+              value: fmtUsd(premium),
+              sub:
+                escrowed > 0
+                  ? `settled · ${escrowed.toLocaleString("en-US", { maximumFractionDigits: 2 })} USDG more in live series`
+                  : "settled epochs, USDG",
+            },
             {
               label: "US market",
               value: market.data ? (market.data.open ? "Open" : "Closed") : "—",
@@ -122,7 +145,7 @@ function VaultRow({
         {s ? (
           <>
             <span className="mono">
-              {fmtWadUsd(s.strike, 0)} {s.isCall ? "call" : "put"}
+              {fmtWadUsd(s.strike)} {s.isCall ? "call" : "put"}
             </span>
             <PerShare price={s.strike} multiplier={vault.multiplier} />
             <span className={styles.rowSub}>{fmtNy(s.expiry)}</span>

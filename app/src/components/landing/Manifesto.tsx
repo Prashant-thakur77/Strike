@@ -7,8 +7,8 @@ import { useReducedMotion } from "@/components/ui/useReducedMotion";
 import styles from "./landing.module.css";
 
 const PARAGRAPHS = [
-  "Robinhood Chain gave stock tokens a home, then nothing to do.",
-  "No options, no yield, and price feeds that are easy to misread. Strike puts them to work, one week at a time.",
+  "Selling options on stock tokens pays, if the strikes are sane.",
+  "Strike's agents pick them. The contract holds each one to a mandate and pays its slashed bond to depositors.",
 ];
 
 const WORDS = PARAGRAPHS.map((p) => p.split(" "));
@@ -36,7 +36,7 @@ export function Manifesto() {
       id="problem"
       className={`theme-paper ${styles.manifesto}`}
       data-static={reduce ? "true" : undefined}
-      aria-label="The problem"
+      aria-label="The idea"
     >
       <div className={styles.manifestoPin}>
         <div className={styles.manifestoTop}>
@@ -45,7 +45,7 @@ export function Manifesto() {
           </span>
           <div className={styles.manifestoHead}>
             <span className="index">01</span>
-            <span className="micro">The problem</span>
+            <span className="micro">The idea</span>
           </div>
         </div>
         <div className={styles.manifestoText}>
@@ -66,7 +66,7 @@ export function Manifesto() {
           <span className={styles.progress}>
             <motion.span style={{ scaleX: reduce ? 1 : fill }} />
           </span>
-          <a href="#numbers" className="circle-btn" aria-label="Next section: the problem in numbers">
+          <a href="#numbers" className="circle-btn" aria-label="Next section: Strike in three numbers">
             <ArrowDown strokeWidth={1.5} />
           </a>
         </div>

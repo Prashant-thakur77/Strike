@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useRegistry, useRejections, useVaults } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { AGENT_STATUS, reasonOf } from "@/lib/labels";
+import { explorerUrl } from "@/lib/chains";
 import { fmtAmount, fmtBps, fmtNy, fmtWadUsd, shortAddr } from "@/lib/format";
 import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
@@ -190,6 +192,7 @@ function TrackRecord({ agent, decimals }: { agent: AgentRow; decimals: number })
 
 function RejectionFeed() {
   const feed = useRejections();
+  const { chainId } = useStrike();
   const vaults = useVaults().data;
   if (feed.isLoading) return <Skeleton width="50%" />;
   if (!feed.data || feed.data.length === 0) {
@@ -201,6 +204,7 @@ function RejectionFeed() {
         const v = vaults?.find((x) => x.summary.address.toLowerCase() === r.vault.toLowerCase())?.summary;
         const reason = reasonOf(r.reason);
         const dec = v?.underlying.decimals ?? 18;
+        const url = explorerUrl(chainId, "tx", r.tx);
         return (
           <li key={r.key} className={styles.feedItem}>
             <span className={`mono ${styles.feedTime}`}>{r.time ? fmtNy(r.time) : "—"}</span>
@@ -216,8 +220,16 @@ function RejectionFeed() {
                 : {reason.text.toLowerCase()}.
               </p>
               <span className={`micro micro-muted ${styles.feedAsk}`}>
-                Asked {fmtWadUsd(r.strike, 0)} strike · {fmtAmount(r.size, dec)} options ·{" "}
-                {fmtBps(r.premiumBps)} of fair · expiry {fmtNy(r.expiry)} · epoch {r.epoch.toString()}
+                Asked {fmtWadUsd(r.strike)} strike · {fmtAmount(r.size, dec)} options · {fmtBps(r.premiumBps)}{" "}
+                of fair · expiry {fmtNy(r.expiry)} · epoch {r.epoch.toString()}
+                {url ? (
+                  <>
+                    {" · "}
+                    <a href={url} target="_blank" rel="noreferrer" className="text-link">
+                      Tx <ArrowUpRight size={11} aria-hidden />
+                    </a>
+                  </>
+                ) : null}
               </span>
             </div>
             <span className={styles.slash}>

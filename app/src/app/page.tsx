@@ -3,6 +3,7 @@ import { BuiltOn } from "@/components/landing/BuiltOn";
 import { Closing } from "@/components/landing/Closing";
 import { Hero } from "@/components/landing/Hero";
 import { HowItWorks } from "@/components/landing/HowItWorks";
+import { Live } from "@/components/landing/Live";
 import { Manifesto } from "@/components/landing/Manifesto";
 import { Numbers } from "@/components/landing/Numbers";
 import { Safety } from "@/components/landing/Safety";
@@ -18,6 +19,7 @@ export default function Landing() {
         <Numbers />
         <HowItWorks />
         <Agents />
+        <Live />
         <Safety />
         <BuiltOn />
         <Closing />

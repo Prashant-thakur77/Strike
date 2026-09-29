@@ -785,6 +785,66 @@
   }
 }
 
+/* ================================================================ live on testnet (label rail) */
+
+.live {
+  padding: var(--section-pad-top) 0 var(--section-pad-bottom);
+}
+
+.liveList {
+  display: grid;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.liveItem {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: baseline;
+  padding: 24px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.liveMain {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.liveMain p {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 40em;
+}
+
+.liveEvent {
+  font-family: var(--font-mono);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent-text);
+}
+
+.liveEvent[data-tone="bad"] {
+  color: var(--loss-c);
+}
+
+.liveMeta {
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.liveCta {
+  justify-self: start;
+}
+
+@media (max-width: 640px) {
+  .liveItem {
+    grid-template-columns: 40px minmax(0, 1fr);
+    padding: 20px 0;
+  }
+}
+
 /* ================================================================ closing (pinned, two phases) */
 
 .closing {

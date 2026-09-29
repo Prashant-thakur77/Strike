@@ -79,7 +79,17 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
           {fmtAmount(s.sold, dec)} of {fmtAmount(s.size, dec)} sold · {fmtAmount(s.size - s.sold, dec)} left
         </p>
       </div>
-      <BuyPanel vault={vault} series={s} />
+      {s.sold < s.size ? (
+        <BuyPanel vault={vault} series={s} />
+      ) : (
+        <div className={styles.buy}>
+          <h3 className="micro">Buy options</h3>
+          <p className={styles.hint}>
+            <strong>Sold out.</strong> All {fmtAmount(s.size, dec)} options in this series are sold. It
+            settles at expiry, {fmtNy(s.expiry)}; holders redeem after that.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
