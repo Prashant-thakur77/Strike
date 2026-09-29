@@ -20,5 +20,11 @@
     "skill": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/STRIKE_SKILL.md",
     "source": "https://github.com/Prashant-thakur77/Strike/tree/main/agents/example"
   },
-  "supportedTrust": ["reputation"]
+  "supportedTrust": ["reputation"],
+  "registrations": [
+    {
+      "agentId": 114,
+      "agentRegistry": "eip155:46630:0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    }
+  ]
 }
