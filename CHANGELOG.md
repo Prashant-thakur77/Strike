@@ -4,10 +4,14 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-30
+
 ### Added
 
 - Re-cut 2:43 demo video on live data (playground verdicts, the real testnet epoch with Blockscout, price breakdown and payoff chart, ERC-8004 #114, Telegram alerts, mainnet monitor, proof page), with burned-in captions and an `.srt` for voice-over.
 - Autonomous weekly agent (`.github/workflows/agent.yml`): Monday proposals and Friday settlements with published decision records in `docs/agent-log/`.
+- Agent decision log on `/app/agents`: each weekly record (market inputs, target and reasoning, the contract's verdict, transactions, track record) read from `docs/agent-log/`.
+- On-chain: the put vault's stale epoch was closed and the slashed 10 USDG paid to its depositors (20 → 30 USDG).
 - Mandate playground (`/app/playground`): anyone can test a proposal against a live testnet vault's mandate without a wallet, through the read-only `EpochManager.previewProposal`. Presets: an honest 0.20-delta call (accepted), a reckless at-the-money put (`DeltaOutOfBand`), an oversized proposal (`SizeTooLarge`) and one at half of fair value (`PremiumBelowFair`); a rejection shows the bond a real proposal would lose.
 - Stock-token safety monitor (`/app/monitor`): live Robinhood Chain mainnet data for the 8 stock tokens with a Chainlink feed (TSLA, NVDA, AMZN, PLTR, AMD, SPY, AAPL, QQQ): ERC-8056 multiplier, pending changes, both pause flags, feed age, NYSE session, and the `SafeStockFeed` verdict.
 - Proof page (`/app/proof`): every claim with its evidence (verified contracts, the active Stylus pricer, gas, tests, coverage, invariants, formal proofs, the security review).
@@ -104,7 +108,8 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 - Project skeleton: Foundry workspace, Stylus Black-Scholes pricer crate, pnpm workspace, SDK, MCP, app and subgraph skeletons, CI, design spec and decision log.
 
-[Unreleased]: https://github.com/Prashant-thakur77/Strike/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/Prashant-thakur77/Strike/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.3.0...v0.4.0

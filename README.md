@@ -29,7 +29,7 @@
   <a href="docs/media/strike-demo.mp4"><img src="docs/media/strike-demo.gif" alt="Strike demo (first 12 seconds; click for the full video)" width="80%"></a>
 </p>
 
-> **Status: v0.6.0, live on Robinhood Chain testnet (v2), unaudited.** Built for the Arbitrum Open House Singapore buildathon. Do not use real funds; any mainnet vault will be capped until an external audit.
+> **Status: v0.7.0, live on Robinhood Chain testnet (v2), unaudited.** Built for the Arbitrum Open House Singapore buildathon. Do not use real funds; any mainnet vault will be capped until an external audit.
 
 |                |                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
