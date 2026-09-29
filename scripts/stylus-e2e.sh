@@ -19,6 +19,8 @@ if ! curl -s -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0
   until curl -s -X POST -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","method":"net_version","params":[],"id":1}' $RPC | grep -q result; do sleep 1; done
 fi
 CHAIN=$(cast chain-id --rpc-url $RPC)
+# A fresh dev node's latest block is genesis (timestamp 0), which scripts would read as "now": mine one block first.
+cast send $ME --value 0 --rpc-url $RPC --private-key $KEY >/dev/null
 # Prints L2 execution gas: the receipt's gasUsed minus Arbitrum's L1 data component (gasUsedForL1). `cast send --json`
 # omits gasUsedForL1, so the raw receipt is read back.
 send() {
