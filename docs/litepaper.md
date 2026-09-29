@@ -237,7 +237,7 @@ These figures were measured on a local Arbitrum Nitro dev node through a probe c
 | `quote`, 7-day call                                                |       33,969 |     40,624 |
 | `quote`, 30-day at-the-money call                                  |       24,793 |     39,038 |
 | `strikeForDelta`, 0.20-delta call, 7 days                          |    1,546,443 |    235,880 |
-| `EpochManager.proposeByDelta` (full transaction, L2 execution gas) |    1,908,694 |    586,289 |
+| `EpochManager.proposeByDelta` (full transaction, L2 execution gas) |    1,878,918 |    577,041 |
 
 A Stylus call has a fixed entry cost of about 35–40k gas, so for a single quote the EVM's native 256-bit arithmetic wins. When a call does real work (48 Black-Scholes evaluations to solve a strike), WASM is 6.5× cheaper. Strike therefore uses the Stylus pricer where it wins: solving strikes on-chain inside `proposeByDelta` ([decisions.md D22](decisions.md)). The deployed testnet pricer was built reproducibly, and `cargo stylus verify` matches it to this source.
 

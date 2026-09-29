@@ -19,10 +19,10 @@ Measured on a local Arbitrum Nitro dev node (`offchainlabs/nitro-node:v3.7.1`, A
 
 | EpochManager transaction                                  | Solidity pricer | Stylus pricer | Saving    |
 | --------------------------------------------------------- | --------------: | ------------: | --------- |
-| `proposeByDelta` (0.20 delta; solves the strike on-chain) |       1,908,694 |       586,289 | 3.3× less |
-| `buy` 5 options (live Black-Scholes quote)                |         330,423 |       300,739 | 9% less   |
+| `proposeByDelta` (0.20 delta; solves the strike on-chain) |       1,878,918 |       577,041 | 3.3× less |
+| `buy` 5 options (live Black-Scholes quote)                |         329,872 |       301,404 | 9% less   |
 
-Both runs chose the same strike ($390.51 at a $369 spot, 60% volatility, four-day tenor).
+Both runs chose the same strike ($387.22 at a $369 spot, 60% volatility, expiring at Friday's close). Measured on 2026-09-29 against the v2 contracts, where `proposeByDelta` solves against the epoch-open snapshot.
 
 ## What this means
 

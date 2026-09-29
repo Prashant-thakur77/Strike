@@ -8,6 +8,10 @@ trap 'echo "stylus-e2e: failed at line $LINENO (it must run during NYSE hours: t
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$HOME/.foundry/bin:$HOME/.cargo/bin:$PATH"
 RPC=http://127.0.0.1:8547
+# The reproducible (Docker) Stylus build can leave target/ owned by root: build elsewhere if it is not writable.
+if [ -e "$ROOT/stylus/pricer/target/release" ] && [ ! -w "$ROOT/stylus/pricer/target/release" ]; then
+  export CARGO_TARGET_DIR="${TMPDIR:-/tmp}/strike-stylus-target"
+fi
 KEY=0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659 # Nitro dev node's pre-funded key
 ME=$(cast wallet address --private-key $KEY)
 NAME=strike-nitro-dev
