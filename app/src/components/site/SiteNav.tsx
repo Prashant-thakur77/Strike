@@ -11,6 +11,8 @@ const ITEMS: NavItem[] = [
   { href: "/#how", label: "How it works" },
   { href: "/#agents", label: "Agents" },
   { href: "/#safety", label: "Safety" },
+  { href: "/app/playground", label: "Playground" },
+  { href: "/app/proof", label: "Proof" },
 ];
 
 /** Landing nav: fixed, transparent, difference-blended so it reads on paper, ink and colour alike. */

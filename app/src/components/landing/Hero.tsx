@@ -4,7 +4,7 @@ import { FitText } from "@/components/ui/FitText";
 import { PayoffVisual } from "./PayoffVisual";
 import styles from "./landing.module.css";
 
-/** Full-height paper hero: justified display headline crossed by a covered-call payoff line. */
+/** Full-height paper hero: justified display headline, and a covered-call payoff chart in clear space beneath it. */
 export function Hero() {
   return (
     <section className={`theme-paper ${styles.hero}`} aria-labelledby="hero-title">
@@ -22,14 +22,14 @@ export function Hero() {
           lines={["Stock", "tokens", "that pay", "every week"]}
           estimates={[25, 21.5, 16.5, 13.4]}
         />
-        <PayoffVisual />
       </div>
       <div className={styles.heroFoot}>
         <p className={styles.heroPitch}>
           Weekly options vaults for Robinhood Chain stock tokens. Premium paid in USDG, strikes picked by AI
           agents the contract keeps inside a mandate.
         </p>
-        <Link href="/app" className="pill">
+        <PayoffVisual />
+        <Link href="/app" className={`pill ${styles.heroCta}`}>
           Open app <ArrowRight aria-hidden />
         </Link>
       </div>

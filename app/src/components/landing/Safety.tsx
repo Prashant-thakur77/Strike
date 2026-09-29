@@ -30,7 +30,7 @@ export function Safety() {
     <section id="safety" className={`theme-paper ${styles.safety}`} aria-labelledby="safety-title">
       <div className={`gutter ${styles.rail}`}>
         <div className={styles.railLabel}>
-          <span className="index">06</span>
+          <span className="index">05</span>
           <span className="micro">Safety</span>
         </div>
         <div className={styles.railBody}>

@@ -56,14 +56,14 @@ export function Closing() {
           className={`theme-mint ${styles.curtain}`}
           style={reduce ? undefined : { clipPath: curtain }}
         >
-          <span className={styles.closingGhost} aria-hidden>
-            08
-          </span>
           <div className={`gutter ${styles.curtainInner}`}>
             <div className={styles.closingHead}>
+              <span className={styles.closingGhost} aria-hidden>
+                09
+              </span>
               <span className="rule" />
               <div>
-                <span className="index">08</span>
+                <span className="index">09</span>
                 <span className="micro">Start</span>
               </div>
             </div>

@@ -7,6 +7,7 @@ import { Live } from "@/components/landing/Live";
 import { Manifesto } from "@/components/landing/Manifesto";
 import { Numbers } from "@/components/landing/Numbers";
 import { Safety } from "@/components/landing/Safety";
+import { TryIt } from "@/components/landing/TryIt";
 import { SiteNav } from "@/components/site/SiteNav";
 
 export default function Landing() {
@@ -19,8 +20,9 @@ export default function Landing() {
         <Numbers />
         <HowItWorks />
         <Agents />
-        <Live />
         <Safety />
+        <Live />
+        <TryIt />
         <BuiltOn />
         <Closing />
       </main>

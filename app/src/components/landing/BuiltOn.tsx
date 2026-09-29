@@ -24,7 +24,7 @@ export function BuiltOn() {
   return (
     <section className={`theme-ink ${styles.builtOn}`} aria-labelledby="built-title">
       <div className="gutter">
-        <SectionHead index="07" label="Built on" right="Arbitrum Open House" hideRightOnMobile />
+        <SectionHead index="08" label="Built on" right="Arbitrum Open House" hideRightOnMobile />
         <h2 id="built-title" className="sr-only">
           Built on Robinhood Chain, USDG and Arbitrum Stylus
         </h2>

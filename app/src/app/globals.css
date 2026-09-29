@@ -32,8 +32,17 @@
   --banner-h: 30px;
   --nav-h: clamp(72px, 6.8vw, 98px);
   --app-nav-h: 72px;
-  --section-pad-top: clamp(84px, 7.8vw, 112px);
-  --section-pad-bottom: clamp(110px, 12.5vw, 180px);
+  --section-pad-top: clamp(72px, 7vw, 104px);
+  --section-pad-bottom: clamp(88px, 9vw, 136px);
+
+  /* One spacing scale for the landing sections: xs/s/m are fixed, l/xl grow with the viewport. */
+  --sp-xs: 8px;
+  --sp-s: 16px;
+  --sp-m: 24px;
+  --sp-l: clamp(32px, 3.4vw, 48px);
+  --sp-xl: clamp(40px, 5vw, 72px);
+
+  /* One type scale: mega > h1 > title > project > h2 > quote > stat > h3 > lead > body > small > label. */
 
   --fs-mega: clamp(4.4rem, 13.5vw, 15rem);
   --fs-title: clamp(3.2rem, 11.5vw, 11.5rem);
@@ -145,7 +154,7 @@ svg {
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent-bright);
+  outline: 2px solid var(--focus-ring, var(--accent));
   outline-offset: 3px;
   border-radius: 2px;
 }
@@ -197,6 +206,7 @@ svg {
   --loss-c: var(--loss);
   --surface: rgba(255, 255, 255, 0.45);
   --ghost: rgba(17, 17, 17, 0.08);
+  --focus-ring: var(--accent);
   background: var(--bg);
   color: var(--fg);
 }
@@ -206,6 +216,10 @@ svg {
 }
 .theme-paper-2 {
   --bg: var(--paper-2);
+}
+.theme-call,
+.theme-put {
+  --focus-ring: var(--ink);
 }
 .theme-call {
   --bg: var(--tone-call);
@@ -227,6 +241,7 @@ svg {
   --rule: rgba(7, 17, 17, 0.28);
   --rule-strong: rgba(7, 17, 17, 0.5);
   --ghost: rgba(7, 17, 17, 0.07);
+  --focus-ring: var(--ink-teal);
 }
 
 .theme-ink,
@@ -241,6 +256,7 @@ svg {
   --loss-c: var(--loss-ink);
   --surface: rgba(233, 233, 231, 0.04);
   --ghost: rgba(233, 233, 231, 0.06);
+  --focus-ring: var(--mint);
   color-scheme: dark;
 }
 .theme-teal {
@@ -355,6 +371,7 @@ svg {
 }
 
 .text-link {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -365,6 +382,18 @@ svg {
 
 .text-link svg {
   transition: transform 0.25s var(--ease-out);
+}
+
+/* Small links and pills keep their look but get a 44px-tall hit area. */
+.text-link::after,
+.pill-small::after {
+  content: "";
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
 }
 
 @media (hover: hover) and (pointer: fine) {

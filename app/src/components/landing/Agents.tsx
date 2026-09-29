@@ -1,17 +1,22 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHead } from "@/components/ui/SectionHead";
+import { explorerUrl } from "@/lib/chains";
+import { shortAddr } from "@/lib/format";
 import styles from "./landing.module.css";
 
 type Line = { t: string; kind?: "ok" | "bad" | "dim" | "cmd" };
+
+/** Robinhood Chain testnet, where the 2026-09-29 run below happened (docs/testnet-epochs/2026-09-29.md). */
+const RUN_CHAIN = 46630;
 
 const CARDS: {
   tone: "call" | "put";
   index: string;
   title: string;
   event: string;
-  cta: string;
+  tx: string;
   lines: Line[];
 }[] = [
   {
@@ -19,15 +24,15 @@ const CARDS: {
     index: "01",
     title: "Inside the mandate",
     event: "SeriesProposed",
-    cta: "Series goes on sale",
+    tx: "0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4",
     lines: [
-      { t: "proposeSeries(TSLA-CC, K=$407, Fri 16:00, 59, 100%)", kind: "cmd" },
-      { t: "spot $381.12 · fair value $2.31 · Δ 0.22", kind: "dim" },
-      { t: "✓ delta 0.22 inside 0.10 – 0.35", kind: "ok" },
+      { t: "proposeByDelta(sTSLA-CC, Δ 0.20, Oct 2)", kind: "cmd" },
+      { t: "spot $352.45 · K $369.86 · fair $2.13", kind: "dim" },
+      { t: "✓ |delta| 0.20 inside 0.10 – 0.35", kind: "ok" },
       { t: "✓ price 100% ≥ 95% of fair value", kind: "ok" },
-      { t: "✓ size 59 ≤ 80% of capacity", kind: "ok" },
-      { t: "✓ expiry is an NYSE close, 4.3 days out", kind: "ok" },
-      { t: "→ series live · buyers pay USDG", kind: "cmd" },
+      { t: "✓ size 4 of 5 ≤ 80% of capacity", kind: "ok" },
+      { t: "✓ tenor 3.1 days, inside 1 – 8", kind: "ok" },
+      { t: "→ on sale · agent #1: 1 accepted", kind: "cmd" },
     ],
   },
   {
@@ -35,15 +40,15 @@ const CARDS: {
     index: "02",
     title: "Outside the mandate",
     event: "ProposalRejected",
-    cta: "Bond pays depositors",
+    tx: "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0",
     lines: [
-      { t: "proposeSeries(TSLA-CSP, K=$391, Fri 16:00, 5, 100%)", kind: "cmd" },
-      { t: "spot $381.12 · put strike above spot", kind: "dim" },
-      { t: "✗ StrikeWrongSide: in the money", kind: "bad" },
-      { t: "ProposalRejected(reason = 4) — no revert", kind: "dim" },
-      { t: "slash(agent 3): 10 USDG → vault depositors", kind: "bad" },
-      { t: "strikes 3 / 3 → agent suspended", kind: "bad" },
-      { t: "→ curator hands the vault to another agent", kind: "cmd" },
+      { t: "proposeSeries(sTSLA-CSP, K=$352.44)", kind: "cmd" },
+      { t: "spot $352.45 · at the money", kind: "dim" },
+      { t: "✗ |delta| 0.4887 outside 0.10 – 0.35", kind: "bad" },
+      { t: "ProposalRejected(DeltaOutOfBand)", kind: "dim" },
+      { t: "slash(agent #1): 10 USDG → depositors", kind: "bad" },
+      { t: "bond 60 → 50 USDG · strikes 1 / 3", kind: "bad" },
+      { t: "→ still active · suspended at 3 / 3", kind: "cmd" },
     ],
   },
 ];
@@ -89,7 +94,7 @@ export function Agents() {
                     <i />
                     <i />
                     <i />
-                    <span>EpochManager</span>
+                    <span>Agent #1 · ERC-8004 #114</span>
                   </div>
                   <ol className={styles.termLines} aria-hidden>
                     {c.lines.map((l, i) => (
@@ -105,13 +110,23 @@ export function Agents() {
                     ))}
                   </ol>
                 </div>
-                <span className={styles.mediaPill}>
-                  {c.cta} <ArrowRight aria-hidden />
-                </span>
+                <a
+                  className={styles.mediaPill}
+                  href={explorerUrl(RUN_CHAIN, "tx", c.tx) ?? undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`${c.event} transaction ${c.tx} on Blockscout`}
+                >
+                  Tx {shortAddr(c.tx)} <ArrowUpRight aria-hidden />
+                </a>
               </Reveal>
             </article>
           ))}
         </div>
+        <p className={`micro micro-muted ${styles.cardsNote}`}>
+          Both proposals are from one live run on Robinhood Chain testnet, 2026-09-29, by agent #1 (ERC-8004
+          identity #114).
+        </p>
         <div className={styles.scope}>
           <span className="micro">The mandate</span>
           <span className={styles.scopeList}>

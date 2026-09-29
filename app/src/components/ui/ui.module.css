@@ -119,6 +119,20 @@
   transition: transform 0.5s var(--ease-out);
 }
 
+.cta:focus-visible {
+  outline-offset: 4px;
+  border-radius: 999px;
+  color: var(--mint);
+}
+
+.cta:focus-visible::before {
+  transform: scaleX(1);
+}
+
+.cta:focus-visible :global(.micro) {
+  color: var(--mint);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .cta:hover {
     color: var(--mint);
