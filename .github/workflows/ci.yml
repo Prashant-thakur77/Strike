@@ -197,3 +197,25 @@ jobs:
           print(f"line coverage {lines}%")
           sys.exit(0 if lines >= 95 else 1)
           PY
+
+  formal:
+    name: Formal verification (halmos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Lets halmos fetch its pinned SMT solver binaries (cvc5, yices) on first use.
+      HALMOS_ALLOW_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install halmos
+        run: pip install halmos==0.3.3
+      - name: Prove properties (test/formal; 9 proven properties, about 1 minute)
+        run: halmos --root contracts --match-contract Formal --solver-timeout-assertion 300s

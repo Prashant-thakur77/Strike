@@ -352,8 +352,8 @@ export interface CheckFact {
 
 // Sources: docs/testing.md "Invariants" and "Mutation checks"; README.md "Safety evidence" (32,768 calls:
 // contracts/foundry.toml [profile.ci.invariant] runs 256 × depth 128); contracts/test/fork/RobinhoodFork.t.sol;
-// contracts/test/differential/PricerDifferential.t.sol and docs/gas.md. (Formal properties are added once the
-// Halmos runs and the CI job are committed.)
+// contracts/test/differential/PricerDifferential.t.sol and docs/gas.md; docs/security/formal-verification.md
+// (9 proven Halmos properties, 16 marked unproven) and the `formal` job in .github/workflows/ci.yml.
 export const CHECKS: readonly CheckFact[] = [
   {
     title: "Invariants",
@@ -403,6 +403,19 @@ export const CHECKS: readonly CheckFact[] = [
       { label: "test/vectors/pricer.json", href: gh("contracts/test/vectors/pricer.json") },
       { label: "deploy-testnet.sh", href: gh("scripts/deploy-testnet.sh", 54) },
       { label: "CI differential job", href: gh(".github/workflows/ci.yml", 80) },
+    ],
+  },
+  {
+    title: "Formal properties",
+    claim: "9 properties proven with Halmos for every input in range, in CI",
+    detail: [
+      "MandateGuard: an accepted proposal always meets the basic rules, the size cap and the yield floor; validate accepts exactly the consistent mandates",
+      "FeeManager: no fee without profit; rate caps. NyseTime: sessions open before they close. Settlement: call payout within the tokens sold",
+      "16 more properties time out and are marked unproven, not claimed",
+    ],
+    evidence: [
+      { label: "formal-verification.md", href: gh("docs/security/formal-verification.md") },
+      { label: "contracts/test/formal", href: ghTree("contracts/test/formal") },
     ],
   },
 ];
