@@ -52,24 +52,26 @@ const TAIL_ZERO: u128 = 37 * WAD;
 const EXP_ZERO: u128 = 42 * WAD;
 
 #[inline]
-fn u(x: u128) -> U256 {
+pub(crate) fn u(x: u128) -> U256 {
     U256::from(x)
 }
 
 #[inline]
-fn wad() -> U256 {
+pub(crate) fn wad() -> U256 {
     u(WAD)
 }
 
 /// a * b / 1e18, rounded down. Panics on overflow, like Solidity 0.8.
-#[inline]
-fn mul_wad(a: U256, b: U256) -> U256 {
+/// Not inlined (nor `div_wad`): dozens of inlined copies would push the Stylus binary past the 24 KiB compressed
+/// limit; the call costs almost nothing in WASM.
+#[inline(never)]
+pub(crate) fn mul_wad(a: U256, b: U256) -> U256 {
     a.checked_mul(b).expect("mul overflow") / wad()
 }
 
 /// a * 1e18 / b, rounded down.
-#[inline]
-fn div_wad(a: U256, b: U256) -> U256 {
+#[inline(never)]
+pub(crate) fn div_wad(a: U256, b: U256) -> U256 {
     a.checked_mul(wad()).expect("mul overflow") / b
 }
 
@@ -114,7 +116,8 @@ pub fn exp_neg(y: U256) -> U256 {
     let k = y / u(LN2);
     let r = y - k * u(LN2);
     let e_neg_r = (wad() * wad()) / exp_small(r);
-    e_neg_r >> k.to::<usize>()
+    // k <= 60 (y < 42), so the low limb is k; this also avoids pulling in the formatting code of `to::<usize>()`.
+    e_neg_r >> (k.as_limbs()[0] as usize)
 }
 
 /// ln(x) for x >= 1 (WAD). Returns a non-negative WAD.
@@ -175,20 +178,8 @@ pub fn normal_cdf(abs: U256, negative: bool) -> U256 {
     if negative { tail } else { wad() - tail }
 }
 
-/// Black-Scholes price and delta.
-///
-/// * `spot`, `strike`: USD per token, WAD.
-/// * `time`: seconds to expiry.
-/// * `sigma`: annualised volatility, WAD (0.6e18 = 60%).
-///
-/// Returns (premium in USD per token, WAD) and delta (WAD; negative for puts).
-pub fn quote(
-    spot: U256,
-    strike: U256,
-    time: U256,
-    sigma: U256,
-    is_call: bool,
-) -> Result<(U256, I256), u8> {
+/// Rejects inputs outside the supported range with the matching error code.
+pub(crate) fn check_inputs(spot: U256, strike: U256, time: U256, sigma: U256) -> Result<(), u8> {
     if spot < u(MIN_PRICE) || spot > u(MAX_PRICE) {
         return Err(ERR_SPOT);
     }
@@ -201,7 +192,23 @@ pub fn quote(
     if sigma < u(MIN_VOL) || sigma > u(MAX_VOL) {
         return Err(ERR_VOL);
     }
+    Ok(())
+}
 
+/// d1 of Black-Scholes and the terms it is built from.
+pub(crate) struct D1 {
+    /// |d1| (WAD).
+    pub abs: U256,
+    /// d1 < 0.
+    pub negative: bool,
+    /// sigma * sqrt(T) (WAD).
+    pub vol_sqrt_t: U256,
+    /// sqrt(T), T in years (WAD).
+    pub sqrt_t: U256,
+}
+
+/// d1 = (ln(S/K) + sigma^2 T / 2) / (sigma sqrt(T)), inputs already checked.
+pub(crate) fn d1(spot: U256, strike: U256, time: U256, sigma: U256) -> D1 {
     let t_wad = time * wad() / u(SECONDS_PER_YEAR);
     let sqrt_t = sqrt(t_wad * wad());
     let vol_sqrt_t = mul_wad(sigma, sqrt_t);
@@ -222,31 +229,65 @@ pub fn quote(
     } else {
         (half_var - ln_abs, false)
     };
-    let d1_abs = div_wad(d1_num, vol_sqrt_t);
-
-    // d2 = d1 - sigma sqrt(T).
-    let (d2_abs, d2_neg) = if d1_neg {
-        (d1_abs + vol_sqrt_t, true)
-    } else if d1_abs >= vol_sqrt_t {
-        (d1_abs - vol_sqrt_t, false)
-    } else {
-        (vol_sqrt_t - d1_abs, true)
-    };
-
-    let nd1 = normal_cdf(d1_abs, d1_neg);
-    let nd2 = normal_cdf(d2_abs, d2_neg);
-
-    if is_call {
-        let a = mul_wad(spot, nd1);
-        let b = mul_wad(strike, nd2);
-        let price = if a > b { a - b } else { U256::ZERO };
-        Ok((price, I256::from_raw(nd1)))
-    } else {
-        let a = mul_wad(strike, wad() - nd2);
-        let b = mul_wad(spot, wad() - nd1);
-        let price = if a > b { a - b } else { U256::ZERO };
-        Ok((price, I256::from_raw(nd1) - I256::from_raw(wad())))
+    D1 {
+        abs: div_wad(d1_num, vol_sqrt_t),
+        negative: d1_neg,
+        vol_sqrt_t,
+        sqrt_t,
     }
+}
+
+/// N(d1) and N(d2), with d2 = d1 - sigma sqrt(T).
+pub(crate) fn cdfs(d: &D1) -> (U256, U256) {
+    let (d2_abs, d2_neg) = if d.negative {
+        (d.abs + d.vol_sqrt_t, true)
+    } else if d.abs >= d.vol_sqrt_t {
+        (d.abs - d.vol_sqrt_t, false)
+    } else {
+        (d.vol_sqrt_t - d.abs, true)
+    };
+    (normal_cdf(d.abs, d.negative), normal_cdf(d2_abs, d2_neg))
+}
+
+/// Premium from N(d1) and N(d2), floored at zero.
+pub(crate) fn premium(spot: U256, strike: U256, nd1: U256, nd2: U256, is_call: bool) -> U256 {
+    let (a, b) = if is_call {
+        (mul_wad(spot, nd1), mul_wad(strike, nd2))
+    } else {
+        (mul_wad(strike, wad() - nd2), mul_wad(spot, wad() - nd1))
+    };
+    if a > b { a - b } else { U256::ZERO }
+}
+
+/// Delta from N(d1): N(d1) for a call, N(d1) - 1 for a put.
+pub(crate) fn delta_from(nd1: U256, is_call: bool) -> I256 {
+    if is_call {
+        I256::from_raw(nd1)
+    } else {
+        I256::from_raw(nd1) - I256::from_raw(wad())
+    }
+}
+
+/// Black-Scholes price and delta.
+///
+/// * `spot`, `strike`: USD per token, WAD.
+/// * `time`: seconds to expiry.
+/// * `sigma`: annualised volatility, WAD (0.6e18 = 60%).
+///
+/// Returns (premium in USD per token, WAD) and delta (WAD; negative for puts).
+pub fn quote(
+    spot: U256,
+    strike: U256,
+    time: U256,
+    sigma: U256,
+    is_call: bool,
+) -> Result<(U256, I256), u8> {
+    check_inputs(spot, strike, time, sigma)?;
+    let (nd1, nd2) = cdfs(&d1(spot, strike, time, sigma));
+    Ok((
+        premium(spot, strike, nd1, nd2, is_call),
+        delta_from(nd1, is_call),
+    ))
 }
 
 /// Bisection rounds for `strike_for_delta` (relative precision ~ 20 / 2^48 ≈ 7e-14 of spot).
