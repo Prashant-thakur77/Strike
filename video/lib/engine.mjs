@@ -315,6 +315,7 @@ function sceneHelpers(page, clock, tl) {
     },
     async unzoom(ms = 420) {
       await page.evaluate((m) => window.__v.unzoom(m), ms);
+      await sleep(ms + 60); // positions are read untransformed only after the transition ends
     },
     async box(target, opts = {}) {
       await onEl(

@@ -108,7 +108,10 @@ export function scenes(f) {
         L(
           "Next: an external audit, then a capped mainnet vault. | We are asking for a place at Founder House Singapore, | and introductions to wallets and market makers.",
         ),
-        L("Try it at strike-options.vercel.app.", "Try it at strike dash options dot vercel dot app."),
+        L(
+          "Try the playground at strike-options.vercel.app.",
+          "Try the playground at strike dash options dot vercel dot app.",
+        ),
       ],
       { tail: 1.6 },
     ),

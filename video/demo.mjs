@@ -25,9 +25,20 @@ export async function probe(browser) {
   await page.goto(`${APP}/app/monitor`);
   await page.getByText("NVIDIA").first().waitFor({ timeout: 60_000 });
   const mult = await nvdaMultiplier(page);
-  await ctx.close();
   if (!mult) throw new Error("NVDA multiplier not found on /app/monitor");
-  return { nvdaMultiplier: mult, nvdaMultiplierSaid: Number(mult).toFixed(6) };
+  // the vault's worst case this week, from the Stylus risk engine (the Risk section of the vault page)
+  await page.goto(`${APP}/app/vault/${CC_VAULT}`);
+  const worst = await page
+    .waitForFunction(() => document.body.innerText.match(/Worst\s*[−-]\$([\d,]+\.\d\d)/)?.[1], null, {
+      timeout: 60_000,
+    })
+    .then((h) => h.jsonValue());
+  await ctx.close();
+  return {
+    nvdaMultiplier: mult,
+    nvdaMultiplierSaid: Number(mult).toFixed(6),
+    riskWorst: worst.replace(/,/g, ""),
+  };
 }
 
 async function nvdaMultiplier(page) {
@@ -246,7 +257,7 @@ export function scenes(f, live) {
     signingScene(f),
     {
       id: "vault",
-      screen: `The TSLA covered-call vault page: zoom on the $${f.strike} strike and the ${f.premium} USDG premium collected, then the payoff chart with a zoom on the $372.36 breakeven.`,
+      screen: `The TSLA covered-call vault page: zoom on the $${f.strike} strike and the ${f.premium} USDG premium collected, then the payoff chart with a zoom on the $372.36 breakeven, then the Risk section (greeks and a ±30% stress test from the Rust risk engine on Stylus) with a zoom on the worst case, −$${live.riskWorst}, read at render time.`,
       tag: "Vault",
       lines: [
         L(
@@ -256,6 +267,11 @@ export function scenes(f, live) {
         L(
           "The buyer profits above $372.36. | At or below the strike, depositors keep the whole premium.",
           `The buyer profits above ${sayUsd("372.36")}. | At or below the strike, depositors keep the whole premium.`,
+        ),
+        L("A risk engine written in Rust on Stylus | stress-tests this week's option on-chain."),
+        L(
+          `Its worst case: a 30% jump in Tesla, | and −$${live.riskWorst} for the vault.`,
+          `Its worst case: a thirty percent jump in Tesla, | and minus ${sayUsd(live.riskWorst)} for the vault.`,
         ),
       ],
       async prepare(page) {
@@ -283,6 +299,23 @@ export function scenes(f, live) {
         await h.at(h.tl.lines[1].start + 0.6);
         await h.box(/^Breakeven \$372\.36$/, { pad: 8, dim: 0.12 });
         await h.zoom(/^Breakeven \$372\.36$/, { scale: 1.6 });
+        // the Risk section: greeks and the ±30% stress test, read from the Stylus risk engine
+        await h.cue(2, -0.6);
+        await h.unbox();
+        await h.unzoom(300);
+        // any value: the engine re-reads the live spot, so check it still matches what the narration says
+        const worst = /^Worst\s*[−-]\$[\d,]+\.\d\d$/;
+        const shown = await h.page.evaluate(
+          () => document.body.innerText.match(/Worst\s*[−-]\$([\d,]+\.\d\d)/)?.[1],
+        );
+        if (shown?.replace(/,/g, "") !== live.riskWorst)
+          console.warn(
+            `[video] WARNING: the risk panel now shows −$${shown}; the narration says −$${live.riskWorst}. Re-render.`,
+          );
+        await h.scrollTo(worst, { offset: 640, ms: 1100 });
+        await h.cue(3, -0.3);
+        await h.box(worst, { pad: 8, dim: 0.12 });
+        await h.zoom(worst, { scale: 1.6 });
       },
     },
     {
