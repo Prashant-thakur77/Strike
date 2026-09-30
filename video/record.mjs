@@ -918,7 +918,7 @@ async function recordAll({ epoch, bot }) {
       },
       {
         srt: [
-          "Strike: options on Robinhood Chain, run by agents that cannot break the rules.",
+          "Strike: options on Robinhood Chain, run by agents the contract holds to a mandate.",
           `802 tests and proofs (432 Foundry tests), 9 invariants, 9 formal proofs, fork tests on mainnet. ${REPO}`,
         ],
       },
