@@ -425,6 +425,15 @@ function atTheMoney(ctx: VaultContext): bigint {
   return ctx.vault.isCall ? floorToCent(spot) + cent : floorToCent(spot - 1n);
 }
 
+/**
+ * The preferred vault if it holds collateral, else the other one: a preset sized against an empty vault would stop
+ * at `ZeroSize` before the rule it is meant to show.
+ */
+function funded(snap: PlaygroundSnapshot, preferred: VaultKey): VaultKey {
+  if (snap.vaults[preferred].vault.totalAssets > 0n) return preferred;
+  return preferred === "put" ? "call" : "put";
+}
+
 export const PRESETS: readonly Preset[] = [
   {
     id: "honest",
@@ -445,18 +454,18 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "reckless",
     who: "Reckless agent",
-    title: "At-the-money put",
+    title: "At-the-money strike",
     expect: "DeltaOutOfBand",
-    note: "Strike a cent under spot: |Δ| near 0.50, far outside the 0.10–0.35 band.",
+    note: "Strike a cent out of the money: |Δ| near 0.50, far outside the 0.10–0.35 band.",
     build: (snap) => {
-      const ctx = snap.vaults.put;
-      const k = atTheMoney(ctx);
+      const key = funded(snap, "put");
+      const k = atTheMoney(snap.vaults[key]);
       return {
-        vault: "put",
+        vault: key,
         mode: "strike",
         delta: "0.20",
         strike: usdText(k),
-        size: sizeShare(snap, "put", 2500n, k),
+        size: sizeShare(snap, key, 2500n, k),
         premium: "100",
         expiry: "next",
       };
@@ -484,14 +493,17 @@ export const PRESETS: readonly Preset[] = [
     title: "50% of fair value",
     expect: "PremiumBelowFair",
     note: "Asks half the Black-Scholes price: a gift to the buyer, paid by depositors.",
-    build: (snap) => ({
-      vault: "put",
-      mode: "delta",
-      delta: "0.20",
-      strike: "",
-      size: sizeShare(snap, "put", 2500n),
-      premium: "50",
-      expiry: "next",
-    }),
+    build: (snap) => {
+      const key = funded(snap, "put");
+      return {
+        vault: key,
+        mode: "delta",
+        delta: "0.20",
+        strike: "",
+        size: sizeShare(snap, key, 2500n),
+        premium: "50",
+        expiry: "next",
+      };
+    },
   },
 ];
