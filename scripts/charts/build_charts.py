@@ -91,6 +91,8 @@ def load_coverage():
 
 def load_gas():
     text = (ROOT / "docs" / "gas.md").read_text()
+    # Only the dev-node tables (both Solidity and Stylus measured): the live-chain section has Stylus only.
+    text = text.split("\n## Measured on the live chain", 1)[0]
     rows = []
     num = lambda s: int(s.replace(",", "").strip())  # noqa: E731
     for line in text.splitlines():

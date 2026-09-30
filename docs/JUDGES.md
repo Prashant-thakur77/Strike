@@ -61,7 +61,7 @@ Internal security review ([review-2026-09-29.md](security/review-2026-09-29.md))
 forge test --root contracts --match-path "test/audit/*" -vv
 ```
 
-Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 177 TypeScript tests (SDK 86, MCP 47, agents 44), 60 Telegram bot tests, 10 subgraph tests, 104 Playwright tests. The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
+Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 202 TypeScript tests (SDK 109, MCP 49, agents 44), 60 Telegram bot tests, 10 subgraph tests, 106 Playwright tests. The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
 
 ## What each step shows
 

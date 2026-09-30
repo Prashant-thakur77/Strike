@@ -321,8 +321,8 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Sources: README.md "Safety evidence" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 177 TypeScript
-// = SDK 86 + MCP 47 + agents 44, 60 Telegram bot, 10 subgraph, 104 Playwright). Re-count (2026-09-30) with
+// Sources: README.md "Safety evidence" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 202 TypeScript
+// = SDK 109 + MCP 49 + agents 44, 60 Telegram bot, 10 subgraph, 106 Playwright). Re-count (2026-09-30) with
 // `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
 // counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
 // subgraph/tests and the `test(` calls in app/e2e.
@@ -348,8 +348,8 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "177",
-    detail: "SDK 86, MCP server 47, example agents 44",
+    count: "202",
+    detail: "SDK 109, MCP server 49, example agents 44",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -370,7 +370,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "104",
+    count: "106",
     detail: "The app at 1440 px desktop and 390 px mobile, including this page and its links",
     evidence: [
       { label: "app/e2e", href: ghTree("app/e2e") },

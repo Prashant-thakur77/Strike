@@ -256,7 +256,7 @@ Mobile captures of the other pages: [vaults](docs/screenshots/mobile-vaults.png)
 
 | Tests and proofs | Line coverage      | Strike solver in Stylus | Live epoch                                 | Contracts verified                               |
 | ---------------- | ------------------ | ----------------------- | ------------------------------------------ | ------------------------------------------------ |
-| [864](#tests)    | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [9 transactions, 1 slash](#the-live-epoch) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
+| [891](#tests)    | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [9 transactions, 1 slash](#the-live-epoch) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
 
 Charts are rebuilt from committed data by [`scripts/charts/build_charts.py`](scripts/charts/README.md); each has a light and a dark version and its numbers in the table beside it.
 
@@ -285,7 +285,7 @@ The `test_AUDIT_*` names describe the attack each test first reproduced; they no
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/tests-by-suite-dark.svg">
-  <img alt="Horizontal bar chart of 864 tests and proofs by suite: Foundry main suite 477 passing (7 skipped): unit 233, agents 36, conformance 35, oracle 34, core 33, integration 28, pricing 21, audit 19, invariant 18, examples 14, testnet 5, version 1; fork 9, Halmos 9, differential 3; Rust 15; SDK 86, Telegram bot 60, MCP 47, example agents 44, subgraph 10; Playwright 104 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
+  <img alt="Horizontal bar chart of 891 tests and proofs by suite: Foundry main suite 477 passing (7 skipped): unit 233, agents 36, conformance 35, oracle 34, core 33, integration 28, pricing 21, audit 19, invariant 18, examples 14, testnet 5, version 1; fork 9, Halmos 9, differential 3; Rust 15; SDK 109, Telegram bot 60, MCP 49, example agents 44, subgraph 10; Playwright 106 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
 </picture>
 
 | Suite                                                                                                 | Tests | How it was counted                                                         |
@@ -295,9 +295,9 @@ The `test_AUDIT_*` names describe the attack each test first reproduced; they no
 | Differential, Rust vs Solidity pricer ([`test/differential`](contracts/test/differential))            |     3 | 10,000 fuzz inputs and 300 vectors                                         |
 | Halmos proofs ([`test/formal`](contracts/test/formal), [notes](docs/security/formal-verification.md)) |     9 | Proven for every input in range; 16 more are marked unproven               |
 | Rust, Stylus pricer ([`stylus/pricer`](stylus/pricer))                                                |    15 | `make stylus-test`                                                         |
-| TypeScript: SDK 86, Telegram bot 60, MCP 47, example agents 44                                        |   237 | `corepack pnpm -r test`                                                    |
+| TypeScript: SDK 109, Telegram bot 60, MCP 49, example agents 44                                       |   262 | `corepack pnpm -r test`                                                    |
 | Subgraph ([`subgraph/tests`](subgraph/tests))                                                         |    10 | matchstick                                                                 |
-| App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                   |   104 | `npx playwright test --list`: 208 runs, 104 tests × 2 viewports            |
+| App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                   |   106 | `npx playwright test --list`: 212 runs, 106 tests × 2 viewports            |
 
 Counted on 2026-09-30; the per-folder Foundry counts are in [`scripts/charts/data/forge-tests.txt`](scripts/charts/data/forge-tests.txt). The 7 skipped tests are the settlement rules of the [SafeStockFeed conformance suite](contracts/test/conformance) run against the `StockCollateral` example, which values collateral and has no settlement price; `StockOracle` passes all 21 rules. Some Playwright tests run in one viewport only (pure functions and the HTTP-only `mcp.spec.ts` on desktop, the phone menu on mobile) and are skipped in the other.
 

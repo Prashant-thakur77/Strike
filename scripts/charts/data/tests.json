@@ -37,7 +37,7 @@
       "items": [
         {
           "label": "SDK",
-          "count": 86,
+          "count": 109,
           "source": "sdk: vitest run, 86 passed"
         },
         {
@@ -47,7 +47,7 @@
         },
         {
           "label": "MCP server",
-          "count": 47,
+          "count": 49,
           "source": "mcp: vitest run, 47 passed"
         },
         {
@@ -67,8 +67,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 104,
-          "source": "app: npx playwright test --list reports 208 runs in 14 files = 104 tests x 2 viewports (desktop 1440x900, mobile 390x844); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run"
+          "count": 106,
+          "source": "app: npx playwright test --list reports 212 runs in 15 files = 106 tests x 2 viewports (desktop 1440x900, mobile 390x844); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run"
         }
       ]
     }
