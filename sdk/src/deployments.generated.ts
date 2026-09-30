@@ -85,5 +85,85 @@ export const generatedDeployments = {
       "agentId": 1,
       "agentSigner": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff"
     }
+  },
+  "421614": {
+    "agentRegistry": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+    "block": 314350623,
+    "chainId": 421614,
+    "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+    "epochManager": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+    "feeManager": "0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569",
+    "marketCalendar": "0xefD1121ef13F1187F9ac9A54076DFa09A586d31D",
+    "optionToken": "0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7",
+    "pricer": "0x79A4158900579FA0eE5b413B4724D010C8a0A8E2",
+    "riskLens": "0x94aC10fF1A71ceBfD825079aaf897858a9953ecE",
+    "stockOracle": "0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F",
+    "stocks": {
+      "NVDA": {
+        "feed": "0x1B137e5CB2c0153B4B3f1cbBC78DdECBa5569aA1",
+        "token": "0xdF0f069EfF103655312E15C517324d316fD34bc1"
+      },
+      "TSLA": {
+        "feed": "0x85B92cF975E3cf9Ad44c0664d6aF67f358360FFA",
+        "token": "0x2EbdbAe172d733f96F9742A7e319e311E552BF37"
+      }
+    },
+    "usdg": "0xFFC95faa3d63Cde504a05B567C600B78C0b41892",
+    "vaultFactory": "0x9DbaFfD488FC591947149E2b27189A201C0a74f4",
+    "vaultImplementation": "0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197",
+    "l1Block": 11815871,
+    "deployTxRange": "L2 blocks 314350623-314351025",
+    "blockNote": "block is the Arbitrum Sepolia (L2) deployment block, where event scans start; Deploy.s.sol wrote block.number, which on Arbitrum is the L1 (Sepolia) block, kept as l1Block",
+    "version": "v3",
+    "network": "Arbitrum Sepolia",
+    "decisionLog": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+    "decisionLogTx": "0x8cea8ec3097530fbf188719e6775946bf4d88bf6a19bad73726832316462e8c1",
+    "decisionLogNote": "Additive, reads this AgentRegistry; source contracts/src/agents/DecisionLog.sol on main (9ed81b4)",
+    "testnetNote": "Real Sepolia USDG (Paxos). TSLA and NVDA are TestStockTokens with a faucet (10 per address per day); their MirrorFeeds copy the Robinhood Chain mainnet Chainlink rounds (seeded with the mainnet round current at deploy time)",
+    "agent": {
+      "agentId": 1,
+      "owner": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+      "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f",
+      "erc8004Id": 253,
+      "registerTx": "0xb1d1d505b5312d63e2f044b73838412774674d9e2e90d29a51217ad24897a5ae",
+      "postBondTx": "0x81fcc53457ed9d6ac539783b37b0f157606f4a65d1bef7bcc90e5f030a0fe03d",
+      "erc8004RegisterTx": "0x2f99add127c63313b1277df97680387dcf4e1f26e0487618e826a12df6b4d435",
+      "setIdentityTx": "0x62b8c7bb68b0ff6f18227a95f0f51e619dd28f365250d7e43c67f867bf2960b8",
+      "note": "Registered by the owner with the signer's EIP-712 Register consent (Seed.s.sol, BOND=60e6); ERC-8004 identity #253 on the official Identity Registry 0x8004A818...BD9e on Arbitrum Sepolia",
+      "bond": "60 USDG posted, 50 after the 10 USDG slash on 2026-09-30"
+    },
+    "stylusPricer": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+    "stylusPricerTx": "0x7ffbd7b93393569dced980712220ed02ec6c62a66b1c8a0ae3bc5cf690dad3c8",
+    "stylusActivationTx": "0xa68de6166937fc3c22d3cbe30fe2e3d5efda93ffe57e4570b1bf495bf136a287",
+    "activePricer": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+    "activePricerNote": "EpochManager.pricer() is the Stylus pricer and risk engine (setPricer tx 0x132d5bb34afb19ba5a18316250644091c83a051518aca5ece7a3681b3ba82f59) after the on-chain equality check; `pricer` is the Solidity reference (BlackScholesRef with RiskLib)",
+    "riskEngine": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+    "sourceCommit": "ebe139e",
+    "deployCommit": "e705aaf",
+    "status": "deployed; live epoch 2026-09-30 (series expires 2026-10-02 20:00 UTC)",
+    "stylusCache": {
+      "bidTx": "0x5b1d2385b65c8a9487cb544ac9a187796a7af920950e50e80461fb7857cf596f",
+      "bidWei": 0,
+      "note": "Cached in ArbOS via the CacheManager; saves about 19,800 gas per call into the program"
+    },
+    "epoch1": {
+      "callVaultSeries": "8200340887102394470889505950118944065123972136398888610989328404594772867353",
+      "strike": "364.29",
+      "expiry": 1790971200,
+      "openEpochTx": "0x9865efd793e63ee8386e4a670eeb0bc65f5d45f1c3070126bc295f261a98de59",
+      "proposeByDeltaTx": "0xf26315b33df93548bfa31d68b7d9964792ef88184cb154796180e19b9365b5f4",
+      "rejectedPutTx": "0x4813b1089c8e6a3f3e728c74b9b6bb2d79ec73fb36ab0b5142abc72aa333756d",
+      "buyTx": "0x82e2d5b4e476edec205c80daca431a8becdd5fbdb1f84e3ca0dea8d7d49265f4",
+      "decisionLogRecordTxs": [
+        "0x1f9f7eafdf448c205df43e81d75e94f5282dd3b2bb465473330012c04cac3538",
+        "0x6ee65ef8a6fa002f4388f7cf279f6fd098c0a45ab2bff118c0fc0ab0ed266c8e"
+      ]
+    },
+    "vaults": {
+      "TSLA_cash_secured_put": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+      "TSLA_covered_call": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+      "agentId": 1,
+      "agentSigner": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+    }
   }
 } as const;

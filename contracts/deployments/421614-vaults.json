@@ -1,0 +1,6 @@
+{
+  "TSLA_cash_secured_put": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+  "TSLA_covered_call": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+  "agentId": 1,
+  "agentSigner": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+}
