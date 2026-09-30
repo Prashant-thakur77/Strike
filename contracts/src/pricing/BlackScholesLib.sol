@@ -65,27 +65,37 @@ library BlackScholesLib {
         pure
         returns (uint256 price, int256 delta)
     {
+        checkInputs(spot, strike, time, sigma);
+        (uint256 d1Abs, bool d1Neg, uint256 volSqrtT,) = d1(spot, strike, time, sigma);
+        (uint256 nd1, uint256 nd2) = cdfs(d1Abs, d1Neg, volSqrtT);
+        price = premium(spot, strike, nd1, nd2, isCall);
+        delta = deltaFrom(nd1, isCall);
+    }
+
+    /// @notice Reverts with the matching `PricerInputOutOfRange` code if an input is outside the supported range.
+    function checkInputs(uint256 spot, uint256 strike, uint256 time, uint256 sigma) internal pure {
         if (spot < MIN_PRICE || spot > MAX_PRICE) revert PricerInputOutOfRange(ERR_SPOT);
         if (strike < MIN_PRICE || strike > MAX_PRICE) revert PricerInputOutOfRange(ERR_STRIKE);
         if (time < MIN_TIME || time > MAX_TIME) revert PricerInputOutOfRange(ERR_TIME);
         if (sigma < MIN_VOL || sigma > MAX_VOL) revert PricerInputOutOfRange(ERR_VOL);
+    }
 
-        (uint256 nd1, uint256 nd2) = _cdfs(spot, strike, time, sigma);
+    /// @notice Premium from N(d1) and N(d2), floored at zero.
+    function premium(uint256 spot, uint256 strike, uint256 nd1, uint256 nd2, bool isCall)
+        internal
+        pure
+        returns (uint256)
+    {
+        (uint256 a, uint256 b) =
+            isCall ? (mulWad(spot, nd1), mulWad(strike, nd2)) : (mulWad(strike, WAD - nd2), mulWad(spot, WAD - nd1));
+        return a > b ? a - b : 0;
+    }
 
-        if (isCall) {
-            uint256 a = _mulWad(spot, nd1);
-            uint256 b = _mulWad(strike, nd2);
-            price = a > b ? a - b : 0;
-            // nd1 <= 1e18, so the cast is exact.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            delta = int256(nd1);
-        } else {
-            uint256 a = _mulWad(strike, WAD - nd2);
-            uint256 b = _mulWad(spot, WAD - nd1);
-            price = a > b ? a - b : 0;
-            // forge-lint: disable-next-line(unsafe-typecast)
-            delta = int256(nd1) - int256(WAD);
-        }
+    /// @notice Delta from N(d1): N(d1) for a call, N(d1) - 1 for a put.
+    function deltaFrom(uint256 nd1, bool isCall) internal pure returns (int256) {
+        // nd1 <= 1e18, so the casts are exact.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return isCall ? int256(nd1) : int256(nd1) - int256(WAD);
     }
 
     /// @notice Strike whose |delta| equals `targetDelta` (WAD, strictly between 0 and 1): 48 bisection rounds over
@@ -139,14 +149,14 @@ library BlackScholesLib {
         uint256 q = x / WAD;
         uint256 k = _bitLen(q) - 1;
         uint256 m = x >> k;
-        uint256 z = _divWad(m - WAD, m + WAD);
-        uint256 z2 = _mulWad(z, z);
+        uint256 z = divWad(m - WAD, m + WAD);
+        uint256 z2 = mulWad(z, z);
         uint256 sum = 0;
         uint256 term = z;
         uint256 n = 1;
         while (term != 0) {
             sum += term / n;
-            term = _mulWad(term, z2);
+            term = mulWad(term, z2);
             n += 2;
         }
         return k * LN2 + sum * 2;
@@ -155,30 +165,30 @@ library BlackScholesLib {
     /// @notice N(-x) for x >= 0 (WAD).
     function normalTail(uint256 x) internal pure returns (uint256) {
         if (x > TAIL_ZERO) return 0;
-        uint256 e = expNeg(_mulWad(x, x) / 2);
+        uint256 e = expNeg(mulWad(x, x) / 2);
         if (x < CUTOFF) {
-            uint256 num = _mulWad(A0, x) + A1;
-            num = _mulWad(num, x) + A2;
-            num = _mulWad(num, x) + A3;
-            num = _mulWad(num, x) + A4;
-            num = _mulWad(num, x) + A5;
-            num = _mulWad(num, x) + A6;
-            num = _mulWad(e, num);
-            uint256 den = _mulWad(B0, x) + B1;
-            den = _mulWad(den, x) + B2;
-            den = _mulWad(den, x) + B3;
-            den = _mulWad(den, x) + B4;
-            den = _mulWad(den, x) + B5;
-            den = _mulWad(den, x) + B6;
-            den = _mulWad(den, x) + B7;
-            return _divWad(num, den);
+            uint256 num = mulWad(A0, x) + A1;
+            num = mulWad(num, x) + A2;
+            num = mulWad(num, x) + A3;
+            num = mulWad(num, x) + A4;
+            num = mulWad(num, x) + A5;
+            num = mulWad(num, x) + A6;
+            num = mulWad(e, num);
+            uint256 den = mulWad(B0, x) + B1;
+            den = mulWad(den, x) + B2;
+            den = mulWad(den, x) + B3;
+            den = mulWad(den, x) + B4;
+            den = mulWad(den, x) + B5;
+            den = mulWad(den, x) + B6;
+            den = mulWad(den, x) + B7;
+            return divWad(num, den);
         }
         uint256 b = x + WAD * 65 / 100;
-        b = x + _divWad(4 * WAD, b);
-        b = x + _divWad(3 * WAD, b);
-        b = x + _divWad(2 * WAD, b);
-        b = x + _divWad(WAD, b);
-        return _divWad(_divWad(e, b), SQRT_2PI);
+        b = x + divWad(4 * WAD, b);
+        b = x + divWad(3 * WAD, b);
+        b = x + divWad(2 * WAD, b);
+        b = x + divWad(WAD, b);
+        return divWad(divWad(e, b), SQRT_2PI);
     }
 
     /// @notice Standard normal CDF of a signed value given as (|x|, x < 0).
@@ -187,15 +197,9 @@ library BlackScholesLib {
         return negative ? tail : WAD - tail;
     }
 
-    /// @dev N(d1) and N(d2).
-    function _cdfs(uint256 spot, uint256 strike, uint256 time, uint256 sigma)
-        private
-        pure
-        returns (uint256 nd1, uint256 nd2)
-    {
-        (uint256 d1Abs, bool d1Neg, uint256 volSqrtT) = _d1(spot, strike, time, sigma);
+    /// @notice N(d1) and N(d2), with d2 = d1 - sigma sqrt(T).
+    function cdfs(uint256 d1Abs, bool d1Neg, uint256 volSqrtT) internal pure returns (uint256 nd1, uint256 nd2) {
         nd1 = normalCdf(d1Abs, d1Neg);
-        // d2 = d1 - sigma sqrt(T).
         if (d1Neg) {
             nd2 = normalCdf(d1Abs + volSqrtT, true);
         } else if (d1Abs >= volSqrtT) {
@@ -205,19 +209,20 @@ library BlackScholesLib {
         }
     }
 
-    /// @dev |d1|, sign of d1, and sigma sqrt(T).
-    function _d1(uint256 spot, uint256 strike, uint256 time, uint256 sigma)
-        private
+    /// @notice |d1|, sign of d1, sigma sqrt(T) and sqrt(T) (T in years), inputs already checked.
+    function d1(uint256 spot, uint256 strike, uint256 time, uint256 sigma)
+        internal
         pure
-        returns (uint256 d1Abs, bool d1Neg, uint256 volSqrtT)
+        returns (uint256 d1Abs, bool d1Neg, uint256 volSqrtT, uint256 sqrtT)
     {
         uint256 tWad = time * WAD / SECONDS_PER_YEAR;
-        volSqrtT = _mulWad(sigma, sqrt(tWad * WAD));
-        uint256 halfVar = _mulWad(_mulWad(sigma, sigma), tWad) / 2;
+        sqrtT = sqrt(tWad * WAD);
+        volSqrtT = mulWad(sigma, sqrtT);
+        uint256 halfVar = mulWad(mulWad(sigma, sigma), tWad) / 2;
 
         // ln(S/K) as (|ln|, sign).
         (uint256 lnAbs, bool lnNeg) =
-            spot >= strike ? (lnGeOne(_divWad(spot, strike)), false) : (lnGeOne(_divWad(strike, spot)), true);
+            spot >= strike ? (lnGeOne(divWad(spot, strike)), false) : (lnGeOne(divWad(strike, spot)), true);
 
         // d1 numerator = ln(S/K) + sigma^2 T / 2.
         uint256 d1Num;
@@ -229,7 +234,7 @@ library BlackScholesLib {
         } else {
             d1Num = halfVar - lnAbs;
         }
-        d1Abs = _divWad(d1Num, volSqrtT);
+        d1Abs = divWad(d1Num, volSqrtT);
     }
 
     function _expSmall(uint256 r) private pure returns (uint256 sum) {
@@ -237,18 +242,20 @@ library BlackScholesLib {
         uint256 term = WAD;
         uint256 n = 1;
         while (true) {
-            term = _mulWad(term, r) / n;
+            term = mulWad(term, r) / n;
             if (term == 0) break;
             sum += term;
             ++n;
         }
     }
 
-    function _mulWad(uint256 a, uint256 b) private pure returns (uint256) {
+    /// @notice a * b / 1e18, rounded down.
+    function mulWad(uint256 a, uint256 b) internal pure returns (uint256) {
         return a * b / WAD;
     }
 
-    function _divWad(uint256 a, uint256 b) private pure returns (uint256) {
+    /// @notice a * 1e18 / b, rounded down.
+    function divWad(uint256 a, uint256 b) internal pure returns (uint256) {
         return a * WAD / b;
     }
 
