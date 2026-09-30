@@ -80,7 +80,11 @@ const ownerOfAbi = [
 
 const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
+/** Gas limit as a percentage of the node's estimate (see `execute`). */
+const GAS_MARGIN_PCT = 125n;
+
 /** Contract addresses the client talks to. */
+
 export interface StrikeAddresses {
   epochManager: Address;
   agentRegistry: Address;
@@ -173,18 +177,33 @@ export function createStrikeClient(config: StrikeClientConfig) {
     return { wallet: walletClient, account: walletClient.account };
   }
 
-  /** Simulate, send, and wait. Reverts surface from the simulation as decoded contract errors. */
+  /**
+   * Simulate, send, and wait. Reverts surface from the simulation as decoded contract errors.
+   *
+   * The gas limit is the estimate plus a margin: the pricer's series expansions run a number of terms that depends
+   * on the tenor, so the same call can cost more in the block it lands in, a second or more after the estimate.
+   */
   async function execute<const abi extends Abi, fn extends WriteFn<abi>>(
     call: WriteCall<abi, fn>,
   ): Promise<TxResult> {
     const { wallet, account } = requireAccount();
     const { request } = await publicClient.simulateContract({ ...call, account } as never);
+    const estimate = await publicClient.estimateContractGas({ ...call, account } as never);
+    const gas = (estimate * GAS_MARGIN_PCT) / 100n;
     const hash: Hex = await wallet.writeContract({
       ...(request as object),
+      gas,
       chain: wallet.chain ?? null,
     } as never);
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    if (receipt.status !== "success") throw new StrikeError(`transaction ${hash} reverted`);
+    if (receipt.status !== "success") {
+      const outOfGas = receipt.gasUsed >= (gas * 99n) / 100n;
+      throw new StrikeError(
+        outOfGas
+          ? `transaction ${hash} ran out of gas (used ${receipt.gasUsed} of ${gas})`
+          : `transaction ${hash} reverted (gas used ${receipt.gasUsed} of ${gas})`,
+      );
+    }
     return { hash, receipt };
   }
 

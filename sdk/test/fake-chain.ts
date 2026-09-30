@@ -107,6 +107,8 @@ export function fakeChain(
           const result = typeof fn === "function" ? fn(args ?? []) : fn;
           return encodeFunctionResult({ abi: contract.abi, functionName, result } as never);
         }
+        case "eth_estimateGas":
+          return "0x30000";
         case "eth_sendTransaction": {
           const [{ to, from, data }] = params as [{ to: Address; from: Address; data: Hex }];
           const contract = contractAt(to);
