@@ -254,6 +254,10 @@ Strike adds two things. One is the agent layer: immutable mandates, bonded agent
 | [`video/`](video/)                   | Automated demo-video recorder                                                                                                                                                                             |
 | [`docs/`](docs/README.md)            | Design, security, research, operations and submission documents ([index](docs/README.md))                                                                                                                 |
 
+## Next contract version
+
+The fixes for the known issues are written and tested on the [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch, not deployed (the live v2 contracts keep their epoch history until the testnet run ends): a per-vault fee high-water mark, EIP-712 signer consent for `register` and `setSigner`, an active-agent check on vault registration, and `InvalidMandate(reason)`. The branch has 475 Foundry tests, a new fee high-water-mark invariant and 3 more Halmos-proven properties ([design notes](https://github.com/Prashant-thakur77/Strike/blob/v3-contracts/docs/design.md)).
+
 ## Contributing, security, license
 
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup, what CI checks, conventions.

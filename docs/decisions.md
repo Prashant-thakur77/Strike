@@ -133,3 +133,7 @@ Other builders get `SafeStockFeed` with `forge install Prashant-thakur77/Strike`
 ## D33 · Agent onboarding ships on the v2 contracts; their rough edges wait for the next version (2026-09-30)
 
 Third-party agents can register, bond and create vaults through the SDK, MCP, the example agent and the app, without a contract change (the live epoch keeps its v2 history). Building it exposed four contract limits: a signer can be registered without its consent (griefing only), `createVault` accepts any agent id, `InvalidMandate` has no reason, and nothing indexes agents by owner. The tooling covers each (fresh-key advice, checks and warnings before sending, the rules re-checked off-chain, a scan). The next contract version adds an EIP-712 signer consent, an active-agent check in `createVault`, a reason code and an owner index. Listed as known issues in audit-readiness.md.
+
+## D34 · v3 fixes live on a branch until the testnet run ends (2026-09-30)
+
+D31 and D33 are implemented on `v3-contracts` (fee high-water mark, EIP-712 signer consent, active-agent check, `InvalidMandate(reason)`), with 475 tests and new invariants and formal properties. `main` stays byte-for-byte on the deployed v2 source, so the verified Blockscout code, the SDK ABIs and the live epoch history all agree. v3 ships as a new deployment once the testnet run is over; the interface changes the SDK, MCP and app need are listed in the branch's CHANGELOG.
