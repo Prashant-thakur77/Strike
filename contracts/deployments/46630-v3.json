@@ -1,0 +1,51 @@
+{
+  "agentRegistry": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+  "block": 126713718,
+  "chainId": 46630,
+  "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+  "epochManager": "0x256D4546486368dCb23E94758b4cb500c215929F",
+  "feeManager": "0x8DBE22eAa3CEFC367C435ce2b6F779fabe7D2Fa7",
+  "marketCalendar": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
+  "optionToken": "0xfbeb6cf8350C182c7895165A8Fdd3D9884aB46B6",
+  "pricer": "0x2B6A2A51bd802Ed11bE7c0B954a7Ec9287c362d0",
+  "riskLens": "0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D",
+  "stockOracle": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A",
+  "stocks": {
+    "AMD": {
+      "feed": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+      "token": "0x71178BAc73cBeb415514eB542a8995b82669778d"
+    },
+    "AMZN": {
+      "feed": "0x698a624940DdAfA8380dbF933AbC1c2908796877",
+      "token": "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02"
+    },
+    "NFLX": {
+      "feed": "0xc7e34AC0E39663b580Fe044c04F2b7aa7949b30D",
+      "token": "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93"
+    },
+    "PLTR": {
+      "feed": "0x2992a2661f4eb802EFF63a985914a80D262c5291",
+      "token": "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0"
+    },
+    "TSLA": {
+      "feed": "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+      "token": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+    }
+  },
+  "usdg": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+  "vaultFactory": "0x97ab9ed707758Fc23b4e59132d97Ab7cb9fb215e",
+  "vaultImplementation": "0x2E67F1Cf23eAAeecaee36d248d76e8366DA076D9",
+  "stylusPricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+  "stylusPricerTx": "0xc71be99442c8bbc9b9be9d419795ac2709b95b8b70214a465a71aeef9b89d49a",
+  "stylusActivationTx": "0x19277b827e7b979963e71118f69874b83c3d6c69acac58a494c49881efed417a",
+  "version": "v3",
+  "status": "deployed, not yet the app default",
+  "sourceCommit": "448d83b",
+  "deployCommit": "",
+  "activePricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+  "activePricerNote": "EpochManager.pricer() is the Stylus pricer and risk engine (setPricer tx 0x086c2ec2d3eec2d4c389c6890bea06a2df7a1aa5140eecf9e3e27a0da100f309); `pricer` is the Solidity reference (BlackScholesRef with RiskLib), kept for the on-chain equality check",
+  "sharedWithV2": "marketCalendar and the five stock MirrorFeeds are v2's (same source), so one keeper fills both versions",
+  "decisionLog": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+  "decisionLogTx": "0xf55e1d4dfe09759377b3da3e9feab6a39727ff0bc71251b2fd6ec3148f896c28",
+  "decisionLogNote": "Additive, reads this v3 AgentRegistry; source contracts/src/agents/DecisionLog.sol on main (a98fff8). v2's DecisionLog reads the v2 registry and cannot authorise v3 signers"
+}
