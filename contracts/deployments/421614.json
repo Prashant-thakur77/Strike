@@ -1,0 +1,53 @@
+{
+  "agentRegistry": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+  "block": 314350623,
+  "chainId": 421614,
+  "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+  "epochManager": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+  "feeManager": "0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569",
+  "marketCalendar": "0xefD1121ef13F1187F9ac9A54076DFa09A586d31D",
+  "optionToken": "0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7",
+  "pricer": "0x79A4158900579FA0eE5b413B4724D010C8a0A8E2",
+  "riskLens": "0x94aC10fF1A71ceBfD825079aaf897858a9953ecE",
+  "stockOracle": "0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F",
+  "stocks": {
+    "NVDA": {
+      "feed": "0x1B137e5CB2c0153B4B3f1cbBC78DdECBa5569aA1",
+      "token": "0xdF0f069EfF103655312E15C517324d316fD34bc1"
+    },
+    "TSLA": {
+      "feed": "0x85B92cF975E3cf9Ad44c0664d6aF67f358360FFA",
+      "token": "0x2EbdbAe172d733f96F9742A7e319e311E552BF37"
+    }
+  },
+  "usdg": "0xFFC95faa3d63Cde504a05B567C600B78C0b41892",
+  "vaultFactory": "0x9DbaFfD488FC591947149E2b27189A201C0a74f4",
+  "vaultImplementation": "0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197",
+  "l1Block": 11815871,
+  "deployTxRange": "L2 blocks 314350623-314351025",
+  "blockNote": "block is the Arbitrum Sepolia (L2) deployment block, where event scans start; Deploy.s.sol wrote block.number, which on Arbitrum is the L1 (Sepolia) block, kept as l1Block",
+  "version": "v3",
+  "network": "Arbitrum Sepolia",
+  "decisionLog": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+  "decisionLogTx": "0x8cea8ec3097530fbf188719e6775946bf4d88bf6a19bad73726832316462e8c1",
+  "decisionLogNote": "Additive, reads this AgentRegistry; source contracts/src/agents/DecisionLog.sol on main (9ed81b4)",
+  "testnetNote": "Real Sepolia USDG (Paxos). TSLA and NVDA are TestStockTokens with a faucet (10 per address per day); their MirrorFeeds copy the Robinhood Chain mainnet Chainlink rounds (seeded with the mainnet round current at deploy time)",
+  "agent": {
+    "agentId": 1,
+    "owner": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f",
+    "erc8004Id": 253,
+    "registerTx": "0xb1d1d505b5312d63e2f044b73838412774674d9e2e90d29a51217ad24897a5ae",
+    "postBondTx": "0x81fcc53457ed9d6ac539783b37b0f157606f4a65d1bef7bcc90e5f030a0fe03d",
+    "erc8004RegisterTx": "0x2f99add127c63313b1277df97680387dcf4e1f26e0487618e826a12df6b4d435",
+    "setIdentityTx": "0x62b8c7bb68b0ff6f18227a95f0f51e619dd28f365250d7e43c67f867bf2960b8",
+    "note": "Registered by the owner with the signer's EIP-712 Register consent (Seed.s.sol, BOND=60e6); ERC-8004 identity #253 on the official Identity Registry 0x8004A818...BD9e on Arbitrum Sepolia"
+  },
+  "stylusPricer": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+  "stylusPricerTx": "0x7ffbd7b93393569dced980712220ed02ec6c62a66b1c8a0ae3bc5cf690dad3c8",
+  "stylusActivationTx": "0xa68de6166937fc3c22d3cbe30fe2e3d5efda93ffe57e4570b1bf495bf136a287",
+  "activePricer": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+  "activePricerNote": "EpochManager.pricer() is the Stylus pricer and risk engine (setPricer tx 0x132d5bb34afb19ba5a18316250644091c83a051518aca5ece7a3681b3ba82f59) after the on-chain equality check; `pricer` is the Solidity reference (BlackScholesRef with RiskLib)",
+  "riskEngine": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+  "sourceCommit": "ebe139e"
+}
