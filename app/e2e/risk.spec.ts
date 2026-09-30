@@ -77,6 +77,13 @@ test("vault risk panel: live greeks and stress test from the Stylus risk engine"
   if (dir) {
     mkdirSync(dir, { recursive: true });
     await settle(page, 800);
-    await rail.screenshot({ path: join(dir, `${info.project.name}-vault-risk.png`) });
+    // A clip of the full page, so the sticky navigation does not cover the top of the rail.
+    const box = (await rail.boundingBox())!;
+    const scrollY = await page.evaluate(() => window.scrollY);
+    await page.screenshot({
+      path: join(dir, `${info.project.name}-vault-risk.png`),
+      fullPage: true,
+      clip: { x: 0, y: box.y + scrollY - 16, width: page.viewportSize()!.width, height: box.height + 32 },
+    });
   }
 });
