@@ -200,6 +200,15 @@ contract AgentMandateTest is StrikeBase {
         uint256 otherId = registry.register(other, other, 0, 0, "");
         vm.expectRevert(abi.encodeWithSelector(EpochManager.NotCurator.selector, address(this)));
         manager.setVaultAgent(address(callVault), otherId);
+        // Not bonded yet: the curator cannot hand the vault to it.
+        vm.expectRevert(abi.encodeWithSelector(EpochManager.AgentNotActive.selector, otherId));
+        vm.prank(curator);
+        manager.setVaultAgent(address(callVault), otherId);
+        usdg.mint(other, MIN_BOND);
+        vm.startPrank(other);
+        usdg.approve(address(registry), MIN_BOND);
+        registry.postBond(otherId, MIN_BOND);
+        vm.stopPrank();
         vm.prank(curator);
         manager.setVaultAgent(address(callVault), otherId);
         vm.expectRevert(abi.encodeWithSelector(EpochManager.NotAgent.selector, agent));

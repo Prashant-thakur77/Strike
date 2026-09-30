@@ -308,13 +308,14 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         _unpause();
     }
 
-    /// @notice Called by the factory for each new vault.
+    /// @notice Called by the factory for each new vault. The agent must exist and be active (bonded, not suspended).
     function registerVault(address vault, address curator, uint256 agentId, MandateGuard.Mandate calldata mandate)
         external
         onlyRole(FACTORY_ROLE)
     {
         if (vault == address(0) || curator == address(0)) revert ZeroAddress();
         if (_vaults[vault].registered) revert VaultAlreadyRegistered(vault);
+        if (!agents.isActive(agentId)) revert AgentNotActive(agentId);
         address token = IStrikeVault(vault).underlying();
         if (!underlyings[token].allowed) revert UnderlyingNotAllowed(token);
         MandateGuard.validate(mandate);
@@ -323,10 +324,12 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         emit VaultRegistered(vault, curator, agentId, token, IStrikeVault(vault).isCall());
     }
 
-    /// @notice The curator (or admin) can replace the vault's agent at any time, effective immediately.
+    /// @notice The curator (or admin) can replace the vault's agent at any time, effective immediately. The new agent
+    ///         must be active; agent id 0 detaches the vault from any agent (nobody can propose until one is set).
     function setVaultAgent(address vault, uint256 agentId) external {
         VaultConfig storage v = _vault(vault);
         if (msg.sender != v.curator && !hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotCurator(msg.sender);
+        if (agentId != 0 && !agents.isActive(agentId)) revert AgentNotActive(agentId);
         v.agentId = agentId;
         emit VaultAgentSet(vault, agentId);
     }

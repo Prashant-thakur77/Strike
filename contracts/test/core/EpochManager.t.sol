@@ -6,9 +6,12 @@ import {EpochManager} from "../../src/core/EpochManager.sol";
 import {FeeManager} from "../../src/core/FeeManager.sol";
 import {IPricer} from "../../src/interfaces/IPricer.sol";
 import {IStockOracle} from "../../src/interfaces/IStockOracle.sol";
+import {IStrikeVault} from "../../src/interfaces/IStrikeVault.sol";
 import {MandateGuard} from "../../src/libraries/MandateGuard.sol";
+import {StrikeVault} from "../../src/vaults/StrikeVault.sol";
 import {VaultFactory} from "../../src/vaults/VaultFactory.sol";
 import {StrikeBase} from "../utils/StrikeBase.sol";
+import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Every EpochManager function and custom error.
@@ -350,8 +353,135 @@ contract EpochManagerTest is StrikeBase {
     }
 
     function test_setVaultAgent_admin() public {
+        uint256 other = _newAgent("other", MIN_BOND);
         vm.prank(admin);
+        manager.setVaultAgent(address(callVault), other);
+        assertEq(manager.vaultConfig(address(callVault)).agentId, other);
+    }
+
+    // ------------------------------------------------------------------ active-agent check (D33)
+
+    /// Register (self-signed) and bond a new agent.
+    function _newAgent(string memory name, uint256 bond) internal returns (uint256 id) {
+        address signer = makeAddr(name);
+        usdg.mint(signer, bond);
+        vm.startPrank(signer);
+        id = registry.register(signer, signer, 0, 0, "");
+        usdg.approve(address(registry), bond);
+        if (bond != 0) registry.postBond(id, bond);
+        vm.stopPrank();
+    }
+
+    function _createWithAgent(uint256 id) internal returns (address) {
+        VaultFactory.CreateParams memory p = _params(true, 1000 * WAD);
+        p.agentId = id;
+        vm.prank(curator);
+        return factory.createVault(p);
+    }
+
+    function _expectInactive(uint256 id) internal {
+        vm.expectRevert(abi.encodeWithSelector(EpochManager.AgentNotActive.selector, id));
+    }
+
+    function test_createVault_revertsForUnknownAgent() public {
+        _expectInactive(99);
+        _createWithAgent(99);
+        _expectInactive(0);
+        _createWithAgent(0);
+    }
+
+    function test_createVault_revertsForUnbondedAgent() public {
+        uint256 id = _newAgent("unbonded", 0);
+        _expectInactive(id);
+        _createWithAgent(id);
+        // Bonded below the minimum: still refused.
+        usdg.mint(address(this), MIN_BOND - 1);
+        usdg.approve(address(registry), MIN_BOND - 1);
+        registry.postBond(id, MIN_BOND - 1);
+        _expectInactive(id);
+        _createWithAgent(id);
+        // At the minimum it is active.
+        usdg.mint(address(this), 1);
+        usdg.approve(address(registry), 1);
+        registry.postBond(id, 1);
+        assertTrue(registry.isActive(id));
+        _createWithAgent(id);
+    }
+
+    function test_createVault_revertsForSuspendedAgent() public {
+        vm.prank(admin);
+        registry.setStatus(agentId, AgentRegistry.Status.Suspended);
+        _expectInactive(agentId);
+        _createWithAgent(agentId);
+    }
+
+    function test_createVault_revertsForRetiredAgent() public {
+        vm.prank(agent);
+        registry.retire(agentId);
+        _expectInactive(agentId);
+        _createWithAgent(agentId);
+    }
+
+    function test_createVault_acceptsActiveForeignAgent() public {
+        // Curators choose any active agent (the open agent market): ownership is not required.
+        uint256 other = _newAgent("other", MIN_BOND);
+        address v = _createWithAgent(other);
+        assertEq(manager.vaultConfig(v).agentId, other);
+    }
+
+    function test_registerVault_revertsForInactiveAgentWhenCalledDirectly() public {
+        bytes32 role = manager.FACTORY_ROLE();
+        vm.prank(admin);
+        manager.grantRole(role, address(this));
+        StrikeVault fresh = StrikeVault(Clones.clone(address(vaultImpl)));
+        fresh.initialize(
+            IStrikeVault.InitParams({
+                asset: address(tsla),
+                premiumToken: address(usdg),
+                underlying: address(tsla),
+                isCall: true,
+                manager: address(manager),
+                depositCap: 1000 * WAD,
+                name: "x",
+                symbol: "x"
+            })
+        );
+        _expectInactive(42);
+        manager.registerVault(address(fresh), curator, 42, _mandate());
+        manager.registerVault(address(fresh), curator, agentId, _mandate());
+        assertTrue(manager.vaultConfig(address(fresh)).registered);
+    }
+
+    function test_setVaultAgent_revertsForInactiveAgent() public {
+        uint256 unbonded = _newAgent("unbonded", 0);
+        vm.startPrank(curator);
+        _expectInactive(99);
         manager.setVaultAgent(address(callVault), 99);
-        assertEq(manager.vaultConfig(address(callVault)).agentId, 99);
+        _expectInactive(unbonded);
+        manager.setVaultAgent(address(callVault), unbonded);
+        vm.stopPrank();
+        vm.prank(admin);
+        registry.setStatus(unbonded, AgentRegistry.Status.Suspended);
+        _expectInactive(unbonded);
+        vm.prank(admin); // the admin is held to the same rule
+        manager.setVaultAgent(address(callVault), unbonded);
+        assertEq(manager.vaultConfig(address(callVault)).agentId, agentId);
+    }
+
+    /// Agent id 0 detaches the vault: nobody can propose (the curator's stop switch), and an active agent can be
+    /// set again later.
+    function test_setVaultAgent_zeroDetaches() public {
+        vm.expectEmit(address(manager));
+        emit EpochManager.VaultAgentSet(address(callVault), 0);
+        vm.prank(curator);
+        manager.setVaultAgent(address(callVault), 0);
+        assertEq(manager.vaultConfig(address(callVault)).agentId, 0);
+        vm.expectRevert(abi.encodeWithSelector(EpochManager.NotAgent.selector, agent));
+        vm.prank(agent);
+        manager.openEpoch(address(callVault));
+        vm.prank(curator);
+        manager.setVaultAgent(address(callVault), agentId);
+        vm.prank(agent);
+        manager.openEpoch(address(callVault));
     }
 }
