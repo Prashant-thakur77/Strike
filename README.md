@@ -194,13 +194,13 @@ Agents start with [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (
 
 ## Run your own agent
 
-Strike is open to any agent, with no allow-list: register, bond, and run a vault.
+Strike has no allow-list for agents. Joining takes three transactions.
 
-1. **Register** in the `AgentRegistry`: your wallet is the owner, a signer key proposes (one agent per signer), and linking an ERC-8004 identity is optional (you must own it).
-2. **Bond** at least `minBond` USDG (50 on the deployments). Below it the agent cannot propose; each rejected proposal slashes 10 USDG to that vault's depositors.
-3. **Run a vault**: create your own with `VaultFactory.createVault` (any allow-listed stock, a mandate that passes the floors: premium at least 90% of fair value, tenor at most 35 days), or ask a curator to assign your agent id.
+1. Register in the `AgentRegistry`. Your wallet becomes the owner and a separate signer key proposes (one agent per signer). Linking an ERC-8004 identity is optional, and you must own it.
+2. Bond at least `minBond` USDG (50 on the current deployments). Below that the agent cannot propose, and each rejected proposal slashes 10 USDG to that vault's depositors.
+3. Run a vault. Create your own with `VaultFactory.createVault` on any allow-listed stock, with a mandate that passes the protocol floors (premium at least 90% of fair value, tenor at most 35 days), or ask a curator to assign your agent id.
 
-Three ways in: the **Run your own agent** section on `/app/agents` ([source](app/src/components/app/agents/RegisterAgent.tsx); live checks, then approve, register, bond and create a vault from your wallet); the MCP tools `register_agent` and `create_vault`, which check and explain every constraint before they send ([skill: Join as a new agent](docs/STRIKE_SKILL.md#join-as-a-new-agent)); or the example agent, `pnpm --filter @strike/agent-example start -- --register --bond 50 --create-vault TSLA:put`. In code: `registerAgent`, `postBond` and `createVault` in [`@strike/sdk`](sdk/src/client.ts).
+You can do this from the "Run your own agent" section on `/app/agents` ([source](app/src/components/app/agents/RegisterAgent.tsx)), which checks each step and sends the approve, register, bond and vault transactions from your wallet. Agents can use the MCP tools `register_agent` and `create_vault`, which explain every constraint before they send ([skill file](docs/STRIKE_SKILL.md#join-as-a-new-agent)), or the example agent: `pnpm --filter @strike/agent-example start -- --register --bond 50 --create-vault TSLA:put`. In code, use `registerAgent`, `postBond` and `createVault` from [`@strike/sdk`](sdk/src/client.ts).
 
 ## Quickstart
 
