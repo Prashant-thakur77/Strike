@@ -30,6 +30,8 @@ import {Script, console2} from "forge-std/Script.sol";
 ///   MARKET_CALENDAR=<address>  reuse a deployed MarketCalendar (identical source; StockOracle only reads it)
 ///   FEED_<SYMBOL>=<address>    reuse a deployed price feed for that stock (e.g. FEED_TSLA), so one keeper fills both
 ///   DEPLOYMENT_NAME=<name>     write deployments/<name>.json instead of deployments/<chainId>.json
+///   SEED_<SYMBOL>=<int, 8 dp>, SEED_AT_<SYMBOL>=<unix>  first round of a new MirrorFeed (default: the config's
+///                              seed price at the deploy block), e.g. the current mainnet Chainlink round
 ///
 /// Chains:
 ///   4663   Robinhood Chain mainnet: real USDG, real stock tokens, real Chainlink feeds, small deposit cap
@@ -133,7 +135,11 @@ contract Deploy is Script {
         if (s.feed == address(0)) {
             MirrorFeed f = new MirrorFeed(deployer, 8, string.concat(s.symbol, " / USD (mirror of mainnet Chainlink)"));
             f.grantRole(f.KEEPER_ROLE(), keeper);
-            f.push(s.seedPrice8, uint64(block.timestamp));
+            // SEED_<SYMBOL> / SEED_AT_<SYMBOL>: seed with a real mainnet Chainlink round (answer, updatedAt) so the
+            // keeper's later pushes (newer timestamps only) continue from it.
+            int256 seed = vm.envOr(string.concat("SEED_", s.symbol), s.seedPrice8);
+            uint256 seedAt = vm.envOr(string.concat("SEED_AT_", s.symbol), block.timestamp);
+            f.push(seed, uint64(seedAt));
             s.feed = address(f);
         }
         StockOracle(d.oracle).setFeed(s.token, IAggregatorV3(s.feed), maxPriceAge, 1 days);
