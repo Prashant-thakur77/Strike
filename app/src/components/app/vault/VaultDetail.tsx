@@ -21,6 +21,7 @@ import { DepositPanel } from "./DepositPanel";
 import { MandatePanel } from "./MandatePanel";
 import { OptionsPanel } from "./OptionsPanel";
 import { PositionPanel } from "./PositionPanel";
+import { RiskPanel } from "./RiskPanel";
 import { SeriesPanel } from "./SeriesPanel";
 import { Timeline } from "./Timeline";
 import styles from "../app.module.css";
@@ -125,20 +126,28 @@ export function VaultDetail({ address }: { address: Address }) {
             </Rail>
             <Rail
               index="04"
+              id="risk"
+              label="Risk"
+              note="Greeks and a ±30% stress test of this week's series, computed on-chain by the Stylus risk engine each time the page refreshes."
+            >
+              <RiskPanel vault={v} />
+            </Rail>
+            <Rail
+              index="05"
               label="Epoch timeline"
               note="Idle, open, selling, settled. Times are New York time."
             >
               <Timeline vault={v} history={history.data} />
             </Rail>
             <Rail
-              index="05"
+              index="06"
               label="Your options"
               note="Option tokens you hold from this vault. Redeem them once the series settles."
             >
               <OptionsPanel vault={v} seriesIds={history.data?.seriesIds} />
             </Rail>
             <Rail
-              index="06"
+              index="07"
               label="Mandate"
               note="Fixed when the vault was created. The contract rejects any proposal outside it."
             >

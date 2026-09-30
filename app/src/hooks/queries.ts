@@ -1,5 +1,6 @@
 "use client";
 
+import { createStrikeClient } from "@strike/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { erc20Abi, type Address } from "viem";
 import { useConnection } from "wagmi";
@@ -194,5 +195,23 @@ export function useTokenBalance(token: Address | undefined) {
     refetchInterval: REFRESH,
     queryFn: () =>
       client!.readContract({ address: token!, abi: erc20Abi, functionName: "balanceOf", args: [address!] }),
+  });
+}
+
+/**
+ * Live risk of a vault's selling series from the risk engine contract (`seriesRisk` in the SDK): greeks, the
+ * depositors' exposure, the ±30% stress test and the last buy's implied volatility. Disabled where no risk engine
+ * is deployed or nothing is on sale.
+ */
+export function useSeriesRisk(vault: VaultSummary | undefined) {
+  const { client, deployment, chainId } = useStrike();
+  const seriesId = vault?.state === 2 ? vault.series?.id : undefined;
+  return useQuery({
+    queryKey: ["strike", chainId, "risk", seriesId?.toString()],
+    enabled: !!client && !!deployment?.riskEngine && seriesId !== undefined,
+    refetchInterval: 30_000,
+    placeholderData: (prev) => prev,
+    retry: 1,
+    queryFn: () => createStrikeClient({ publicClient: client!, chainId }).seriesRisk(seriesId!),
   });
 }
