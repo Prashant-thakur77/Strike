@@ -46,15 +46,15 @@ The app is live on Vercel. The two quickest things for a judge to try need no wa
 
 Videos for the form's video fields: the narrated demo ([strike-demo-narrated.mp4](../media/strike-demo-narrated.mp4), 2:51) and the pitch ([strike-pitch.mp4](../media/strike-pitch.mp4), 1:58, captions in [strike-pitch.srt](../media/strike-pitch.srt)). Upload both to YouTube (unlisted is fine) and paste those links; the files in the repo are the fallback.
 
-## Core protocol / smart contract addresses (250 characters)
+## Core protocol / smart contract addresses (247 characters)
 
 ```text
 Robinhood Chain testnet: 0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99 — EpochManager
-Robinhood Chain testnet: 0xE5b76249041e59C74Ee317fC2729f26249618D32 — AgentRegistry
 Robinhood Chain testnet: 0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c — Stylus pricer
+Arbitrum Sepolia: 0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0 — EpochManager (v3)
 ```
 
-One per line, in the form's `network: address — label` format. Every other address (oracle, calendar, fee manager, option token, Solidity reference pricer, MirrorFeeds) is linked from the detailed description.
+One per line, in the form's `network: address — label` format. The Arbitrum Sepolia line is v3, live since 2026-09-30 with its first epoch ([log](../testnet-epochs/2026-09-30-arbitrum-sepolia.md)). Every other address (oracle, calendar, fee manager, option token, Solidity reference pricer, MirrorFeeds) is linked from the detailed description.
 
 ## Factory / pool contracts (261 characters)
 

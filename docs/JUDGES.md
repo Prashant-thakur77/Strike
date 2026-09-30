@@ -4,7 +4,7 @@ Strike is weekly options vaults for Robinhood Chain stock tokens, paid in USDG. 
 
 There are two paths. The first needs a browser. The second needs a clone and about 15 minutes.
 
-Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: nothing is deployed on Arbitrum Sepolia yet, the `v3-contracts` fixes are not deployed, the first epoch settles on Friday 2026-10-02, testnet prices come from a keeper-filled `MirrorFeed`, and there is no external audit.
+Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: v2 runs its first epoch on Robinhood Chain testnet and v3 is deployed next to it; v3 also runs on Arbitrum Sepolia, where Claude planned the first accepted proposal ([log](testnet-epochs/2026-09-30-arbitrum-sepolia.md)); both epochs settle on Friday 2026-10-02; testnet prices come from a keeper-filled `MirrorFeed`; and there is no external audit.
 
 ## 3 minutes, no install
 
