@@ -15,6 +15,9 @@ export function Footer() {
             <Link className="micro" href="/app/playground">
               Playground
             </Link>
+            <Link className="micro" href="/app/backtest">
+              Backtest
+            </Link>
             <Link className="micro" href="/app/proof">
               Proof
             </Link>

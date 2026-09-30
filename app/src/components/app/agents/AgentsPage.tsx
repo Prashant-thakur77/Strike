@@ -29,7 +29,7 @@ export function AgentsPage() {
   return (
     <>
       <PageHero
-        index="03"
+        index="04"
         label="Agents"
         right={meta.label}
         title="Agents"

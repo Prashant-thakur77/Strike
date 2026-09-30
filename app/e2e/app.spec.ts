@@ -33,10 +33,11 @@ test("page heroes are numbered once each, in nav order", async ({ page }) => {
   const routes = [
     ["/app?chain=46630", "01"],
     ["/app/playground", "02"],
-    ["/app/agents?chain=46630", "03"],
-    ["/app/monitor", "04"],
-    ["/app/proof", "05"],
-    ["/app/faucet?chain=46630", "06"],
+    ["/app/backtest", "03"],
+    ["/app/agents?chain=46630", "04"],
+    ["/app/monitor", "05"],
+    ["/app/proof", "06"],
+    ["/app/faucet?chain=46630", "07"],
   ] as const;
   for (const [path, index] of routes) {
     await page.goto(path);

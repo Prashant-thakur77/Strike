@@ -80,7 +80,7 @@ export function MonitorPage() {
   return (
     <>
       <PageHero
-        index="04"
+        index="05"
         label="Monitor"
         right="Robinhood Chain mainnet · 4663"
         title={<span className={styles.title}>Monitor</span>}

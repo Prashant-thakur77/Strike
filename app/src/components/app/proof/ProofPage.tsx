@@ -84,7 +84,7 @@ export function ProofPage() {
   return (
     <>
       <PageHero
-        index="05"
+        index="06"
         label="Proof"
         right="Robinhood Chain testnet · 46630"
         title="Proof"

@@ -12,6 +12,7 @@ import styles from "./site.module.css";
 const ITEMS: NavItem[] = [
   { href: "/app", label: "Vaults" },
   { href: "/app/playground", label: "Playground" },
+  { href: "/app/backtest", label: "Backtest" },
   { href: "/app/agents", label: "Agents" },
   { href: "/app/monitor", label: "Monitor" },
   { href: "/app/proof", label: "Proof" },

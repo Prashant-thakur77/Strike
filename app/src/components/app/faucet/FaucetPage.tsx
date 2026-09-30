@@ -43,7 +43,7 @@ export function FaucetPage() {
   return (
     <>
       <PageHero
-        index="06"
+        index="07"
         label="Faucet"
         right={meta.label}
         title="Faucet"
