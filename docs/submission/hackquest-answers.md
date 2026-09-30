@@ -36,10 +36,10 @@ Stock-token options vaults paid in USDG. An AI agent only proposes. The contract
 
 Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 432 Foundry tests, 9 Halmos-proven properties, 99.1% line coverage, and agent #1 linked to ERC-8004 identity #114. Judges can start at [JUDGES.md](../JUDGES.md).
 
-## Link to frontend / demo (277 characters)
+## Link to frontend / demo (253 characters)
 
 ```text
-https://github.com/Prashant-thakur77/Strike (app URL pending Vercel; once live, start with /app/playground and /app/proof, no wallet needed). Judge's tour: docs/JUDGES.md. Video: docs/media/strike-demo.mp4. Testnet epoch with Blockscout links: docs/testnet-epochs/2026-09-29.md
+https://strike-options.vercel.app (no wallet needed: start with /app/playground and /app/proof). Code: https://github.com/Prashant-thakur77/Strike. Judge's tour: docs/JUDGES.md. Live testnet epoch with Blockscout links: docs/testnet-epochs/2026-09-29.md
 ```
 
 The app is not deployed yet. Once it is on Vercel ([deploy-app.md](../deploy-app.md)), replace the repository URL with the app URL and recount. The two quickest things for a judge to try need no wallet. `/app/playground` tests a proposal against a live vault's mandate and shows Accepted or the rejection reason. `/app/proof` puts every claim next to its evidence, with a live feed of on-chain activity.

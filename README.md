@@ -17,7 +17,7 @@
 
 <p align="center">
   <a href="docs/JUDGES.md"><b>For judges</b></a> ·
-  <b>App</b>: pending Vercel (<a href="docs/deploy-app.md">setup</a>) ·
+  <a href="https://strike-options.vercel.app"><b>Live app</b></a> ·
   <a href="docs/media/strike-demo.mp4"><b>Demo video</b></a> ·
   <a href="docs/README.md"><b>Docs</b></a> ·
   <a href="docs/litepaper.md"><b>Litepaper</b></a> ·
