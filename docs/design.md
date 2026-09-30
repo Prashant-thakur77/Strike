@@ -186,3 +186,63 @@ A proposal that passes these checks but whose strike live spot has crossed since
 | No proposal                              | Anyone aborts after `proposalTimeout`                                                                                                                                                                                                                       |
 | Nobody buys                              | Settles without a price                                                                                                                                                                                                                                     |
 | Sequencer filtering / failed tx          | Anyone can call `settle` again                                                                                                                                                                                                                              |
+
+## 11. v3 changes (branch `v3-contracts`, not deployed)
+
+The live deployment runs the v2 contracts described above. The branch `v3-contracts` changes four things. They take effect only with a new deployment, because no contract is upgradeable.
+
+### Performance fee high-water mark (D31)
+
+`FeeManager` keeps `lossCarried[vault]`, in USDG. At each settlement, with `net = premium − payoutValue`:
+
+| Epoch result        | Fee                                     | `lossCarried` after |
+| ------------------- | --------------------------------------- | ------------------- |
+| `net ≤ 0` (a loss)  | 0                                       | `carried + (−net)`  |
+| `0 < net ≤ carried` | 0                                       | `carried − net`     |
+| `net > carried`     | `(net − carried) × perfFeeBps / 10,000` | 0                   |
+
+The agent's cut is `(net − carried) × perfFeeBps × agentShareBps / 10,000²`. Over any run of epochs, the fee base adds up to the highest cumulative net result the vault has reached, so total fees ≤ `perfFeeBps` × that high-water mark, and a fee is only charged in an epoch that ends at a new high. The 30% rate cap still applies to each epoch's own net premium.
+
+- The carry belongs to the vault, not the agent. A new agent on a vault inherits the vault's unrecovered loss.
+- Aborted and cancelled epochs call no fee function and leave the carry unchanged. Slashed bonds paid to depositors are not premium and do not reduce the carry.
+- The carry lives in the `FeeManager`. If the admin points the `EpochManager` at a new `FeeManager` (`setFeeManager`), every vault starts again from zero.
+
+Interface: `computeFee(vault, premium, payoutValue)` is the view. `chargeFee(vault, premium, payoutValue)` returns the same values and updates the carry; only `DEPOSITOR_ROLE` (the `EpochManager`) can call it, and `settle` calls it once per settled epoch. It emits `LossCarried(vault, lossCarried)` when the carry changes. The `fee` in `EpochSettled` is the fee actually charged.
+
+A new invariant, `invariant_feeHighWaterMark`, checks that after any sequence of epochs, total fees ≤ `perfFeeBps` × max(0, highest cumulative net); each fee leaves total fees ≤ `perfFeeBps` × the cumulative net at that time; and `lossCarried` equals the high-water mark minus the cumulative net.
+
+### Signer consent (D33)
+
+A signer other than the caller must sign an EIP-712 consent, so nobody can bind someone else's address as a signer and block it. Domain: name `Strike AgentRegistry`, version `1`, the chain id and the registry address.
+
+| Call                                                       | Signed struct                                                                             |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `register(signer, payout, erc8004Id, deadline, signature)` | `Register(address owner,address payout,uint256 erc8004Id,uint256 nonce,uint256 deadline)` |
+| `setSigner(agentId, signer, deadline, signature)`          | `SetSigner(address owner,uint256 agentId,uint256 nonce,uint256 deadline)`                 |
+
+`owner` is the caller. The nonce is the signer's (`nonces(signer)`) and is used up by a successful call, so a consent works once. A consent past its `deadline` reverts `ConsentExpired(deadline)`; a missing, malformed or wrong signature reverts `InvalidConsent(signer)`. When `signer == msg.sender` no signature is needed (pass `0` and empty bytes). Only EOA signers can consent (ECDSA). A contract can still be a signer by calling `register` itself, which also makes it the owner. `registerDigest` and `setSignerDigest` return the digest to sign at the signer's current nonce.
+
+### Active agent for new vaults (D33)
+
+`registerVault` (so `VaultFactory.createVault`) reverts `AgentNotActive(agentId)` unless the agent exists, has status Active, is bonded at least `minBond` and is under `maxStrikes`. `setVaultAgent` applies the same rule to any non-zero id. Id 0 stays allowed there: it detaches the vault so nobody can propose, which is the curator's stop switch when its agent's key leaks and no replacement agent is ready. Activity is checked when the agent is set, and every proposal checks it again, because a bond or status can change later. A vault may still use an agent its curator does not own (the open agent market).
+
+### Mandate reason code (D33)
+
+`MandateGuard.validate` reverts `InvalidMandate(uint8 reason)`, with the first rule broken in this order. The internal `MandateGuard.mandateError(m)` returns the same code without reverting.
+
+| Code | Name                | Rule broken                 |
+| ---- | ------------------- | --------------------------- |
+| 1    | `DeltaBandInverted` | `minDeltaBps > maxDeltaBps` |
+| 2    | `DeltaAboveOne`     | `maxDeltaBps > 10,000`      |
+| 3    | `ShareSoldZero`     | `maxShareSoldBps == 0`      |
+| 4    | `ShareSoldAboveOne` | `maxShareSoldBps > 10,000`  |
+| 5    | `PremiumBelowFloor` | `minPremiumBps < 9,000`     |
+| 6    | `PremiumAboveCap`   | `minPremiumBps > 30,000`    |
+| 7    | `YieldAboveOne`     | `minYieldBps > 10,000`      |
+| 8    | `TenorZero`         | `minTenor == 0`             |
+| 9    | `TenorInverted`     | `minTenor > maxTenor`       |
+| 10   | `TenorAboveCap`     | `maxTenor > 35 days`        |
+
+### Not in v3
+
+The owner index of agents that D33 also lists is not included. `AgentRegistered` already has `owner` as an indexed topic, so tools find an owner's agents from the logs or the subgraph.

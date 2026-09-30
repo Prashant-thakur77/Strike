@@ -4,6 +4,22 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [Unreleased: v3 contracts, not deployed]
+
+On branch `v3-contracts`. The live deployment keeps the v2 contracts; these changes need a new deployment. Details in [design.md §11](docs/design.md#11-v3-changes-branch-v3-contracts-not-deployed).
+
+### Changed
+
+- Performance fee with a per-vault high-water mark ([D31](docs/decisions.md)). `FeeManager.lossCarried(vault)` carries net losses forward; a fee is charged only on the net premium above the carried loss. `computeFee(vault, premium, payoutValue)` (view) replaces `computeFee(premium, payoutValue)`; `EpochManager.settle` calls the new `chargeFee(vault, premium, payoutValue)` (`DEPOSITOR_ROLE` only), which also updates the carry and emits `LossCarried(vault, lossCarried)`.
+- `AgentRegistry.register(signer, payout, erc8004Id, deadline, signature)` and `setSigner(agentId, signer, deadline, signature)`: a signer other than the caller must sign an EIP-712 consent (`Register` or `SetSigner`, domain `Strike AgentRegistry` / `1`), with a per-signer nonce ([D33](docs/decisions.md)). Self-registration passes `0` and empty bytes. New: `nonces`, `DOMAIN_SEPARATOR`, `eip712Domain`, `registerDigest`, `setSignerDigest`, `REGISTER_TYPEHASH`, `SET_SIGNER_TYPEHASH`, errors `ConsentExpired(deadline)` and `InvalidConsent(signer)`.
+- `EpochManager.registerVault` (so `VaultFactory.createVault`) reverts `AgentNotActive(agentId)` unless the agent is active. `setVaultAgent` does the same for any non-zero id; id 0 still detaches the vault.
+- `MandateGuard.validate` reverts `InvalidMandate(uint8 reason)` (codes 1–10, the first broken rule) instead of `InvalidMandate()`.
+- `Seed.s.sol` reads `AGENT_SIGNER_KEY` (a private key) instead of `AGENT_SIGNER` (an address) and signs the consent when the signer is a separate key.
+
+### Added
+
+- Tests (475 Foundry tests, from 432): fee carry-forward unit, fuzz and full-epoch tests, a fee high-water-mark invariant, signer-consent tests (valid, missing, wrong signer, replay, expired, bound to owner, payout, identity and agent), active-agent tests, one test per mandate reason code. Three new Halmos properties (carry-forward bookkeeping, `chargeFee` matches `computeFee`, the mandate reason is the first broken rule).
+
 ## [0.8.0] - 2026-09-30
 
 ### Added
