@@ -2,7 +2,7 @@
 pragma solidity 0.8.30;
 
 import {IAgentRegistry} from "../interfaces/IAgentRegistry.sol";
-import {IPricer} from "../interfaces/IPricer.sol";
+import {IRiskEngine} from "../interfaces/IRiskEngine.sol";
 import {IStockOracle} from "../interfaces/IStockOracle.sol";
 import {IStrikeVault} from "../interfaces/IStrikeVault.sol";
 import {Decimals} from "../libraries/Decimals.sol";
@@ -96,7 +96,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     IERC20 public immutable usdg;
     uint8 public immutable usdgDecimals;
     OptionToken public immutable optionToken;
-    IPricer public pricer;
+    /// @notice Black-Scholes pricer and risk engine (Solidity `BlackScholesRef` or the Stylus contract).
+    IRiskEngine public pricer;
     FeeManager public feeManager;
     /// @notice Safe stock prices (SafeStockFeed) and NYSE hours.
     IStockOracle public oracle;
@@ -143,6 +144,10 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         uint256 fairValue,
         int256 delta
     );
+    /// @notice Greeks of one option of an accepted series at proposal (the epoch's opening spot and sigma, the tenor
+    ///         at proposal), WAD: delta, gamma per $1 of spot, vega per 1.00 of volatility, theta per day. The vault
+    ///         is short: its exposure is minus these times the options sold.
+    event SeriesRisk(uint256 indexed seriesId, int256 delta, uint256 gamma, uint256 vega, int256 theta);
     event ProposalRejected(
         address indexed vault,
         uint64 indexed epoch,
@@ -205,7 +210,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         address admin,
         IERC20 usdg_,
         OptionToken optionToken_,
-        IPricer pricer_,
+        IRiskEngine pricer_,
         FeeManager feeManager_,
         IStockOracle oracle_,
         IAgentRegistry agents_
@@ -278,7 +283,7 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         emit SpotBufferSet(token, bps);
     }
 
-    function setPricer(IPricer pricer_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPricer(IRiskEngine pricer_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (address(pricer_) == address(0)) revert ZeroAddress();
         pricer = pricer_;
         emit PricerSet(address(pricer_));
@@ -697,6 +702,9 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
             p.fairValue,
             p.delta
         );
+        (int256 delta, uint256 gamma, uint256 vega, int256 theta) =
+            pricer.greeks(p.spot, p.strike, p.tenor, ep.openSigma, p.isCall);
+        emit SeriesRisk(seriesId, delta, gamma, vega, theta);
     }
 
     /// @dev Options the vault's collateral can back: one token per call, the strike in USDG per put.

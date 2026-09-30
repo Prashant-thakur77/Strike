@@ -4,7 +4,7 @@ pragma solidity 0.8.30;
 import {AgentRegistry} from "../../src/agents/AgentRegistry.sol";
 import {EpochManager} from "../../src/core/EpochManager.sol";
 import {FeeManager} from "../../src/core/FeeManager.sol";
-import {IPricer} from "../../src/interfaces/IPricer.sol";
+import {IRiskEngine} from "../../src/interfaces/IRiskEngine.sol";
 import {IStockOracle} from "../../src/interfaces/IStockOracle.sol";
 import {IStrikeVault} from "../../src/interfaces/IStrikeVault.sol";
 import {MandateGuard} from "../../src/libraries/MandateGuard.sol";
@@ -24,7 +24,7 @@ contract EpochManagerTest is StrikeBase {
         vm.expectRevert(EpochManager.ZeroAddress.selector);
         new EpochManager(admin, IERC20(address(0)), options, pricer, fees, oracle, registry);
         vm.expectRevert(EpochManager.ZeroAddress.selector);
-        new EpochManager(admin, usdg, options, IPricer(address(0)), fees, oracle, registry);
+        new EpochManager(admin, usdg, options, IRiskEngine(address(0)), fees, oracle, registry);
         vm.expectRevert(EpochManager.ZeroAddress.selector);
         new EpochManager(admin, usdg, options, pricer, fees, IStockOracle(address(0)), registry);
         vm.expectRevert(EpochManager.ZeroAddress.selector);
@@ -100,7 +100,7 @@ contract EpochManagerTest is StrikeBase {
         assertEq(manager.saleCutoff(), 2 hours);
         assertEq(manager.settlementGrace(), 3 days);
         vm.expectRevert(EpochManager.ZeroAddress.selector);
-        manager.setPricer(IPricer(address(0)));
+        manager.setPricer(IRiskEngine(address(0)));
         vm.expectRevert(EpochManager.ZeroAddress.selector);
         manager.setFeeManager(FeeManager(address(0)));
         vm.expectRevert(EpochManager.ZeroAddress.selector);

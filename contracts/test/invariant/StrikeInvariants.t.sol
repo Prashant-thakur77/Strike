@@ -2,7 +2,9 @@
 pragma solidity 0.8.30;
 
 import {EpochManager} from "../../src/core/EpochManager.sol";
+import {RiskLens} from "../../src/core/RiskLens.sol";
 import {Decimals} from "../../src/libraries/Decimals.sol";
+import {RiskLib} from "../../src/pricing/RiskLib.sol";
 import {StrikeVault} from "../../src/vaults/StrikeVault.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
 import {StrikeBase} from "../utils/StrikeBase.sol";
@@ -15,6 +17,7 @@ abstract contract StrikeInvariants is StrikeBase {
     uint256 internal constant ACC = 1e36;
     StrikeHandler internal handler;
     StrikeVault internal vault;
+    RiskLens internal lens;
 
     function _targetVault() internal view virtual returns (StrikeVault);
 
@@ -30,6 +33,7 @@ abstract contract StrikeInvariants is StrikeBase {
         registry.postBond(agentId, 1_000_000e6);
         vm.stopPrank();
 
+        lens = new RiskLens(manager);
         handler = new StrikeHandler(manager, vault, usdg, feed, calendar, agent, buyer, fees);
         targetContract(address(handler));
     }
@@ -122,6 +126,27 @@ abstract contract StrikeInvariants is StrikeBase {
         assertEq(fees.lossCarried(address(vault)), uint256(hwm - handler.cumulativeNet()), "carry != hwm - net");
         // Nobody claims in the handler, so every fee is still claimable.
         assertEq(fees.totalClaimable(), handler.totalFees());
+    }
+
+    /// 9. Risk engine (v3): for the live series, the worst payout the `RiskLens` finds on a wide stress grid at the
+    ///    current feed price (spot −99.99% … +1000%) fits in the locked collateral, both in collateral units (with
+    ///    settlement rounding) and in USD value at the shocked spot.
+    function invariant_worstCaseScenarioWithinCollateral() public view {
+        (EpochManager.EpochState state,, uint256 id,,) = manager.epochs(address(vault));
+        if (state != EpochManager.EpochState.Selling) return;
+        (, int256 answer,,,) = feed.latestRoundData();
+        (,, uint64 sigma,,,,) = manager.underlyings(address(tsla));
+        int256[] memory shocks = new int256[](8);
+        (shocks[0], shocks[1], shocks[2], shocks[3]) = (-0.9999e18, -0.5e18, -0.3e18, -0.1e18);
+        (shocks[4], shocks[5], shocks[6], shocks[7]) = (0.1e18, 0.3e18, 1e18, 10e18);
+        // The handler keeps the feed price positive.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        RiskLens.SeriesRisk memory r = lens.seriesRiskAt(id, uint256(answer) * 1e10, sigma, shocks);
+        assertLe(r.worstPayout, r.collateral, "worst-case payout > locked collateral");
+        uint256 shocked = RiskLib.shockedSpot(r.spot, r.worstShock);
+        // Call collateral: 18-decimal TSLA at the shocked spot; put collateral: 6-decimal USDG.
+        uint256 value = vault.isCall() ? r.collateral * shocked / WAD : r.collateral * 1e12;
+        assertLe(r.worstLoss, value, "worst-case loss > collateral value");
     }
 
     /// Coverage: how often each action actually ran (run with -vv to print).

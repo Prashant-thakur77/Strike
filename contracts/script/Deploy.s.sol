@@ -4,6 +4,7 @@ pragma solidity 0.8.30;
 import {AgentRegistry} from "../src/agents/AgentRegistry.sol";
 import {EpochManager} from "../src/core/EpochManager.sol";
 import {FeeManager} from "../src/core/FeeManager.sol";
+import {RiskLens} from "../src/core/RiskLens.sol";
 import {IAggregatorV3} from "../src/interfaces/IAggregatorV3.sol";
 import {IERC8004Reputation} from "../src/interfaces/IERC8004Reputation.sol";
 import {MarketCalendar} from "../src/oracle/MarketCalendar.sol";
@@ -60,6 +61,7 @@ contract Deploy is Script {
         address vaultImpl;
         address factory;
         address usdg;
+        address riskLens;
     }
 
     address internal deployer;
@@ -96,6 +98,7 @@ contract Deploy is Script {
         );
         d.vaultImpl = address(new StrikeVault());
         d.factory = address(new VaultFactory(deployer, d.vaultImpl, EpochManager(d.manager), d.usdg, cfg.maxVaultCap));
+        d.riskLens = address(new RiskLens(EpochManager(d.manager)));
 
         if (cfg.reputationRegistry != address(0)) {
             AgentRegistry(d.registry).setReputationRegistry(IERC8004Reputation(cfg.reputationRegistry));
@@ -249,6 +252,7 @@ contract Deploy is Script {
         vm.serializeAddress(k, "epochManager", d.manager);
         vm.serializeAddress(k, "vaultImplementation", d.vaultImpl);
         vm.serializeAddress(k, "vaultFactory", d.factory);
+        vm.serializeAddress(k, "riskLens", d.riskLens);
 
         string memory sk = "stocks";
         string memory stocksJson;
