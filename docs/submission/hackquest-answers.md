@@ -28,10 +28,10 @@ DeFi (options, structured products) and AI agents
 DeFi, Options, AI Agents, Robinhood Chain, Stock Tokens, USDG, Arbitrum Stylus, MCP, ERC-4626, ERC-8004, Formal Verification
 ```
 
-## Detailed description (293 characters)
+## Detailed description (290 characters)
 
 ```text
-Stock-token options vaults paid in USDG. An AI agent only proposes. The contract checks its immutable mandate, slashes the agent's bond to depositors on a breach and solves strikes in Stylus. Live on 46630: https://github.com/Prashant-thakur77/Strike/blob/main/contracts/deployments/46630.json
+Stock-token options vaults paid in USDG. An AI agent only proposes; the contract checks its immutable mandate, slashes its bond to depositors on a breach, and prices risk in Stylus (Rust). Live on 46630: https://github.com/Prashant-thakur77/Strike/blob/main/contracts/deployments/46630.json
 ```
 
 Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 477 Foundry tests, 9 Halmos-proven properties, 99.3% line coverage, and agent #1 linked to ERC-8004 identity #114. Judges can start at [JUDGES.md](../JUDGES.md).
@@ -42,9 +42,9 @@ Aimed at the Promising Products track (AI agents, new financial primitives). The
 https://strike-options.vercel.app (no wallet needed: start with /app/playground and /app/proof). Code: https://github.com/Prashant-thakur77/Strike. Judge's tour: docs/JUDGES.md. Live testnet epoch with Blockscout links: docs/testnet-epochs/2026-09-29.md
 ```
 
-The app is not deployed yet. Once it is on Vercel ([deploy-app.md](../deploy-app.md)), replace the repository URL with the app URL and recount. The two quickest things for a judge to try need no wallet. `/app/playground` tests a proposal against a live vault's mandate and shows Accepted or the rejection reason. `/app/proof` puts every claim next to its evidence, with a live feed of on-chain activity.
+The app is live on Vercel. The two quickest things for a judge to try need no wallet. `/app/playground` tests a proposal against a live vault's mandate and shows Accepted or the rejection reason. `/app/proof` puts every claim next to its evidence, with a live feed of on-chain activity.
 
-Videos for the form's video fields: the narrated demo ([strike-demo-narrated.mp4](../media/strike-demo-narrated.mp4), 2:55) and the pitch ([strike-pitch.mp4](../media/strike-pitch.mp4), 1:59, captions in [strike-pitch.srt](../media/strike-pitch.srt)). Upload both to YouTube (unlisted is fine) and paste those links; the files in the repo are the fallback.
+Videos for the form's video fields: the narrated demo ([strike-demo-narrated.mp4](../media/strike-demo-narrated.mp4), 2:51) and the pitch ([strike-pitch.mp4](../media/strike-pitch.mp4), 1:58, captions in [strike-pitch.srt](../media/strike-pitch.srt)). Upload both to YouTube (unlisted is fine) and paste those links; the files in the repo are the fallback.
 
 ## Core protocol / smart contract addresses (250 characters)
 
@@ -86,10 +86,10 @@ The `EpochManager` on Robinhood Chain testnet (46630).
 All of Strike's own code, from the first commit on 2026-09-28. Git history shows each step: contracts, Stylus pricer, oracle layer, agents, SDK, MCP, app, Telegram bot, subgraph, review fixes, Halmos proofs, deploys. Libraries (forge-std, OpenZeppelin, stylus-sdk, npm) are not ours.
 ```
 
-## Progress during the hackathon (289 characters)
+## Progress during the hackathon (293 characters)
 
 ```text
-Sep 28: contracts, Stylus pricer, tests, agents, SDK, MCP, app, subgraph. Sep 29: testnet deploy, internal review (1 High, 3 Medium, 4 Low) fixed, v2 live epoch with an on-chain slash, agent on ERC-8004 as #114. Then: playground, mainnet monitor, proof page, Telegram bot, 9 Halmos proofs.
+Sep 28: contracts, Stylus pricer, agents, SDK, MCP, app. Sep 29: testnet deploy, internal review fixed, live epoch with an on-chain slash, ERC-8004 #114. Sep 30: 9 Halmos proofs, decisions anchored on-chain, remote MCP, v3 with a Rust risk engine deployed and verified, greeks live in the app.
 ```
 
 ## Fundraising status (11 characters)
