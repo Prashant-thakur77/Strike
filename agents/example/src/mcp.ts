@@ -25,21 +25,39 @@ export interface StrikeMcp {
   close(): Promise<void>;
 }
 
+/** How to start the Strike MCP server over stdio: command, arguments, environment and working directory. */
+export interface StrikeMcpCommand {
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  cwd: string;
+}
+
 /**
- * Spawn the Strike MCP server and connect over stdio. The command defaults to the workspace's
- * `pnpm --filter @strike/mcp dev`; override it with STRIKE_MCP_COMMAND (for example `node mcp/dist/index.js`).
- * STRIKE_* variables (chain, RPC, agent key) are passed through to the server.
+ * The command that starts the Strike MCP server. It defaults to the workspace's `pnpm --filter @strike/mcp dev`;
+ * override it with STRIKE_MCP_COMMAND (for example `node mcp/dist/index.js`). STRIKE_* variables (chain, RPC, agent
+ * key) are passed through to the server; `extraEnv` is added on top.
  */
-export async function connectStrikeMcp(): Promise<StrikeMcp> {
-  const command = process.env.STRIKE_MCP_COMMAND?.trim();
+export function strikeMcpCommand(
+  processEnv: NodeJS.ProcessEnv = process.env,
+  extraEnv: Record<string, string> = {},
+): StrikeMcpCommand {
+  const command = processEnv.STRIKE_MCP_COMMAND?.trim();
   const [cmd = "pnpm", ...args] = command
     ? command.split(/\s+/)
     : ["pnpm", "--silent", "--filter", "@strike/mcp", "dev"];
-  const env: Record<string, string> = getDefaultEnvironment();
-  for (const [key, value] of Object.entries(process.env)) {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(processEnv)) {
     if (key.startsWith("STRIKE_") && value !== undefined && key !== "STRIKE_MCP_COMMAND") env[key] = value;
   }
-  const transport = new StdioClientTransport({ command: cmd, args, env, cwd: repoRoot, stderr: "pipe" });
+  return { command: cmd, args, env: { ...env, ...extraEnv }, cwd: repoRoot };
+}
+
+/** Spawn the Strike MCP server ({@link strikeMcpCommand}) and connect over stdio. */
+export async function connectStrikeMcp(): Promise<StrikeMcp> {
+  const { command: cmd, args, env: strikeEnv, cwd } = strikeMcpCommand();
+  const env: Record<string, string> = { ...getDefaultEnvironment(), ...strikeEnv };
+  const transport = new StdioClientTransport({ command: cmd, args, env, cwd, stderr: "pipe" });
   let stderr = "";
   transport.stderr?.on("data", (chunk: Buffer) => (stderr += chunk.toString()));
 

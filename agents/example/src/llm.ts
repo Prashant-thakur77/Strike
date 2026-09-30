@@ -9,22 +9,40 @@ import type { Plan } from "./strategy.js";
 export const CLAUDE_MODEL = "claude-opus-5";
 
 /** Read-only Strike tools Claude may call. It never gets propose_epoch: the agent code proposes. */
-const PLANNING_TOOLS = new Set(["vault_state", "risk_check", "agent_stats", "quote"]);
+export const PLANNING_TOOLS: ReadonlySet<string> = new Set([
+  "vault_state",
+  "risk_check",
+  "agent_stats",
+  "quote",
+]);
 
-const SYSTEM = `You are the strike-picking agent for a Strike options vault on Robinhood Chain. Each week the vault sells one option series on a stock token and pays the premium to its depositors in USDG.
+/** The plan Claude hands back (submit_plan's input here, the structured output with Claude Code). */
+export const planSchema = z.object({
+  targetDeltaBps: z.number().int().min(1).max(9999).describe("Target |delta| in bps of 1 (2000 = 0.20)"),
+  premiumBps: z.number().int().min(1).max(30_000).describe("Premium as a share of fair value (10000 = 100%)"),
+  reasoning: z
+    .string()
+    .min(1)
+    .describe("Two to four sentences for the vault's depositors explaining the choice"),
+});
+
+/** The planning instructions; `finish` is step 3 (how Claude hands the plan back), then the protocol's skill. */
+export function planningSystem(finish: string, skill: string): string {
+  return `You are the strike-picking agent for a Strike options vault on Robinhood Chain. Each week the vault sells one option series on a stock token and pays the premium to its depositors in USDG.
 
 Your job this epoch: choose the target |delta| (targetDeltaBps, 2000 = 0.20) and the premium factor (premiumBps, 10000 = 100% of Black-Scholes fair value) for the vault's proposal, and explain the choice to depositors.
 
 How to work:
 1. Call vault_state to read the vault, its mandate, spot, the next expiry and your agent's bond.
 2. Dry-run candidates with risk_check (pass targetDeltaBps and premiumBps). Compare fair value, yield and delta.
-3. Call submit_plan exactly once with a candidate that passed risk_check (ok: true).
+3. ${finish}
 
 Trade-offs: a lower delta is further out of the money (the stock is rarely called away or put to the vault) but earns less premium; a higher delta earns more but gives up more upside. A premium factor above 100% earns more per option but buyers pay more, so fewer options may sell. Stay inside the mandate with a margin: a proposal the contract rejects slashes your USDG bond.
 
 The protocol's own guide for agents follows.
 
-`;
+${skill}`;
+}
 
 /** Where Claude's reasoning and tool calls are printed. */
 export type Narrate = (line: string) => void;
@@ -48,19 +66,7 @@ export async function planWithClaude(opts: {
     name: "submit_plan",
     description:
       "Submit this epoch's plan. Call once, after risk_check returned ok: true for the same targetDeltaBps and premiumBps.",
-    inputSchema: z.object({
-      targetDeltaBps: z.number().int().min(1).max(9999).describe("Target |delta| in bps of 1 (2000 = 0.20)"),
-      premiumBps: z
-        .number()
-        .int()
-        .min(1)
-        .max(30_000)
-        .describe("Premium as a share of fair value (10000 = 100%)"),
-      reasoning: z
-        .string()
-        .min(1)
-        .describe("Two to four sentences for the vault's depositors explaining the choice"),
-    }),
+    inputSchema: planSchema,
     run: (input) => {
       submitted.plan = input;
       return "Plan recorded. The agent will dry-run it once more and propose it.";
@@ -73,7 +79,10 @@ export async function planWithClaude(opts: {
     thinking: { type: "adaptive" },
     betas: ["server-side-fallback-2026-07-01"],
     fallbacks: "default",
-    system: SYSTEM + opts.skill,
+    system: planningSystem(
+      "Call submit_plan exactly once with a candidate that passed risk_check (ok: true).",
+      opts.skill,
+    ),
     tools: [...mcpTools(readTools, opts.mcp as unknown as MCPClientLike), submitPlan],
     messages: [
       {

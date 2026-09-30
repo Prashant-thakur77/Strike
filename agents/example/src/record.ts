@@ -44,6 +44,16 @@ export interface RecordDecision {
   reasoning: string;
   /** Mandate guard corrections and fallbacks, in order. */
   notes: string[];
+  /** With strategy "claude": how the agent reached Claude and the model (absent in older records). */
+  planner?: RecordPlanner;
+}
+
+/** How `--llm` reached Claude: the Anthropic API, or the Claude Code CLI on a Claude subscription. */
+export interface RecordPlanner {
+  kind: "api" | "claude-code";
+  model: string;
+  /** "Claude via API, model X" or "Claude via Claude Code CLI, model X". */
+  label: string;
 }
 
 export interface RecordDryRun {
@@ -225,6 +235,7 @@ function decisionSection(d: RecordDecision | null, action: RecordAction): string
     reckless: "reckless demo: an at-the-money strike, sent with force to show the contract rejecting it",
   }[d.strategy];
   const lines = [`- **Strategy:** ${strategy}`];
+  if (d.planner) lines.push(`- **Planner:** ${d.planner.label}`);
   if (d.targetDeltaBps !== null) {
     lines.push(
       `- **Target:** ${deltaText(d.targetDeltaBps)} delta${d.premiumBps !== null ? ` at ${pct(d.premiumBps)} of Black-Scholes fair value` : ""}`,

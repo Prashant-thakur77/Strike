@@ -209,6 +209,22 @@ describe("decision record", () => {
     expect(md).toContain("- **Target:** 0.18 delta at 105% of Black-Scholes fair value");
     expect(md).toContain("- **Note:** Model claude-opus-5.");
     expect(md).toContain("> TSLA has an earnings call next week.\n>\n> A lower delta keeps the shares.");
+    expect(md).not.toContain("**Planner:**"); // older records have no planner
+  });
+
+  it("names the planner that ran (API or Claude Code CLI)", () => {
+    const r = acceptedRecord();
+    const label = "Claude via Claude Code CLI, model claude-opus-5";
+    r.decision = {
+      strategy: "claude",
+      targetDeltaBps: 1800,
+      premiumBps: 10_000,
+      reasoning: "Far enough out of the money.",
+      notes: [`${label}.`],
+      planner: { kind: "claude-code", model: "claude-opus-5", label },
+    };
+    expect(formatRecordMarkdown(r)).toContain(`- **Planner:** ${label}\n`);
+    expect(JSON.parse(formatRecordJson(r)).decision.planner).toEqual(r.decision.planner);
   });
 
   it("records a rejection with its reason and slash", () => {

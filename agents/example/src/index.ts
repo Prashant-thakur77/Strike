@@ -4,10 +4,11 @@ import { anchorRecord, chainAnchorSender, decisionLogAddress, readAnchorEpoch } 
 import { DEFAULT_BUDGET, DEFAULT_SLIPPAGE_BPS, buyOptions, redeemOptions } from "./buyer.js";
 import { epochSnapshot, lastSettlement, readClient } from "./chain.js";
 import { Journal, marketInputs } from "./journal.js";
-import { CLAUDE_MODEL } from "./llm.js";
-import { describeClaudeError, planWithClaude } from "./llm.js";
-import { type StrikeMcp, connectStrikeMcp } from "./mcp.js";
+import { type PlannerMcp, planWithClaudeCode } from "./claudeCode.js";
+import { CLAUDE_MODEL, describeClaudeError, planWithClaude } from "./llm.js";
+import { type StrikeMcp, connectStrikeMcp, strikeMcpCommand } from "./mcp.js";
 import { joinStrike, parseBond, parseVaultSpec } from "./onboard.js";
+import { type PlannerKind, parsePlanner, plannerLabel, selectPlanner } from "./planner.js";
 import { type RecordAction, type RecordAnchorer, txUrl, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
@@ -34,8 +35,13 @@ Usage: pnpm --filter @strike/agent-example start [options]
   (default)          Propose this epoch's option at 0.20 delta, after a dry run.
   --reckless         Propose an at-the-money strike with force: true to show the contract
                      rejecting it and slashing the agent's bond.
-  --llm              Let Claude choose the target delta and premium factor (needs Claude API
-                     credentials, e.g. ANTHROPIC_API_KEY); falls back to the default strategy.
+  --llm              Let Claude choose the target delta and premium factor; falls back to the
+                     default strategy. Uses the Claude API when ANTHROPIC_API_KEY is set, else the
+                     Claude Code CLI (\`claude\`, logged in with a Claude subscription, or
+                     CLAUDE_CODE_OAUTH_TOKEN from \`claude setup-token\`).
+  --planner <p>      With --llm: force the planner, api or claude-code.
+  --dry-run          Propose run up to the final dry run, then stop: nothing is sent (works
+                     without STRIKE_AGENT_PRIVATE_KEY).
   --settle           Settle the vault's expired series.
   --status           Print the vault and agent state only.
   --vault <v>        Vault address or share symbol (default: the first vault this agent runs
@@ -70,7 +76,9 @@ Join as a new agent (STRIKE_AGENT_PRIVATE_KEY becomes the agent's owner and sign
                      (e.g. TSLA:put), run by this agent, with the default mandate.
 
 Environment: STRIKE_CHAIN_ID, STRIKE_RPC_URL, STRIKE_AGENT_PRIVATE_KEY (passed to the MCP server),
-STRIKE_MCP_COMMAND (server command; default: pnpm --silent --filter @strike/mcp dev).`;
+STRIKE_MCP_COMMAND (server command; default: pnpm --silent --filter @strike/mcp dev).
+Claude Code planner: STRIKE_CLAUDE_CODE_MODEL (default ${CLAUDE_MODEL}), CLAUDE_CODE_PATH (the CLI),
+STRIKE_PLANNER_MCP_URL (a read-only HTTP MCP endpoint instead of a local read-only server).`;
 
 /** Numbered narrative steps on stdout. */
 class Narrator {
@@ -139,53 +147,96 @@ async function trackRecord(mcp: StrikeMcp, log: Narrator, agentId: string, journ
   );
 }
 
+/** What `--llm` asked for: whether Claude plans, and which planner (undefined: pick one, see selectPlanner). */
+interface DecideOptions {
+  llm: boolean;
+  planner?: PlannerKind;
+  targetDelta: number;
+  /** Stop after the dry run; send nothing. */
+  dryRun?: boolean;
+}
+
+/** Where the Claude Code planner reaches the Strike MCP server: STRIKE_PLANNER_MCP_URL, else a local read-only one. */
+function plannerMcp(): PlannerMcp {
+  const url = process.env.STRIKE_PLANNER_MCP_URL?.trim();
+  return url ? { kind: "http", url } : { kind: "stdio", ...strikeMcpCommand() };
+}
+
+/** Ask Claude (through the API or Claude Code) for a plan; null with a note when there is none. */
+async function planWithLlm(
+  mcp: StrikeMcp,
+  state: VaultState,
+  opts: DecideOptions,
+  log: Narrator,
+  notes: string[],
+): Promise<{ plan: Plan; kind: PlannerKind; model: string } | null> {
+  const choice = selectPlanner(opts.planner);
+  if (!choice.kind) {
+    log.say(`Claude is unavailable (${choice.reason}); using the default strategy.`);
+    notes.push(`Claude was unavailable (${choice.reason}); the agent used the default strategy.`);
+    return null;
+  }
+  const kind = choice.kind;
+  const via = kind === "api" ? "the Claude API" : "the Claude Code CLI";
+  log.step(`Ask Claude for this epoch's plan (via ${via})`);
+  const skill = await mcp.client.readResource({ uri: "strike://skill" });
+  const text = skill.contents.map((c) => ("text" in c ? c.text : "")).join("\n");
+  const narrate = (l: string) => log.say(l);
+  if (kind === "claude-code") {
+    const res = await planWithClaudeCode({
+      vault: state.vault.address,
+      skill: text,
+      narrate,
+      mcp: plannerMcp(),
+      model: process.env.STRIKE_CLAUDE_CODE_MODEL?.trim() || undefined,
+    });
+    if (res.plan) return { plan: res.plan, kind, model: res.model };
+    log.say(`Claude Code gave no plan (${res.reason}); using the default strategy.`);
+    notes.push(`Claude Code gave no plan (${res.reason}); the agent used the default strategy.`);
+    return null;
+  }
+  try {
+    const plan = await planWithClaude({ mcp: mcp.client, vault: state.vault.address, skill: text, narrate });
+    if (plan) return { plan, kind, model: CLAUDE_MODEL };
+    log.say("Claude submitted no plan; using the default strategy.");
+    notes.push("Claude submitted no plan; the agent used the default strategy.");
+  } catch (err) {
+    log.say(`Claude is unavailable (${describeClaudeError(err)}); using the default strategy.`);
+    notes.push(`Claude was unavailable (${describeClaudeError(err)}); the agent used the default strategy.`);
+  }
+  return null;
+}
+
 async function decide(
   mcp: StrikeMcp,
   state: VaultState,
-  opts: { llm: boolean; targetDelta: number },
+  opts: DecideOptions,
   log: Narrator,
   journal: Journal,
 ): Promise<Plan> {
   const mandate = state.vault.mandate;
   const notes: string[] = [];
-  if (opts.llm) {
-    log.step("Ask Claude for this epoch's plan");
-    try {
-      const skill = await mcp.client.readResource({ uri: "strike://skill" });
-      const text = skill.contents.map((c) => ("text" in c ? c.text : "")).join("\n");
-      const plan = await planWithClaude({
-        mcp: mcp.client,
-        vault: state.vault.address,
-        skill: text,
-        narrate: (l) => log.say(l),
-      });
-      if (plan) {
-        const { plan: enforced, adjustments } = enforceMandate(plan, mandate);
-        for (const a of adjustments) log.say(`Mandate guard in the agent code adjusted Claude's plan: ${a}`);
-        log.say(
-          `Claude's plan: ${delta(enforced.targetDeltaBps)} delta at ${pct(enforced.premiumBps)} of fair value`,
-        );
-        log.say(`Why: ${enforced.reasoning}`);
-        journal.decided({
-          strategy: "claude",
-          targetDeltaBps: enforced.targetDeltaBps,
-          premiumBps: enforced.premiumBps,
-          reasoning: enforced.reasoning,
-          notes: [
-            `Model ${CLAUDE_MODEL}.`,
-            ...adjustments.map((a) => `Mandate guard in the agent code adjusted Claude's plan: ${a}.`),
-          ],
-        });
-        return enforced;
-      }
-      log.say("Claude submitted no plan; using the default strategy.");
-      notes.push("Claude submitted no plan; the agent used the default strategy.");
-    } catch (err) {
-      log.say(`Claude is unavailable (${describeClaudeError(err)}); using the default strategy.`);
-      notes.push(
-        `Claude was unavailable (${describeClaudeError(err)}); the agent used the default strategy.`,
-      );
-    }
+  const llm = opts.llm ? await planWithLlm(mcp, state, opts, log, notes) : null;
+  if (llm) {
+    const { plan: enforced, adjustments } = enforceMandate(llm.plan, mandate);
+    const label = plannerLabel(llm.kind, llm.model);
+    for (const a of adjustments) log.say(`Mandate guard in the agent code adjusted Claude's plan: ${a}`);
+    log.say(
+      `Claude's plan: ${delta(enforced.targetDeltaBps)} delta at ${pct(enforced.premiumBps)} of fair value (${label})`,
+    );
+    log.say(`Why: ${enforced.reasoning}`);
+    journal.decided({
+      strategy: "claude",
+      targetDeltaBps: enforced.targetDeltaBps,
+      premiumBps: enforced.premiumBps,
+      reasoning: enforced.reasoning,
+      notes: [
+        `${label}.`,
+        ...adjustments.map((a) => `Mandate guard in the agent code adjusted Claude's plan: ${a}.`),
+      ],
+      planner: { kind: llm.kind, model: llm.model, label },
+    });
+    return enforced;
   }
   log.step("Choose the target delta");
   const plan = deterministicPlan(mandate, opts.targetDelta);
@@ -200,13 +251,7 @@ async function decide(
   return plan;
 }
 
-async function propose(
-  mcp: StrikeMcp,
-  vault: string,
-  opts: { llm: boolean; targetDelta: number },
-  log: Narrator,
-  journal: Journal,
-) {
+async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: Narrator, journal: Journal) {
   const state = await readVault(mcp, vault, log, journal);
   if (state.vault.epochState === "Selling") {
     const message = `${state.vault.symbol} is already selling this week's series; settle it after expiry first`;
@@ -268,6 +313,17 @@ async function propose(
       reason: check.reason,
     });
     throw new Error("the dry run failed; a careful agent does not propose");
+  }
+  if (opts.dryRun) {
+    log.say("--dry-run: stopping here; nothing was sent.");
+    journal.finish({
+      status: "not-sent",
+      summary: "Dry run only (--dry-run): the proposal passed the risk check and was not sent.",
+      strike: check.proposal.strike,
+      expiryIso: check.proposal.expiryIso,
+      size: check.proposal.size,
+    });
+    return;
   }
 
   log.step("Propose on-chain (proposeByDelta)");
@@ -457,6 +513,8 @@ async function main() {
     options: {
       reckless: { type: "boolean" },
       llm: { type: "boolean" },
+      planner: { type: "string" },
+      "dry-run": { type: "boolean" },
       settle: { type: "boolean" },
       status: { type: "boolean" },
       vault: { type: "string" },
@@ -500,6 +558,16 @@ async function main() {
   if (!values.register && (values.bond !== undefined || values["create-vault"] !== undefined)) {
     throw new Error("--bond and --create-vault go with --register");
   }
+  const planner = parsePlanner(values.planner);
+  if (planner && !values.llm) throw new Error("--planner goes with --llm");
+  const dryRun = values["dry-run"] === true;
+  if (
+    dryRun &&
+    (values.reckless || values.settle || values.status || values.buy || values.redeem || values.register)
+  ) {
+    throw new Error("--dry-run goes with a propose run (the default mode or --llm)");
+  }
+  if (dryRun && values.anchor) throw new Error("--dry-run sends nothing, so it cannot --anchor");
   const bond = values.register ? parseBond(values.bond) : undefined;
   const createVault =
     values["create-vault"] !== undefined ? parseVaultSpec(values["create-vault"]) : undefined;
@@ -514,8 +582,10 @@ async function main() {
         : values.reckless
           ? " (reckless mode)"
           : values.llm
-            ? " (Claude mode)"
-            : "";
+            ? ` (Claude mode${dryRun ? ", dry run" : ""})`
+            : dryRun
+              ? " (dry run)"
+              : "";
   console.log(`Strike example agent${mode}`);
   const mcp = await connectStrikeMcp();
   try {
@@ -552,7 +622,7 @@ async function main() {
       await trackRecord(mcp, log, state.agent.agentId);
       return;
     }
-    if (info.mode === "read-only")
+    if (info.mode === "read-only" && !dryRun)
       throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the agent signer's key) to act");
     const action: RecordAction = values.settle ? "settle" : values.reckless ? "reckless" : "propose";
     const journal = new Journal(action, info.chainId, info.agentAddress);
@@ -561,7 +631,8 @@ async function main() {
     try {
       if (values.settle) await settle(mcp, vault, log, journal, logDir !== undefined);
       else if (values.reckless) await reckless(mcp, vault, log, journal);
-      else await propose(mcp, vault, { llm: values.llm === true, targetDelta }, log, journal);
+      else
+        await propose(mcp, vault, { llm: values.llm === true, planner, targetDelta, dryRun }, log, journal);
     } catch (err) {
       failure = err instanceof Error ? err.message : String(err);
       throw err;
