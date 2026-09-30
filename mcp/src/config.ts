@@ -12,6 +12,8 @@ export interface StrikeMcpConfig {
   privateKey?: Hex;
   /** STRIKE_SKILL_PATH: override the location of STRIKE_SKILL.md. */
   skillPath?: string;
+  /** STRIKE_MCP_READ_ONLY=1: register only the read-only tools (and never load the agent key). */
+  readOnly: boolean;
 }
 
 /** Read and validate the STRIKE_* environment variables. */
@@ -21,11 +23,18 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): StrikeMcpCo
     throw new Error(`invalid STRIKE_CHAIN_ID: ${env.STRIKE_CHAIN_ID}`);
   const rpcUrl = env.STRIKE_RPC_URL || getStrikeChain(chainId).rpcUrls.default.http[0];
   if (!rpcUrl) throw new Error(`no RPC URL for chain ${chainId}: set STRIKE_RPC_URL`);
-  const key = env.STRIKE_AGENT_PRIVATE_KEY?.trim();
+  const readOnly = env.STRIKE_MCP_READ_ONLY === "1" || env.STRIKE_MCP_READ_ONLY === "true";
+  const key = readOnly ? undefined : env.STRIKE_AGENT_PRIVATE_KEY?.trim();
   if (key && !/^0x[0-9a-fA-F]{64}$/.test(key)) {
     throw new Error("STRIKE_AGENT_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key");
   }
-  return { chainId, rpcUrl, privateKey: key ? (key as Hex) : undefined, skillPath: env.STRIKE_SKILL_PATH };
+  return {
+    chainId,
+    rpcUrl,
+    privateKey: key ? (key as Hex) : undefined,
+    skillPath: env.STRIKE_SKILL_PATH,
+    readOnly,
+  };
 }
 
 /** A Strike client for the configuration: read-only, or signing as the agent when a key is set. */
