@@ -25,8 +25,11 @@ export const AGENT_LOG_STALE_MS = 10 * 60_000;
 /** The only record schema this page understands (RECORD_VERSION in agents/example/src/record.ts). */
 export const AGENT_LOG_VERSION = 1;
 
-/** The weekly workflow's first scheduled proposal run: Monday 5 Oct 2026, 15:00 UTC. */
-export const FIRST_RUN = Date.UTC(2026, 9, 5, 15, 0, 0);
+/** The weekly workflow's first scheduled run: the Friday settle run, 2 Oct 2026, 21:15 UTC. */
+export const FIRST_RUN = Date.UTC(2026, 9, 2, 21, 15, 0);
+
+/** agent.yml's two crons, as offsets from Monday 00:00 UTC: Monday 15:00 (propose) and Friday 21:15 (settle). */
+const RUN_OFFSETS = [15 * 3_600_000, (4 * 24 + 21) * 3_600_000 + 15 * 60_000];
 
 /** Block explorers for chains records can come from, when a record carries no link of its own. */
 const EXPLORERS: Record<number, string> = {
@@ -608,11 +611,19 @@ export function shortHash(h: string): string {
   return h.length > 14 ? `${h.slice(0, 8)}…${h.slice(-4)}` : h;
 }
 
-/** When the next weekly proposal run is due: the first one, or the next Monday 15:00 UTC after `now`. */
+/** When the next scheduled run is due: the first one, or the next Monday 15:00 or Friday 21:15 UTC after `now`. */
 export function nextRun(now: number): { first: boolean; at: number } {
   if (now < FIRST_RUN) return { first: true, at: FIRST_RUN };
-  const week = 7 * 86_400_000;
-  return { first: false, at: FIRST_RUN + Math.ceil((now - FIRST_RUN) / week) * week };
+  const day = 86_400_000;
+  const d = new Date(now);
+  const monday =
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) - ((d.getUTCDay() + 6) % 7) * day;
+  for (const week of [0, 7 * day]) {
+    for (const offset of RUN_OFFSETS) {
+      if (monday + week + offset > now) return { first: false, at: monday + week + offset };
+    }
+  }
+  return { first: false, at: monday + 7 * day + RUN_OFFSETS[0] };
 }
 
 /** "Monday 5 Oct, 15:00 UTC". */

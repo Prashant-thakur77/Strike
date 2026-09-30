@@ -16,7 +16,7 @@ One speaker over the deck ([deck-outline.md](deck-outline.md); slide numbers bel
 
 ## 1:10 · Why it is safe (slide 7)
 
-> Stock tokens have traps: dividend multipliers applied twice, frozen weekend prices, two layers of pause. SafeStockFeed handles each one, and our live monitor checks eight real mainnet stock tokens against the same rules. Behind it: 418 Foundry tests, 9 properties formally proven with Halmos, and an internal review with all 8 findings fixed: one High, three Medium, four Low.
+> Stock tokens have traps: dividend multipliers applied twice, frozen weekend prices, two layers of pause. SafeStockFeed handles each one, and our live monitor checks eight real mainnet stock tokens against the same rules. Behind it: 432 Foundry tests, 9 properties formally proven with Halmos, and an internal review with all 8 findings fixed: one High, three Medium, four Low.
 
 ## 1:32 · Try it, business, next (slides 9 to 11)
 

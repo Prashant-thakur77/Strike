@@ -52,7 +52,7 @@ Check that the NVDA multiplier on screen still reads 1.000775 (it was read on 20
 
 Screen: `/app/proof`: the headline numbers, the security section, then the live activity feed.
 
-> The proof page puts each claim next to its evidence: 418 Foundry tests, 9 properties proven with Halmos, all 8 review findings fixed, one High, three Medium, four Low, plus three Info notes, and a live feed of the EpochManager's events.
+> The proof page puts each claim next to its evidence: 432 Foundry tests, 9 properties proven with Halmos, all 8 review findings fixed, one High, three Medium, four Low, plus three Info notes, and a live feed of the EpochManager's events.
 
 ## 2:50 to the end · Close
 

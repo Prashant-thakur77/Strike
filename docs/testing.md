@@ -1,6 +1,6 @@
 # Testing
 
-Run everything with `make test` (default profile) or `make ci-test` (5,000 fuzz runs; 256 × 128 invariant calls). The Foundry suite has 432 tests; the SDK has 75, the example agents 20 and the MCP server 27.
+Run everything with `make test` (default profile) or `make ci-test` (5,000 fuzz runs; 256 × 128 invariant calls). The Foundry suite has 432 tests, plus 9 fork tests, 3 differential fuzz tests and 9 Halmos proofs in their own CI jobs. The SDK has 86 tests, the MCP server 40, the example agents 38, the Telegram bot 60 and the subgraph 10; the app has 91 Playwright tests, run at desktop and mobile sizes.
 
 | Layer            | Where                                                                   | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ---------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -27,7 +27,7 @@ Run everything with `make test` (default profile) or `make ci-test` (5,000 fuzz 
 | BlackScholesLib                                                    | 100%         | 100%         | 100%      |
 | MarketCalendar / NyseTime                                          | 100%         | 100%         | 100%      |
 | FeeManager, Decimals, VaultFactory, OptionToken, testnet contracts | 100%         | 100%         | 100%      |
-| **Total**                                                          | **99.1%**    | **97.4%**    | **100%**  |
+| **Total**                                                          | **99.1%**    | **97.5%**    | **100%**  |
 
 ## Invariants
 

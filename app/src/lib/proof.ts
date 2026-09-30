@@ -272,15 +272,17 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Sources: README.md "Safety evidence" (418 Foundry, 15 Rust, 122 TypeScript = SDK 75 + MCP 27 + agents 20,
-// 10 subgraph) and docs/testing.md (418 Foundry; SDK 75, agents 20, MCP 27). Telegram bot: 60 `it(...)` cases
-// counted in bots/telegram/test/*.test.ts. Re-count with `grep -rhE "function (test|testFuzz|invariant)"
-// contracts/test | wc -l` and `grep -rn "#\[test\]" stylus/pricer/src | wc -l`.
+// Sources: README.md "Safety evidence" and docs/testing.md (432 Foundry, 15 Rust, 164 TypeScript = SDK 86 +
+// MCP 40 + agents 38, 60 Telegram bot, 10 subgraph, 91 Playwright). Re-count (2026-09-30) with
+// `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
+// counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
+// subgraph/tests and the `test(` calls in app/e2e.
 export const TESTS: readonly TestFact[] = [
   {
     label: "Foundry",
-    count: "418",
-    detail: "Unit, integration, fuzz, invariant, differential, fork and audit-regression suites",
+    count: "432",
+    detail:
+      "Unit, integration, fuzz, invariant and audit-regression suites (fork, differential and formal below)",
     evidence: [
       { label: "contracts/test", href: ghTree("contracts/test") },
       { label: "docs/testing.md", href: gh("docs/testing.md") },
@@ -297,8 +299,8 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "122",
-    detail: "SDK 75, MCP server 27, example agents 20",
+    count: "164",
+    detail: "SDK 86, MCP server 40, example agents 38",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -319,7 +321,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "E2E",
+    count: "91",
     detail: "The app at 1440 px desktop and 390 px mobile, including this page and its links",
     evidence: [
       { label: "app/e2e", href: ghTree("app/e2e") },
@@ -329,10 +331,11 @@ export const TESTS: readonly TestFact[] = [
 ];
 
 // Source: docs/testing.md "Coverage" (make coverage, Foundry --ir-minimum, production code only) and README.md
-// "Safety evidence" (statements 99.2%). CI fails below 95% lines (.github/workflows/ci.yml).
+// "Safety evidence" (statements 99.2%). Re-run 2026-09-30: 99.13% lines, 99.22% statements, 97.48% branches.
+// CI fails below 95% lines (.github/workflows/ci.yml).
 export const COVERAGE = {
   lines: "99.1%",
-  branches: "97.4%",
+  branches: "97.5%",
   statements: "99.2%",
   functions: "100%",
   evidence: [
@@ -351,7 +354,8 @@ export interface CheckFact {
 }
 
 // Sources: docs/testing.md "Invariants" and "Mutation checks"; README.md "Safety evidence" (32,768 calls:
-// contracts/foundry.toml [profile.ci.invariant] runs 256 × depth 128); contracts/test/fork/RobinhoodFork.t.sol;
+// contracts/foundry.toml [profile.ci.invariant] runs 256 × depth 128); contracts/test/fork (RobinhoodFork 6 +
+// StockCollateralFork 3);
 // contracts/test/differential/PricerDifferential.t.sol and docs/gas.md; docs/security/formal-verification.md
 // (9 proven Halmos properties, 16 marked unproven) and the `formal` job in .github/workflows/ci.yml.
 export const CHECKS: readonly CheckFact[] = [
@@ -380,13 +384,14 @@ export const CHECKS: readonly CheckFact[] = [
   },
   {
     title: "Fork tests",
-    claim: "6 tests against Robinhood Chain mainnet (4663)",
+    claim: "9 tests against Robinhood Chain mainnet (4663)",
     detail: [
       "Real TSLA, NVDA and SPY tokens and Chainlink feeds, real USDG, real ERC-8004 registries",
       "The ERC-8056 multiplier is never applied twice; a full epoch runs with real tokens",
     ],
     evidence: [
       { label: "RobinhoodFork.t.sol", href: gh("contracts/test/fork/RobinhoodFork.t.sol") },
+      { label: "StockCollateralFork.t.sol", href: gh("contracts/test/fork/StockCollateralFork.t.sol") },
       { label: "CI fork job", href: gh(".github/workflows/ci.yml", 105) },
     ],
   },

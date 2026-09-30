@@ -158,7 +158,7 @@ export function MonitorPage() {
             </>
           }
         >
-          <Fold summary="Show the six checks" openSummary="Hide the checks">
+          <Fold summary="Show the five checks and the multiplier rule" openSummary="Hide the checks">
             <CheckList />
           </Fold>
         </Rail>

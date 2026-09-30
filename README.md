@@ -111,12 +111,12 @@ A covered call pays the buyer `(S − K) / S` stock tokens per option when it ex
 
 ## Safety evidence
 
-432 Foundry tests, 15 Rust tests, 122 TypeScript tests (SDK 75, MCP 27, agents 20) and 10 subgraph tests run in CI; 35 Playwright tests cover the app on desktop and mobile.
+432 Foundry tests, 15 Rust tests, 164 TypeScript tests (SDK 86, MCP 40, agents 38), 60 Telegram bot tests and 10 subgraph tests run in CI, plus 9 fork tests, 3 differential fuzz tests and 9 Halmos proofs; 91 Playwright tests cover the app on desktop and mobile.
 
 | Check           | Result                                                                                                                                                                                                                               |
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Unit tests      | Every function and custom error, [`contracts/test/unit`](contracts/test/unit) and neighbours                                                                                                                                         |
-| Coverage        | 99.1% of lines, 99.2% of statements, 97.4% of branches, 100% of functions across `src/` (`make coverage`)                                                                                                                            |
+| Coverage        | 99.1% of lines, 99.2% of statements, 97.5% of branches, 100% of functions across `src/` (`make coverage`)                                                                                                                            |
 | Integration     | Full epochs for calls and puts, in and out of the money, a crash to zero, the queue across epochs, rejection and slashing, abort, emergency cancel                                                                                   |
 | Invariants      | 9 properties on a call vault and a put vault, 32,768 random calls each in the CI profile ([list](docs/testing.md#invariants))                                                                                                        |
 | Mutation checks | Three injected bugs, all caught by the invariants ([details](docs/testing.md#mutation-checks))                                                                                                                                       |
@@ -154,7 +154,7 @@ The deployed Stylus pricer is reproducibly verified against this source with `ca
 
 ### v2 addresses
 
-Robinhood Chain testnet (46630), v2 (with every fix from the [2026-09-29 security review](docs/security/review-2026-09-29.md)), deployed and verified on Blockscout (deploy block 125880607). The `EpochManager` prices with the verified Stylus pricer after an on-chain check that it returns exactly what the Solidity reference returns. Agent #1 is registered and was bonded with 60 USDG (50 USDG after the live epoch's slash below); the TSLA covered-call vault holds 5 real testnet TSLA from the Robinhood faucet and the put vault 20 USDG. The v1 addresses (before the fixes) are kept in [`46630-v1.json`](contracts/deployments/46630-v1.json). Robinhood testnet has no Chainlink stock feeds, so `MirrorFeed`s copy the mainnet Chainlink rounds ([keeper](scripts/keeper.sh)).
+Robinhood Chain testnet (46630), v2 (with every fix from the [2026-09-29 security review](docs/security/review-2026-09-29.md)), deployed and verified on Blockscout (deploy block 125880607). The `EpochManager` prices with the verified Stylus pricer after an on-chain check that it returns exactly what the Solidity reference returns. Agent #1 is registered and was bonded with 60 USDG (50 USDG after the live epoch's slash below); the TSLA covered-call vault holds 5 real testnet TSLA from the Robinhood faucet, and the put vault was seeded with 20 USDG (30 USDG once the slash below was paid in). The v1 addresses (before the fixes) are kept in [`46630-v1.json`](contracts/deployments/46630-v1.json). Robinhood testnet has no Chainlink stock feeds, so `MirrorFeed`s copy the mainnet Chainlink rounds ([keeper](scripts/keeper.sh)).
 
 | Contract                                    | Address                                                                                                                                         |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |

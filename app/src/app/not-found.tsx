@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import type { Metadata } from "next";
 import { SiteNav } from "@/components/site/SiteNav";
+
+export const metadata: Metadata = { title: "Page not found" };
 
 export default function NotFound() {
   return (

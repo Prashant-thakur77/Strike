@@ -779,7 +779,7 @@ async function recordAll({ epoch, bot }) {
       await caption(page, "Every deployed contract is verified on Blockscout.");
       await scrollToHeading(page, /^Live on Robinhood Chain testnet$/, 170, 1200);
       await sleep(2000);
-      await caption(page, "418 Foundry tests, plus Rust, TypeScript, bot and subgraph tests.");
+      await caption(page, "432 Foundry tests, plus Rust, TypeScript, bot and subgraph tests.");
       await scrollToHeading(page, /^Tests$/, 170, 1200);
       await sleep(2000);
       await caption(page, "9 properties proven with Halmos, for every input in range.");
@@ -799,7 +799,7 @@ async function recordAll({ epoch, bot }) {
         mode: "close",
         hold: 5200,
         items: [
-          { big: "500+", small: "tests: 418 Foundry, plus TypeScript and bot" },
+          { big: "500+", small: "tests: 432 Foundry, plus TypeScript and bot" },
           { big: "9", small: "invariants, fuzzed in CI" },
           { big: "9", small: "formal proofs (Halmos)" },
           { big: "Fork", small: "tests on Robinhood Chain mainnet" },

@@ -19,8 +19,14 @@ export function PageIndex({ items }: { items: IndexItem[] }) {
   // Keep the current chip in view when the row scrolls sideways (phones), without moving the page.
   useEffect(() => {
     const ol = list.current;
-    const a = current ? ol?.querySelector<HTMLElement>(`a[href="#${current}"]`) : null;
-    if (!ol || !a) return;
+    if (!ol) return;
+    // Above the first section: bring the row back to its start.
+    if (current === null) {
+      if (ol.scrollLeft > 0) ol.scrollTo({ left: 0, behavior: "smooth" });
+      return;
+    }
+    const a = ol.querySelector<HTMLElement>(`a[href="#${current}"]`);
+    if (!a) return;
     const left = a.offsetLeft - ol.offsetLeft - 16;
     if (
       left < ol.scrollLeft ||

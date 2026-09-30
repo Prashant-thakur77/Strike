@@ -224,10 +224,12 @@ test.describe("parser", () => {
     unit();
     const first = nextRun(Date.parse("2026-09-30T12:00:00Z"));
     expect(first.first).toBe(true);
-    expect(fmtRunTime(first.at)).toBe("Monday 5 Oct, 15:00 UTC");
+    expect(fmtRunTime(first.at)).toBe("Friday 2 Oct, 21:15 UTC");
     const later = nextRun(Date.parse("2026-10-07T09:00:00Z"));
     expect(later.first).toBe(false);
-    expect(fmtRunTime(later.at)).toBe("Monday 12 Oct, 15:00 UTC");
+    expect(fmtRunTime(later.at)).toBe("Friday 9 Oct, 21:15 UTC");
+    expect(fmtRunTime(nextRun(Date.parse("2026-10-10T09:00:00Z")).at)).toBe("Monday 12 Oct, 15:00 UTC");
+    expect(fmtRunTime(nextRun(Date.parse("2026-10-12T15:00:00Z")).at)).toBe("Friday 16 Oct, 21:15 UTC");
   });
 });
 
@@ -492,7 +494,7 @@ test.describe("decision log on /app/agents", () => {
     await page.goto("/app/agents");
     const log = page.locator("#decision-log");
     await expect(
-      log.getByText("The weekly agent publishes its first record on Monday 5 Oct, 15:00 UTC."),
+      log.getByText("The weekly agent publishes its first record on Friday 2 Oct, 21:15 UTC."),
     ).toBeVisible();
     await expect(log.getByRole("article")).toHaveCount(0);
     await expect(log.getByRole("link", { name: /First live epoch/ })).toHaveAttribute(

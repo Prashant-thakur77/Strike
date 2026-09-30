@@ -31,6 +31,9 @@ import appStyles from "../app.module.css";
 import { ActivePricer } from "./ActivePricer";
 import styles from "./proof.module.css";
 
+/** A suite's count from TESTS, so the headline strip and the tests section never disagree. */
+const testCount = (label: string) => TESTS.find((t) => t.label === label)?.count ?? "?";
+
 const SECTIONS = [
   { id: "live", label: "Deployment" },
   { id: "stylus", label: "Stylus" },
@@ -108,8 +111,8 @@ export function ProofPage() {
           },
           {
             label: "Foundry tests",
-            value: "418",
-            sub: "+ 15 Rust · 122 TypeScript · 60 bot · 10 subgraph",
+            value: testCount("Foundry"),
+            sub: `+ ${testCount("Rust")} Rust · ${testCount("TypeScript")} TypeScript · ${testCount("Telegram bot")} bot · ${testCount("Subgraph")} subgraph`,
           },
           {
             label: "Coverage",
@@ -280,7 +283,7 @@ export function ProofPage() {
                 <strong>A single quote is cheaper in Solidity</strong> ({n(33_969)} gas against {n(40_624)}).
                 A Stylus call pays a fixed entry cost of about 35–40k gas, and one Black-Scholes quote is
                 cheap in the EVM&apos;s native 256-bit arithmetic. Stylus wins once a call does real work:
-                solving a strike by delta runs 48 evaluations and costs 6.6× less.
+                solving a strike by delta runs 48 evaluations and costs 6.5–6.6× less.
               </p>
               <p className={styles.small}>
                 Measured on a local Arbitrum Nitro dev node ({GAS_SOURCE.node}). The first two rows are whole

@@ -342,6 +342,8 @@ export interface EpochEvents {
   premium?: bigint;
   fee?: bigint;
   assetsAfter?: bigint;
+  /** USDG the vault received when an epoch closed without a series: the slashed bonds of rejected proposals. */
+  compensation?: bigint;
   rejections: number;
 }
 
@@ -418,7 +420,10 @@ export async function vaultHistory(
   for (const l of rejected) at(l.args.epoch!).rejections += 1;
   for (const l of vaultSettled) {
     const e = byEpoch.get(l.args.epoch!);
-    if (e) e.assetsAfter = l.args.assets;
+    if (!e) continue;
+    e.assetsAfter = l.args.assets;
+    // An aborted epoch has no EpochManager settlement; the vault's own event carries the slashed bonds it was paid.
+    if (e.abortedAt !== undefined && l.args.premium) e.compensation = l.args.premium;
   }
 
   const epochs = [...byEpoch.values()].sort((a, b) => Number(a.epoch - b.epoch));

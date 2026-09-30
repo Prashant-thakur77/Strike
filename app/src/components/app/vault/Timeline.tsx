@@ -32,16 +32,25 @@ function steps(vault: VaultSummary, cur: EpochEvents | undefined, prev: EpochEve
       note: cur?.rejections
         ? cur.proposedAt
           ? `Accepted after ${cur.rejections} rejection${cur.rejections > 1 ? "s" : ""}`
-          : `${cur.rejections} proposal${cur.rejections > 1 ? "s" : ""} rejected so far`
-        : "Series accepted",
-      text: "Waiting for a proposal",
-      done: !!cur?.proposedAt,
+          : `${cur.rejections} proposal${cur.rejections > 1 ? "s" : ""} rejected${cur.abortedAt ? "" : " so far"}`
+        : cur?.abortedAt
+          ? "No proposal"
+          : "Series accepted",
+      // An aborted epoch never sold: the step is over, not waiting.
+      text: cur?.abortedAt ? "No series accepted" : "Waiting for a proposal",
+      done: !!cur?.proposedAt || !!cur?.abortedAt,
     },
     {
       name: cur?.abortedAt ? "Aborted" : "Settled",
       time: settled ?? (vault.series ? vault.series.expiry : undefined),
       text: "At the series' expiry",
-      note: settled ? "Vault unlocked" : vault.series ? "Expiry" : undefined,
+      note: settled
+        ? cur?.compensation
+          ? `Vault unlocked · ${fmtAmount(cur.compensation, vault.usdg.decimals)} USDG slash to depositors`
+          : "Vault unlocked"
+        : vault.series
+          ? "Expiry"
+          : undefined,
       done: !!settled,
     },
   ];
