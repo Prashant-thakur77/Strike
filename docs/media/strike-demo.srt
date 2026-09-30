@@ -1,187 +1,208 @@
 1
-00:00:00,000 --> 00:00:03,308
-Strike: weekly options vaults for Robinhood Chain stock tokens.
+00:00:00,200 --> 00:00:05,065
+This is Strike: weekly options vaults
+for Robinhood Chain stock tokens.
 
 2
-00:00:03,308 --> 00:00:08,140
-Live on Robinhood Chain testnet: real events, read from the chain.
+00:00:05,115 --> 00:00:07,636
+A covered call pays a weekly premium,
 
 3
-00:00:08,140 --> 00:00:11,423
-Stock tokens on Robinhood Chain earn nothing on their own.
+00:00:07,686 --> 00:00:09,926
+but someone has to pick the strike.
 
 4
-00:00:11,423 --> 00:00:14,424
-Options exist on the chain, but people run them by hand.
+00:00:09,976 --> 00:00:12,155
+Here an AI agent picks it,
 
 5
-00:00:14,424 --> 00:00:17,645
-Strike: an AI agent runs the vault, and the contract enforces the rules.
+00:00:12,205 --> 00:00:15,158
+and the contract checks
+it against a mandate.
 
 6
-00:00:17,645 --> 00:00:23,529
-Stonkhouse and Archer Markets: traders pick strikes and trade them on an order book.
+00:00:15,208 --> 00:00:19,414
+The playground asks the deployed
+Epoch Manager about a proposal,
 
 7
-00:00:23,529 --> 00:00:28,848
-In Strike a bonded agent proposes the strike, and the contract checks it.
+00:00:19,464 --> 00:00:20,702
+with no wallet.
 
 8
-00:00:28,848 --> 00:00:32,170
-The playground asks the deployed EpochManager about a proposal: a read-only call, no wallet.
+00:00:20,752 --> 00:00:24,347
+An honest 0.20-delta call: accepted.
 
 9
-00:00:32,170 --> 00:00:35,038
-Honest agent: a 0.20-delta call. The contract answers: Accepted.
+00:00:24,397 --> 00:00:26,464
+A reckless at-the-money strike:
 
 10
-00:00:35,038 --> 00:00:38,876
-Reckless agent: an at-the-money put. Rejected: DeltaOutOfBand.
+00:00:26,514 --> 00:00:28,867
+rejected, delta out of band.
 
 11
-00:00:38,876 --> 00:00:43,217
-The slash: 10 USDG of the agent's bond, paid to the vault's depositors.
+00:00:28,917 --> 00:00:33,363
+A real one would cost the
+agent 10 USDG of its bond.
 
 12
-00:00:43,217 --> 00:00:46,464
-A real epoch on Robinhood Chain testnet, 29 Sep 2026. First, the seller agent.
+00:00:33,413 --> 00:00:36,429
+It happened for real on September 29.
 
 13
-00:00:46,464 --> 00:00:48,266
-The seller agent targets a 0.20-delta call on the TSLA covered-call vault.
+00:00:36,479 --> 00:00:40,611
+The seller agent asked for
+a 0.20-delta Tesla call,
 
 14
-00:00:48,266 --> 00:00:49,977
-proposeByDelta: the contract solves the strike on-chain.
+00:00:40,661 --> 00:00:47,178
+and the contract solved the strike
+on-chain: $369.86, accepted.
 
 15
-00:00:49,977 --> 00:00:53,418
-Accepted at a $369.86 strike. The series goes on sale.
+00:00:47,228 --> 00:00:50,361
+Then a reckless agent
+forced an at-the-money put.
 
 16
-00:00:53,418 --> 00:00:57,989
---reckless: the agent forces an at-the-money put, outside the 0.10 to 0.35 delta band.
+00:00:50,411 --> 00:00:53,263
+Rejected, and 10 USDG slashed:
 
 17
-00:00:57,989 --> 00:01:00,002
-Rejected on-chain: DeltaOutOfBand. 10 USDG of the agent's bond is slashed.
+00:00:53,313 --> 00:00:55,924
+its bond went from 60 to 50.
 
 18
-00:01:00,002 --> 00:01:02,006
-The agent's bond drops from 60 to 50 USDG: 1 of 3 strikes.
+00:00:55,974 --> 00:00:59,015
+Here it is on the
+Robinhood Chain explorer.
 
 19
-00:01:02,006 --> 00:01:06,307
-The rejection on Blockscout: proposeSeries, and 10 USDG moved out of the agent's bond.
+00:00:59,065 --> 00:01:03,418
+The status says Success, because
+a rejection is not a revert.
 
 20
-00:01:06,307 --> 00:01:10,633
-A buyer agent spends up to 15 USDG on the live series.
+00:01:03,468 --> 00:01:06,981
+The transaction ran, the
+contract refused the proposal,
 
 21
-00:01:10,633 --> 00:01:13,177
-It bought 4 calls for 10.005944 USDG. The premium is the most it can lose.
+00:01:07,031 --> 00:01:10,687
+and 10 USDG left the agent's bond.
 
 22
-00:01:13,177 --> 00:01:17,063
-The TSLA covered-call vault on testnet: a call at $369.86, expiring Fri Oct 2. All 4 sold.
+00:01:10,737 --> 00:01:12,991
+The Tesla covered-call vault this week:
 
 23
-00:01:17,063 --> 00:01:22,891
-The buy price: spot plus 0.5% against the buyer, at Black-Scholes fair value, never below intrinsic.
+00:01:13,041 --> 00:01:17,553
+the $369.86 call, all four sold
 
 24
-00:01:22,891 --> 00:01:28,422
-Buyer profits above $372.36. At or below $369.86, depositors keep the full premium.
+00:01:17,603 --> 00:01:21,031
+to a buyer agent, for 10.01 USDG.
 
 25
-00:01:28,422 --> 00:01:31,763
-The backtest: 403 weekly epochs, Jan 2019 to Sep 2026, run by the contract rules.
+00:01:21,081 --> 00:01:25,452
+The buyer profits above $372.36.
 
 26
-00:01:31,763 --> 00:01:35,367
-NVDA: the covered call's volatility is 26.5%, against 45.6% for holding the stock.
+00:01:25,502 --> 00:01:29,743
+At or below the strike,
+depositors keep the whole premium.
 
 27
-00:01:35,367 --> 00:01:42,303
-A covered call trades upside for 25 to 46% lower volatility, on every stock tested.
+00:01:29,793 --> 00:01:32,517
+A risk engine written in Rust on Stylus
 
 28
-00:01:42,303 --> 00:01:44,788
-Every agent posts a USDG bond. A rejected proposal costs 10 USDG.
+00:01:32,567 --> 00:01:35,095
+stress-tests this week's option on-chain.
 
 29
-00:01:44,788 --> 00:01:49,930
-Agent #1: ERC-8004 identity #114, 1 accepted, 1 rejected, 1 strike, 50 USDG bond.
+00:01:35,145 --> 00:01:38,466
+Its worst case: a 30% jump in Tesla,
 
 30
-00:01:49,930 --> 00:01:53,562
-The rejection feed: DeltaOutOfBand on the TSLA put vault, 10 USDG slashed.
+00:01:38,516 --> 00:01:42,492
+and −$321.40 for the vault.
 
 31
-00:01:53,562 --> 00:02:01,096
-An open market: any agent can register, bond USDG and run a vault.
+00:01:42,542 --> 00:01:46,964
+Agent one is ERC-8004 identity 114:
 
 32
-00:02:01,096 --> 00:02:03,841
-The Telegram bot reads the chain's logs and posts an alert for each event.
+00:01:47,014 --> 00:01:51,628
+one accepted, one rejected,
+and a 50 USDG bond.
 
 33
-00:02:03,841 --> 00:02:07,671
-A rejected proposal: the rule it broke, the 10 USDG slash and the transaction.
+00:01:51,678 --> 00:01:54,033
+This monitor reads every stock token
 
 34
-00:02:07,671 --> 00:02:10,823
-A sale: 4 TSLA calls bought for 10.005944 USDG.
+00:01:54,083 --> 00:01:56,543
+on Robinhood Chain mainnet, live.
 
 35
-00:02:10,823 --> 00:02:13,506
-The safety monitor: every Robinhood Chain stock token, read live from mainnet.
+00:01:56,593 --> 00:02:02,370
+Nvidia's multiplier, 1.000775,
+is already in the price,
 
 36
-00:02:13,506 --> 00:02:16,921
-Each token gets the verdict the contracts would give: five checks, or no price.
+00:02:02,420 --> 00:02:05,071
+so Strike never applies it twice.
 
 37
-00:02:16,921 --> 00:02:21,454
-NVDA's multiplier is 1.000775159: already in the price, so Strike never applies it.
+00:02:05,121 --> 00:02:08,906
+Over 403 weekly epochs since 2019,
 
 38
-00:02:21,454 --> 00:02:22,438
-The proof page: every claim next to its evidence.
+00:02:08,956 --> 00:02:14,359
+the covered call traded upside
+for 25 to 46% lower volatility.
 
 39
-00:02:22,438 --> 00:02:25,369
-Every deployed contract is verified on Blockscout.
+00:02:14,409 --> 00:02:20,252
+On Nvidia, from 45.6% down to 26.5%.
 
 40
-00:02:25,369 --> 00:02:28,389
-432 Foundry tests, plus Rust, TypeScript, bot and subgraph tests.
+00:02:20,302 --> 00:02:22,892
+891 tests and proofs,
 
 41
-00:02:28,389 --> 00:02:31,420
-9 properties proven with Halmos, for every input in range.
+00:02:22,942 --> 00:02:25,740
+99.3% line coverage,
 
 42
-00:02:31,420 --> 00:02:34,568
-An internal review: 11 findings, all fixed, with regression tests.
+00:02:25,790 --> 00:02:28,164
+nine properties proven with Halmos,
 
 43
-00:02:34,568 --> 00:02:39,651
-802 tests and proofs: 432 Foundry tests, 9 fork tests on mainnet, 9 Halmos proofs, and more.
+00:02:28,214 --> 00:02:30,858
+all 11 internal-review findings fixed,
 
 44
-00:02:39,651 --> 00:02:44,052
-99.1% line coverage and 97.5% branch coverage, above the 95% CI gate.
+00:02:30,908 --> 00:02:35,860
+and a Stylus strike solver
+that uses 6.5 times less gas.
 
 45
-00:02:44,052 --> 00:02:48,173
-The strike solver in Stylus costs 6.5× less gas than in Solidity.
+00:02:35,910 --> 00:02:38,324
+Strike: options on Robinhood Chain,
 
 46
-00:02:48,173 --> 00:02:51,436
-Strike: options on Robinhood Chain, run by agents that cannot break the rules.
+00:02:38,374 --> 00:02:41,425
+run by agents the contract
+holds to a mandate.
 
 47
-00:02:51,436 --> 00:02:54,698
-802 tests and proofs (432 Foundry tests), 9 invariants, 9 formal proofs, fork tests on mainnet. github.com/Prashant-thakur77/Strike
+00:02:41,475 --> 00:02:45,943
+Try the playground at
+strike-options.vercel.app.
+
+48
+00:02:45,993 --> 00:02:48,883
+It is unaudited, and on testnet.

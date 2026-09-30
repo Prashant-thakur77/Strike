@@ -1,100 +1,144 @@
 1
-00:00:00,300 --> 00:00:02,643
-Robinhood Chain put US stocks on-chain.
+00:00:00,300 --> 00:00:02,634
+This is Strike, by Prashant Thakur:
 
 2
-00:00:02,843 --> 00:00:06,457
-Strike turns them into weekly options vaults, paid in USDG.
+00:00:02,684 --> 00:00:06,047
+weekly options vaults for
+Robinhood Chain stock tokens,
 
 3
-00:00:06,907 --> 00:00:08,993
-Holding a stock token earns nothing extra.
+00:00:06,097 --> 00:00:09,681
+run by AI agents the
+contract holds to a mandate.
 
 4
-00:00:09,193 --> 00:00:14,747
-Options on the chain are new, and none lets an AI agent make the weekly call inside rules the contract enforces.
+00:00:09,831 --> 00:00:13,296
+A stock token earns nothing
+extra while it sits in a wallet.
 
 5
-00:00:15,197 --> 00:00:20,752
-Stock tokens also have traps: a multiplier applied twice, prices frozen over the weekend, two layers of pause.
+00:00:13,346 --> 00:00:17,143
+On Wall Street, holders
+sell covered calls for that.
 
 6
-00:00:20,952 --> 00:00:25,833
-SafeStockFeed handles each one, and our monitor checks eight mainnet stock tokens, live.
+00:00:17,293 --> 00:00:19,259
+Stock tokens also have traps:
 
 7
-00:00:26,283 --> 00:00:30,514
-Stylus makes solving the strike on-chain 3.3 times cheaper per proposal.
+00:00:19,309 --> 00:00:21,985
+a multiplier that is easy to apply twice,
 
 8
-00:00:30,964 --> 00:00:34,320
-An AI agent picks each week's strike, but never touches the funds.
+00:00:22,035 --> 00:00:25,307
+weekend price freezes,
+and two pause layers.
 
 9
-00:00:34,520 --> 00:00:39,391
-The mandate is fixed on-chain: a delta band, a premium floor, a maximum size.
+00:00:25,357 --> 00:00:28,189
+Strike's contracts handle each one.
 
 10
-00:00:39,591 --> 00:00:42,467
-Break it, and the agent's bond is slashed to depositors.
+00:00:28,339 --> 00:00:32,140
+Robinhood Chain, an Arbitrum
+chain, now has every piece:
 
 11
-00:00:42,667 --> 00:00:47,644
-Agent one is ERC-8004 identity 114, with a public reputation.
+00:00:32,190 --> 00:00:36,017
+stock tokens, Chainlink stock feeds, USDG,
 
 12
-00:00:48,094 --> 00:00:52,997
-Deposit TSLA, and each week the vault sells a covered call, for a premium in USDG.
+00:00:36,067 --> 00:00:39,048
+and ERC-8004 agent identity.
 
 13
-00:00:53,197 --> 00:00:57,075
-Deposit USDG, and the put vault pays you to wait for a lower price.
+00:00:39,098 --> 00:00:44,905
+And Stylus makes solving the strike
+on-chain 3.3 times cheaper per proposal.
 
 14
-00:00:57,525 --> 00:01:01,287
-It is live at strike-options.vercel.app.
+00:00:45,055 --> 00:00:49,517
+Each week an agent proposes a
+strike, but never touches the funds.
 
 15
-00:01:01,737 --> 00:01:08,389
-Test it without a wallet: the playground runs any proposal against a live mandate, and the proof page links every claim to its evidence.
+00:00:49,567 --> 00:00:52,958
+The contract checks it against
+the vault's fixed mandate.
 
 16
-00:01:08,839 --> 00:01:16,173
-On testnet, a buyer agent paid 10.01 USDG of premium, and a reckless agent's 10 USDG slash was paid to depositors.
+00:00:53,008 --> 00:00:57,396
+On September 29, a reckless
+at-the-money put was rejected,
 
 17
-00:01:16,623 --> 00:01:24,225
-Cboe's BXM index has covered-call data back to 1986, and our backtest shows 25 to 46% lower volatility than holding.
+00:00:57,446 --> 00:01:01,429
+and 10 USDG of its bond
+went to depositors.
 
 18
-00:01:24,675 --> 00:01:27,252
-Stonkhouse and Archer Markets let traders pick strikes.
+00:01:01,579 --> 00:01:06,073
+It is live on testnet: two
+vaults, 14 contracts verified,
 
 19
-00:01:27,452 --> 00:01:30,627
-In Strike, a bonded agent proposes, and the contract checks.
+00:01:06,123 --> 00:01:11,120
+and a buyer agent that
+paid 10.01 USDG of premium.
 
 20
-00:01:31,077 --> 00:01:34,955
-Strike takes ten percent of positive weekly net premium, half to the agent.
+00:01:11,270 --> 00:01:14,724
+Stonkhouse and Archer Markets
+let traders pick strikes.
 
 21
-00:01:35,155 --> 00:01:36,517
-A losing week pays nothing.
+00:01:14,774 --> 00:01:19,297
+In Strike, a bonded agent
+proposes and the contract checks.
 
 22
-00:01:36,967 --> 00:01:45,155
-Behind it are 802 tests and proofs: 432 Foundry tests, 9 properties proven with Halmos, and 99.1% line coverage.
+00:01:19,447 --> 00:01:24,097
+We take 10% of a week's positive
+net premium, half to the agent,
 
 23
-00:01:45,355 --> 00:01:49,329
-An internal review found 11 issues, one of them High, and all are fixed.
+00:01:24,147 --> 00:01:26,578
+and nothing on a losing week.
 
 24
-00:01:49,779 --> 00:01:53,018
-Next come a capped mainnet vault, more tickers and put spreads.
+00:01:26,728 --> 00:01:32,417
+Behind it: 891 tests and
+proofs, 99.3% line coverage,
 
 25
-00:01:53,468 --> 00:01:58,072
-Strike: weekly options vaults on Robinhood Chain, with agents the contract holds to their mandate.
+00:01:32,467 --> 00:01:34,710
+nine properties proven with Halmos,
 
+26
+00:01:34,760 --> 00:01:38,173
+and all 11 internal-review findings fixed.
+
+27
+00:01:38,223 --> 00:01:40,191
+It is not audited yet.
+
+28
+00:01:40,341 --> 00:01:44,104
+Next: an external audit,
+then a capped mainnet vault.
+
+29
+00:01:44,154 --> 00:01:48,499
+We are asking for a place
+at Founder House Singapore,
+
+30
+00:01:48,549 --> 00:01:51,626
+and introductions to
+wallets and market makers.
+
+31
+00:01:51,676 --> 00:01:56,492
+Try the playground at
+strike-options.vercel.app.
