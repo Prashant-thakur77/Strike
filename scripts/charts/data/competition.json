@@ -1,7 +1,15 @@
 {
   "checked": "2026-09-30",
   "rule": "Cells state what each project's own docs or repository say. 'not described' means the cited pages do not cover it; it does not mean the project lacks it.",
-  "projects": ["Strike", "Stonkhouse", "Archer Markets", "Ribbon / Aevo", "Derive (Lyra)", "Thetanuts"],
+  "projects": [
+    "Strike",
+    "Stonkhouse",
+    "Archer Markets",
+    "Ribbon / Aevo",
+    "Derive (Lyra)",
+    "Thetanuts",
+    "Tilt Protocol"
+  ],
   "rows": [
     {
       "row": "Chain",
@@ -11,7 +19,8 @@
         "Robinhood Chain testnet (46630)",
         "Ethereum, Avalanche, Solana; Aevo is its own rollup",
         "Optimism (Lyra v1); Derive chain (v2)",
-        "Base; Ethereum (WheelVault only)"
+        "Base; Ethereum (WheelVault only)",
+        "Robinhood Chain testnet"
       ]
     },
     {
@@ -22,7 +31,8 @@
         "Testnet proof of concept; unaudited",
         "Aevo launched; vault status not described",
         "v3 on testnet, mainnet \"coming soon\"",
-        "V4 on Base, early testing"
+        "V4 on Base, early testing",
+        "Testnet build; NYC online buildathon 1st place"
       ]
     },
     {
@@ -33,7 +43,8 @@
         "Traders (one book per strike)",
         "Off-chain algorithm at 10 delta",
         "Owner lists boards (v1); users (v3)",
-        "The requesting trader (RFQ)"
+        "The requesting trader (RFQ)",
+        "No options; an AI management layer runs the vaults"
       ]
     },
     {
@@ -44,6 +55,7 @@
         "not described",
         "not described",
         "Curator stake floor; curators may trade any instrument",
+        "not described",
         "not described"
       ]
     },
@@ -51,6 +63,7 @@
       "row": "Slashing paid to depositors",
       "cells": [
         "Yes: 10 USDG per rejected proposal",
+        "not described",
         "not described",
         "not described",
         "not described",
@@ -66,7 +79,8 @@
         "Order book; no oracle",
         "Auctions; oracle at settlement",
         "AMM model (v1); order book and RFQ (v3)",
-        "RFQ; oracle at expiry"
+        "RFQ; oracle at expiry",
+        "RFQ engine; an oracle parses SEC and STOCK Act filings"
       ]
     },
     {
@@ -77,13 +91,15 @@
         "not described",
         "not described (crypto assets)",
         "not described (crypto assets)",
-        "not described (crypto assets)"
+        "not described (crypto assets)",
+        "not described"
       ]
     },
     {
       "row": "ERC-8004 agent identity",
       "cells": [
         "Yes: identity #114",
+        "not described",
         "not described",
         "not described",
         "not described",
@@ -99,7 +115,8 @@
         "Yes: quote token",
         "not described",
         "not described (USDC)",
-        "not described (USDC)"
+        "not described (USDC)",
+        "not described"
       ]
     }
   ],
@@ -141,6 +158,12 @@
       "https://docs.thetanuts.finance/sdk/getting-started/supported-chains.md",
       "https://docs.thetanuts.finance/sdk/rfq-factory/overview.md",
       "https://docs.thetanuts.finance/for-builders/network-and-products.md"
+    ],
+    "Tilt Protocol": [
+      "https://www.hackquest.io/projects/Arbitrum-Open-House-NYC-Online-Buildathon-Tilt-Protocol",
+      "https://github.com/0xangky/bowstring-contracts",
+      "https://github.com/rontoTech/tilt-protocol-openclaw",
+      "https://www.tiltprotocol.com/"
     ]
   },
   "positions": {
@@ -163,10 +186,30 @@
         "y": 3,
         "note": "agent proposes, MandateGuard checks; Black-Scholes at oracle spot"
       },
-      { "name": "Stonkhouse", "x": 0, "y": 0, "note": "writers set the ask on an order book" },
-      { "name": "Archer Markets", "x": 0, "y": 0, "note": "on-chain bid/ask order book" },
-      { "name": "Aevo", "x": 0, "y": 0, "note": "order-book exchange" },
-      { "name": "Derive v3", "x": 0, "y": 0.35, "note": "users mint any strike; order book and RFQ" },
+      {
+        "name": "Stonkhouse",
+        "x": 0,
+        "y": 0,
+        "note": "writers set the ask on an order book"
+      },
+      {
+        "name": "Archer Markets",
+        "x": 0,
+        "y": 0,
+        "note": "on-chain bid/ask order book"
+      },
+      {
+        "name": "Aevo",
+        "x": 0,
+        "y": 0,
+        "note": "order-book exchange"
+      },
+      {
+        "name": "Derive v3",
+        "x": 0,
+        "y": 0.35,
+        "note": "users mint any strike; order book and RFQ"
+      },
       {
         "name": "Thetanuts V4",
         "x": 0,
@@ -190,5 +233,8 @@
       ["Lyra v1", "Derive v3"],
       ["Ribbon Theta Vaults", "Aevo"]
     ]
+  },
+  "source_notes": {
+    "Tilt Protocol": "Cells come from its HackQuest text (via docs/research-winners.md) and were not checked against its contracts. It does not sell options, so it has no point in 'positions'."
   }
 }

@@ -556,6 +556,32 @@ Other entries in this edition that touch stock tokens (HackQuest intros):
 
 The official docs list "structured products" and "Perps & derivatives" as intended use cases but name no options partner. Source: https://docs.robinhood.com/chain/building-with-stock-tokens
 
+### Past Open House winner on Robinhood Chain: Tilt Protocol
+
+Added 2026-09-30 from the past-winners research ([research-winners.md](research-winners.md)). These facts come from Tilt's HackQuest text and linked repositories; I did not check them against its deployed contracts (**UNVERIFIED**, item 13 below).
+
+| Field                 | What the sources say                                                                                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Result                | Open House NYC online buildathon 1st place ($15K); NYC Founder House Founder-in-Residence ($100K)                                                                                                                                                                              |
+| What it does          | AI-driven management layer for tokenized-RWA vaults on Robinhood Chain; an oracle parses SEC and STOCK Act filings; an RFQ engine                                                                                                                                              |
+| Stack                 | Solidity on Robinhood Chain testnet, Next.js; an agent skill published on ClawHub (`clawhub install tilt-protocol`, and a skill served over HTTP)                                                                                                                              |
+| On-chain limits on AI | not described                                                                                                                                                                                                                                                                  |
+| Bond or slashing      | not described                                                                                                                                                                                                                                                                  |
+| Stock-token safety    | not described                                                                                                                                                                                                                                                                  |
+| ERC-8004, USDG        | not described                                                                                                                                                                                                                                                                  |
+| Sources               | [HackQuest](https://www.hackquest.io/projects/Arbitrum-Open-House-NYC-Online-Buildathon-Tilt-Protocol), [contracts](https://github.com/0xangky/bowstring-contracts), [agent skill](https://github.com/rontoTech/tilt-protocol-openclaw), [site](https://www.tiltprotocol.com/) |
+
+How Strike differs. Tilt's AI manages the vault; Strike's agent only proposes a strike, the contract checks it against an immutable mandate, and a proposal outside the mandate slashes the agent's USDG bond to the vault's depositors. A Tilt vault's return depends on what its AI chooses to hold; a Strike vault earns option premium on a stock the depositor already holds (covered call) or would buy at the strike (cash-secured put). Tilt does not sell options, so it has no place on the options positioning chart in the README.
+
+### USDG lending yields (the benchmark for the put vault)
+
+| Venue                           | Yield                  | Date       | Source                                                                                                                                                                                                                             |
+| ------------------------------- | ---------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Steakhouse USDG vault on Morpho | about 1.9%             | 2026-07-20 | [FalconX Robinhood Chain primer](https://x.com/FalconXGlobal/article/2079248025214407089)                                                                                                                                          |
+| Robinhood Earn on USDG          | about 7% estimated APY | 2026       | [FalconX primer](https://x.com/FalconXGlobal/article/2079248025214407089), [Robinhood newsroom](https://robinhood.com/us/en/newsroom/robinhood-accelerates-global-expansion-robinhood-chain-mainnet-stock-tokens-agentic-trading/) |
+
+Strike's cash-secured-put vault, 2019 to 2026 ([backtest.md](backtest.md)): −0.9% to 3.7% a year at realised volatility × 1.15, and −3.8% to 0.5% at × 1.00, with collateral earning nothing. Only NVDA at × 1.15 beat the 1.9% organic rate, and no case reached 7%. The put vault is therefore framed as being paid to bid below spot, not as a savings product.
+
 ---
 
 ## UNVERIFIED / needs a human check
@@ -572,3 +598,5 @@ The official docs list "structured products" and "Perps & derivatives" as intend
 10. **Trion and St0kes addresses**: taken from their READMEs; I did not check them on-chain.
 11. **Robinhood mainnet Blockscout API**: it was behind a Cloudflare challenge for curl. `forge verify-contract` against `https://robinhoodchain.blockscout.com/api/` is what the official docs say, but I have not tested it.
 12. **HackQuest project count.** 88 in the metadata vs 32 publicly listed. Some competitors named in the brief (HarvestBot, Amen, StockGuard, Manda, Regen Bazaar, ProtoRWA) are not in the public list yet. They may be drafts or unpublished.
+13. **Tilt Protocol**: the table above repeats its HackQuest text; its contracts were not checked.
+14. **Robinhood Earn at about 7%**: taken from the FalconX primer and the Robinhood newsroom, not from the Earn page itself. Whether it is subsidised is not confirmed.

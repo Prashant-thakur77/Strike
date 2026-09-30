@@ -401,9 +401,9 @@ def chart_epoch(t, theme):
 GLYPH_ROWS = {"On-chain agent mandate", "Slashing paid to depositors", "Oracle-anchored pricing", "Stock-token (ERC-8056) safety", "ERC-8004 agent identity", "USDG"}
 
 SHORT = {
-    "Chain": ["RH Chain testnet", "RH Chain mainnet", "RH Chain testnet", "Ethereum, Avalanche,\nSolana; Aevo rollup", "Optimism (v1);\nDerive chain", "Base; Ethereum"],
-    "Live status": ["Testnet, live epoch", "Mainnet since\n2026-09-25", "Testnet proof\nof concept", "Aevo launched;\nvaults not described", "v3 on testnet", "V4 on Base,\nearly testing"],
-    "Who picks the strike": ["Bonded AI agent,\nchecked on-chain", "Writers, from\na listed ladder", "Traders", "Off-chain algorithm,\n10 delta", "Owner lists (v1);\nusers (v3)", "Requesting trader\n(RFQ)"],
+    "Chain": ["RH Chain testnet", "RH Chain mainnet", "RH Chain testnet", "Ethereum, Avalanche,\nSolana; Aevo rollup", "Optimism (v1);\nDerive chain", "Base; Ethereum", "RH Chain testnet"],
+    "Live status": ["Testnet, live epoch", "Mainnet since\n2026-09-25", "Testnet proof\nof concept", "Aevo launched;\nvaults not described", "v3 on testnet", "V4 on Base,\nearly testing", "Testnet; NYC\nonline 1st place"],
+    "Who picks the strike": ["Bonded AI agent,\nchecked on-chain", "Writers, from\na listed ladder", "Traders", "Off-chain algorithm,\n10 delta", "Owner lists (v1);\nusers (v3)", "Requesting trader\n(RFQ)", "No options;\nAI-managed vaults"],
 }
 
 
@@ -436,14 +436,15 @@ def cell_short(row, text):
         "Auctions; oracle at settlement": "Auctions;\noracle settles",
         "AMM model (v1); order book and RFQ (v3)": "AMM model (v1);\nbook + RFQ (v3)",
         "RFQ; oracle at expiry": "RFQ;\noracle settles",
+        "RFQ engine; an oracle parses SEC and STOCK Act filings": "RFQ; oracle reads\nSEC filings",
     }.get(text, text)
 
 
 def chart_matrix(t, theme):
     d = json.loads((DATA / "competition.json").read_text())
     projects, rows = d["projects"], d["rows"]
-    W = 1260
     left = 290
+    W = left + 24 + 162 * len(projects)
     col_w = (W - left - 24) / len(projects)
     row_h = 54
     top, bottom = 150, 70
@@ -500,7 +501,7 @@ def chart_matrix(t, theme):
             ax.add_patch(Rectangle((gx - 6, cy - 1), 12, 2, facecolor=t["context"], edgecolor="none"))
         ax.text(gx + 14, cy, lab, va="center", color=t["ink2"], fontsize=9.5)
         kx += 48 + len(lab) * 7.4
-    ax.text(24, 24, "Options on stock tokens and weekly option vaults: what each project's own docs say", color=t["ink"], fontsize=15, fontweight="bold", va="top")
+    ax.text(24, 24, "Options on stock tokens, weekly option vaults and AI-run stock vaults: what each project's own docs say", color=t["ink"], fontsize=15, fontweight="bold", va="top")
     ax.text(24, 52, "\"not described\" means the cited pages do not cover it, not that the project lacks it. RH Chain = Robinhood Chain.", color=t["ink2"], fontsize=11, va="top")
     ax.text(24, H - 16, "Sources: each project's docs and repositories, read 2026-09-30 (list under the matrix in README.md and in scripts/charts/data/competition.json)",
             color=t["muted"], fontsize=9, va="bottom")
