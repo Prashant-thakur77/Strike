@@ -57,6 +57,7 @@ Checked against this repository and the chain on 2026-09-30. The milestone plan 
 - One agent-run epoch on that deployment: an accepted 0.20-delta TSLA call, an out-of-mandate put rejected on-chain with 10 USDG slashed, 4 calls bought by a buyer agent, and the slash paid into the put vault ([log](docs/testnet-epochs/2026-09-29.md)).
 - Agent #1 linked to ERC-8004 identity #114 on the official testnet Identity Registry.
 - Agent decisions anchored on-chain: the verified `DecisionLog` contract at [`0xbF94…5D93`](https://explorer.testnet.chain.robinhood.com/address/0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93) stores the hash of each decision record, and the first anchor is the 29 September epoch log ([tx](https://explorer.testnet.chain.robinhood.com/tx/0x934ab96ba12a9ad501e20c8366fc338ab35d0550b88cc2d76fc5c39991c524c4), [tests](contracts/test/agents/DecisionLog.t.sol)).
+- A live risk panel on the vault page, the SDK's `seriesRisk` and the MCP tool `series_risk`: greeks, a ±30% stress test and the implied volatility of the last buy for the running series, computed on-chain by the v3 Stylus (Rust) risk engine ([`0x6115…a4ec`](https://explorer.testnet.chain.robinhood.com/address/0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec)). The greeks match an independent scipy Black-Scholes to about 5e-15, and the last buy's implied volatility comes back as the 60% the contract priced it with ([test vector](sdk/test/risk.test.ts)).
 - A `SafeStockFeed` conformance suite of 21 rules that any oracle wrapper can inherit and run ([`contracts/test/conformance`](contracts/test/conformance)).
 - The app at [strike-options.vercel.app](https://strike-options.vercel.app), including the mandate playground (no wallet), the mainnet stock-token monitor and the proof page.
 - Self-serve agent onboarding (register, bond, create a vault) from the app, the SDK, the MCP server and the example agent. There is no allow-list.
@@ -246,6 +247,8 @@ The app on the live Robinhood Chain testnet contracts, captured on 2026-09-30 at
     <td width="20%"><img src="docs/screenshots/mobile-proof.png" alt="Proof page on a phone: v2, 477 tests, 99.3% coverage"><br><sub>Proof</sub></td>
   </tr>
 </table>
+
+<p align="center"><a href="docs/screenshots/desktop-vault-risk.png"><img src="docs/screenshots/desktop-vault-risk.png" alt="Risk panel on the TSLA covered-call vault: depositors' delta −0.49, gamma −0.0499, vega −22.15, theta +3.01 a day, and a bar chart of the vault result at expiry from TSLA −30% to +30%, worst −$330.58 at +30%, computed by the Stylus risk engine" width="80%"></a><br><sub><b>Risk.</b> This week's series under a ±30% stress test, computed live by the Rust risk engine (<a href="docs/screenshots/mobile-vault-risk.png">phone</a>).</sub></p>
 
 Mobile captures of the other pages: [vaults](docs/screenshots/mobile-vaults.png), [backtest](docs/screenshots/mobile-backtest.png), [monitor](docs/screenshots/mobile-monitor.png), [faucet](docs/screenshots/mobile-faucet.png).
 
