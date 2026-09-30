@@ -2,7 +2,19 @@
 
 Updated at the end of every phase and every improvement cycle. A score without linked evidence counts as 5.
 
-## Latest: improvement cycle 4, before Friday's settlement (2026-09-30)
+## Latest: improvement cycle 6, before Friday's settlement (2026-09-30)
+
+| Criterion              | Cycle 4 | Cycle 6 | What changed since cycle 4                                                                                                                                                                                                                                                             | Remaining gap                               |
+| ---------------------- | ------: | ------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Smart contract quality |     9.5 |     9.7 | The known issues are fixed and tested on the [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch (fee high-water mark with an invariant that fails without it, EIP-712 signer consent, active-agent check, mandate reasons; 475 tests); 432 on main | External audit; v3 deployment after the run |
+| Product-market fit     |     7.6 |     8.0 | Any agent can join (register, bond, run a vault) from the app, SDK, MCP or the example agent; `SafeStockFeed` installs in other projects with one remapping; a judge's tour                                                                                                            | Users and a live URL (owner)                |
+| Innovation, creativity |     8.9 |     9.1 | An open agent market on top of the mandate and slashing layer                                                                                                                                                                                                                          | —                                           |
+| Real problem solving   |     8.8 |     9.0 | A lending-style `StockCollateral` example with mainnet fork tests shows the safety library in another protocol; the slash reached depositors on-chain                                                                                                                                  | Settlement on Friday                        |
+| Paxos USDG (extra)     |     8.5 |     8.5 |                                                                                                                                                                                                                                                                                        | —                                           |
+
+Text a judge reads was rewritten plainly and checked against the facts (six errors fixed). What is left for Claude: settle the live epoch on Friday, re-render the video with it, release `v0.9.0`. Everything else is the owner's (req-you.md).
+
+## Earlier: improvement cycle 4 (2026-09-30)
 
 | Criterion              | Cycle 3 | Cycle 4 | What changed                                                                                                                                              | Remaining gap                                                                                                     |
 | ---------------------- | ------: | ------: | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
