@@ -153,7 +153,11 @@ contract AuditPricingTest is StrikeBase {
         VaultFactory.CreateParams memory p = _params(true, 1_000_000 * WAD);
         p.mandate = m;
         vm.prank(agent); // the agent is its own curator
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MandateGuard.InvalidMandate.selector, uint8(MandateGuard.MandateError.PremiumBelowFloor)
+            )
+        );
         factory.createVault(p);
 
         // At the floor, the agent-buyer still pays at least 90% of fair value.

@@ -52,15 +52,43 @@ library MandateGuard {
         PremiumTooSmall
     }
 
-    error InvalidMandate();
+    /// @notice Why `validate` refused a mandate: the first rule it breaks, in this order.
+    enum MandateError {
+        None,
+        DeltaBandInverted, // minDeltaBps > maxDeltaBps
+        DeltaAboveOne, // maxDeltaBps > 10,000
+        ShareSoldZero, // maxShareSoldBps == 0
+        ShareSoldAboveOne, // maxShareSoldBps > 10,000
+        PremiumBelowFloor, // minPremiumBps < 9,000
+        PremiumAboveCap, // minPremiumBps > 30,000
+        YieldAboveOne, // minYieldBps > 10,000
+        TenorZero, // minTenor == 0
+        TenorInverted, // minTenor > maxTenor
+        TenorAboveCap // maxTenor > 35 days
+    }
 
-    /// @notice Reverts unless the mandate is internally consistent.
+    /// @param reason A `MandateError` value.
+    error InvalidMandate(uint8 reason);
+
+    /// @notice Reverts with the first broken rule unless the mandate is internally consistent.
     function validate(Mandate memory m) internal pure {
-        if (m.minDeltaBps > m.maxDeltaBps || m.maxDeltaBps > BPS) revert InvalidMandate();
-        if (m.maxShareSoldBps == 0 || m.maxShareSoldBps > BPS) revert InvalidMandate();
-        if (m.minPremiumBps < MIN_PREMIUM_FLOOR_BPS || m.minPremiumBps > MAX_PREMIUM_BPS) revert InvalidMandate();
-        if (m.minYieldBps > BPS) revert InvalidMandate();
-        if (m.minTenor == 0 || m.minTenor > m.maxTenor || m.maxTenor > MAX_TENOR_CAP) revert InvalidMandate();
+        MandateError e = mandateError(m);
+        if (e != MandateError.None) revert InvalidMandate(uint8(e));
+    }
+
+    /// @notice `MandateError.None` if the mandate is internally consistent, otherwise the first rule it breaks.
+    function mandateError(Mandate memory m) internal pure returns (MandateError) {
+        if (m.minDeltaBps > m.maxDeltaBps) return MandateError.DeltaBandInverted;
+        if (m.maxDeltaBps > BPS) return MandateError.DeltaAboveOne;
+        if (m.maxShareSoldBps == 0) return MandateError.ShareSoldZero;
+        if (m.maxShareSoldBps > BPS) return MandateError.ShareSoldAboveOne;
+        if (m.minPremiumBps < MIN_PREMIUM_FLOOR_BPS) return MandateError.PremiumBelowFloor;
+        if (m.minPremiumBps > MAX_PREMIUM_BPS) return MandateError.PremiumAboveCap;
+        if (m.minYieldBps > BPS) return MandateError.YieldAboveOne;
+        if (m.minTenor == 0) return MandateError.TenorZero;
+        if (m.minTenor > m.maxTenor) return MandateError.TenorInverted;
+        if (m.maxTenor > MAX_TENOR_CAP) return MandateError.TenorAboveCap;
+        return MandateError.None;
     }
 
     /// @notice `Reason.None` if the proposal is inside the mandate, otherwise the first rule it breaks.

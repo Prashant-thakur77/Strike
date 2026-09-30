@@ -140,7 +140,11 @@ contract EpochManagerTest is StrikeBase {
         VaultFactory.CreateParams memory p = _params(true, 1000 * WAD);
         p.mandate.minDeltaBps = 5000;
         p.mandate.maxDeltaBps = 1000;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                MandateGuard.InvalidMandate.selector, uint8(MandateGuard.MandateError.DeltaBandInverted)
+            )
+        );
         vm.prank(curator);
         factory.createVault(p);
     }

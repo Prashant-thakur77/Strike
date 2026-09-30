@@ -109,4 +109,27 @@ contract MandateGuardFormal {
         }
         assert(accepted == consistent);
     }
+
+    /// A refused mandate reverts with the first broken rule, in the documented order, as `InvalidMandate(reason)`.
+    function check_validate_reasonIsFirstBrokenRule(MandateGuard.Mandate memory m) public {
+        uint8 expected;
+        if (m.minDeltaBps > m.maxDeltaBps) expected = 1;
+        else if (m.maxDeltaBps > BPS) expected = 2;
+        else if (m.maxShareSoldBps == 0) expected = 3;
+        else if (m.maxShareSoldBps > BPS) expected = 4;
+        else if (m.minPremiumBps < MIN_PREMIUM_FLOOR_BPS) expected = 5;
+        else if (m.minPremiumBps > MAX_PREMIUM_BPS) expected = 6;
+        else if (m.minYieldBps > BPS) expected = 7;
+        else if (m.minTenor == 0) expected = 8;
+        else if (m.minTenor > m.maxTenor) expected = 9;
+        else if (m.maxTenor > MAX_TENOR_CAP) expected = 10;
+
+        MandateGuardHarness h = new MandateGuardHarness();
+        try h.validate(m) {
+            assert(expected == 0);
+        } catch (bytes memory err) {
+            assert(expected != 0);
+            assert(keccak256(err) == keccak256(abi.encodeWithSelector(MandateGuard.InvalidMandate.selector, expected)));
+        }
+    }
 }

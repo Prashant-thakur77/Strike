@@ -10,6 +10,10 @@ contract MandateGuardHarness {
         MandateGuard.validate(m);
     }
 
+    function mandateError(MandateGuard.Mandate memory m) external pure returns (MandateGuard.MandateError) {
+        return MandateGuard.mandateError(m);
+    }
+
     function check(MandateGuard.Mandate memory m, MandateGuard.Proposal memory p)
         external
         pure
@@ -71,6 +75,10 @@ contract MandateGuardTest is Test {
         assertEq(uint8(h.check(_mandate(), p)), uint8(expected));
     }
 
+    function _expectInvalid(MandateGuard.MandateError e) internal {
+        vm.expectRevert(abi.encodeWithSelector(MandateGuard.InvalidMandate.selector, uint8(e)));
+    }
+
     // ------------------------------------------------------------------ validate
 
     function test_validate_acceptsConsistentMandate() public view {
@@ -99,77 +107,77 @@ contract MandateGuardTest is Test {
     function test_validate_revertsBelowProtocolPremiumFloor() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minPremiumBps = 8999;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.PremiumBelowFloor);
         h.validate(m);
     }
 
     function test_validate_revertsAboveTenorCap() public {
         MandateGuard.Mandate memory m = _mandate();
         m.maxTenor = 35 days + 1;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.TenorAboveCap);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMinDeltaAboveMaxDelta() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minDeltaBps = m.maxDeltaBps + 1;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.DeltaBandInverted);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMaxDeltaAboveOne() public {
         MandateGuard.Mandate memory m = _mandate();
         m.maxDeltaBps = uint16(BPS + 1);
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.DeltaAboveOne);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMaxShareSoldZero() public {
         MandateGuard.Mandate memory m = _mandate();
         m.maxShareSoldBps = 0;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.ShareSoldZero);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMaxShareSoldAboveOne() public {
         MandateGuard.Mandate memory m = _mandate();
         m.maxShareSoldBps = uint16(BPS + 1);
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.ShareSoldAboveOne);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMinPremiumZero() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minPremiumBps = 0;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.PremiumBelowFloor);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMinPremiumAboveCap() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minPremiumBps = uint16(MAX_PREMIUM_BPS + 1);
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.PremiumAboveCap);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMinYieldAboveOne() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minYieldBps = uint16(BPS + 1);
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.YieldAboveOne);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMinTenorZero() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minTenor = 0;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.TenorZero);
         h.validate(m);
     }
 
     function test_validate_revertsWhenMinTenorAboveMaxTenor() public {
         MandateGuard.Mandate memory m = _mandate();
         m.minTenor = m.maxTenor + 1;
-        vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        _expectInvalid(MandateGuard.MandateError.TenorInverted);
         h.validate(m);
     }
 
@@ -421,12 +429,69 @@ contract MandateGuardTest is Test {
         assertEq(uint8(h.check(m, p)), uint8(MandateGuard.Reason.None));
     }
 
-    /// validate() reverts exactly when one of its consistency rules is broken.
+    /// validate() reverts exactly when one of its consistency rules is broken, with the first broken rule as reason.
     function testFuzz_validate_matchesSpec(MandateGuard.Mandate memory m) public {
         bool valid = m.minDeltaBps <= m.maxDeltaBps && m.maxDeltaBps <= BPS && m.maxShareSoldBps != 0
             && m.maxShareSoldBps <= BPS && m.minPremiumBps >= 9000 && m.minPremiumBps <= MAX_PREMIUM_BPS
             && m.minYieldBps <= BPS && m.minTenor != 0 && m.minTenor <= m.maxTenor && m.maxTenor <= 35 days;
-        if (!valid) vm.expectRevert(MandateGuard.InvalidMandate.selector);
+        if (!valid) _expectInvalid(_firstBrokenRule(m));
+        h.validate(m);
+    }
+
+    /// The spec's rule order, restated independently of the library.
+    function _firstBrokenRule(MandateGuard.Mandate memory m) internal pure returns (MandateGuard.MandateError) {
+        bool[10] memory broken = [
+            m.minDeltaBps > m.maxDeltaBps,
+            m.maxDeltaBps > BPS,
+            m.maxShareSoldBps == 0,
+            m.maxShareSoldBps > BPS,
+            m.minPremiumBps < 9000,
+            m.minPremiumBps > MAX_PREMIUM_BPS,
+            m.minYieldBps > BPS,
+            m.minTenor == 0,
+            m.minTenor > m.maxTenor,
+            m.maxTenor > 35 days
+        ];
+        for (uint256 i; i < 10; ++i) {
+            if (broken[i]) return MandateGuard.MandateError(i + 1);
+        }
+        return MandateGuard.MandateError.None;
+    }
+
+    /// Every reason code is reachable, and each rule reports its own code when it is the only one broken.
+    function test_validate_eachReasonCode() public {
+        MandateGuard.Mandate[10] memory bad;
+        for (uint256 i; i < 10; ++i) {
+            bad[i] = _mandate();
+        }
+        bad[0].minDeltaBps = 4001;
+        bad[1].maxDeltaBps = uint16(BPS + 1);
+        bad[2].maxShareSoldBps = 0;
+        bad[3].maxShareSoldBps = uint16(BPS + 1);
+        bad[4].minPremiumBps = 8999;
+        bad[5].minPremiumBps = uint16(MAX_PREMIUM_BPS + 1);
+        bad[6].minYieldBps = uint16(BPS + 1);
+        bad[7].minTenor = 0;
+        bad[8].minTenor = 14 days + 1;
+        bad[9].maxTenor = 35 days + 1;
+        for (uint256 i; i < 10; ++i) {
+            MandateGuard.MandateError e = MandateGuard.MandateError(i + 1);
+            assertEq(uint8(h.mandateError(bad[i])), uint8(e));
+            _expectInvalid(e);
+            h.validate(bad[i]);
+        }
+        assertEq(uint8(h.mandateError(_mandate())), uint8(MandateGuard.MandateError.None));
+    }
+
+    /// When several rules are broken, the reason is the first one in the documented order.
+    function test_validate_reportsFirstBrokenRule() public {
+        MandateGuard.Mandate memory m = _mandate();
+        m.maxShareSoldBps = 0; // ShareSoldZero
+        m.maxTenor = 36 days; // TenorAboveCap
+        _expectInvalid(MandateGuard.MandateError.ShareSoldZero);
+        h.validate(m);
+        m.maxShareSoldBps = 1;
+        _expectInvalid(MandateGuard.MandateError.TenorAboveCap);
         h.validate(m);
     }
 
