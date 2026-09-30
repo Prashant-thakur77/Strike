@@ -13,6 +13,8 @@ contract FeeManagerTest is Test {
     address internal depositor = makeAddr("depositor");
     address internal agent = makeAddr("agent");
     address internal alice = makeAddr("alice");
+    address internal vault = makeAddr("vault");
+    address internal otherVault = makeAddr("otherVault");
 
     MockERC20 internal usdg;
     FeeManager internal fees;
@@ -86,26 +88,26 @@ contract FeeManagerTest is Test {
     // ------------------------------------------------------------------ computeFee
 
     function test_computeFee_chargesShareOfNetPremium() public view {
-        (uint256 fee, uint256 agentCut) = fees.computeFee(1000e6, 200e6);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 1000e6, 200e6);
         assertEq(fee, 80e6); // 10% of 800
         assertEq(agentCut, 40e6); // half of it
     }
 
     function test_computeFee_zeroWhenEpochLostMoney() public view {
-        (uint256 fee, uint256 agentCut) = fees.computeFee(100e6, 300e6);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 100e6, 300e6);
         assertEq(fee, 0);
         assertEq(agentCut, 0);
     }
 
     function test_computeFee_zeroWhenBreakEven() public view {
-        (uint256 fee, uint256 agentCut) = fees.computeFee(100e6, 100e6);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 100e6, 100e6);
         assertEq(fee, 0);
         assertEq(agentCut, 0);
     }
 
     function test_computeFee_roundsDown() public view {
         // 10% of 19 wei = 1.9 -> 1; half of 1 -> 0.
-        (uint256 fee, uint256 agentCut) = fees.computeFee(19, 0);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 19, 0);
         assertEq(fee, 1);
         assertEq(agentCut, 0);
     }
@@ -113,9 +115,106 @@ contract FeeManagerTest is Test {
     function test_computeFee_zeroFeeRate() public {
         vm.prank(admin);
         fees.setFees(0, 5000);
-        (uint256 fee, uint256 agentCut) = fees.computeFee(1000e6, 0);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 1000e6, 0);
         assertEq(fee, 0);
         assertEq(agentCut, 0);
+    }
+
+    // ------------------------------------------------------------------ chargeFee: loss carry-forward (D31)
+
+    function _charge(address v, uint256 premium, uint256 payoutValue) internal returns (uint256 fee, uint256 agentCut) {
+        vm.prank(depositor);
+        (fee, agentCut) = fees.chargeFee(v, premium, payoutValue);
+    }
+
+    function test_chargeFee_firstEpochMatchesPlainFee() public {
+        (uint256 fee, uint256 agentCut) = _charge(vault, 1000e6, 200e6);
+        assertEq(fee, 80e6);
+        assertEq(agentCut, 40e6);
+        assertEq(fees.lossCarried(vault), 0);
+    }
+
+    function test_chargeFee_lossIsCarriedForward() public {
+        vm.expectEmit(address(fees));
+        emit FeeManager.LossCarried(vault, 200e6);
+        (uint256 fee, uint256 agentCut) = _charge(vault, 100e6, 300e6);
+        assertEq(fee, 0);
+        assertEq(agentCut, 0);
+        assertEq(fees.lossCarried(vault), 200e6);
+        // A second loss adds to it.
+        _charge(vault, 0, 50e6);
+        assertEq(fees.lossCarried(vault), 250e6);
+    }
+
+    function test_chargeFee_lossThenSmallerGain_noFee() public {
+        _charge(vault, 100e6, 300e6); // lose 200
+        (uint256 previewFee,) = fees.computeFee(vault, 150e6, 0);
+        assertEq(previewFee, 0);
+        vm.expectEmit(address(fees));
+        emit FeeManager.LossCarried(vault, 50e6);
+        (uint256 fee, uint256 agentCut) = _charge(vault, 150e6, 0); // gain 150 < 200
+        assertEq(fee, 0);
+        assertEq(agentCut, 0);
+        assertEq(fees.lossCarried(vault), 50e6);
+    }
+
+    function test_chargeFee_lossThenEqualGain_noFee() public {
+        _charge(vault, 100e6, 300e6); // lose 200
+        (uint256 fee,) = _charge(vault, 250e6, 50e6); // gain exactly 200
+        assertEq(fee, 0);
+        assertEq(fees.lossCarried(vault), 0);
+    }
+
+    function test_chargeFee_lossThenBiggerGain_feeOnExcessOnly() public {
+        _charge(vault, 100e6, 300e6); // lose 200
+        (uint256 previewFee, uint256 previewCut) = fees.computeFee(vault, 700e6, 100e6);
+        vm.expectEmit(address(fees));
+        emit FeeManager.LossCarried(vault, 0);
+        (uint256 fee, uint256 agentCut) = _charge(vault, 700e6, 100e6); // gain 600, 400 above the carried loss
+        assertEq(fee, 40e6); // 10% of 400, not of 600
+        assertEq(agentCut, 20e6);
+        assertEq(previewFee, fee);
+        assertEq(previewCut, agentCut);
+        assertEq(fees.lossCarried(vault), 0);
+        // The next profitable epoch pays the full fee again.
+        (fee,) = _charge(vault, 100e6, 0);
+        assertEq(fee, 10e6);
+    }
+
+    function test_chargeFee_breakEvenLeavesCarryUnchanged() public {
+        _charge(vault, 0, 70e6);
+        vm.recordLogs();
+        (uint256 fee,) = _charge(vault, 30e6, 30e6);
+        assertEq(fee, 0);
+        assertEq(fees.lossCarried(vault), 70e6);
+        assertEq(vm.getRecordedLogs().length, 0);
+    }
+
+    function test_chargeFee_carryIsPerVault() public {
+        _charge(vault, 0, 500e6);
+        (uint256 fee,) = _charge(otherVault, 100e6, 0);
+        assertEq(fee, 10e6);
+        assertEq(fees.lossCarried(otherVault), 0);
+        assertEq(fees.lossCarried(vault), 500e6);
+    }
+
+    function test_chargeFee_revertsForNonDepositor() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, alice, fees.DEPOSITOR_ROLE()
+            )
+        );
+        vm.prank(alice);
+        fees.chargeFee(vault, 0, 100e6);
+    }
+
+    function test_computeFee_includesCarriedLoss() public {
+        _charge(vault, 0, 100e6);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 300e6, 0);
+        assertEq(fee, 20e6);
+        assertEq(agentCut, 10e6);
+        // A view: the carry is unchanged.
+        assertEq(fees.lossCarried(vault), 100e6);
     }
 
     // ------------------------------------------------------------------ creditFees
@@ -238,7 +337,7 @@ contract FeeManagerTest is Test {
         fees.setFees(3000, 10_000);
         assertEq(fees.perfFeeBps(), 3000);
         assertEq(fees.agentShareBps(), 10_000);
-        (uint256 fee, uint256 agentCut) = fees.computeFee(100e6, 0);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, 100e6, 0);
         assertEq(fee, 30e6);
         assertEq(agentCut, 30e6);
     }
@@ -316,7 +415,7 @@ contract FeeManagerTest is Test {
         agentShareBps = uint16(bound(agentShareBps, 0, 10_000));
         vm.prank(admin);
         fees.setFees(perfFeeBps, agentShareBps);
-        (uint256 fee, uint256 agentCut) = fees.computeFee(premium, payoutValue);
+        (uint256 fee, uint256 agentCut) = fees.computeFee(vault, premium, payoutValue);
         if (premium <= payoutValue) {
             assertEq(fee, 0);
             assertEq(agentCut, 0);
@@ -326,6 +425,64 @@ contract FeeManagerTest is Test {
             assertLe(fee, net * 3000 / 10_000);
         }
         assertLe(agentCut, fee);
+    }
+
+    /// With any carried loss, the fee never exceeds the capped share of the epoch's own net premium, the agent's cut
+    /// never exceeds the fee, and `chargeFee` returns exactly what `computeFee` previewed.
+    function testFuzz_chargeFee_cappedWithAnyCarry(
+        uint128 loss,
+        uint128 premium,
+        uint128 payoutValue,
+        uint16 perfFeeBps,
+        uint16 agentShareBps
+    ) public {
+        perfFeeBps = uint16(bound(perfFeeBps, 0, 3000));
+        agentShareBps = uint16(bound(agentShareBps, 0, 10_000));
+        vm.prank(admin);
+        fees.setFees(perfFeeBps, agentShareBps);
+        _charge(vault, 0, loss);
+        (uint256 previewFee, uint256 previewCut) = fees.computeFee(vault, premium, payoutValue);
+        (uint256 fee, uint256 agentCut) = _charge(vault, premium, payoutValue);
+        assertEq(fee, previewFee);
+        assertEq(agentCut, previewCut);
+        uint256 net = premium > payoutValue ? uint256(premium) - payoutValue : 0;
+        assertLe(fee, net * 3000 / 10_000);
+        assertEq(fee, (net > loss ? net - loss : 0) * perfFeeBps / 10_000);
+        assertLe(agentCut, fee);
+        uint256 expectedCarry =
+            premium > payoutValue ? (net >= loss ? 0 : loss - net) : uint256(loss) + (payoutValue - premium);
+        assertEq(fees.lossCarried(vault), expectedCarry);
+    }
+
+    /// High-water mark over a sequence of epochs: total fees ≤ perf × the highest cumulative net the vault reached,
+    /// a fee is charged only in an epoch that ends at a new high, and then total fees ≤ perf × cumulative net.
+    function testFuzz_chargeFee_highWaterMark(uint64[12] memory premiums, uint64[12] memory payouts, uint16 perf)
+        public
+    {
+        perf = uint16(bound(perf, 0, 3000));
+        vm.prank(admin);
+        fees.setFees(perf, 5000);
+        int256 cumNet;
+        int256 peak; // max(0, highest cumulative net so far)
+        uint256 totalFees;
+        for (uint256 i; i < 12; ++i) {
+            // Mix large and small epochs so losses and recoveries of all sizes occur.
+            uint256 premium = i % 3 == 0 ? premiums[i] : premiums[i] % 1e9;
+            uint256 payoutValue = i % 2 == 0 ? payouts[i] : payouts[i] % 1e9;
+            (uint256 fee, uint256 agentCut) = _charge(vault, premium, payoutValue);
+            assertLe(agentCut, fee);
+            totalFees += fee;
+            cumNet += int256(premium) - int256(payoutValue);
+            if (cumNet > peak) peak = cumNet;
+
+            assertLe(totalFees, uint256(peak) * perf / 10_000, "fees above perf x high-water mark");
+            if (fee != 0) {
+                assertEq(cumNet, peak, "fee charged below the high-water mark");
+                assertLe(totalFees, uint256(cumNet) * perf / 10_000, "fees above perf x cumulative net");
+            }
+            // The carried loss is exactly the distance from the high-water mark.
+            assertEq(fees.lossCarried(vault), uint256(peak - cumNet));
+        }
     }
 
     function testFuzz_setFees_revertsAboveCaps(uint16 perfFeeBps, uint16 agentShareBps) public {

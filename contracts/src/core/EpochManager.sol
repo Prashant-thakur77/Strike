@@ -472,7 +472,8 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
         ep.state = EpochState.Idle;
         ep.seriesId = 0;
 
-        (uint256 fee, uint256 agentCut) = feeManager.computeFee(s.premium, payoutValue);
+        // Charged only on net premium above the vault's carried losses (high-water mark, FeeManager.lossCarried).
+        (uint256 fee, uint256 agentCut) = feeManager.chargeFee(vault, s.premium, payoutValue);
         uint256 toVault = s.premium - fee + _takeCompensation(vault);
         uint64 epoch = IStrikeVault(vault).currentEpoch();
 

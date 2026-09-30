@@ -30,7 +30,7 @@ abstract contract StrikeInvariants is StrikeBase {
         registry.postBond(agentId, 1_000_000e6);
         vm.stopPrank();
 
-        handler = new StrikeHandler(manager, vault, usdg, feed, calendar, agent, buyer);
+        handler = new StrikeHandler(manager, vault, usdg, feed, calendar, agent, buyer, fees);
         targetContract(address(handler));
     }
 
@@ -110,6 +110,18 @@ abstract contract StrikeInvariants is StrikeBase {
     /// 7. Deposits and withdrawals alone never lower the share price.
     function invariant_roundingNeverLowersSharePrice() public view {
         assertFalse(handler.sharePriceDropped(), "share price fell on deposit/withdraw");
+    }
+
+    /// 8. Performance fee high-water mark (D31): total fees never exceed perf × the highest cumulative net premium
+    ///    the vault reached; every fee leaves total fees ≤ perf × the cumulative net at that time; and the carried
+    ///    loss is exactly the distance from the high-water mark.
+    function invariant_feeHighWaterMark() public view {
+        int256 hwm = handler.highWaterMark();
+        assertLe(handler.totalFees(), uint256(hwm) * fees.perfFeeBps() / 10_000, "fees above perf x high-water mark");
+        assertFalse(handler.feeAboveCumulativeNet(), "fees above perf x cumulative net");
+        assertEq(fees.lossCarried(address(vault)), uint256(hwm - handler.cumulativeNet()), "carry != hwm - net");
+        // Nobody claims in the handler, so every fee is still claimable.
+        assertEq(fees.totalClaimable(), handler.totalFees());
     }
 
     /// Coverage: how often each action actually ran (run with -vv to print).

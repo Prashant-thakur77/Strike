@@ -2,10 +2,13 @@
 pragma solidity 0.8.30;
 
 import {EpochManager} from "../../src/core/EpochManager.sol";
+import {FeeManager} from "../../src/core/FeeManager.sol";
+import {Decimals} from "../../src/libraries/Decimals.sol";
 import {MarketCalendar} from "../../src/oracle/MarketCalendar.sol";
 import {StrikeVault} from "../../src/vaults/StrikeVault.sol";
 import {MockAggregator} from "../mocks/MockAggregator.sol";
 import {MockERC20} from "../mocks/MockERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {CommonBase} from "forge-std/Base.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import {StdUtils} from "forge-std/StdUtils.sol";
@@ -34,6 +37,13 @@ contract StrikeHandler is CommonBase, StdCheats, StdUtils {
     mapping(uint256 seriesId => uint256 price) public recordedSettlement;
     uint256 public calls;
     mapping(bytes32 action => uint256 count) public counts;
+    // Performance-fee ghosts (D31): the vault's cumulative net premium (premium − payout value) over settled
+    // epochs, its high-water mark max(0, highest cumulative net), and the fees charged.
+    FeeManager internal fees;
+    int256 public cumulativeNet;
+    int256 public highWaterMark;
+    uint256 public totalFees;
+    bool public feeAboveCumulativeNet;
 
     constructor(
         EpochManager manager_,
@@ -42,8 +52,10 @@ contract StrikeHandler is CommonBase, StdCheats, StdUtils {
         MockAggregator feed_,
         MarketCalendar calendar_,
         address agent_,
-        address buyer_
+        address buyer_,
+        FeeManager fees_
     ) {
+        fees = fees_;
         manager = manager_;
         vault = vault_;
         usdg = usdg_;
@@ -245,8 +257,11 @@ contract StrikeHandler is CommonBase, StdCheats, StdUtils {
         price8 = price8 * int256(bound(moveSeed, 60, 140)) / 100;
         if (price8 < 1e8) price8 = 1e8;
         uint80 round = feed.set(price8);
+        uint256 claimableBefore = fees.totalClaimable();
         manager.settle(address(vault), round);
-        recordedSettlement[id] = manager.getSeries(id).settlementPrice;
+        s = manager.getSeries(id);
+        recordedSettlement[id] = s.settlementPrice;
+        _recordFee(s, fees.totalClaimable() - claimableBefore);
         ++counts["settle"];
     }
 
@@ -265,5 +280,15 @@ contract StrikeHandler is CommonBase, StdCheats, StdUtils {
         } catch {
             redeemFailed = true;
         }
+    }
+
+    /// Restates the payout value from the settled series (escrow = payout right after settlement).
+    function _recordFee(EpochManager.Series memory s, uint256 fee) internal {
+        uint256 payoutValue =
+            s.isCall ? Decimals.valueInUsd(s.escrow, s.settlementPrice, 18, 6, Math.Rounding.Floor) : s.escrow;
+        cumulativeNet += int256(s.premium) - int256(payoutValue);
+        if (cumulativeNet > highWaterMark) highWaterMark = cumulativeNet;
+        totalFees += fee;
+        if (fee != 0 && totalFees > uint256(cumulativeNet) * fees.perfFeeBps() / 10_000) feeAboveCumulativeNet = true;
     }
 }
