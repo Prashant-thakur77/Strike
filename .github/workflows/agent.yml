@@ -4,11 +4,13 @@ name: Weekly agent
 # a decision record per vault in docs/agent-log (markdown and JSON), committed back to main, and anchors each record's
 # hash on-chain in the DecisionLog contract (--anchor).
 #   Monday: refresh prices with the keeper, check the NYSE session, then propose this week's option on each vault
-#           (Claude picks the delta with --llm when ANTHROPIC_API_KEY is set).
+#           (Claude picks the delta with --llm when ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is set).
 #   Friday after the close: the keeper settles the expired series (it also does so every 10 minutes in keeper.yml);
 #           the agent then records each settlement, and settles itself only if nothing has yet.
 # Switches: secret KEEPER_PRIVATE_KEY (agent #1's signer, which is also the keeper key), variable AGENT_ENABLED =
-# true, optional secret ANTHROPIC_API_KEY.
+# true, and optionally one Claude credential: secret ANTHROPIC_API_KEY (the Claude API, billed per token) or secret
+# CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`: the Claude Code CLI on a Pro/Max subscription, counted against
+# its usage limits). The API key wins when both are set.
 on:
   schedule:
     # 15:00 UTC is 11:00 New York in summer (EDT) and 10:00 in winter (EST): inside the 09:30-16:00 session all year,
@@ -87,6 +89,19 @@ jobs:
             echo "The NYSE is closed (holiday?): epochs open only during regular hours. Nothing to do this week."
           fi
 
+      - name: Install Claude Code (the --llm planner on a Claude subscription)
+        if: steps.gate.outputs.go == 'true' && steps.mode.outputs.mode == 'propose'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ] || [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "Not needed: ANTHROPIC_API_KEY is set, or CLAUDE_CODE_OAUTH_TOKEN is not."
+            exit 0
+          fi
+          npm install -g @anthropic-ai/claude-code@2.1.263
+          claude --version
+
       - name: Refresh prices (keeper, once; also settles expired series)
         if: steps.gate.outputs.go == 'true'
         env:
@@ -100,14 +115,18 @@ jobs:
           MODE: ${{ steps.mode.outputs.mode }}
           STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           # --anchor: each record's keccak256 hash and GitHub URL go on-chain in DecisionLog, signed by agent #1.
           flags=(--log "$GITHUB_WORKSPACE/docs/agent-log" --anchor)
           if [ "$MODE" = settle ]; then
             flags+=(--settle)
           elif [ -n "$ANTHROPIC_API_KEY" ]; then
-            flags+=(--llm)
-            echo "ANTHROPIC_API_KEY is set: Claude plans each epoch (--llm)."
+            flags+=(--llm --planner api)
+            echo "ANTHROPIC_API_KEY is set: Claude plans each epoch through the API (--llm)."
+          elif [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            flags+=(--llm --planner claude-code)
+            echo "CLAUDE_CODE_OAUTH_TOKEN is set: Claude plans each epoch through the Claude Code CLI (--llm)."
           fi
           failed=0
           for key in TSLA_covered_call TSLA_cash_secured_put; do
