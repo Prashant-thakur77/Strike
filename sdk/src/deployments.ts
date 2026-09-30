@@ -13,6 +13,8 @@ export interface StrikeDeployment {
   marketCalendar: Address;
   pricer: Address;
   vaultImplementation: Address;
+  /** DecisionLog (additive, anchors agents' decision records); absent where it is not deployed. */
+  decisionLog?: Address;
   stocks: Record<string, { token: Address; feed: Address }>;
   vaults: Record<string, unknown>;
 }

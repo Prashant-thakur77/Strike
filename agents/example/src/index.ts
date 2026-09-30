@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { anchorRecord, chainAnchorSender, decisionLogAddress, readAnchorEpoch } from "./anchor.js";
 import { DEFAULT_BUDGET, DEFAULT_SLIPPAGE_BPS, buyOptions, redeemOptions } from "./buyer.js";
 import { epochSnapshot, lastSettlement, readClient } from "./chain.js";
 import { Journal, marketInputs } from "./journal.js";
@@ -7,7 +8,7 @@ import { CLAUDE_MODEL } from "./llm.js";
 import { describeClaudeError, planWithClaude } from "./llm.js";
 import { type StrikeMcp, connectStrikeMcp } from "./mcp.js";
 import { joinStrike, parseBond, parseVaultSpec } from "./onboard.js";
-import { type RecordAction, writeRecord } from "./record.js";
+import { type RecordAction, type RecordAnchorer, txUrl, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
   type Plan,
@@ -45,6 +46,10 @@ Usage: pnpm --filter @strike/agent-example start [options]
                      command was run from; inputs, reasoning, dry run,
                      transactions, result, track record). With --settle, a series the keeper already
                      settled this week is recorded instead of failing.
+  --anchor           With --log: also anchor the record on-chain. The agent's signer sends
+                     DecisionLog.record(agentId, vault, epoch, keccak256 of the JSON record, its
+                     GitHub URL); the transaction is added to the record. STRIKE_DECISION_LOG
+                     overrides the contract, STRIKE_RECORD_BASE_URL the URL's directory.
 
 Buyer modes (STRIKE_AGENT_PRIVATE_KEY is the buyer's key; it pays the premium in USDG):
   --buy              Find a live series (--vault to choose) and buy options within the budget,
@@ -392,8 +397,34 @@ async function readMarket(state: VaultState, journal: Journal) {
   journal.market = marketInputs(state, snapshot);
 }
 
+/** `--anchor`: hash the record, send DecisionLog.record with the agent's signer, add the transaction. */
+function chainAnchorer(chainId: number): RecordAnchorer {
+  const contract = decisionLogAddress(chainId);
+  const send = chainAnchorSender(chainId, contract);
+  return async (record, fileName) => {
+    const epoch = await readAnchorEpoch(chainId, record.vault.address, record.action);
+    const anchored = await anchorRecord(record, fileName, {
+      contract,
+      epoch,
+      send,
+      baseUrl: process.env.STRIKE_RECORD_BASE_URL || undefined,
+      txUrl: (h) => txUrl(chainId, h),
+    });
+    console.log(
+      `\nAnchored the record on-chain: DecisionLog.record tx ${anchored.anchor?.txHash} (epoch ${epoch})`,
+    );
+    return anchored;
+  };
+}
+
 /** Write the decision record of a finished (or stopped) run; never hides the run's own error. */
-async function writeDecisionRecord(mcp: StrikeMcp, journal: Journal, dir: string, error?: string) {
+async function writeDecisionRecord(
+  mcp: StrikeMcp,
+  journal: Journal,
+  dir: string,
+  error?: string,
+  anchor?: RecordAnchorer,
+) {
   const state = journal.state;
   if (!state) return;
   try {
@@ -411,8 +442,10 @@ async function writeDecisionRecord(mcp: StrikeMcp, journal: Journal, dir: string
   }
   const record = journal.build(error);
   if (!record) return;
-  const paths = await writeRecord(dir, record);
+  const paths = await writeRecord(dir, record, anchor);
   console.log(`\nDecision record: ${paths.md} (and ${paths.json})`);
+  if (paths.anchorError)
+    console.error(`Could not anchor the record on-chain (written unanchored): ${paths.anchorError}`);
 }
 
 async function main() {
@@ -434,6 +467,7 @@ async function main() {
       amount: { type: "string" },
       hedge: { type: "string" },
       log: { type: "string" },
+      anchor: { type: "boolean" },
       register: { type: "boolean" },
       bond: { type: "string" },
       "create-vault": { type: "string" },
@@ -461,6 +495,7 @@ async function main() {
   // directory, so `pnpm --filter @strike/agent-example start --log docs/agent-log` from the repo root works.
   const logArg = values.log?.trim();
   const logDir = logArg ? resolve(process.env.INIT_CWD ?? process.cwd(), logArg) : undefined;
+  if (values.anchor && !logDir) throw new Error("--anchor goes with --log <dir>");
 
   if (!values.register && (values.bond !== undefined || values["create-vault"] !== undefined)) {
     throw new Error("--bond and --create-vault go with --register");
@@ -521,6 +556,7 @@ async function main() {
       throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the agent signer's key) to act");
     const action: RecordAction = values.settle ? "settle" : values.reckless ? "reckless" : "propose";
     const journal = new Journal(action, info.chainId, info.agentAddress);
+    const anchor = values.anchor ? chainAnchorer(info.chainId) : undefined;
     let failure: string | undefined;
     try {
       if (values.settle) await settle(mcp, vault, log, journal, logDir !== undefined);
@@ -532,7 +568,7 @@ async function main() {
     } finally {
       if (logDir) {
         try {
-          await writeDecisionRecord(mcp, journal, logDir, failure && `Agent stopped: ${failure}`);
+          await writeDecisionRecord(mcp, journal, logDir, failure && `Agent stopped: ${failure}`, anchor);
         } catch (err) {
           console.error(`\nCould not write the decision record: ${String(err)}`);
           process.exitCode = 1;

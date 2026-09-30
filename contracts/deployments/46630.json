@@ -40,5 +40,8 @@
   "sourceCommit": "1ff5382",
   "deployCommit": "beb4281",
   "activePricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
-  "activePricerNote": "EpochManager.pricer() is the Stylus pricer; `pricer` is the Solidity reference kept for the on-chain equality check"
+  "activePricerNote": "EpochManager.pricer() is the Stylus pricer; `pricer` is the Solidity reference kept for the on-chain equality check",
+  "decisionLog": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+  "decisionLogTx": "0x9b2e902c16ef74f8f1180ecc5514cbcda3c1c5076a086e3a60e2da06a568665d",
+  "decisionLogNote": "Additive (not part of v2): anchors agents' decision records; only AgentRegistry.signerOf(agentId) may record"
 }

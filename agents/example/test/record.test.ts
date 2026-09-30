@@ -2,7 +2,22 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as prettier from "prettier";
+import { keccak256, toBytes } from "viem";
 import { afterEach, describe, expect, it } from "vitest";
+import {
+  ANCHOR_TX_LABEL,
+  type AnchorRequest,
+  type AnchorSender,
+  anchorEpoch,
+  anchorRecord,
+  chainAnchorSender,
+  decisionLogAddress,
+  hashText,
+  recordHash,
+  recordUrl,
+  unanchoredJson,
+  verifyAnchoredRecord,
+} from "../src/anchor.js";
 import { Journal, marketInputs, proposeResult } from "../src/journal.js";
 import {
   type DecisionRecord,
@@ -294,5 +309,114 @@ describe("writeRecord", () => {
     const md = await readFile(second.md, "utf8");
     expect(md).toContain("[2026-10-05-sTSLA-CC-2.json](2026-10-05-sTSLA-CC-2.json)");
     expect(JSON.parse(await readFile(first.json, "utf8")).result.seriesId).toBe("42");
+  });
+});
+
+describe("--anchor", () => {
+  let dir = "";
+  afterEach(async () => {
+    if (dir) await rm(dir, { recursive: true, force: true });
+  });
+
+  const DECISION_LOG = "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93";
+  const ANCHOR_TX = `0x${"c".repeat(64)}` as const;
+
+  function fakeSender() {
+    const requests: AnchorRequest[] = [];
+    const send: AnchorSender = async (req) => {
+      requests.push(req);
+      return ANCHOR_TX;
+    };
+    return { requests, send };
+  }
+
+  const anchor = (r: DecisionRecord, fileName: string, send: AnchorSender) =>
+    anchorRecord(r, fileName, {
+      contract: DECISION_LOG,
+      epoch: 3n,
+      send,
+      txUrl: (h) => txUrl(46630, h),
+    });
+
+  it("hashes the exact JSON record it writes, before the anchor is added", () => {
+    const r = acceptedRecord();
+    expect(recordHash(r)).toBe(keccak256(toBytes(formatRecordJson(r))));
+    expect(hashText("abc")).toBe(keccak256(toBytes("abc")));
+    expect(unanchoredJson(r)).toBe(formatRecordJson(r));
+  });
+
+  it("sends DecisionLog.record with the agent, vault, epoch, hash and GitHub URL, and records the tx", async () => {
+    const r = acceptedRecord();
+    const { requests, send } = fakeSender();
+    const anchored = await anchor(r, "2026-10-05-sTSLA-CC.json", send);
+    expect(requests).toEqual([
+      {
+        agentId: 1n,
+        vault: "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",
+        epoch: 3n,
+        recordHash: recordHash(r),
+        uri: "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-05-sTSLA-CC.json",
+      },
+    ]);
+    expect(anchored.transactions.at(-1)).toEqual({
+      label: ANCHOR_TX_LABEL,
+      hash: ANCHOR_TX,
+      url: `https://explorer.testnet.chain.robinhood.com/tx/${ANCHOR_TX}`,
+    });
+    expect(anchored.anchor).toEqual({
+      contract: DECISION_LOG,
+      recordHash: recordHash(r),
+      uri: requests[0]?.uri,
+      epoch: 3,
+      txHash: ANCHOR_TX,
+    });
+    // The published JSON verifies against its anchor; any edit breaks it.
+    const json = formatRecordJson(anchored);
+    expect(verifyAnchoredRecord(json)).toBe(true);
+    expect(recordHash(JSON.parse(json))).toBe(anchored.anchor?.recordHash);
+    expect(verifyAnchoredRecord(json.replace('"accepted"', '"rejected"'))).toBe(false);
+    expect(verifyAnchoredRecord(formatRecordJson(r))).toBe(false);
+  });
+
+  it("writes an anchored record that prettier leaves alone, with an on-chain anchor section", async () => {
+    const anchored = await anchor(acceptedRecord(), "x.json", fakeSender().send);
+    const md = formatRecordMarkdown(anchored);
+    expect(md).toContain("## On-chain anchor");
+    expect(md).toContain(`- **DecisionLog:** \`${DECISION_LOG}\`, epoch 3`);
+    expect(md).toContain(`- ${ANCHOR_TX_LABEL}: [\`${ANCHOR_TX}\`]`);
+    expect(await prettierClean(md, "docs/agent-log/x.md")).toBe(md);
+    const json = formatRecordJson(anchored);
+    expect(await prettierClean(json, "docs/agent-log/x.json")).toBe(json);
+  });
+
+  it("anchors under the file name writeRecord picks, and still writes the record when anchoring fails", async () => {
+    dir = await mkdtemp(join(tmpdir(), "strike-agent-anchor-"));
+    await writeRecord(dir, acceptedRecord());
+    const { requests, send } = fakeSender();
+    const second = await writeRecord(dir, acceptedRecord(), (r, file) => anchor(r, file, send));
+    expect(requests[0]?.uri).toMatch(/\/docs\/agent-log\/2026-10-05-sTSLA-CC-2\.json$/);
+    expect(second.anchorError).toBeUndefined();
+    expect(verifyAnchoredRecord(await readFile(second.json, "utf8"))).toBe(true);
+
+    const failed = await writeRecord(dir, acceptedRecord(), async () => {
+      throw new Error("NotSigner");
+    });
+    expect(failed.anchorError).toBe("NotSigner");
+    expect(JSON.parse(await readFile(failed.json, "utf8")).anchor).toBeUndefined();
+  });
+
+  it("anchors a propose run that opened nothing under the next epoch", () => {
+    expect(anchorEpoch("propose", 1n, "Selling")).toBe(1n);
+    expect(anchorEpoch("reckless", 2n, "Open")).toBe(2n);
+    expect(anchorEpoch("propose", 1n, "Idle")).toBe(2n);
+    expect(anchorEpoch("settle", 1n, "Idle")).toBe(1n);
+  });
+
+  it("finds the DecisionLog and needs the signer key", () => {
+    expect(decisionLogAddress(46630, {})).toBe(DECISION_LOG);
+    expect(decisionLogAddress(46630, { STRIKE_DECISION_LOG: DECISION_LOG.toLowerCase() })).toBe(DECISION_LOG);
+    expect(() => decisionLogAddress(31337, {})).toThrow(/no DecisionLog deployed on chain 31337/);
+    expect(() => chainAnchorSender(46630, DECISION_LOG, {})).toThrow(/STRIKE_AGENT_PRIVATE_KEY/);
+    expect(recordUrl("a.json", "https://example.com/log")).toBe("https://example.com/log/a.json");
   });
 });

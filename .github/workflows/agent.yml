@@ -1,7 +1,8 @@
 name: Weekly agent
 
 # Agent #1 (the example agent, agents/example) runs the live Robinhood Chain testnet vaults by itself and publishes
-# a decision record per vault in docs/agent-log (markdown and JSON), committed back to main.
+# a decision record per vault in docs/agent-log (markdown and JSON), committed back to main, and anchors each record's
+# hash on-chain in the DecisionLog contract (--anchor).
 #   Monday: refresh prices with the keeper, check the NYSE session, then propose this week's option on each vault
 #           (Claude picks the delta with --llm when ANTHROPIC_API_KEY is set).
 #   Friday after the close: the keeper settles the expired series (it also does so every 10 minutes in keeper.yml);
@@ -100,7 +101,8 @@ jobs:
           STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          flags=(--log "$GITHUB_WORKSPACE/docs/agent-log")
+          # --anchor: each record's keccak256 hash and GitHub URL go on-chain in DecisionLog, signed by agent #1.
+          flags=(--log "$GITHUB_WORKSPACE/docs/agent-log" --anchor)
           if [ "$MODE" = settle ]; then
             flags+=(--settle)
           elif [ -n "$ANTHROPIC_API_KEY" ]; then

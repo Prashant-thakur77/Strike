@@ -17,6 +17,7 @@ STRIKE_CHAIN_ID=46630 STRIKE_AGENT_PRIVATE_KEY=0x... pnpm --filter @strike/agent
 | `--buy`, `--hedge`, `--redeem` | Buyer side: buy options within `--budget`, hedge a holding, redeem settled options                                          |
 | `--register`                   | Join as a new agent: dry run, then register and bond (`--bond`), optionally `--create-vault TSLA:call\|put`                 |
 | `--log <dir>`                  | Write a decision record for a propose, `--reckless` or `--settle` run to `<dir>/<YYYY-MM-DD>-<vault symbol>.md` and `.json` |
+| `--anchor`                     | With `--log`: anchor each record's keccak256 hash on-chain in DecisionLog, signed by the agent's key                        |
 
 `--help` lists every option. `pnpm --filter @strike/agent-example market-open` prints whether the NYSE session is open at the chain's latest block (`marketOpen()` in the SDK).
 
@@ -41,6 +42,16 @@ The vault then needs deposits before it can sell; after that the usual loop appl
 With `--log <dir>` the agent keeps its console output and also writes what it did and why: the date and chain, the vault and its mandate, the market inputs (the spot and sigma snapshotted when the epoch opened, or live values when no epoch runs), the target delta with the strategy's rule or Claude's own reasoning, the dry-run verdict, each transaction with a Blockscout link on chain 46630, the result (accepted with its series, or rejected with the reason and the slash) and the agent's track record afterwards. A JSON copy with the same name sits next to the markdown for the app. The directory is relative to where you run the command. A second run on the same day for the same vault gets a `-2` suffix, so no record is ever overwritten. With `--settle --log`, a series the keeper already settled this week is looked up on-chain (`EpochSettled`) and recorded instead of failing.
 
 The records of the live testnet vaults are published in [docs/agent-log](../../docs/agent-log/).
+
+### Anchoring records on-chain (`--anchor`)
+
+With `--log <dir> --anchor`, the agent also commits each record to the [DecisionLog](../../contracts/src/agents/DecisionLog.sol) contract (`decisionLog` in the SDK's deployments, or `STRIKE_DECISION_LOG`). It sends `DecisionLog.record(agentId, vault, epoch, recordHash, uri)` from `STRIKE_AGENT_PRIVATE_KEY`, which must be the agent's current signer in the AgentRegistry:
+
+- `recordHash` is keccak256 of the JSON record, computed before the anchor is added: the published JSON without its `anchor` field and without the `DecisionLog.record` transaction. `verifyAnchoredRecord(json)` and `recordHash(record)` in [`src/anchor.ts`](src/anchor.ts) rebuild those bytes from a published file and check them.
+- `uri` is the record's GitHub URL, `https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/<file>.json` (`STRIKE_RECORD_BASE_URL` changes the directory).
+- `epoch` is the vault's `currentEpoch()` after the run, plus one when a propose run left the vault Idle (it was deciding about the next epoch).
+
+The transaction goes into the record's transactions list and an "On-chain anchor" section. If anchoring fails, the record is still written, unanchored, and the error is printed. The weekly workflow runs with `--anchor`.
 
 ## Running it every week (GitHub Actions)
 

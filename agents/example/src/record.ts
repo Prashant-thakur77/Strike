@@ -100,6 +100,19 @@ export interface RecordTrack {
   claimableFees: string;
 }
 
+/** The record's on-chain anchor (`--anchor`): its hash committed to the DecisionLog contract. */
+export interface RecordAnchor {
+  /** DecisionLog contract. */
+  contract: string;
+  /** keccak256 of this JSON without `anchor` and without the DecisionLog.record transaction (anchor.ts). */
+  recordHash: string;
+  /** Where the record is published. */
+  uri: string;
+  /** The vault's epoch number the record was anchored under. */
+  epoch: number;
+  txHash: string;
+}
+
 export interface DecisionRecord {
   version: number;
   action: RecordAction;
@@ -126,6 +139,8 @@ export interface DecisionRecord {
   transactions: RecordTx[];
   result: RecordResult;
   trackRecord: RecordTrack | null;
+  /** Present when the record was anchored on-chain (`--anchor`). */
+  anchor?: RecordAnchor;
 }
 
 /** The chain's block explorer base URL, or null (local devnet, unknown chain). */
@@ -305,6 +320,16 @@ export function formatRecordMarkdown(r: DecisionRecord): string {
     "",
     ...trackSection(r.trackRecord),
     "",
+    ...(r.anchor
+      ? [
+          "## On-chain anchor",
+          "",
+          `- **Record hash:** ${code(r.anchor.recordHash)} (keccak256 of the JSON copy without this anchor)`,
+          `- **DecisionLog:** ${code(r.anchor.contract)}, epoch ${r.anchor.epoch}`,
+          `- **Transaction:** ${txLink({ label: "", hash: r.anchor.txHash, url: txUrl(r.chain.id, r.anchor.txHash) })}`,
+          "",
+        ]
+      : []),
     "---",
     "",
     `Written by the Strike example agent (${code("--log")}). Machine-readable copy: [${recordBaseName(r)}.json](${recordBaseName(r)}.json).`,
@@ -318,19 +343,33 @@ export function formatRecordJson(r: DecisionRecord): string {
   return `${JSON.stringify(r, null, 2)}\n`;
 }
 
+/** Anchors a record about to be written as `jsonFileName`; returns the record with its anchor added. */
+export type RecordAnchorer = (record: DecisionRecord, jsonFileName: string) => Promise<DecisionRecord>;
+
 /**
  * Write `<dir>/<YYYY-MM-DD>-<symbol>.md` and `.json`. A second run on the same day for the same vault gets a `-2`
- * (`-3`, ...) suffix instead of overwriting the first record. Returns the paths written.
+ * (`-3`, ...) suffix instead of overwriting the first record. With `anchor`, the record is anchored on-chain under
+ * its final file name first; if that fails the record is still written, unanchored, and the error is returned.
+ * Returns the paths written.
  */
 export async function writeRecord(
   dir: string,
   record: DecisionRecord,
-): Promise<{ md: string; json: string }> {
+  anchor?: RecordAnchorer,
+): Promise<{ md: string; json: string; anchorError?: string }> {
   await mkdir(dir, { recursive: true });
   const base = recordBaseName(record);
   let name = base;
   for (let n = 2; existsSync(join(dir, `${name}.md`)) || existsSync(join(dir, `${name}.json`)); n++) {
     name = `${base}-${n}`;
+  }
+  let anchorError: string | undefined;
+  if (anchor) {
+    try {
+      record = await anchor(record, `${name}.json`);
+    } catch (err) {
+      anchorError = err instanceof Error ? err.message : String(err);
+    }
   }
   // The markdown links its JSON by file name; keep the link right when a suffix was added.
   const md = formatRecordMarkdown(record).replace(
@@ -340,5 +379,5 @@ export async function writeRecord(
   const paths = { md: join(dir, `${name}.md`), json: join(dir, `${name}.json`) };
   await writeFile(paths.md, md);
   await writeFile(paths.json, formatRecordJson(record));
-  return paths;
+  return anchorError === undefined ? paths : { ...paths, anchorError };
 }

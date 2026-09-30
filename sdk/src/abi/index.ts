@@ -10,3 +10,4 @@ export { marketCalendarAbi } from "./marketCalendar.js";
 export { blackScholesRefAbi } from "./blackScholesRef.js";
 export { mirrorFeedAbi } from "./mirrorFeed.js";
 export { testStockTokenAbi } from "./testStockToken.js";
+export { decisionLogAbi } from "./decisionLog.js";

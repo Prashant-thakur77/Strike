@@ -107,6 +107,24 @@ The covered-call series expires at the NYSE close on Friday 2026-10-02 (20:00 UT
 | PLTR stock token | [`0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0`](https://explorer.testnet.chain.robinhood.com/address/0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0) | Verified `BeaconProxy` (eip1967_beacon) |
 | TSLA stock token | [`0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E`](https://explorer.testnet.chain.robinhood.com/address/0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E) | Verified `BeaconProxy` (eip1967_beacon) |
 
+### DecisionLog (additive, deployed 2026-09-30)
+
+A separate contract next to v2 that anchors agents' decision records on-chain: `record(agentId, vault, epoch, recordHash, uri)`, callable only by `AgentRegistry.signerOf(agentId)` of the live v2 registry, emitting `DecisionRecorded` and keeping the latest hash per (agent, vault, epoch). It changes nothing in v2: no v2 contract knows about it ([decisions.md D35](decisions.md)). Source [`contracts/src/agents/DecisionLog.sol`](../contracts/src/agents/DecisionLog.sol), deploy script [`DeployDecisionLog.s.sol`](../contracts/script/DeployDecisionLog.s.sol); the address is `decisionLog` in [`46630.json`](../contracts/deployments/46630.json).
+
+| Contract    | Address                                                                                                                                         | Blockscout `/api/v2/smart-contracts` says                       | Creation tx                                                                                                                         |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| DecisionLog | [`0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93`](https://explorer.testnet.chain.robinhood.com/address/0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93) | Verified, `DecisionLog`, solc 0.8.30, fully verified 2026-09-30 | [`0x9b2e902c…`](https://explorer.testnet.chain.robinhood.com/tx/0x9b2e902c16ef74f8f1180ecc5514cbcda3c1c5076a086e3a60e2da06a568665d) |
+
+Deployed in block 126,698,227 (2026-09-30 12:51 UTC); `registry()` returns the v2 AgentRegistry `0xE5b76249041e59C74Ee317fC2729f26249618D32`.
+
+The first anchor is the live epoch's own log: agent #1's signer recorded keccak256 of [docs/testnet-epochs/2026-09-29.md](testnet-epochs/2026-09-29.md) (the file's first 8,549 bytes, everything before its "Anchored on-chain" section) for the covered-call vault, epoch 1, with its GitHub URL.
+
+| Time (UTC)       | Block       | Step                                                                                                 | Transaction                                                                                                                             |
+| ---------------- | ----------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-09-30 12:54 | 126,699,329 | `DecisionLog.record(1, covered-call vault, 1, 0xffd051c8…bc5a, …/docs/testnet-epochs/2026-09-29.md)` | [`0x934ab96b…24c4`](https://explorer.testnet.chain.robinhood.com/tx/0x934ab96ba12a9ad501e20c8366fc338ab35d0550b88cc2d76fc5c39991c524c4) |
+
+From here on the weekly agent workflow anchors each record it writes to `docs/agent-log` (`--anchor`); the record's JSON carries the anchor and its transaction.
+
 ## v1 (superseded)
 
 Deployed before the internal review. Kept for its history; its `EpochManager.pricer()` also returns the Stylus pricer. Do not use it.
@@ -176,6 +194,13 @@ cast call 0x7E955252E15c84f5768B83c41a71F9eba181802F "balanceOf(address)(uint256
 
 # 8. The source and deploy commits
 jq '{version, sourceCommit, deployCommit, block, activePricer}' contracts/deployments/46630.json contracts/deployments/46630-v1.json
+
+# 9. DecisionLog: verified, wired to the v2 registry, and the first anchor matches the epoch log
+curl -s $API/smart-contracts/0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93 | jq '{name, is_verified, compiler_version}'
+cast call 0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93 "registry()(address)" --rpc-url $RPC
+cast call 0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93 "latestHash(uint256,address,uint64)(bytes32)" \
+  1 0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e 1 --rpc-url $RPC
+head -c 8549 docs/testnet-epochs/2026-09-29.md | cast keccak   # the same hash: 0xffd051c8…bc5a
 ```
 
 Or open the [proof page](../app/src/components/app/proof/ProofPage.tsx) (`/app/proof`), which reads the active pricer and the activity feed from the chain when it loads.
