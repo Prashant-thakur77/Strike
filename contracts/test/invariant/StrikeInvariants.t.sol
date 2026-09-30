@@ -128,7 +128,7 @@ abstract contract StrikeInvariants is StrikeBase {
         assertEq(fees.totalClaimable(), handler.totalFees());
     }
 
-    /// 9. Risk engine (v3): for the live series, the worst payout the `RiskLens` finds on a wide stress grid at the
+    /// 11. Risk engine (v3): for the live series, the worst payout the `RiskLens` finds on a wide stress grid at the
     ///    current feed price (spot −99.99% … +1000%) fits in the locked collateral, both in collateral units (with
     ///    settlement rounding) and in USD value at the shocked spot.
     function invariant_worstCaseScenarioWithinCollateral() public view {

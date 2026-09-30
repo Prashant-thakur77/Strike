@@ -189,7 +189,7 @@ A proposal that passes these checks but whose strike live spot has crossed since
 
 ## 11. v3 changes (branch `v3-contracts`, not deployed)
 
-The live deployment runs the v2 contracts described above. The branch `v3-contracts` changes four things. They take effect only with a new deployment, because no contract is upgradeable.
+The live deployment runs the v2 contracts described above. The branch `v3-contracts` changes four things and adds a risk engine. They take effect only with a new deployment, because no contract is upgradeable.
 
 ### Performance fee high-water mark (D31)
 
@@ -242,6 +242,35 @@ A signer other than the caller must sign an EIP-712 consent, so nobody can bind 
 | 8    | `TenorZero`         | `minTenor == 0`             |
 | 9    | `TenorInverted`     | `minTenor > maxTenor`       |
 | 10   | `TenorAboveCap`     | `maxTenor > 35 days`        |
+
+### Risk engine
+
+The pricer gains a risk engine: greeks, implied volatility and the vault's payout under spot shocks. It lives in the same Stylus contract as the pricer (`stylus/pricer/src/risk.rs`, new entry points on the one program) and in Solidity in `RiskLib` (used by `BlackScholesRef`). Both run the same WAD integer operations in the same order and return identical results. `IRiskEngine` extends `IPricer` with the three functions below, and `EpochManager.pricer` is now typed `IRiskEngine` (an address in the ABI, as before). Model as §4 and the pricer: European options, r = 0, a 365-day year, T = seconds / 31,536,000.
+
+| Function                                                    | Returns (WAD)                                                                                                                                                                    |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `greeks(spot, strike, timeToExpiry, sigma, isCall)`         | `delta` = N(d1) (call) or N(d1) − 1 (put); `gamma` = φ(d1) / (S σ √T), per $1 of spot; `vega` = S φ(d1) √T, per 1.00 of volatility; `theta` = −S φ(d1) σ / (2 √T) / 365, per day |
+| `impliedVol(price, spot, strike, timeToExpiry, isCall)`     | `sigma` in [5%, 500%] at which `quote` returns `price`                                                                                                                           |
+| `scenarioLoss(isCall, strike, sold, spot, int256[] shocks)` | `losses[i]`: the payout's USD value at spot × (1 + shocks[i]); `worst`: the largest                                                                                              |
+
+Inputs and input errors of `greeks` are those of `quote`. Gamma, vega and theta are each one integer expression with a single rounding (`phi * 1e36 / (spot * volSqrtT)`, `spot * phi * sqrtT / 1e36`, `spot * phi * sigma / (sqrtT * 730 * 1e18)`), so they keep full precision down to the smallest spot. They are the option holder's greeks; a vault that sold `n` options is exposed to minus `n` times them.
+
+**Implied volatility.** Newton's method on sigma inside a bracket [lo, hi] = [5%, 500%]. Each round evaluates the premium and vega at sigma, moves `hi` down (premium too high) or `lo` up, and takes the Newton step if it lands strictly inside the bracket, else bisects. It starts from the larger of the at-the-money approximation (time value × √(2π) / (S √T)) and the premium's inflection point in sigma, √(2 |ln(S/K)| / T), from which Newton converges monotonically (Manaster and Koehler, 1982). It stops when a step moves sigma by at most 1e-12, the bracket is that narrow, the premium is within spot / 1e15 of the target (the CDF's own accuracy; the last Newton step is still applied), or after 64 rounds. Ordinary inputs take 3–8 rounds; premiums below about 1e-10 of spot, where sigma barely moves the price, take up to about 30. Errors, as `PricerInputOutOfRange(which)`: the spot, strike and time codes of `quote`; **6** if `price` is not strictly between intrinsic value and the no-arbitrage cap (S for a call, K for a put), because no volatility produces it; **7** if the price is possible but needs a sigma outside [5%, 500%] (checked by pricing at both ends first; a price exactly at an end returns that end).
+
+**Scenario loss.** `sold` is in options, WAD (1e18 = one option on one token). Each shock is a relative spot move in WAD (−0.3e18 = −30%) and must lie in (−100%, +1000%], else error **8**; shocked spot = spot × (1e18 ± |shock|) / 1e18, rounded down. The payout follows §4 with its rounding: a call pays `(S' − K) × 1e18 / S'` tokens per option, `sold × that / 1e18` tokens in all, valued at `tokens × S' / 1e18`; a put pays `sold × (K − S') / 1e18`. Spot and strike must be in the pricer's range (errors 1 and 2). An empty grid returns 0 and an empty array.
+
+**At proposal.** For every accepted series, `EpochManager` emits `SeriesRisk(seriesId, delta, gamma, vega, theta)` right after `SeriesProposed`, from the epoch's opening spot and sigma and the tenor at proposal, the inputs `SeriesProposed`'s fair value and delta use (so its delta equals that delta). A rejected proposal emits none. It costs one more pricer call per accepted proposal.
+
+**`RiskLens`.** A separate read-only contract (no state, no roles) with the live view, because the view would not fit in `EpochManager`: `RiskLens` is 5,107 bytes of runtime code and `EpochManager` has 1,041 bytes left under the 24,576-byte limit (23,535 bytes, +325 for `SeriesRisk`).
+
+- `seriesRisk(seriesId)` uses the current SafeStockFeed spot (`EpochManager.spot`, so it reverts while the feed is unsafe), the underlying's current sigma, the time left, and `defaultShocks()`: −30% to +30% in 5% steps.
+- `seriesRiskAt(seriesId, spot, sigma, shocks)` takes any spot, sigma and grid.
+- Both return `spot`, `sigma`, `tenor` (0 once expired, and the greeks are then 0), per-option `delta`, `gamma`, `vega`, `theta`, the series' `sold` and `collateral`, the `shocks` and `losses`, `worstLoss`, `worstShock` (the first shock with the largest payout) and `worstPayout`: the payout at that shock in collateral units (tokens for a call, USDG for a put), rounded exactly as `settle` rounds it. `sold` is converted to WAD options with the token's decimals before calling the engine. Unknown series revert `SeriesUnknown(seriesId)`.
+- The pricer is whatever `EpochManager.pricer` is, Solidity or Stylus. `Deploy.s.sol` deploys the lens and writes `riskLens` to the deployment file.
+
+**Guarantees and tests.** `worstPayout ≤ collateral` for any spot and grid: a call pays less than one token per option and a put at most K per option, and collateral is locked per option at those amounts (§4). A new invariant, `invariant_worstCaseScenarioWithinCollateral` (number 11 in [testing.md](testing.md)), checks after every step of the random action sequences, for both vault types, that the worst payout over −99.99% … +1000% at the current feed price fits in the locked collateral in collateral units, and its USD value fits in the collateral's value at the shocked spot. `seriesRiskAt` at the settlement price with a zero shock returns exactly the payout `settle` then records (fuzzed). Rust and Solidity agree exactly on 410 generated vectors (`contracts/test/vectors/risk.json`) and in FFI differential fuzzing (values, rejections and error codes); `research/risk_reference.py` checks the vectors against mpmath at 50 digits (the largest greek error is 1.3e-15 of its scale). Round trip: pricing at sigma and solving back returns sigma within 1e-8 whenever vega is at least 1e-6 of spot, and always reproduces the premium.
+
+**Stylus size.** The one Stylus program with the pricer and the risk engine is 23,530 bytes compressed, 1,046 under the 24,576-byte limit (v2: 15,574). Two things keep it there: `mul_wad` and `div_wad` are not inlined (dozens of inlined copies pushed it past the limit), and `exp_neg` reads its shift from the low limb instead of `to::<usize>()`, which pulled in panic formatting code. The `int256[]` argument of `scenarioLoss` alone costs about 4 KB of ABI decoding. Gas: [gas.md](gas.md).
 
 ### Not in v3
 
