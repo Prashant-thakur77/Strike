@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 const require = createRequire("/home/prashant/projects/strike/app/package.json");
 const { chromium } = require("@playwright/test");
 
-const SLIDES = "/tmp/claude-1000/-home-prashant-projects-protocol-monorepo-main/68215a13-3f30-42ad-8faa-6d807a26a9ec/scratchpad/deck-all/project/slides";
+const SLIDES =
+  "/tmp/claude-1000/-home-prashant-projects-protocol-monorepo-main/68215a13-3f30-42ad-8faa-6d807a26a9ec/scratchpad/deck-all/project/slides";
 const SHOTS = "/home/prashant/projects/strike/docs/screenshots";
 const frames = JSON.parse(readFileSync(process.argv[2], "utf8"));
 
@@ -15,11 +16,16 @@ function patch(id, html) {
   if (id === "demo") {
     const shots = ["desktop-landing.png", "desktop-vault.png", "desktop-agents.png"];
     let i = 0;
-    html = html.replace(/src="\/_blob\/[0-9a-f]+"/g, () => `src="data:image/png;base64,${readFileSync(`${SHOTS}/${shots[i++]}`).toString("base64")}"`);
+    html = html.replace(
+      /src="\/_blob\/[0-9a-f]+"/g,
+      () => `src="data:image/png;base64,${readFileSync(`${SHOTS}/${shots[i++]}`).toString("base64")}"`,
+    );
   }
   if (id === "safety") {
     // README: 11 internal-review findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed
-    html = html.replace(">8 / 8<", ">11 / 11<").replace("(1 High, 3 Medium, 4 Low)", "(1 High, 3 Medium, 4 Low, 3 Info)");
+    html = html
+      .replace(">8 / 8<", ">11 / 11<")
+      .replace("(1 High, 3 Medium, 4 Low)", "(1 High, 3 Medium, 4 Low, 3 Info)");
   }
   if (id === "traction") {
     // the tester count is still a placeholder: show the open agent market instead of "[__]"
@@ -31,9 +37,13 @@ function patch(id, html) {
   if (id === "roadmap") {
     // team line and video URL are placeholders: leave them out of the video
     html = html.replace(" · [demo video URL]", "");
-    html = html.replace(/<div style="flex:1; display:flex; flex-direction:column; gap:12px">\s*<p[^>]*>Team<\/p>[\s\S]*?<\/div>/, "");
+    html = html.replace(
+      /<div style="flex:1; display:flex; flex-direction:column; gap:12px">\s*<p[^>]*>Team<\/p>[\s\S]*?<\/div>/,
+      "",
+    );
   }
-  if (/\[[_A-Za-z ]+\]/.test(html.replace(/<aside>[\s\S]*<\/aside>/, ""))) console.warn(`WARN ${id}: placeholder left`);
+  if (/\[[_A-Za-z ]+\]/.test(html.replace(/<aside>[\s\S]*<\/aside>/, "")))
+    console.warn(`WARN ${id}: placeholder left`);
   return html;
 }
 
@@ -68,14 +78,17 @@ const p = await ctx.newPage();
 for (const f of frames) {
   await p.setContent(page(f.slide, f.caption, f.tag), { waitUntil: "networkidle" });
   await p.evaluate(() => document.fonts.ready);
-  const fonts = await p.evaluate(() => [...document.fonts].filter((x) => x.status === "loaded").map((x) => `${x.family} ${x.weight}`));
+  const fonts = await p.evaluate(() =>
+    [...document.fonts].filter((x) => x.status === "loaded").map((x) => `${x.family} ${x.weight}`),
+  );
   const overflow = await p.evaluate(() => {
     const s = document.querySelector("section");
     const bad = [];
     for (const el of s.querySelectorAll("*")) {
       if (el.closest("aside")) continue;
       const r = el.getBoundingClientRect();
-      if (r.width && (r.right > 1920.5 || r.bottom > 1080.5)) bad.push(`${el.tagName}:${Math.round(r.right)}x${Math.round(r.bottom)}`);
+      if (r.width && (r.right > 1920.5 || r.bottom > 1080.5))
+        bad.push(`${el.tagName}:${Math.round(r.right)}x${Math.round(r.bottom)}`);
     }
     return bad.slice(0, 5);
   });
