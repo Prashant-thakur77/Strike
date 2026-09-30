@@ -4,6 +4,8 @@ Strike is weekly options vaults for Robinhood Chain stock tokens, paid in USDG. 
 
 There are two paths. The first needs a browser. The second needs a clone and about 15 minutes.
 
+Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: nothing is deployed on Arbitrum Sepolia yet, the `v3-contracts` fixes are not deployed, the first epoch settles on Friday 2026-10-02, testnet prices come from a keeper-filled `MirrorFeed`, and there is no external audit.
+
 ## 3 minutes, no install
 
 1. Watch the [demo video with narration](media/strike-demo-narrated.mp4) (2:55, captioned; [without voice](media/strike-demo.mp4)) or the [2-minute pitch](media/strike-pitch.mp4) (1:59, over the deck).
@@ -78,3 +80,12 @@ Other numbers, from [testing.md](testing.md) and the README's [safety evidence](
 | Internal review (11 fixed)           |           ✓            |                    |                           |                      |            |
 
 USDG is the premium, the put collateral, the fee currency and the agent bond, so every slash is paid in USDG ([`Deploy.s.sol`](../contracts/script/Deploy.s.sol#L139) has the real addresses on three networks). The stock-token problems the monitor and fork tests cover are listed in the README's [Why](../README.md#why) table.
+
+## Further reading
+
+| Document                                                                 | What it covers                                                                                          |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| [Hard questions](submission/qa-prep.md)                                  | Twenty likely judge questions (buyers, liquidity, malicious agents, weekend oracles, regulation, money) |
+| [Milestones](MILESTONES.md)                                              | The milestone plan for the grant: v3 on two chains, the Stylus risk engine, audit and mainnet, adoption |
+| [Past winners](research-winners.md)                                      | What earlier Open House and Stylus winners built, and what Strike took from them                        |
+| [Why only here](../README.md#why-only-here-robinhood-chain-and-arbitrum) | Why Strike needs Robinhood Chain and Arbitrum: stock tokens, equity feeds, USDG, ERC-8004, Stylus       |

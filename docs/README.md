@@ -10,7 +10,7 @@ Start with the [project README](../README.md). This page indexes every document 
 | [Design spec](design.md)                | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates |
 | [SafeStockFeed guide](safestockfeed.md) | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them               |
 | [Gas: Stylus vs Solidity](gas.md)       | Measured costs of the pricer and of real protocol transactions, including where Stylus loses      |
-| [Decisions](decisions.md)               | Every design decision with its reason (D1–D31)                                                    |
+| [Decisions](decisions.md)               | Every design decision with its reason (D1–D35)                                                    |
 
 ## Check that it is safe
 
@@ -46,12 +46,14 @@ Start with the [project README](../README.md). This page indexes every document 
 
 ## Project history and hackathon
 
-| Document                                                 | What it covers                                                            |
-| -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [Changelog](../CHANGELOG.md)                             | Every release and deployment                                              |
-| [Charts](../scripts/charts/README.md)                    | How the README charts are built from data, the palette and its validation |
-| [Plan](PLAN.md) and [cycle plans](plans/)                | The original plan and each improvement cycle                              |
-| [Progress](progress.md)                                  | Status by day                                                             |
-| [Scorecard](review.md)                                   | Self-assessment against the judging criteria, by cycle                    |
-| [Hackathon facts](hackathon.md), [research](research.md) | Rules, deadlines, verified chain facts, competitors                       |
-| [Submission kit](submission/)                            | Form answers, demo and pitch scripts, deck outline, posts                 |
+| Document                                                 | What it covers                                                                                     |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [Changelog](../CHANGELOG.md)                             | Every release and deployment                                                                       |
+| [Charts](../scripts/charts/README.md)                    | How the README charts are built from data, the palette and its validation                          |
+| [Plan](PLAN.md) and [cycle plans](plans/)                | The original plan and each improvement cycle                                                       |
+| [Progress](progress.md)                                  | Status by day                                                                                      |
+| [Scorecard](review.md)                                   | Self-assessment against the judging criteria, by cycle                                             |
+| [Hackathon facts](hackathon.md), [research](research.md) | Rules, deadlines, verified chain facts, competitors                                                |
+| [Past winners](research-winners.md)                      | Past Open House and Stylus winners, what judges rewarded, and what Strike took from them           |
+| [Milestones](MILESTONES.md)                              | Milestone plan for the grant: deliverables, acceptance criteria, timeline and budget               |
+| [Submission kit](submission/)                            | Form answers, demo and pitch scripts, deck outline, posts, [hard questions](submission/qa-prep.md) |
