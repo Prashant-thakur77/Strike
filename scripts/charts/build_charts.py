@@ -6,7 +6,7 @@ Usage (from the repository root):
     python3 scripts/charts/build_charts.py gas epoch  # only some
 
 Inputs:
-    scripts/charts/data/forge-tests.txt   `forge test --summary` lines ("Ran N tests for ...")
+    scripts/charts/data/forge-tests.txt   `forge test --summary` lines ("Ran N tests for ..." and "Suite result: ...")
     scripts/charts/data/tests.json        counts for the other suites, each with its command
     scripts/charts/data/coverage.txt      the `make coverage` summary table
     docs/gas.md                           the two gas tables
@@ -36,17 +36,28 @@ from theme import DATA, MONO, ROOT, THEMES, figure, footer, header, save, style_
 
 
 def load_tests():
+    # Count passing tests: each "Ran N tests for test/<folder>/..." line is followed by its "Suite result" line, whose
+    # passed count leaves out skipped tests (the conformance rules an example does not implement).
     folders = defaultdict(int)
+    skipped = 0
+    folder = None
     for line in (DATA / "forge-tests.txt").read_text().splitlines():
-        m = re.match(r"Ran (\d+) tests? for test/(?:([a-z]+)/)?\S+", line)
+        m = re.match(r"Ran \d+ tests? for test/(?:([a-z]+)/)?\S+", line)
         if m:
-            folders[m.group(2) or "root"] += int(m.group(1))
+            folder = m.group(1) or "root"
+            continue
+        m = re.match(r"Suite result: ok\. (\d+) passed; \d+ failed; (\d+) skipped", line)
+        if m and folder is not None:
+            folders[folder] += int(m.group(1))
+            skipped += int(m.group(2))
+            folder = None
     foundry_total = sum(folders.values())
     names = {
         "root": "version check",
     }
     foundry = sorted(((names.get(k, k + "/"), v) for k, v in folders.items()), key=lambda x: -x[1])
-    groups = [(f"Foundry main suite: {foundry_total} tests (make test)", foundry)]
+    skip_note = f", {skipped} skipped" if skipped else ""
+    groups = [(f"Foundry main suite: {foundry_total} passing{skip_note} (make test)", foundry)]
     for g in json.loads((DATA / "tests.json").read_text())["groups"]:
         items = sorted(((i["label"], i["count"]) for i in g["items"]), key=lambda x: -x[1])
         groups.append((f"{g['group']}: {sum(c for _, c in items)}", items))
@@ -219,7 +230,7 @@ def chart_coverage(t, theme):
         x = lx + k * 0.11
         fig.add_artist(Line2D([x], [ly], marker="o", markersize=8, color=col, markeredgecolor=t["surface"], markeredgewidth=2, linestyle="none", transform=fig.transFigure))
         fig.text(x + 0.012, ly, lab, color=t["ink2"], fontsize=10, va="center")
-    header(fig, t, "Coverage by contract: 99.1% of lines, 97.5% of branches",
+    header(fig, t, f"Coverage by contract: {total['lines']:.1f}% of lines, {total['branches']:.1f}% of branches",
            f"forge coverage over src/ and examples/, {total['lines_n']} lines and {total['branches_n']} branches. Axis starts at {lo}%.")
     footer(fig, t, "Source: make coverage (forge coverage --ir-minimum --report summary --no-match-coverage \"(test|script|lib)/\"), 2026-09-30")
     return save(fig, "coverage-by-contract", theme)

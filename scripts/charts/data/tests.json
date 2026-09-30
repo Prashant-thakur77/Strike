@@ -47,13 +47,13 @@
         },
         {
           "label": "MCP server",
-          "count": 40,
-          "source": "mcp: vitest run, 40 passed"
+          "count": 47,
+          "source": "mcp: vitest run, 47 passed"
         },
         {
           "label": "Example agents",
-          "count": 38,
-          "source": "agents/example: vitest run, 38 passed"
+          "count": 44,
+          "source": "agents/example: vitest run, 44 passed"
         },
         {
           "label": "Subgraph (matchstick)",
@@ -67,8 +67,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 100,
-          "source": "app: npx playwright test --list reports 200 runs in 12 files = 100 tests x 2 viewports (desktop 1440x900, mobile 390x844)"
+          "count": 104,
+          "source": "app: npx playwright test --list reports 208 runs in 14 files = 104 tests x 2 viewports (desktop 1440x900, mobile 390x844); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run"
         }
       ]
     }
