@@ -135,10 +135,87 @@ In the common case (one phase, no corporate action) one hint is enough. The Stri
 
 On Robinhood Chain testnet (46630) the live `StockOracle` is [`0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89`](https://explorer.testnet.chain.robinhood.com/address/0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89) and the `MarketCalendar` [`0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4`](https://explorer.testnet.chain.robinhood.com/address/0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4); every address is in the [README](../README.md#deployments).
 
+## Conformance suite
+
+Wrapping `SafeStockFeed` in your own oracle contract is easy to get subtly wrong: apply the multiplier, catch the wrong revert, pick a later settlement round. [`contracts/test/conformance/SafeStockFeedConformance.sol`](../contracts/test/conformance/SafeStockFeedConformance.sol) is an abstract Foundry test that checks every rule the library enforces against _your_ wrapper, called from the outside the way a lending market or perps protocol calls it. Each rule is its own test:
+
+| Rule                                                                                                                                                   | Tests                                                                                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| The multiplier is never applied (fuzzed from 0.5× to 10×); any feed decimals normalise to 18                                                           | `testFuzz_conformance_multiplierIsNeverApplied`, `testFuzz_conformance_decimalsNormalised`, `test_conformance_freshPriceIsReturnedInWad`        |
+| Stale prices revert (`maxPriceAge` old is still fresh, one second more is not)                                                                         | `test_conformance_stalePriceReverts`                                                                                                            |
+| Token pause, oracle pause, token pause reported first                                                                                                  | `test_conformance_tokenPauseReverts`, `test_conformance_oraclePauseReverts`, `test_conformance_tokenPauseIsCheckedBeforeOraclePause`            |
+| A token without `oraclePaused()` counts as not paused                                                                                                  | `test_conformance_missingOraclePausedIsNotPaused`                                                                                               |
+| Corporate-action window: from announcement until `effectiveAt + grace`                                                                                 | `test_conformance_scheduledCorporateActionReverts`, `test_conformance_corporateActionWindowClosesAfterGrace`                                    |
+| Zero, negative (fuzzed) and future-dated answers                                                                                                       | `test_conformance_zeroAnswerReverts`, `testFuzz_conformance_negativeAnswerReverts`, `test_conformance_futureTimestampReverts`                   |
+| Sequencer down, then inside its grace period (if the wrapper checks one)                                                                               | `test_conformance_sequencerDownAndGrace`                                                                                                        |
+| Settlement is the first round at or after the target; round 1 of the first phase must be fresh; paused tokens and invalid rounds revert (if supported) | `test_conformance_settlementIsFirstRoundAtOrAfterTarget`, `…FirstRoundOfFirstPhaseMustBeFresh`, `…RespectsPauseLayers`, `…RejectsInvalidRounds` |
+| Phase changes need the previous phase's last round and cannot skip an old-phase print; a corporate action moves the target and needs its hint          | `test_conformance_settlementAcrossPhaseChange`, `…PhaseChangeCannotSkipOldPhase`, `test_conformance_settlementCorporateActionHint`              |
+
+Rules a wrapper does not implement (no settlement price, no sequencer check) are reported as `[SKIP]`, never as passed. Both of Strike's own consumers run the suite: [`StockOracleConformance.t.sol`](../contracts/test/conformance/StockOracleConformance.t.sol) (21 of 21) and [`StockCollateralConformance.t.sol`](../contracts/test/conformance/StockCollateralConformance.t.sol) for the example (14 passed, the 7 settlement rules skipped).
+
+### Run it against your wrapper
+
+`@strike/` points at Strike's `contracts/src` only, so add a second line for the test tree next to it:
+
+```text
+# remappings.txt
+@strike/=lib/Strike/contracts/src/
+@strike-test/=lib/Strike/contracts/test/
+```
+
+(`@strike/../test/...` does not resolve: the suite's own relative imports break.) Then inherit `SafeStockFeedConformanceWithMocks`, which drives Strike's mocks (`MockStockToken`, `MockAggregator` for the price and the sequencer), and implement two hooks:
+
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.30;
+
+import {SafeStockFeedConformanceWithMocks} from "@strike-test/conformance/SafeStockFeedConformance.sol";
+import {IAggregatorV3} from "@strike/interfaces/IAggregatorV3.sol";
+import {MyOracle} from "../src/MyOracle.sol";
+
+contract MyOracleConformanceTest is SafeStockFeedConformanceWithMocks {
+    MyOracle internal oracle;
+
+    /// Deploy your wrapper for this token, feed and sequencer uptime feed, configured with the suite's
+    /// MAX_AGE (1 h), CA_GRACE (1 day) and SEQ_GRACE (1 h).
+    function _deployWrapper(address token_, IAggregatorV3 feed_, IAggregatorV3 sequencer_) internal override {
+        oracle = new MyOracle(token_, feed_, sequencer_);
+    }
+
+    /// Read the price the way your protocol does. It must revert with SafeStockFeed's errors.
+    function _readPrice() internal view override returns (uint256) {
+        return oracle.price();
+    }
+
+    /// Optional: your wrapper calls SafeStockFeed.checkSequencer.
+    function _supportsSequencer() internal pure override returns (bool) {
+        return true;
+    }
+}
+```
+
+This file, with a 20-line `MyOracle` that calls `checkSequencer` and `latest`, was run in a fresh Foundry project through these two remappings: 14 passed, 7 skipped. A wrapper with a settlement price also overrides `_supportsSettlement()` to return true and `_settlementPrice(hints, target)` (Strike's calls `recordSettlementPriceWithHints`).
+
+The hooks, all `internal`:
+
+| Hook                                                                 | Does                                                                                                                                                                  |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_deploy(feedDecimals, withOraclePause) returns (token)`             | Fresh token/feed pair and wrapper. `withOraclePause = false` means a token without `oraclePaused()`, as on testnet. The mocks base implements it via `_deployWrapper` |
+| `_pushRound(answer, updatedAt) returns (roundId)`, `_newFeedPhase()` | Feed rounds, and an aggregator upgrade (round ids restart in a new phase)                                                                                             |
+| `_setTokenPaused(bool)`, `_setOraclePaused(bool)`                    | The two pause layers                                                                                                                                                  |
+| `_scheduleMultiplier(multiplier, effectiveAt)`, `_applyMultiplier()` | An ERC-8056 corporate action                                                                                                                                          |
+| `_warp(timestamp)`                                                   | Moves time (`vm.warp` by default; override if your wrapper needs a keeper step)                                                                                       |
+| `_readPrice() returns (priceWad)`                                    | The price through your wrapper                                                                                                                                        |
+| `_supportsSettlement()`, `_settlementPrice(hints, target)`           | Optional settlement price                                                                                                                                             |
+| `_supportsSequencer()`, `_setSequencer(answer, startedAt)`           | Optional sequencer check                                                                                                                                              |
+
+With your own token or feed contracts instead of the mocks, inherit `SafeStockFeedConformance` and implement the token and feed hooks too.
+
 ## Tests
 
 - Unit and fuzz: `contracts/test/oracle/StockOracle.t.sol` (21 tests), `contracts/test/oracle/MarketCalendar.t.sol` (13 tests)
 - Fork against chain 4663: `contracts/test/fork/RobinhoodFork.t.sol` (real TSLA, NVDA and SPY feeds, real pause flags and multipliers)
 - Example consumer: `contracts/test/examples/StockCollateral.t.sol` (14 unit and fuzz tests) and `contracts/test/fork/StockCollateralFork.t.sol` (3 fork tests: NVDA collateral against the raw feed, all 8 mainnet feeds, each revert on the real token)
 - Audit regression: `contracts/test/audit/AuditSettlement.t.sol` (phase changes, corporate action at expiry, round uniqueness)
+- Conformance suite: `contracts/test/conformance/` (21 rules; `StockOracle` passes 21, the `StockCollateral` example passes 14 and skips the 7 settlement rules)
 - Coverage: 97.5% of lines for `SafeStockFeed`, 100% for `StockOracle` and for the `StockCollateral` example
