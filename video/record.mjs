@@ -10,7 +10,7 @@
 //    alerts from `pnpm --filter @strike/telegram-bot dry-run` (run now, against the chain).
 // 3. Records the scenes with Playwright (1920x1080) with an injected caption bar: the app pages, the
 //    Blockscout page of the rejected proposal, and cards rendered by video/replay.html (problem, terminal
-//    replay of the live run, Telegram chat, closing card).
+//    replay of the live run, Telegram chat, the README charts from docs/media/charts full frame, closing card).
 // 4. Cuts and joins the scenes with ffmpeg into docs/media/strike-demo.mp4 (30 fps), writes
 //    docs/media/strike-demo.srt from the caption timings, a poster PNG and a README GIF (first 12 s).
 //
@@ -340,9 +340,13 @@ async function scene(name, opts, body) {
       localStorage.setItem("strike.ack.v1", "1"); // the first-visit eligibility (US-person) notice
     } catch {}
   });
-  await ctx.route(`${APP}/__video/**`, (route) =>
-    route.fulfill({ contentType: "text/html", body: replayHtml }),
-  );
+  await ctx.route(`${APP}/__video/**`, (route) => {
+    // /__video/charts/<file>.png: a README chart from docs/media/charts; anything else: the replay page.
+    const chart = new URL(route.request().url()).pathname.match(/^\/__video\/charts\/([\w.-]+\.png)$/)?.[1];
+    if (chart)
+      return route.fulfill({ contentType: "image/png", body: readFileSync(join(MEDIA, "charts", chart)) });
+    return route.fulfill({ contentType: "text/html", body: replayHtml });
+  });
   let t0 = Date.now();
   const captions = [];
   await ctx.exposeBinding("__capEvent", (_src, text) => captions.push({ t: (Date.now() - t0) / 1000, text }));
@@ -397,6 +401,7 @@ async function replayScene(name, data, opts = {}) {
     replayHtml = buildReplayHtml(data);
     await page.goto(`${APP}/__video/${name}`);
     await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(() => window.__prepare());
     await page.evaluate(installCaption);
     if (data.mode === "close") await page.evaluate(() => window.__caption(""));
     else if (data.first) await page.evaluate(([t, g]) => window.__caption(t, g), [data.first, data.tag]);
@@ -445,24 +450,48 @@ async function recordAll({ epoch, bot }) {
           word: "Idle tokens.",
           caption: "Stock tokens on Robinhood Chain earn nothing on their own.",
           tag: "The problem",
-          hold: 3900,
+          hold: 3000,
         },
         {
           word: "Options, run by hand.",
           caption: "Options exist on the chain, but people run them by hand.",
-          hold: 3900,
+          hold: 3000,
         },
         {
           word: "Agent + <em>contract.</em>",
           caption: "Strike: an AI agent runs the vault, and the contract enforces the rules.",
           tag: "Strike",
-          hold: 4200,
+          hold: 3500,
         },
       ],
     }),
   );
 
-  // 3. Mandate playground: an honest proposal is accepted, a reckless one rejected with the slash.
+  // 3. Competition: the README's matrix and positioning charts, full frame (docs/media/charts).
+  await add("competition", (name) =>
+    replayScene(name, {
+      mode: "stills",
+      tag: "Competition",
+      first: "Stonkhouse and Archer Markets: traders pick strikes and trade them on an order book.",
+      stills: [
+        {
+          src: "/__video/charts/competition-matrix-light.png",
+          alt: "Capability matrix: Strike, Stonkhouse, Archer Markets, Ribbon/Aevo, Derive, Thetanuts",
+          caption: "Stonkhouse and Archer Markets: traders pick strikes and trade them on an order book.",
+          tag: "Competition",
+          hold: 5600,
+        },
+        {
+          src: "/__video/charts/competition-positioning-light.png",
+          alt: "Positioning: who picks the strike, and how the price is set",
+          caption: "In Strike a bonded agent proposes the strike, and the contract checks it.",
+          hold: 5600,
+        },
+      ],
+    }),
+  );
+
+  // 4. Mandate playground: the honest proposal is accepted, the reckless one rejected with the slash.
   await add("playground", (name) =>
     scene(name, {}, async (page, mark) => {
       await page.goto(`${APP}/app/playground`);
@@ -471,35 +500,31 @@ async function recordAll({ epoch, bot }) {
       await page.evaluate(() => document.fonts.ready);
       await caption(
         page,
-        "The mandate playground: ask the deployed contract about a proposal. No wallet.",
+        "The playground asks the deployed EpochManager about a proposal: a read-only call, no wallet.",
         "Playground",
       );
       await sleep(600);
       mark("start");
-      await sleep(3000);
+      await sleep(1800);
       const presets = page.getByRole("group", { name: "Preset proposals" });
-      await scrollToEl(presets, 180, 1500); // below the sticky nav and page index
-      await sleep(500);
+      await scrollToEl(presets, 180, 1200); // below the sticky nav and page index
       await caption(page, "Honest agent: a 0.20-delta call. The contract answers: Accepted.");
       await presets.getByRole("button", { name: /0\.20-delta call/ }).click();
       await page.locator('[data-testid="verdict"][data-kind="accepted"]').waitFor({ timeout: 30_000 });
-      await sleep(5200);
+      await sleep(2800);
       await caption(page, "Reckless agent: an at-the-money put. Rejected: DeltaOutOfBand.");
       await presets.getByRole("button", { name: /At-the-money put/ }).click();
       await page.locator('[data-testid="verdict"][data-kind="rejected"]').waitFor({ timeout: 30_000 });
       await expectText(page, "DeltaOutOfBand");
-      await sleep(4200);
+      await sleep(3000);
       await expectText(page, "slashed by 10 USDG");
       await caption(page, "The slash: 10 USDG of the agent's bond, paid to the vault's depositors.");
-      await scrollToEl(page.getByTestId("verdict"), 170, 1400);
-      await sleep(4600);
-      await caption(page, "Each verdict is a read-only call to the deployed EpochManager, not a simulation.");
-      await scrollToHeading(page, /What this proves/, 110, 1800);
-      await sleep(4200);
+      await scrollToEl(page.getByTestId("verdict"), 170, 1200);
+      await sleep(3400);
     }),
   );
 
-  // 4. The real epoch on Robinhood Chain testnet: terminal replay of the live run, and the rejection on
+  // 5. The real epoch on Robinhood Chain testnet: terminal replay of the live run, and the rejection on
   //    Blockscout.
   const wintitle = "~/strike · Robinhood Chain testnet (46630) · live run, 2026-09-29 17:08 UTC";
   const sublabel = "docs/testnet-epochs/2026-09-29.md";
@@ -523,11 +548,11 @@ async function recordAll({ epoch, bot }) {
               match: "^\\s*\\[3\\]",
               caption: "The seller agent targets a 0.20-delta call on the TSLA covered-call vault.",
             },
-            { match: "strikes at \\$", highlight: "hl", hold: 1300 },
+            { match: "strikes at \\$", highlight: "hl", hold: 1000 },
             {
               match: "^\\s*\\[5\\]",
               caption: "proposeByDelta: the contract solves the strike on-chain.",
-              hold: 1500,
+              hold: 1300,
             },
             { match: "^\\s*Opened the epoch", highlight: "hl", hold: 300 },
             {
@@ -602,8 +627,8 @@ async function recordAll({ epoch, bot }) {
           clear: true,
           label: "Buyer agent · calls within a 15 USDG budget",
           command: "pnpm --filter @strike/agent-example start -- --buy --budget 15 --vault sTSLA-CC",
-          linePause: 70,
-          stepPause: 260,
+          linePause: 55,
+          stepPause: 220,
           typeSpeed: 0.6,
           rules: [
             { match: "^\\s*One option costs", highlight: "hl", hold: 600 },
@@ -615,14 +640,14 @@ async function recordAll({ epoch, bot }) {
             },
             { match: "^\\s*Max loss", highlight: "hl", hold: 400 },
           ],
-          endHold: 1400,
+          endHold: 700,
           lines: epoch.buyer,
         },
       ],
     }),
   );
 
-  // 5. The vault page, live on chain 46630.
+  // 6. The vault page, live on chain 46630: this week's series, the buy-price breakdown, the payoff chart.
   await add("vault", (name) =>
     scene(name, {}, async (page, mark) => {
       await page.goto(`${APP}/app/vault/${CC_VAULT}`);
@@ -631,34 +656,82 @@ async function recordAll({ epoch, bot }) {
       await expectText(page, "$369.86");
       await expectText(page, "Breakeven $372.36");
       await expectText(page, "4 of 4 sold");
-      await expectText(page, "5 TSLA");
       await page.evaluate(() => document.fonts.ready);
-      await caption(page, "The TSLA covered-call vault, live on testnet. It holds 5 testnet TSLA.", "Vault");
-      await sleep(800);
+      await scrollToHeading(page, /This week's option/, 120, 10);
+      await caption(
+        page,
+        "The TSLA covered-call vault on testnet: a call at $369.86, expiring Fri Oct 2. All 4 sold.",
+        "Vault",
+      );
+      await sleep(900);
       mark("start");
-      await sleep(3400);
-      await caption(page, "This week's series: a TSLA call at $369.86, expiring Fri Oct 2. All 4 sold.");
-      await scrollToHeading(page, /This week's option/, 120, 1600);
-      await sleep(4600);
+      await sleep(3600);
       await caption(
         page,
         "The buy price: spot plus 0.5% against the buyer, at Black-Scholes fair value, never below intrinsic.",
       );
-      await scrollToHeading(page, /How the buy price is set/, 380, 1300);
-      await sleep(5200);
+      await scrollToHeading(page, /How the buy price is set/, 380, 1200);
+      await sleep(4600);
       await caption(
         page,
         "Buyer profits above $372.36. At or below $369.86, depositors keep the full premium.",
       );
-      await scrollToHeading(page, /Result at expiry/, 110, 1400);
-      await sleep(5200);
-      await caption(page, "Epoch 1 opened Tue Sep 29 and settles at Friday's NYSE close.");
-      await scrollToHeading(page, /Epoch timeline/, 120, 1400);
-      await sleep(3000);
+      await scrollToHeading(page, /Result at expiry/, 110, 1200);
+      await sleep(4600);
     }),
   );
 
-  // 6. Agents: the ERC-8004 identity, bond, strikes and the rejection feed.
+  // 7. Backtest explorer: TSLA -> NVDA, then the equity curve's tooltip. Numbers are read from the page and
+  //    checked against the README's backtest table.
+  await add("backtest", (name) =>
+    scene(name, {}, async (page, mark) => {
+      await page.goto(`${APP}/app/backtest`);
+      await page.getByRole("heading", { level: 1 }).waitFor();
+      await expectText(page, "403 weeks");
+      await page.locator("#bt-equity-body svg").waitFor();
+      await page.evaluate(() => document.fonts.ready);
+      const stock = page.getByRole("group", { name: "Stock" });
+      await scrollToEl(stock, 110, 10);
+      await caption(
+        page,
+        "The backtest: 403 weekly epochs, Jan 2019 to Sep 2026, run by the contract rules.",
+        "Backtest",
+      );
+      await sleep(900);
+      mark("start");
+      await sleep(3000);
+      await stock.getByRole("button", { name: "NVDA", exact: true }).click();
+      await page.getByRole("region", { name: "Headline figures, NVDA" }).waitFor();
+      const vol = (m) =>
+        page.locator(`[data-metric="${m}"]`).evaluate((el) => ({
+          v: el.querySelector("dd").textContent.trim(),
+          bh: el.querySelectorAll("dd")[1].textContent.replace("Buy-and-hold", "").trim(),
+        }));
+      const v = await vol("vol");
+      // README: NVDA covered-call volatility 26.5%, held 45.6%.
+      if (v.v !== "26.5%" || v.bh !== "45.6%")
+        throw new Error(`NVDA volatility on /app/backtest: ${JSON.stringify(v)}`);
+      await caption(
+        page,
+        `NVDA: the covered call's volatility is ${v.v}, against ${v.bh} for holding the stock.`,
+      );
+      await sleep(3600);
+      await caption(
+        page,
+        "A covered call trades upside for 25 to 46% lower volatility, on every stock tested.",
+      );
+      const svg = page.locator("#bt-equity-body svg");
+      await scrollToEl(svg, 330, 1000);
+      const box = await svg.boundingBox();
+      const y = box.y + box.height * 0.5;
+      await page.mouse.move(box.x + box.width * 0.2, y);
+      await page.mouse.move(box.x + box.width * 0.62, y, { steps: 70 });
+      await page.getByTestId("chart-tip").first().waitFor();
+      await sleep(5000);
+    }),
+  );
+
+  // 8. Agents: the ERC-8004 identity, bond, strikes, the rejection feed and the open agent market.
   await add("agents", (name) =>
     scene(name, {}, async (page, mark) => {
       await page.goto(`${APP}/app/agents`);
@@ -671,22 +744,26 @@ async function recordAll({ epoch, bot }) {
       await expectText(page, "50 USDG");
       await page.evaluate(() => document.fonts.ready);
       await caption(page, "Every agent posts a USDG bond. A rejected proposal costs 10 USDG.", "Agents");
+      await page.locator("#run-your-own-agent").getByText("Run a vault").first().waitFor({ timeout: 40_000 });
       await sleep(600);
       mark("start");
-      await sleep(2600);
+      await sleep(2200);
       await caption(
         page,
         "Agent #1: ERC-8004 identity #114, 1 accepted, 1 rejected, 1 strike, 50 USDG bond.",
       );
-      await scrollToHeading(page, /Leaderboard/, 150, 1500);
-      await sleep(4200);
+      await scrollToHeading(page, /Leaderboard/, 150, 1300);
+      await sleep(3800);
       await caption(page, "The rejection feed: DeltaOutOfBand on the TSLA put vault, 10 USDG slashed.");
       await scrollToHeading(page, /Rejected proposals/, 380, 1000);
-      await sleep(3000);
+      await sleep(2600);
+      await caption(page, "An open market: any agent can register, bond USDG and run a vault.");
+      await scrollToEl(page.locator("#run-your-own-agent"), 130, 1400);
+      await sleep(6400);
     }),
   );
 
-  // 7. Telegram: the bot's real alerts for the live chain, in a chat mock.
+  // 9. Telegram: the bot's real alerts for the live chain, in a chat mock.
   const rejected = bot.alerts.ProposalRejected.at(-1).text;
   const bought = bot.alerts.OptionsBought.at(-1).text;
   const boughtHead = bought.split("\n")[0]; // "sTSLA-CC: 4 TSLA calls bought for 10.005944 USDG"
@@ -699,26 +776,26 @@ async function recordAll({ epoch, bot }) {
       note: "Messages are the bot's real alerts for Robinhood Chain testnet, printed by <code>pnpm --filter @strike/telegram-bot dry-run</code>.",
       messages: [
         { from: "me", text: "/subscribe", before: 400, hold: 700 },
-        { from: "bot", text: bot.subscribe, hold: 1500 },
+        { from: "bot", text: bot.subscribe, hold: 1300 },
         {
           from: "bot",
           text: rejected,
           highlight: true,
           caption: "A rejected proposal: the rule it broke, the 10 USDG slash and the transaction.",
-          hold: 4400,
+          hold: 3800,
         },
         {
           from: "bot",
           text: bought,
           highlight: true,
           caption: `A sale: ${boughtHead.replace(/^[^:]+: /, "")}.`,
-          hold: 4000,
+          hold: 3400,
         },
       ],
     }),
   );
 
-  // 8. Stock-token safety monitor, live on Robinhood Chain mainnet.
+  // 10. Stock-token safety monitor, live on Robinhood Chain mainnet.
   await add("monitor", (name) =>
     scene(name, {}, async (page, mark) => {
       await page.goto(`${APP}/app/monitor`);
@@ -750,17 +827,17 @@ async function recordAll({ epoch, bot }) {
       );
       await sleep(600);
       mark("start");
-      await sleep(3000);
+      await sleep(2400);
       await caption(page, "Each token gets the verdict the contracts would give: five checks, or no price.");
-      await scrollToText(page, "Tesla", 360, 1400);
-      await sleep(2600);
+      await scrollToText(page, "Tesla", 360, 1200);
+      await sleep(2200);
       await caption(page, `NVDA's multiplier is ${mult}: already in the price, so Strike never applies it.`);
       await scrollToText(page, "NVIDIA", 330, 1000);
-      await sleep(4200);
+      await sleep(3800);
     }),
   );
 
-  // 9. Proof: verified contracts, tests, formal proofs, internal review.
+  // 11. Proof: verified contracts, tests, formal proofs, internal review.
   await add("proof", (name) =>
     scene(name, {}, async (page, mark) => {
       await page.goto(`${APP}/app/proof`);
@@ -769,48 +846,80 @@ async function recordAll({ epoch, bot }) {
         .getByText(/Verified on Blockscout/)
         .first()
         .waitFor({ timeout: 40_000 });
+      await expectText(page, "432");
       await expectText(page, "9 properties proven with Halmos");
       await expectText(page, "11 findings, all fixed");
       await page.evaluate(() => document.fonts.ready);
       await caption(page, "The proof page: every claim next to its evidence.", "Proof");
       await sleep(600);
       mark("start");
-      await sleep(1000);
+      await sleep(700);
       await caption(page, "Every deployed contract is verified on Blockscout.");
-      await scrollToHeading(page, /^Live on Robinhood Chain testnet$/, 170, 1200);
-      await sleep(2000);
+      await scrollToHeading(page, /^Live on Robinhood Chain testnet$/, 170, 1100);
+      await sleep(1800);
       await caption(page, "432 Foundry tests, plus Rust, TypeScript, bot and subgraph tests.");
-      await scrollToHeading(page, /^Tests$/, 170, 1200);
-      await sleep(2000);
+      await scrollToHeading(page, /^Tests$/, 170, 1100);
+      await sleep(1900);
       await caption(page, "9 properties proven with Halmos, for every input in range.");
-      await scrollToHeading(page, /^Formal properties$/, 300, 1200);
-      await sleep(2000);
+      await scrollToHeading(page, /^Formal properties$/, 300, 1100);
+      await sleep(1900);
       await caption(page, "An internal review: 11 findings, all fixed, with regression tests.");
-      await scrollToHeading(page, /^Internal review/, 170, 1200);
-      await sleep(2600);
+      await scrollToHeading(page, /^Internal review/, 170, 1100);
+      await sleep(2300);
     }),
   );
 
-  // 10. Closing card (numbers as in the README).
+  // 12. The evidence, as the README charts it (docs/media/charts). Numbers as in README.md.
+  await add("evidence", (name) =>
+    replayScene(name, {
+      mode: "stills",
+      tag: "Evidence",
+      first: "802 tests and proofs: 432 Foundry tests, 9 fork tests on mainnet, 9 Halmos proofs, and more.",
+      stills: [
+        {
+          src: "/__video/charts/tests-by-suite-light.png",
+          alt: "802 tests and proofs, by suite",
+          caption:
+            "802 tests and proofs: 432 Foundry tests, 9 fork tests on mainnet, 9 Halmos proofs, and more.",
+          tag: "Evidence",
+          hold: 4800,
+        },
+        {
+          src: "/__video/charts/coverage-by-contract-light.png",
+          alt: "Line and branch coverage by contract",
+          caption: "99.1% line coverage and 97.5% branch coverage, above the 95% CI gate.",
+          hold: 4400,
+        },
+        {
+          src: "/__video/charts/gas-stylus-vs-solidity-light.png",
+          alt: "Gas per call, Solidity vs Stylus",
+          caption: "The strike solver in Stylus costs 6.5× less gas than in Solidity.",
+          hold: 4400,
+        },
+      ],
+    }),
+  );
+
+  // 13. Closing card (numbers as in the README).
   await add("close", (name) =>
     replayScene(
       name,
       {
         mode: "close",
-        hold: 5200,
+        hold: 5000,
         items: [
-          { big: "500+", small: "tests: 432 Foundry, plus TypeScript and bot" },
+          { big: "802", small: "tests and proofs, 432 of them Foundry tests" },
           { big: "9", small: "invariants, fuzzed in CI" },
           { big: "9", small: "formal proofs (Halmos)" },
           { big: "Fork", small: "tests on Robinhood Chain mainnet" },
-          { big: "Rust = Solidity", small: "the Stylus pricer matches the Solidity one" },
+          { big: "6.5×", small: "less gas for the strike solver in Stylus" },
         ],
         link: `<span>→</span> ${REPO}`,
       },
       {
         srt: [
           "Strike: options on Robinhood Chain, run by agents that cannot break the rules.",
-          `500+ tests, 9 invariants, 9 formal proofs, fork tests on mainnet. ${REPO}`,
+          `802 tests and proofs (432 Foundry tests), 9 invariants, 9 formal proofs, fork tests on mainnet. ${REPO}`,
         ],
       },
     ),

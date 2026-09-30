@@ -6,7 +6,7 @@ There are two paths. The first needs a browser. The second needs a clone and abo
 
 ## 3 minutes, no install
 
-1. Watch the [demo video](media/strike-demo.mp4) (2:43, captioned).
+1. Watch the [demo video](media/strike-demo.mp4) (2:55, captioned).
 2. Try the mandate playground. The app URL is pending Vercel ([deploy-app.md](deploy-app.md)). Once it is live, open `/app/playground`, click "Reckless agent" and the deployed `EpochManager.previewProposal` returns `DeltaOutOfBand`. No wallet is needed. Until then, the same scene is at 0:20 to 0:47 in the video ([source](../app/src/components/app/playground/PlaygroundPage.tsx)).
 3. Open the live epoch from 2026-09-29 on Blockscout ([full log](testnet-epochs/2026-09-29.md)):
 

@@ -369,14 +369,14 @@
         font: 800 104px/0.95 var(--sans);
         letter-spacing: -0.045em;
         margin: 0 0 56px;
-        max-width: 1560px;
+        max-width: 1680px;
       }
       .close ul {
         list-style: none;
         margin: 0;
         padding: 0;
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr 1.25fr 1.9fr;
+        grid-template-columns: 1.45fr 1fr 1fr 1.25fr 1.45fr;
         gap: 0;
         border-top: 1px solid #294040;
       }
@@ -401,6 +401,31 @@
       .close .link span {
         color: var(--mint);
       }
+      /* ------------------------------------------------------------ full-frame stills (the README charts) */
+      body.stills-on {
+        background: #e9e9e7; /* the light charts' own background, so each chart fills the frame */
+      }
+      .stills {
+        position: absolute;
+        inset: 0 0 150px;
+      }
+      .stills img {
+        position: absolute;
+        inset: 22px 48px 18px;
+        width: calc(100% - 96px);
+        height: calc(100% - 40px);
+        object-fit: contain;
+        opacity: 0;
+        transform: scale(0.985);
+        transition:
+          opacity 550ms ease,
+          transform 900ms ease;
+      }
+      .stills img.on {
+        opacity: 1;
+        transform: none;
+      }
+
       .fade {
         opacity: 0;
         transform: translateY(18px);
@@ -440,15 +465,17 @@
       </div>
     </div>
 
+    <div class="stills mode" id="stills"></div>
+
     <div class="close mode" id="close">
       <div class="logo fade">Strike<em>.</em></div>
-      <h1 class="fade">Options on Robinhood Chain, run by agents that cannot break the rules.</h1>
+      <h1 class="fade">Options on Robinhood Chain, run by agents the contract holds to a mandate.</h1>
       <ul class="fade" id="closeList"></ul>
       <p class="link fade" id="closeLink"></p>
     </div>
 
     <script>
-      // Filled in by video/record.mjs: { mode: "terminal" | "problem" | "telegram" | "close", ... }
+      // Filled in by video/record.mjs: { mode: "terminal" | "problem" | "telegram" | "stills" | "close", ... }
       const DATA = /*__DATA__*/ null;
       const screen = document.getElementById("screen");
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -583,8 +610,39 @@
         await sleep(DATA.hold ?? 5000);
       }
 
+      // ---------------------------------------------------------------- full-frame stills
+      // DATA.stills: [{ src, alt, caption, tag?, hold }]. The images are loaded by prepare(), before recording.
+      async function prepareStills() {
+        document.body.classList.add("stills-on");
+        const root = document.getElementById("stills");
+        root.innerHTML = "";
+        for (const s of DATA.stills) {
+          const img = new Image();
+          img.src = s.src;
+          img.alt = s.alt || "";
+          root.appendChild(img);
+          await img.decode();
+        }
+        root.firstChild?.classList.add("on"); // on screen when the cut starts
+      }
+
+      async function stills() {
+        const imgs = [...document.querySelectorAll("#stills img")];
+        for (let i = 0; i < imgs.length; i++) {
+          imgs.forEach((el, j) => el.classList.toggle("on", j === i));
+          caption(DATA.stills[i].caption, DATA.stills[i].tag);
+          await sleep(DATA.stills[i].hold);
+        }
+      }
+
+      window.__prepare = async () => {
+        document.getElementById(DATA.mode).classList.add("on");
+        if (DATA.mode === "stills") await prepareStills();
+      };
+
       async function main() {
         document.getElementById(DATA.mode).classList.add("on");
+        if (DATA.mode === "stills") return stills();
         if (DATA.mode === "terminal") return terminal();
         if (DATA.mode === "problem") return problem();
         if (DATA.mode === "telegram") return telegram();
