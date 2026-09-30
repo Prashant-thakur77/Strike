@@ -1,4 +1,6 @@
 import { readFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
@@ -59,9 +61,28 @@ export interface StrikeMcpOptions {
   client: () => StrikeClient;
   /** Where STRIKE_SKILL.md lives (default: docs/STRIKE_SKILL.md in the repository). */
   skillPath?: string | URL;
+  /** STRIKE_SKILL.md's text, when the host embeds it (a bundled web server has no repository to read from). */
+  skillText?: string;
+  /**
+   * Register only the tools annotated read-only (no transactions, no signer needed). The remote HTTP endpoint uses
+   * this: its tool list has no write tools at all, rather than write tools that refuse.
+   */
+  readOnly?: boolean;
 }
 
-const DEFAULT_SKILL_PATH = new URL("../../docs/STRIKE_SKILL.md", import.meta.url);
+// A plain path (not `new URL(literal, import.meta.url)`), so bundlers do not try to pull the file in as an asset.
+const defaultSkillPath = () => resolve(dirname(fileURLToPath(import.meta.url)), "../../docs/STRIKE_SKILL.md");
+
+/** The tools {@link createStrikeMcpServer} registers with `readOnly: true`, in registration order. */
+export const READ_ONLY_TOOLS = [
+  "strike_info",
+  "list_vaults",
+  "vault_state",
+  "quote",
+  "hedge_plan",
+  "risk_check",
+  "agent_stats",
+] as const;
 const DEFAULT_TARGET_DELTA = 0.2;
 
 const vaultInput = z
@@ -473,9 +494,17 @@ async function resolveUnderlying(
  * (register_agent, create_vault), plus the STRIKE_SKILL.md resource.
  */
 export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
-  const { chainId, client } = options;
-  const skillPath = options.skillPath ?? DEFAULT_SKILL_PATH;
+  const { chainId, client, skillText } = options;
   const server = new McpServer({ name: "strike", version: SERVER_VERSION });
+  if (options.readOnly) {
+    // Drop every tool not annotated read-only right after it is registered (before any client connects).
+    const register = server.registerTool.bind(server);
+    server.registerTool = ((name, config, cb) => {
+      const tool = register(name, config, cb);
+      if (config.annotations?.readOnlyHint !== true) tool.remove();
+      return tool;
+    }) as typeof server.registerTool;
+  }
 
   server.registerResource(
     "strike-skill",
@@ -488,7 +517,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     async (uri) => {
       let text: string;
       try {
-        text = await readFile(skillPath, "utf8");
+        text = skillText ?? (await readFile(options.skillPath ?? defaultSkillPath(), "utf8"));
       } catch {
         text =
           "# Strike\n\nSTRIKE_SKILL.md was not found next to this server. See docs/STRIKE_SKILL.md in the repo.";

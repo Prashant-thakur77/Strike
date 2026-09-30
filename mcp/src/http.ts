@@ -1,0 +1,127 @@
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { type StrikeClient, createStrikeClient, getStrikeChain } from "@strike/sdk";
+import { createPublicClient, custom, http } from "viem";
+import { createStrikeMcpServer } from "./server.js";
+
+// The read-only Strike MCP server over Streamable HTTP, for serverless hosts (the app serves it at /api/mcp).
+// Stateless: every request builds a fresh server and transport and answers with plain JSON, so no session has to
+// survive between invocations. Only the read-only tools are registered, and the client never has a signer.
+
+/** Options for {@link handleReadOnlyMcpRequest}. */
+export interface ReadOnlyMcpOptions {
+  /** Chain to read (default 46630, Robinhood Chain testnet). */
+  chainId?: number;
+  /** RPC URL (default: the chain's public RPC). */
+  rpcUrl?: string;
+  /** STRIKE_SKILL.md's text for the strike://skill resource. */
+  skillText?: string;
+  /** How long identical RPC reads are shared between requests, in ms (default 10 000). */
+  cacheTtlMs?: number;
+}
+
+/** RPC methods whose answers may be shared for a few seconds: reads only, never anything that sends. */
+const CACHEABLE = new Set([
+  "eth_chainId",
+  "eth_blockNumber",
+  "eth_call",
+  "eth_getBlockByNumber",
+  "eth_getLogs",
+  "eth_getBalance",
+  "eth_getCode",
+]);
+const MAX_ENTRIES = 1_000;
+
+/**
+ * A viem transport that shares identical read calls for `ttlMs` (and coalesces concurrent ones), so bursts of
+ * MCP calls from many agents cost the public RPC one request per distinct read instead of one per caller.
+ */
+export function cachedReadTransport(rpcUrl: string, ttlMs: number) {
+  const upstream = http(rpcUrl, { retryCount: 1, timeout: 20_000 })({ retryCount: 0 });
+  const cache = new Map<string, { expires: number; value: Promise<unknown> }>();
+  return custom(
+    {
+      async request({ method, params }: { method: string; params?: unknown }) {
+        if (!CACHEABLE.has(method)) {
+          throw new Error(`${method} is not available on the read-only Strike endpoint`);
+        }
+        const key = `${method}:${JSON.stringify(params ?? [])}`;
+        const now = Date.now();
+        const hit = cache.get(key);
+        if (hit && hit.expires > now) return hit.value;
+        if (cache.size >= MAX_ENTRIES) {
+          for (const [k, v] of cache) if (v.expires <= now) cache.delete(k);
+          if (cache.size >= MAX_ENTRIES) cache.clear();
+        }
+        const value = upstream.request({ method, params } as never) as Promise<unknown>;
+        const ttl = method === "eth_chainId" ? 24 * 3_600_000 : ttlMs;
+        cache.set(key, { expires: now + ttl, value });
+        value.catch(() => cache.delete(key));
+        return value;
+      },
+    },
+    { retryCount: 0 },
+  );
+}
+
+// One read client per chain and RPC per server instance: warm serverless invocations reuse it and its cache.
+const clients = new Map<string, StrikeClient>();
+
+/** A read-only Strike client (no wallet) over the caching transport. */
+export function readOnlyClient(chainId: number, rpcUrl?: string, cacheTtlMs = 10_000): StrikeClient {
+  const url = rpcUrl || getStrikeChain(chainId).rpcUrls.default.http[0];
+  if (!url) throw new Error(`no RPC URL for chain ${chainId}`);
+  const key = `${chainId}:${url}:${cacheTtlMs}`;
+  let client = clients.get(key);
+  if (!client) {
+    const chain = { ...getStrikeChain(chainId), rpcUrls: { default: { http: [url] } } };
+    const publicClient = createPublicClient({ chain, transport: cachedReadTransport(url, cacheTtlMs) });
+    client = createStrikeClient({ publicClient, chainId });
+    clients.set(key, client);
+  }
+  return client;
+}
+
+/**
+ * Answer one MCP Streamable HTTP request with the read-only tool set. POST only: in stateless mode there is no
+ * standalone SSE stream to open (GET) and no session to end (DELETE), so both get 405 as the spec allows.
+ */
+export async function handleReadOnlyMcpRequest(
+  request: Request,
+  options: ReadOnlyMcpOptions = {},
+): Promise<Response> {
+  if (request.method !== "POST") {
+    return Response.json(
+      {
+        jsonrpc: "2.0",
+        error: { code: -32000, message: "Method not allowed: this stateless endpoint takes POST only" },
+        id: null,
+      },
+      { status: 405, headers: { Allow: "POST" } },
+    );
+  }
+  const chainId = options.chainId ?? 46630;
+  const server = createStrikeMcpServer({
+    chainId,
+    readOnly: true,
+    skillText: options.skillText,
+    client: () => readOnlyClient(chainId, options.rpcUrl, options.cacheTtlMs),
+  });
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: undefined,
+    enableJsonResponse: true,
+  });
+  await server.connect(transport);
+  try {
+    // The answer is always JSON here, so accept clients that only ask for application/json too.
+    const accept = request.headers.get("accept") ?? "";
+    let req = request;
+    if (!accept.includes("application/json") || !accept.includes("text/event-stream")) {
+      const headers = new Headers(request.headers);
+      headers.set("accept", "application/json, text/event-stream");
+      req = new Request(request.url, { method: "POST", headers, body: await request.text() });
+    }
+    return await transport.handleRequest(req);
+  } finally {
+    await server.close();
+  }
+}
