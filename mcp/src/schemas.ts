@@ -220,3 +220,69 @@ export const createVaultShape = {
   explanation: z.string(),
   nextStep: z.string(),
 };
+
+const greeksSchema = z.object({
+  delta: z.number(),
+  gamma: z.number().describe("Per $1 of spot"),
+  vega: z.number().describe("USD per 1.00 (100 points) of volatility"),
+  theta: z.number().describe("USD per calendar day"),
+});
+
+export const seriesRiskShape = {
+  seriesId: z.string(),
+  vault: address,
+  vaultSymbol: z.string(),
+  underlying: z.string().describe("Stock token symbol"),
+  isCall: z.boolean(),
+  strike: decimal,
+  expiry: z.number(),
+  expiryIso: z.string(),
+  computedBy: z.object({
+    riskEngine: address,
+    contract: z.string(),
+    explorer: z.string().nullable(),
+    functions: z.array(z.string()),
+  }),
+  chainTime: z.number(),
+  tenorDays: z.number().describe("0 once expired; the greeks are then 0"),
+  spot: decimal,
+  spotStatus: z.string().describe("Ok, or why the spot is only the feed's last print"),
+  sigma: z.number().describe("Volatility the greeks use (0.6 = 60%)"),
+  sigmaSource: z.enum(["epoch-open", "current"]),
+  currentSigma: z.number(),
+  sold: decimal,
+  collateral: decimal,
+  collateralUnit: z.string(),
+  premiumCollected: decimal.describe("USDG"),
+  perOption: greeksSchema.describe("Per option, option holder's side"),
+  vaultExposure: greeksSchema.describe("Depositors' side: minus the greeks times the options sold"),
+  explanations: z.object({ delta: z.string(), gamma: z.string(), vega: z.string(), theta: z.string() }),
+  atCurrentSigma: z.object({ perOption: greeksSchema, vaultExposure: greeksSchema }).nullable(),
+  scenarios: z.array(
+    z.object({
+      shockPct: z.number(),
+      spot: decimal,
+      payout: decimal.describe("USD the vault pays holders at expiry"),
+      net: decimal.describe("Premium collected minus the payout, USD (the option leg only)"),
+    }),
+  ),
+  worst: z.object({
+    shockPct: z.number(),
+    payout: decimal.describe("USD"),
+    payoutInCollateral: decimal,
+    shareOfCollateral: z.number().describe("0.187 = 18.7% of the locked collateral"),
+  }),
+  impliedVol: z
+    .object({
+      sigma: z.number(),
+      fairValue: decimal,
+      pricePaid: decimal,
+      spot: decimal,
+      pricedSpot: decimal,
+      tenorDays: z.number(),
+      txHash: z.string(),
+    })
+    .nullable(),
+  impliedVolNote: z.string(),
+  summary: z.string(),
+};

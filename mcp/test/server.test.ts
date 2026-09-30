@@ -1,7 +1,15 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { type ProposalParams, type SeriesState, type StrikeClient, type VaultState, WAD } from "@strike/sdk";
+import {
+  DEFAULT_SHOCKS,
+  type ProposalParams,
+  type SeriesRisk,
+  type SeriesState,
+  type StrikeClient,
+  type VaultState,
+  WAD,
+} from "@strike/sdk";
 import { type Address, getAddress } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStrikeMcpServer } from "../src/server.js";
@@ -146,6 +154,76 @@ const selling = (v: VaultState, s: SeriesState): VaultState => ({
 });
 const PER_OPTION: Record<string, bigint> = { "42": 2_440_000n, "43": 1_500_000n };
 
+const ENGINE = getAddress("0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec");
+/** The live TSLA covered call's risk as the Stylus engine computed it (see sdk/test/risk.test.ts), as series 42. */
+const LOSSES = [
+  ...Array<bigint>(8).fill(0n),
+  60_581_999_999_999_999_654n,
+  130_582_999_999_999_999_374n,
+  200_583_999_999_999_998_534n,
+  270_584_999_999_999_999_794n,
+  340_585_999_999_999_999_374n,
+];
+const risk: SeriesRisk = {
+  seriesId: 42n,
+  vault: VAULT,
+  underlying: TSLA,
+  isCall: true,
+  strike: 369_860_000_000_000_000_000n,
+  expiry: FRIDAY,
+  settled: false,
+  cancelled: false,
+  riskEngine: ENGINE,
+  chainTime: FRIDAY - 191_788n,
+  tenor: 191_788n,
+  spot: 350_005_000_000_000_000_000n,
+  spotStatus: "Ok",
+  sigma: 600_000_000_000_000_000n,
+  sigmaSource: "epoch-open",
+  currentSigma: 600_000_000_000_000_000n,
+  tokenDecimals: 18,
+  usdgDecimals: 6,
+  sold: 4n * WAD,
+  soldWad: 4n * WAD,
+  collateral: 4n * WAD,
+  collateralUnit: "token",
+  premium: 10_005_944n,
+  greeks: {
+    delta: 123_873_382_260_320_738n,
+    gamma: 12_490_389_829_484_384n,
+    vega: 5_583_294_857_298_036_735n,
+    theta: -754_577_985_594_328_775n,
+  },
+  exposure: {
+    delta: -495_493_529_041_282_952n,
+    gamma: -49_961_559_317_937_536n,
+    vega: -22_333_179_429_192_146_940n,
+    theta: 3_018_311_942_377_315_100n,
+  },
+  atCurrentSigma: null,
+  scenarios: DEFAULT_SHOCKS.map((shock, i) => ({
+    shock,
+    spot: (350_005_000_000_000_000_000n * (WAD + shock)) / WAD,
+    loss: LOSSES[i] as bigint,
+  })),
+  worstLoss: 340_585_999_999_999_999_374n,
+  worstShock: 300_000_000_000_000_000n,
+  worstPayout: 748_529_966_055_429_976n,
+  worstShareOfCollateralBps: 1871,
+  impliedVol: {
+    sigma: 600_000_021_748_298_880n,
+    fairValue: 2_501_486_000_000_000_000n,
+    pricePaid: 2_501_486_000_000_000_000n,
+    spot: 352_453_000_000_000_000_000n,
+    pricedSpot: 354_215_265_000_000_000_000n,
+    spotBufferBps: 50,
+    tenor: 269_415n,
+    blockNumber: 126_302_569n,
+    txHash: "0x425e5b63ddeb1fcff5d63aa9f5a9fd11f4d3c0f52facd05e0fb44096f2ede9f9",
+  },
+  impliedVolNote: "solved by the risk engine's impliedVol from the last buy's price",
+};
+
 interface StubOptions {
   wallet?: boolean;
   vaults?: VaultState[];
@@ -166,6 +244,7 @@ function stub(opts: StubOptions = {}) {
     proposeByDelta: vi.fn(),
     buy: vi.fn(),
     redeemOptions: vi.fn(),
+    seriesRisk: vi.fn(),
   };
   const vaults = opts.vaults ?? [vault];
   const series = opts.series ?? [callSeries, putSeries];
@@ -186,6 +265,11 @@ function stub(opts: StubOptions = {}) {
     tokenBalance: async () => opts.usdgBalance ?? 1_000_000_000n,
     optionBalance: async (id: bigint) => opts.balances?.[id.toString()] ?? 0n,
     vaultSeriesIds: async () => opts.seriesIds ?? [],
+    seriesRisk: async (id: bigint) => {
+      calls.seriesRisk(id);
+      if (id !== 42n) throw new Error(`series ${id} does not exist`);
+      return risk;
+    },
     buy: async (id: bigint, amount: bigint, o: { slippageBps?: number; to?: Address }) => {
       calls.buy(id, amount, o);
       return {
@@ -285,6 +369,7 @@ describe("Strike MCP server", () => {
       "redeem_options",
       "register_agent",
       "risk_check",
+      "series_risk",
       "settle_epoch",
       "strike_info",
       "vault_state",
@@ -444,6 +529,61 @@ describe("Strike MCP server", () => {
       rejectionsUntilInactive: 1,
       settledEpochs: 0,
       cumulativePnl: "0",
+    });
+  });
+
+  describe("series_risk", () => {
+    it("reads the vault's live series from the Stylus risk engine and explains it", async () => {
+      const { client, calls } = stub({ vaults: [selling(vault, callSeries)] });
+      const c = await connect(() => client);
+      const r = await call(c, "series_risk", { vault: "sTSLA-CC" });
+      expect(r.isError).toBeFalsy();
+      expect(calls.seriesRisk).toHaveBeenCalledWith(42n);
+      const out = r.structuredContent as Record<string, unknown>;
+      expect(out).toMatchObject({
+        seriesId: "42",
+        vaultSymbol: "sTSLA-CC",
+        underlying: "TSLA",
+        strike: "369.86",
+        computedBy: { riskEngine: ENGINE, functions: ["greeks", "scenarioLoss", "impliedVol"] },
+        tenorDays: 2.22,
+        spot: "350.005",
+        sigma: 0.6,
+        sigmaSource: "epoch-open",
+        sold: "4",
+        collateral: "4",
+        collateralUnit: "TSLA",
+        premiumCollected: "10.005944",
+        perOption: { delta: 0.123873, gamma: 0.01249, vega: 5.583295, theta: -0.754578 },
+        vaultExposure: { delta: -0.495494, gamma: -0.049962, vega: -22.333179, theta: 3.018312 },
+        worst: { shockPct: 30, payout: "340.586", payoutInCollateral: "0.748529", shareOfCollateral: 0.1871 },
+        impliedVol: { sigma: 0.60000002, pricedSpot: "354.2152", tenorDays: 3.118 },
+      });
+      const scenarios = out.scenarios as { shockPct: number; payout: string; net: string }[];
+      expect(scenarios).toHaveLength(13);
+      expect(scenarios[0]).toEqual({ shockPct: -30, spot: "245.0035", payout: "0", net: "10.005944" });
+      expect(scenarios[8]).toMatchObject({ shockPct: 10, payout: "60.582", net: "-50.576056" });
+      expect((out.explanations as { delta: string }).delta).toBe(
+        "Delta −0.50: the vault loses about $0.50 for every $1 TSLA rises, across the 4 options sold.",
+      );
+      expect(out.summary).toMatch(
+        /Worst case on the ±30% grid: \+30% pays \$340\.59 \(0\.748529 TSLA, 18\.7% of the 4 TSLA locked\) against \$10\.005944 premium/,
+      );
+    });
+
+    it("takes a seriesId, and refuses a vault without a live series", async () => {
+      const { client, calls } = stub();
+      const c = await connect(() => client);
+      const r = await call(c, "series_risk", { seriesId: "42" });
+      expect(r.isError).toBeFalsy();
+      expect(calls.seriesRisk).toHaveBeenCalledWith(42n);
+      const idle = await call(c, "series_risk", { vault: "sTSLA-CC" });
+      expect(idle.isError).toBe(true);
+      expect(text(idle)).toMatch(/no live series \(epoch is Idle\)/);
+      const none = await call(c, "series_risk", {});
+      expect(text(none)).toMatch(/give a vault or a seriesId/);
+      const unknown = await call(c, "series_risk", { seriesId: "7" });
+      expect(text(unknown)).toMatch(/series 7 does not exist/);
     });
   });
 

@@ -144,6 +144,40 @@ export interface RiskContext {
   getSeries: (id: bigint) => Promise<SeriesState | null>;
 }
 
+/** Plain-words lines for the depositors' side of each greek (one sentence each), for UIs and agents. */
+export function explainSeriesRisk(
+  r: Pick<SeriesRisk, "exposure" | "sold" | "tokenDecimals" | "tenor" | "isCall">,
+  symbol: string,
+): { delta: string; gamma: string; vega: string; theta: string } {
+  if (r.tenor === 0n) {
+    const done = "0: the series has expired, so only the settlement price matters now.";
+    return { delta: `Delta ${done}`, gamma: `Gamma ${done}`, vega: `Vega ${done}`, theta: `Theta ${done}` };
+  }
+  const num = (x: bigint) => Number(x) / 1e18;
+  const usd = (x: number) => `$${Math.abs(x).toFixed(2)}`;
+  const signed = (x: number, digits: number) =>
+    `${x < 0 ? "−" : x > 0 ? "+" : ""}${Math.abs(x).toFixed(digits)}`;
+  const [delta, gamma, vega, theta] = [
+    r.exposure.delta,
+    r.exposure.gamma,
+    r.exposure.vega,
+    r.exposure.theta,
+  ].map(num) as [number, number, number, number];
+  const sold = Number(r.sold) / 10 ** r.tokenDecimals;
+  const across = `across the ${sold.toLocaleString("en-US", { maximumFractionDigits: 6 })} option${sold === 1 ? "" : "s"} sold`;
+  return {
+    delta:
+      delta <= 0
+        ? `Delta ${signed(delta, 2)}: the vault loses about ${usd(delta)} for every $1 ${symbol} rises, ${across}.`
+        : `Delta ${signed(delta, 2)}: the vault loses about ${usd(delta)} for every $1 ${symbol} falls, ${across}.`,
+    gamma: r.isCall
+      ? `Gamma ${signed(gamma, 4)}: each $1 ${symbol} rises adds about ${usd(gamma)} to that loss per $1, so losses speed up as ${symbol} climbs past the strike.`
+      : `Gamma ${signed(gamma, 4)}: each $1 ${symbol} falls adds about ${usd(gamma)} to that loss per $1, so losses speed up as ${symbol} drops past the strike.`,
+    vega: `Vega ${signed(vega, 2)}: each volatility point (1%) the market adds raises the options' value by about ${usd(vega / 100)}, a mark-to-market loss for the vault until expiry.`,
+    theta: `Theta ${signed(theta, 2)}: with nothing else moving, time decay earns the vault about ${usd(theta)} a day.`,
+  };
+}
+
 const ZERO_GREEKS: Greeks = { delta: 0n, gamma: 0n, vega: 0n, theta: 0n };
 
 /** The vault's side of `sold` WAD options: −greeks × sold, WAD. */

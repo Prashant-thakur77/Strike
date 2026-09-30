@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_SHOCKS,
   PRICER_INPUT_ERRORS,
+  explainSeriesRisk,
   type StrikeAddresses,
   StrikeError,
   WAD,
@@ -251,6 +252,27 @@ describe("seriesRisk on the live TSLA covered call (fixed vector)", () => {
       vega: -22_333_179_429_192_146_940n, // −$0.22 per volatility point
       theta: 3_018_311_942_377_315_100n, // +$3.02 a day of time decay
     });
+  });
+
+  it("explains each greek for depositors in one line", async () => {
+    const { strike } = setup();
+    const r = await strike.seriesRisk(SERIES_ID, { impliedVol: false });
+    const e = explainSeriesRisk(r, "TSLA");
+    expect(e.delta).toBe(
+      "Delta −0.50: the vault loses about $0.50 for every $1 TSLA rises, across the 4 options sold.",
+    );
+    expect(e.gamma).toMatch(/^Gamma −0\.0500: each \$1 TSLA rises adds about \$0\.05 to that loss per \$1/);
+    expect(e.vega).toMatch(/^Vega −22\.33: .* about \$0\.22, a mark-to-market loss/);
+    expect(e.theta).toBe(
+      "Theta +3.02: with nothing else moving, time decay earns the vault about $3.02 a day.",
+    );
+    const put = explainSeriesRisk(
+      { ...r, isCall: false, exposure: { ...r.exposure, delta: WAD / 4n } },
+      "TSLA",
+    );
+    expect(put.delta).toMatch(/loses about \$0\.25 for every \$1 TSLA falls/);
+    expect(put.gamma).toMatch(/drops past the strike/);
+    expect(explainSeriesRisk({ ...r, tenor: 0n }, "TSLA").delta).toMatch(/expired/);
   });
 
   it("finds the worst case on the ±30% grid and sets it against the locked collateral", async () => {

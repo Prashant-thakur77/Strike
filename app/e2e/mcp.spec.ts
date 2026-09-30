@@ -10,6 +10,7 @@ const READ_TOOLS = [
   "hedge_plan",
   "risk_check",
   "agent_stats",
+  "series_risk",
 ];
 const HEADERS = {
   "content-type": "application/json",
@@ -120,4 +121,28 @@ test("serves /skill.md and /llms.txt", async ({ request }) => {
   expect(txt).toContain("https://strike-options.vercel.app/skill.md");
   expect(txt).toContain("https://strike-options.vercel.app/api/mcp");
   expect(txt).toMatch(/EpochManager\]\(.+\): `0x[0-9a-fA-F]{40}`/);
+});
+
+test("series_risk: the live covered call's greeks and stress test come from the Stylus risk engine", async ({
+  request,
+}) => {
+  const r = await callTool(request, "series_risk", { vault: "sTSLA-CC" });
+  if (r.isError) {
+    // After Friday's settlement the vault has no live series until the next epoch.
+    expect(r.content[0]?.text).toMatch(/no live series|no usable price/);
+    return;
+  }
+  const out = r.structuredContent as {
+    computedBy: { riskEngine: string; functions: string[] };
+    scenarios: { shockPct: number }[];
+    vaultExposure: { delta: number; theta: number };
+    worst: { shareOfCollateral: number };
+  };
+  expect(out.computedBy.riskEngine.toLowerCase()).toBe("0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec");
+  expect(out.computedBy.functions).toContain("scenarioLoss");
+  expect(out.scenarios.map((s) => s.shockPct)).toEqual([
+    -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30,
+  ]);
+  expect(out.vaultExposure.delta).toBeLessThanOrEqual(0); // a covered call is short delta
+  expect(out.worst.shareOfCollateral).toBeLessThan(1); // the collateral always covers the worst case
 });

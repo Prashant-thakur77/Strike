@@ -44,6 +44,7 @@ export type { BlackScholesQuote, ProposalSuggestion, ProposalSuggestionInput } f
 export {
   DEFAULT_SHOCKS,
   PRICER_INPUT_ERRORS,
+  explainSeriesRisk,
   riskEngineError,
   settlementPayout,
   shockedSpot,

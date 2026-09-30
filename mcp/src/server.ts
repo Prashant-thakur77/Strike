@@ -14,6 +14,8 @@ import {
   type Mandate,
   type ProposalPreview,
   STRIKE_SDK_VERSION,
+  type Greeks,
+  type SeriesRisk,
   type SeriesState,
   type StrikeClient,
   StrikeError,
@@ -21,8 +23,11 @@ import {
   clampDeltaToMandate,
   explainError,
   explainMandateReason,
+  explainSeriesRisk,
+  getStrikeChain,
   roundStrikeToCent,
   formatAmount,
+  formatWad,
   getDeployment,
   mandateProblems,
   maxProposalSize,
@@ -44,6 +49,7 @@ import {
   hedgeSchema,
   registerAgentShape,
   riskCheckShape,
+  seriesRiskShape,
   suggestionSchema,
   vaultSchema,
 } from "./schemas.js";
@@ -82,6 +88,7 @@ export const READ_ONLY_TOOLS = [
   "hedge_plan",
   "risk_check",
   "agent_stats",
+  "series_risk",
 ] as const;
 const DEFAULT_TARGET_DELTA = 0.2;
 
@@ -403,6 +410,111 @@ function nextStep(v: VaultState, now: bigint, marketOpen: boolean, feedOk: boole
       return `Selling until ${iso(expiry)}; buyers can use quote, hedge_plan and buy_options. Settle with settle_epoch after expiry.`;
     }
   }
+}
+
+/** WAD greeks as numbers. */
+const greeksView = (g: Greeks) => ({
+  delta: round(wadToNumber(g.delta), 6),
+  gamma: round(wadToNumber(g.gamma), 6),
+  vega: round(wadToNumber(g.vega), 6),
+  theta: round(wadToNumber(g.theta), 6),
+});
+
+const pct = (wad: bigint) => round(wadToNumber(wad) * 100, 2);
+/** A WAD USD amount rounded half away from zero to 6 decimals (the engine rounds its WAD math down). */
+const usd6 = (wad: bigint) => {
+  const unit = 10n ** 12n;
+  const half = unit / 2n;
+  return formatWad(((wad < 0n ? wad - half : wad + half) / unit) * unit, 6);
+};
+
+/** A series' risk in human units (series_risk). */
+export function seriesRiskView(r: SeriesRisk, v: VaultState, chainId: number) {
+  const symbol = v.underlyingSymbol;
+  const explorer = (() => {
+    try {
+      const url = getStrikeChain(chainId).blockExplorers?.default.url;
+      return url ? `${url}/address/${r.riskEngine}` : null;
+    } catch {
+      return null;
+    }
+  })();
+  const premiumUsd = r.premium * 10n ** BigInt(18 - r.usdgDecimals);
+  const collateralDecimals = r.isCall ? r.tokenDecimals : r.usdgDecimals;
+  const collateralUnit = r.isCall ? symbol : "USDG";
+  const worstPct = pct(r.worstShock);
+  const share = r.worstShareOfCollateralBps / BPS;
+  const tenorDays = round(Number(r.tenor) / 86_400, 3);
+  const e = greeksView(r.exposure);
+  const summary =
+    r.sold === 0n
+      ? `No options of series ${r.seriesId} are sold yet, so the vault carries no risk from it.`
+      : `${formatAmount(r.sold, r.tokenDecimals)} ${symbol} ${optionWord(r.isCall)}s sold at strike $${usd(r.strike)}, ${tenorDays} days left, ${symbol} at $${usd(r.spot)}. Depositors' delta ${e.delta.toFixed(2)}, theta +$${e.theta.toFixed(2)} a day. Worst case on the ±30% grid: ${worstPct > 0 ? "+" : ""}${worstPct}% pays $${wadToNumber(r.worstLoss).toFixed(2)} (${formatAmount(r.worstPayout, collateralDecimals, 6)} ${collateralUnit}, ${(share * 100).toFixed(1)}% of the ${formatAmount(r.collateral, collateralDecimals)} ${collateralUnit} locked) against $${usdg(r.premium)} premium collected.`;
+  return {
+    seriesId: r.seriesId.toString(),
+    vault: r.vault,
+    vaultSymbol: v.symbol,
+    underlying: symbol,
+    isCall: r.isCall,
+    strike: usd(r.strike),
+    expiry: Number(r.expiry),
+    expiryIso: iso(r.expiry),
+    computedBy: {
+      riskEngine: r.riskEngine,
+      contract: "Strike v3 Stylus (Rust) risk engine, IRiskEngine",
+      explorer,
+      functions: [
+        ...(r.tenor > 0n ? ["greeks"] : []),
+        "scenarioLoss",
+        ...(r.impliedVol ? ["impliedVol"] : []),
+      ],
+    },
+    chainTime: Number(r.chainTime),
+    tenorDays,
+    spot: usd(r.spot),
+    spotStatus: r.spotStatus,
+    sigma: wadToNumber(r.sigma),
+    sigmaSource: r.sigmaSource,
+    currentSigma: wadToNumber(r.currentSigma),
+    sold: formatAmount(r.sold, r.tokenDecimals),
+    collateral: formatAmount(r.collateral, collateralDecimals),
+    collateralUnit,
+    premiumCollected: usdg(r.premium, r.usdgDecimals),
+    perOption: greeksView(r.greeks),
+    vaultExposure: e,
+    explanations: explainSeriesRisk(r, symbol),
+    atCurrentSigma: r.atCurrentSigma
+      ? {
+          perOption: greeksView(r.atCurrentSigma.greeks),
+          vaultExposure: greeksView(r.atCurrentSigma.exposure),
+        }
+      : null,
+    scenarios: r.scenarios.map((s) => ({
+      shockPct: pct(s.shock),
+      spot: usd(s.spot),
+      payout: usd6(s.loss),
+      net: usd6(premiumUsd - s.loss),
+    })),
+    worst: {
+      shockPct: worstPct,
+      payout: usd6(r.worstLoss),
+      payoutInCollateral: formatAmount(r.worstPayout, collateralDecimals, 6),
+      shareOfCollateral: round(share, 4),
+    },
+    impliedVol: r.impliedVol
+      ? {
+          sigma: round(wadToNumber(r.impliedVol.sigma), 8),
+          fairValue: usd6(r.impliedVol.fairValue),
+          pricePaid: usd6(r.impliedVol.pricePaid),
+          spot: usd(r.impliedVol.spot),
+          pricedSpot: usd(r.impliedVol.pricedSpot),
+          tenorDays: round(Number(r.impliedVol.tenor) / 86_400, 3),
+          txHash: r.impliedVol.txHash,
+        }
+      : null,
+    impliedVolNote: r.impliedVolNote,
+    summary,
+  };
 }
 
 // ------------------------------------------------------------------ joining as a new agent
@@ -1433,6 +1545,43 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           slashAmount: usdg(s.params.slashAmount),
           reputationRegistry: s.params.reputationRegistry,
         });
+      }),
+  );
+
+  server.registerTool(
+    "series_risk",
+    {
+      title: "Series risk (live greeks and stress test)",
+      description:
+        "Live risk of a series, computed by the Stylus (Rust) risk engine contract (IRiskEngine): greeks per option at the live spot and the series' volatility, the depositors' exposure (minus the greeks times the options sold) with a plain-words line each, the vault's payout at expiry for spot moves of -30% to +30% in 5% steps against the locked collateral, and the implied volatility of the last buy. Give a vault (its live series) or a seriesId. Read-only.",
+      inputSchema: {
+        vault: vaultInput.optional().describe("Vault whose live series to read (address or share symbol)"),
+        seriesId: z
+          .string()
+          .regex(/^\d+$/)
+          .optional()
+          .describe("Series id (decimal string; ids are large), e.g. from vault_state or buy_options"),
+      },
+      outputSchema: seriesRiskShape,
+      annotations: READ_ONLY,
+    },
+    async ({ vault, seriesId }) =>
+      run(async () => {
+        const strike = client();
+        let id: bigint;
+        if (seriesId !== undefined) id = BigInt(seriesId);
+        else if (vault !== undefined) {
+          const v = await strike.getVault(await resolveVault(strike, vault));
+          if (!v.series || v.epoch.state !== "Selling") {
+            throw new StrikeError(
+              `${v.symbol} has no live series (epoch is ${v.epoch.state}); pass a seriesId to read a past one`,
+            );
+          }
+          id = v.series.id;
+        } else throw new StrikeError("give a vault or a seriesId");
+        const r = await strike.seriesRisk(id);
+        const v = await strike.getVault(r.vault);
+        return result(seriesRiskView(r, v, chainId));
       }),
   );
 

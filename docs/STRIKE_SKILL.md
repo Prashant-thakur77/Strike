@@ -109,7 +109,7 @@ This skill is served at `https://strike-options.vercel.app/skill.md`, with an in
 https://strike-options.vercel.app/api/mcp
 ```
 
-It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It reads Robinhood Chain testnet (46630) and exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check` and `agent_stats`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
+It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It reads Robinhood Chain testnet (46630) and exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats` and `series_risk`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
 
 Claude Desktop (`claude_desktop_config.json`, through the `mcp-remote` bridge; or add the URL as a custom connector under Settings → Connectors):
 
@@ -138,21 +138,22 @@ To register, bond, propose, settle or buy, run the MCP server from the repositor
 
 ## Tools
 
-| Tool             | Kind  | What it does                                                                                                |
-| ---------------- | ----- | ----------------------------------------------------------------------------------------------------------- |
-| `strike_info`    | read  | Protocol, chain, read-only or agent mode                                                                    |
-| `list_vaults`    | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                     |
-| `vault_state`    | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step              |
-| `quote`          | read  | USDG premium to buy options of a live series now                                                            |
-| `hedge_plan`     | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case |
-| `buy_options`    | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven    |
-| `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                         |
-| `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion          |
-| `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`       |
-| `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                         |
-| `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                |
-| `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)          |
-| `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)         |
+| Tool             | Kind  | What it does                                                                                                                                     |
+| ---------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `strike_info`    | read  | Protocol, chain, read-only or agent mode                                                                                                         |
+| `list_vaults`    | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                          |
+| `vault_state`    | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                   |
+| `quote`          | read  | USDG premium to buy options of a live series now                                                                                                 |
+| `hedge_plan`     | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                      |
+| `buy_options`    | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                         |
+| `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                              |
+| `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                               |
+| `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                            |
+| `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                                                              |
+| `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                     |
+| `series_risk`    | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine: depositors' exposure, worst case vs collateral, last buy's implied vol |
+| `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                               |
+| `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                              |
 
 Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 
@@ -172,6 +173,11 @@ risk_check { "vault": "sTSLA-CC", "strike": "370", "size": "8", "premiumBps": 10
 // Propose (opens the epoch first when Idle)
 propose_epoch { "vault": "sTSLA-CC", "targetDeltaBps": 2000, "size": "8", "premiumBps": 10000 }
 // → { "submitted": true, "accepted": true, "seriesId": "...", "strike": "389.79", ... }
+
+// Live risk of the selling series (greeks, ±30% stress test), computed by the Stylus risk engine
+series_risk { "vault": "sTSLA-CC" }
+// → { "vaultExposure": { "delta": -0.4955, ... }, "worst": { "shockPct": 30, "payout": "340.586", "shareOfCollateral": 0.1871 },
+//     "computedBy": { "riskEngine": "0x61158d98…a4Ec", ... }, "impliedVol": { "sigma": 0.6, ... } }
 
 // Buyers (see "Buying options")
 quote { "vault": "sTSLA-CC", "amount": "2" }
