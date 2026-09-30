@@ -232,7 +232,7 @@ The app on the live Robinhood Chain testnet contracts, captured on 2026-09-30 at
   </tr>
   <tr>
     <td><a href="docs/screenshots/desktop-monitor.png"><img src="docs/screenshots/desktop-monitor.png" alt="Safety monitor on Robinhood Chain mainnet: 8 of 8 stock tokens Ok, with Chainlink price, ERC-8056 multiplier and pause flags"></a><br><sub><b>Monitor.</b> Robinhood Chain mainnet, read live: each stock token's feed, multiplier and pause flags.</sub></td>
-    <td><a href="docs/screenshots/desktop-proof.png"><img src="docs/screenshots/desktop-proof.png" alt="Proof page: v2 with 14 contracts, 432 Foundry tests, 99.1% coverage, 11 of 11 review findings fixed, and the active pricer read on-chain"></a><br><sub><b>Proof.</b> Each claim next to its evidence; the active pricer is read from the chain.</sub></td>
+    <td><a href="docs/screenshots/desktop-proof.png"><img src="docs/screenshots/desktop-proof.png" alt="Proof page: v2 with 14 contracts, 477 Foundry tests, 99.3% coverage, 11 of 11 review findings fixed, and the active pricer read on-chain"></a><br><sub><b>Proof.</b> Each claim next to its evidence; the active pricer is read from the chain.</sub></td>
     <td><a href="docs/screenshots/desktop-faucet.png"><img src="docs/screenshots/desktop-faucet.png" alt="Faucet page: where to get testnet ETH, USDG and TSLA"></a><br><sub><b>Faucet.</b> Gas, USDG and a stock token for testing.</sub></td>
   </tr>
 </table>
@@ -243,7 +243,7 @@ The app on the live Robinhood Chain testnet contracts, captured on 2026-09-30 at
     <td width="20%"><img src="docs/screenshots/mobile-vault.png" alt="TSLA covered-call vault on a phone: $1,762 locked, spot $352.45, epoch 1 selling"><br><sub>Vault</sub></td>
     <td width="20%"><img src="docs/screenshots/mobile-playground.png" alt="Playground verdict on a phone: rejected, DeltaOutOfBand"><br><sub>Playground verdict</sub></td>
     <td width="20%"><img src="docs/screenshots/mobile-agents.png" alt="Agents page on a phone: minimum bond and slash per rejection"><br><sub>Agents</sub></td>
-    <td width="20%"><img src="docs/screenshots/mobile-proof.png" alt="Proof page on a phone: v2, 432 tests, 99.1% coverage"><br><sub>Proof</sub></td>
+    <td width="20%"><img src="docs/screenshots/mobile-proof.png" alt="Proof page on a phone: v2, 477 tests, 99.3% coverage"><br><sub>Proof</sub></td>
   </tr>
 </table>
 
@@ -253,7 +253,7 @@ Mobile captures of the other pages: [vaults](docs/screenshots/mobile-vaults.png)
 
 | Tests and proofs | Line coverage      | Strike solver in Stylus | Live epoch                                 | Contracts verified                               |
 | ---------------- | ------------------ | ----------------------- | ------------------------------------------ | ------------------------------------------------ |
-| [802](#tests)    | [99.1%](#coverage) | [6.5× cheaper](#gas)    | [9 transactions, 1 slash](#the-live-epoch) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
+| [864](#tests)    | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [9 transactions, 1 slash](#the-live-epoch) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
 
 Charts are rebuilt from committed data by [`scripts/charts/build_charts.py`](scripts/charts/README.md); each has a light and a dark version and its numbers in the table beside it.
 
@@ -282,38 +282,37 @@ The `test_AUDIT_*` names describe the attack each test first reproduced; they no
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/tests-by-suite-dark.svg">
-  <img alt="Horizontal bar chart of 802 tests and proofs by suite: Foundry unit 233, oracle 34, core 33, integration 28, agents 26, pricing 21, audit 19, invariant 18, examples 14, testnet 5, version 1; fork 9, Halmos 9, differential 3; Rust 15; SDK 86, Telegram bot 60, MCP 40, example agents 38, subgraph 10; Playwright 100 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
+  <img alt="Horizontal bar chart of 864 tests and proofs by suite: Foundry main suite 477 passing (7 skipped): unit 233, agents 36, conformance 35, oracle 34, core 33, integration 28, pricing 21, audit 19, invariant 18, examples 14, testnet 5, version 1; fork 9, Halmos 9, differential 3; Rust 15; SDK 86, Telegram bot 60, MCP 47, example agents 44, subgraph 10; Playwright 104 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
 </picture>
 
 | Suite                                                                                                 | Tests | How it was counted                                                         |
 | ----------------------------------------------------------------------------------------------------- | ----: | -------------------------------------------------------------------------- |
-| Foundry main suite ([`contracts/test`](contracts/test))                                               |   432 | `forge test --no-match-path "test/{fork,differential,formal}/*" --summary` |
+| Foundry main suite ([`contracts/test`](contracts/test)), passing; 7 more skipped (see below)          |   477 | `forge test --no-match-path "test/{fork,differential,formal}/*" --summary` |
 | Fork tests on Robinhood Chain mainnet ([`test/fork`](contracts/test/fork))                            |     9 | `forge test --match-path "test/fork/*"` with `ROBINHOOD_RPC_URL`           |
 | Differential, Rust vs Solidity pricer ([`test/differential`](contracts/test/differential))            |     3 | 10,000 fuzz inputs and 300 vectors                                         |
 | Halmos proofs ([`test/formal`](contracts/test/formal), [notes](docs/security/formal-verification.md)) |     9 | Proven for every input in range; 16 more are marked unproven               |
 | Rust, Stylus pricer ([`stylus/pricer`](stylus/pricer))                                                |    15 | `make stylus-test`                                                         |
-| TypeScript: SDK 86, Telegram bot 60, MCP 40, example agents 38                                        |   224 | `corepack pnpm -r test`                                                    |
+| TypeScript: SDK 86, Telegram bot 60, MCP 47, example agents 44                                        |   237 | `corepack pnpm -r test`                                                    |
 | Subgraph ([`subgraph/tests`](subgraph/tests))                                                         |    10 | matchstick                                                                 |
-| App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                   |   100 | `npx playwright test --list`: 200 runs, 100 tests × 2 viewports            |
+| App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                   |   104 | `npx playwright test --list`: 208 runs, 104 tests × 2 viewports            |
 
-Counted on 2026-09-30; the per-folder Foundry counts are in [`scripts/charts/data/forge-tests.txt`](scripts/charts/data/forge-tests.txt).
+Counted on 2026-09-30; the per-folder Foundry counts are in [`scripts/charts/data/forge-tests.txt`](scripts/charts/data/forge-tests.txt). The 7 skipped tests are the settlement rules of the [SafeStockFeed conformance suite](contracts/test/conformance) run against the `StockCollateral` example, which values collateral and has no settlement price; `StockOracle` passes all 21 rules. Some Playwright tests run in one viewport only (pure functions and the HTTP-only `mcp.spec.ts` on desktop, the phone menu on mobile) and are skipped in the other.
 
 ### Coverage
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/coverage-by-contract-dark.svg">
-  <img alt="Dot plot of line and branch coverage for 18 files. All are at 100% except SafeStockFeed (lines 97.5%, branches 90.9%), AgentRegistry (98.6%, 92.9%), MandateGuard (lines 94.7%), EpochManager (98.7%, 98.4%) and StrikeVault (lines 99.4%). Total 99.1% of lines and 97.5% of branches, above the 95% CI gate." src="docs/media/charts/coverage-by-contract-light.svg" width="100%">
+  <img alt="Dot plot of line and branch coverage for 19 files. All are at 100% except AgentRegistry (lines 98.6%, branches 92.9%), MandateGuard (lines 94.7%), EpochManager (98.7%, 98.4%) and StrikeVault (lines 99.4%). Total 99.3% of lines and 98.8% of branches, above the 95% CI gate." src="docs/media/charts/coverage-by-contract-light.svg" width="100%">
 </picture>
 
 | Contract           | Lines                 | Branches            |
 | ------------------ | --------------------- | ------------------- |
-| `SafeStockFeed`    | 97.5% (78/80)         | 90.9% (30/33)       |
 | `AgentRegistry`    | 98.6% (139/141)       | 92.9% (26/28)       |
 | `MandateGuard`     | 94.7% (18/19)         | 100% (14/14)        |
 | `EpochManager`     | 98.7% (310/314)       | 98.4% (62/63)       |
 | `StrikeVault`      | 99.4% (167/168)       | 100% (30/30)        |
-| The other 13 files | 100%                  | 100%                |
-| **Total**          | **99.1% (1144/1154)** | **97.5% (232/238)** |
+| The other 15 files | 100%                  | 100%                |
+| **Total**          | **99.3% (1156/1164)** | **98.8% (238/241)** |
 
 From `make coverage` ([table](scripts/charts/data/coverage.txt)). The [CI coverage job](.github/workflows/ci.yml) fails if total line coverage drops below 95%.
 

@@ -30,7 +30,7 @@ Needs Foundry, Node 22+ with pnpm, and Python 3 ([Quickstart](../README.md#quick
 git clone --recursive https://github.com/Prashant-thakur77/Strike && cd Strike
 pnpm install
 scripts/demo-local.sh   # full epoch on anvil: accept, reject + slash, buy, settle, redeem
-make test               # 432 Foundry tests
+make test               # 477 Foundry tests
 ```
 
 `scripts/demo-local.sh` takes about 15 seconds once the contracts are compiled. `SETTLE_PRICE=400 scripts/demo-local.sh` settles in the money instead. CI runs both.
@@ -61,7 +61,7 @@ Internal security review ([review-2026-09-29.md](security/review-2026-09-29.md))
 forge test --root contracts --match-path "test/audit/*" -vv
 ```
 
-Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.1% line and 97.5% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 164 TypeScript tests (SDK 86, MCP 40, agents 38), 60 Telegram bot tests, 10 subgraph tests, 100 Playwright tests. The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
+Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 177 TypeScript tests (SDK 86, MCP 47, agents 44), 60 Telegram bot tests, 10 subgraph tests, 104 Playwright tests. The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
 
 ## What each step shows
 
@@ -73,7 +73,7 @@ Other numbers, from [testing.md](testing.md) and the README's [safety evidence](
 | ERC-8004 identity #114               |                        |                    |             ✓             |                      |            |
 | Proof page and monitor               |                        |         ✓          |                           |          ✓           |            |
 | `scripts/demo-local.sh`              |           ✓            |                    |             ✓             |                      |     ✓      |
-| `make test` (432 tests, 99.1% lines) |           ✓            |                    |                           |                      |            |
+| `make test` (477 tests, 99.3% lines) |           ✓            |                    |                           |                      |            |
 | Halmos (9 proven, 16 unproven)       |           ✓            |                    |                           |                      |            |
 | Fork tests (9, mainnet)              |           ✓            |                    |                           |          ✓           |     ✓      |
 | Backtest (403 weeks)                 |                        |         ✓          |                           |          ✓           |            |

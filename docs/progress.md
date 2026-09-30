@@ -10,7 +10,8 @@ Cycle 3 ([plan](plans/2026-09-29-cycle3.md)) done; cycle 4 ([plan](plans/2026-09
 - **Telegram bot** (`bots/telegram`, 60 tests): alerts and commands, dry-run verified against the live chain
 - **ERC-8004:** agent #1 linked to identity #114 on the official testnet registry
 - Judge-facing docs (cycle 8): README sections on what works, what does not yet and what we cut, claims mapped to tests and commands, why only Robinhood Chain and Arbitrum, Tilt Protocol in the competition matrix, the put vault against USDG lending; [MILESTONES.md](MILESTONES.md), [qa-prep.md](submission/qa-prep.md), [research-winners.md](research-winners.md); past-winner rows corrected in [review.md](review.md)
-- **Formal verification:** 9 Halmos-proven properties in CI, 16 marked unproven ([formal-verification.md](security/formal-verification.md)); coverage gate in CI (99.1% lines)
+- **Formal verification:** 9 Halmos-proven properties in CI, 16 marked unproven ([formal-verification.md](security/formal-verification.md)); coverage gate in CI (99.3% lines)
+- **Test counts** re-measured: 864 tests and proofs, 477 of them Foundry (7 more skipped: the conformance suite's settlement rules on the `StockCollateral` example); 99.3% line and 98.8% branch coverage
 - **UI polish:** hero, nav, payoff chart and buy-price breakdown, agents table, faucet balances, mobile folds; all routes checked at 1440 and 390 on live data
 - **Repository:** README rewrite, CHANGELOG, SECURITY, CONTRIBUTING, templates, versioned deployments, `v0.6.0` tag
 - **Submission kit** refreshed; cycle 3 re-score: quality 9.5, PMF 7.3, innovation 8.6, real problem 8.7 ([review.md](review.md))

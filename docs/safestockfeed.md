@@ -218,4 +218,4 @@ With your own token or feed contracts instead of the mocks, inherit `SafeStockFe
 - Example consumer: `contracts/test/examples/StockCollateral.t.sol` (14 unit and fuzz tests) and `contracts/test/fork/StockCollateralFork.t.sol` (3 fork tests: NVDA collateral against the raw feed, all 8 mainnet feeds, each revert on the real token)
 - Audit regression: `contracts/test/audit/AuditSettlement.t.sol` (phase changes, corporate action at expiry, round uniqueness)
 - Conformance suite: `contracts/test/conformance/` (21 rules; `StockOracle` passes 21, the `StockCollateral` example passes 14 and skips the 7 settlement rules)
-- Coverage: 97.5% of lines for `SafeStockFeed`, 100% for `StockOracle` and for the `StockCollateral` example
+- Coverage: 100% of lines and branches for `SafeStockFeed` (the conformance suite reaches the last branches), `StockOracle` and the `StockCollateral` example

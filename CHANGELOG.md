@@ -28,7 +28,7 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 - README: screenshot gallery of every page (desktop and mobile), "Evidence in numbers" with the tests, coverage and gas charts and their tables, the live epoch timeline, a backtest section, the competition section in place of Prior art, an architecture diagram, and a "Versions and deployments" timeline.
 - Screenshots in `docs/screenshots/` retaken from the current app on the live testnet (landing, vaults, vault, playground, backtest, agents, monitor, proof, faucet at 1440×900 and 390×844); the superseded images were removed.
-- Test counts re-measured: Playwright lists 94 tests (188 runs over two viewports).
+- Test counts re-measured: 477 Foundry tests passing and 7 skipped (the conformance suite's settlement rules on the `StockCollateral` example), SDK 86, MCP 47, example agents 44, Telegram bot 60, subgraph 10, and Playwright lists 104 tests (208 runs over two viewports): 864 tests and proofs with fork, differential, Halmos and Rust. Coverage 99.3% of lines and 98.8% of branches (`SafeStockFeed` now at 100%).
 
 ## [0.8.0] - 2026-09-30
 
