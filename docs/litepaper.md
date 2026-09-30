@@ -6,7 +6,7 @@ Strike is unaudited software. The descriptions below are taken from the reposito
 
 ## Abstract
 
-Robinhood Chain issues ERC-20 stock tokens with Chainlink price feeds, but offers holders no way to earn income on them or hedge them on-chain. Strike is a set of contracts that sells weekly, European, cash-settled options against deposited collateral. A covered-call vault holds stock tokens and a cash-secured-put vault holds USDG. Premium is paid in USDG. Options are priced on-chain with a fixed-point Black-Scholes model, anchored to the oracle price at the moment of each purchase, and settled on the first oracle print at or after the Friday close. The strike is chosen by a registered software agent. The agent can propose only options that satisfy an immutable per-vault mandate, which caps delta, size, tenor and discount to fair value. A proposal that breaks the mandate does not execute, and the agent's USDG bond is slashed to the vault's depositors. This paper describes:
+Robinhood Chain issues ERC-20 stock tokens with Chainlink price feeds. Holding one earns only the stock's return. The chain's first options venues are recent, and neither delegates strike selection to a bounded agent (§1). Strike is a set of contracts that sells weekly, European, cash-settled options against deposited collateral. A covered-call vault holds stock tokens and a cash-secured-put vault holds USDG. Premium is paid in USDG. Options are priced on-chain with a fixed-point Black-Scholes model, anchored to the oracle price at the moment of each purchase, and settled on the first oracle print at or after the Friday close. The strike is chosen by a registered software agent. The agent can propose only options that satisfy an immutable per-vault mandate, which caps delta, size, tenor and discount to fair value. A proposal that breaks the mandate does not execute, and the agent's USDG bond is slashed to the vault's depositors. This paper describes:
 
 - the mechanism and its solvency argument;
 - a formal statement of the mandate and an analysis of the agent's incentives;
@@ -17,17 +17,17 @@ In the backtest, the weekly 0.20-delta covered call lowered volatility by 25–4
 
 ## 1. The problem
 
-**Stock tokens earn only their stock's return.** Robinhood stock tokens are standard 18-decimal ERC-20 tokens implementing ERC-8056 ([research.md §3](research.md)). Splits and dividends are expressed through a `uiMultiplier` rather than by changing balances. A holder's return is therefore the stock's total return, and nothing more. The issuer's documentation lists "structured products" and "Perps & derivatives" among the intended uses, but names no options partner ([research.md §8](research.md)). At the time of writing, one options product is live on the chain: Stonkhouse, which offers daily calls and puts from an order book. Another, Archer Markets, is a testnet order book with physical exercise ([research.md §8](research.md)). Neither delegates strike selection to a bounded agent. Strike does not claim to be the first options venue on the chain.
+A Robinhood stock token earns only its stock's return. The tokens are standard 18-decimal ERC-20 tokens implementing ERC-8056 ([research.md §3](research.md)). Splits and dividends change a `uiMultiplier` instead of balances, so a holder gets the stock's total return. The issuer's documentation lists "structured products" and "Perps & derivatives" among the intended uses, but names no options partner ([research.md §8](research.md)). At the time of writing, one options product is live on the chain: Stonkhouse, which offers daily calls and puts from an order book. Another, Archer Markets, is a testnet order book with physical exercise ([research.md §8](research.md)). Neither delegates strike selection to a bounded agent. Strike does not claim to be the first options venue on the chain.
 
-**Integrating stock tokens has several traps.** Each of them can turn an options contract into a mispricing or an insolvency:
+Integrating the tokens has five traps. Each one can make an options contract misprice or become insolvent:
 
-1. **Double-applied multiplier.** The Chainlink stock feeds already include the multiplier ("Token Price = Underlying Equity Market Price × Multiplier"), while the issuer's REST price API does not ([research.md §3](research.md)). An integrator who multiplies the feed price by `uiMultiplier` overprices the token. On 2026-09-28, the NVDA multiplier was 1.000775 and SPY's was 1.001718.
-2. **Stale prices.** Mainnet feeds have a 24-hour heartbeat and a 0.5% deviation threshold, and "do not have heartbeats during off-hours" ([research.md §3](research.md)). A weekend price can be two days old.
-3. **Two pause layers.** The token can be paused (`paused()`), and so can its oracle (`oraclePaused()`). Testnet tokens do not implement the second.
-4. **Corporate actions.** Around a split or dividend, a new multiplier is scheduled with an `effectiveAt` time, and the feed and the multiplier can briefly disagree.
-5. **Coverage gaps.** NFLX, for example, had no Chainlink feed listed on mainnet when checked ([research.md §3a](research.md)).
+1. The multiplier can be applied twice. The Chainlink stock feeds already include the multiplier ("Token Price = Underlying Equity Market Price × Multiplier"), while the issuer's REST price API does not ([research.md §3](research.md)). An integrator who multiplies the feed price by `uiMultiplier` overprices the token. On 2026-09-28, the NVDA multiplier was 1.000775 and SPY's was 1.001718.
+2. Prices go stale. Mainnet feeds have a 24-hour heartbeat and a 0.5% deviation threshold, and "do not have heartbeats during off-hours" ([research.md §3](research.md)). A weekend price can be two days old.
+3. There are two pause layers. The token can be paused (`paused()`), and so can its oracle (`oraclePaused()`). Testnet tokens do not implement the second.
+4. Corporate actions move the multiplier. Around a split or dividend, a new multiplier is scheduled with an `effectiveAt` time, and the feed and the multiplier can briefly disagree.
+5. Some tickers have no feed. NFLX, for example, had no Chainlink feed listed on mainnet when checked ([research.md §3a](research.md)).
 
-**Delegating trading to software agents raises a third problem:** how to let an agent choose parameters without letting it choose outcomes. Strike's answer is that agents never hold funds and can only propose. The contract measures every proposal against limits the depositors saw when they deposited.
+Handing trading to software agents adds a third problem: how to let an agent choose parameters without letting it choose outcomes. In Strike, agents never hold funds and can only propose. The contract measures every proposal against limits the depositors saw when they deposited.
 
 ## 2. Mechanism
 

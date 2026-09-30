@@ -1,8 +1,8 @@
 <h1 align="center">Strike</h1>
 
 <p align="center">
-  <b>Weekly options vaults for Robinhood Chain stock tokens, run by AI agents that cannot break the rules.</b><br>
-  Depositors earn premium in USDG. An agent proposes each week's strike; the contract rejects anything outside the vault's mandate and slashes the agent's bond to depositors.
+  <b>Weekly options vaults for Robinhood Chain stock tokens, paid in USDG.</b><br>
+  An AI agent proposes each week's strike. The contract checks it against the vault's immutable mandate, and a proposal that breaks the mandate is rejected and the agent's bond slashed to depositors.
 </p>
 
 <p align="center">
@@ -16,6 +16,7 @@
 </p>
 
 <p align="center">
+  <a href="docs/JUDGES.md"><b>For judges</b></a> ·
   <b>App</b>: pending Vercel (<a href="docs/deploy-app.md">setup</a>) ·
   <a href="docs/media/strike-demo.mp4"><b>Demo video</b></a> ·
   <a href="docs/README.md"><b>Docs</b></a> ·
@@ -44,9 +45,9 @@
 
 ## Why
 
-Robinhood Chain has tokenized TSLA, AMZN, NVDA, SPY and others, but a stock token on its own earns nothing. Options on these tokens are new: [CertiK](https://www.certik.com/blog/robinhood-chain-onchain-capital-market) found only perps on the chain in August 2026, and the first options venues have launched since ([prior art](#prior-art)). None of them hands the strike to an AI agent that the contract keeps inside fixed limits.
+Robinhood Chain has tokenized TSLA, AMZN, NVDA, SPY and more. Holding one earns the stock's return and nothing else. Options on these tokens are new: [CertiK](https://www.certik.com/blog/robinhood-chain-onchain-capital-market) found only perps on the chain in August 2026, and the first options venues have launched since ([prior art](#prior-art)). None of them gives the strike to an AI agent and holds that agent to fixed limits in the contract.
 
-Building anything on these tokens also means handling their quirks correctly:
+Any protocol built on these tokens also has to handle their quirks:
 
 | Problem                        | What goes wrong                                                                                                                                   | What Strike does                                                                                                                                                          |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -81,7 +82,7 @@ sequenceDiagram
     end
 ```
 
-A covered call pays the buyer `(S − K) / S` stock tokens per option when it expires in the money. A put pays `(K − S)` USDG. Collateral is locked per option sold, so the vault can never owe more than it holds. The full lifecycle, formulas and invariants are in [docs/design.md](docs/design.md).
+A call that expires in the money pays the buyer `(S − K) / S` stock tokens per option. A put pays `(K − S)` USDG. The vault locks collateral for each option it sells, so it can never owe more than it holds. [docs/design.md](docs/design.md) has the full lifecycle, the formulas and the invariants.
 
 ### Contracts
 
@@ -179,7 +180,7 @@ Stock tokens are Robinhood's own testnet tokens (TSLA `0xC9f9…Bd4E`, AMZN, PLT
 
 ## Try it
 
-The whole story runs locally in one command (anvil, about 15 seconds once contracts are compiled): deploy, seed, a seller agent proposes a 0.20-delta call through the MCP server, a reckless at-the-money proposal is rejected and slashed, a buyer agent pays USDG for options within its budget, time passes expiry, the keeper publishes a price, the seller settles, the buyer redeems and depositors collect. CI runs it on every push, out of the money and in the money.
+One command runs a full week on a local anvil chain, in about 15 seconds once the contracts are compiled (run `pnpm install` first). It deploys and seeds the contracts. A seller agent proposes a 0.20-delta call through the MCP server, and a reckless at-the-money proposal is rejected and slashed. A buyer agent spends USDG on options within its budget. Then time jumps past expiry: the keeper publishes a price, the seller settles, the buyer redeems and depositors collect. CI runs it on every push, once out of the money and once in the money.
 
 ```bash
 scripts/demo-local.sh
@@ -189,7 +190,7 @@ scripts/demo-local.sh
 | ------------------------------------------------- | ------------------------------------------------- |
 | ![Vault](docs/screenshots/desktop-vault-1-01.png) | ![Agents](docs/screenshots/desktop-agents-01.png) |
 
-For agents: [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`). Agents work both sides of the market: sellers use `vault_state`, `risk_check`, `propose_epoch` and `settle_epoch`; buyers use `quote`, `hedge_plan`, `buy_options` and `redeem_options` (the example agent has `--buy --budget 10` and `--buy --hedge 10`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
+Agents start with [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`pnpm --filter @strike/mcp dev`). They can work either side of the market: sellers use `vault_state`, `risk_check`, `propose_epoch` and `settle_epoch`; buyers use `quote`, `hedge_plan`, `buy_options` and `redeem_options` (the example agent has `--buy --budget 10` and `--buy --hedge 10`). For integrators: [`@strike/sdk`](sdk/src/client.ts).
 
 ## Run your own agent
 
@@ -223,7 +224,7 @@ forge script script/Seed.s.sol --rpc-url robinhood_testnet --broadcast
 
 ## Prior art
 
-Options vaults exist on other chains (Ribbon, now Aevo; Lyra, now Derive; Thetanuts). Strike is not the first options venue on Robinhood Chain either. The two we know of, as described in their own docs and repositories ([research notes](docs/research.md#8-competitors-and-options-on-robinhood-chain)):
+Options vaults exist on other chains (Ribbon, now Aevo; Lyra, now Derive; Thetanuts). Strike is not the first options venue on Robinhood Chain either. Here are the two we know of, as their own docs and repositories describe them ([research notes](docs/research.md#8-competitors-and-options-on-robinhood-chain)):
 
 |                      | Stonkhouse                                                                                                     | Archer Markets                                                                      | Strike                                                                                                                         |
 | -------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
@@ -234,7 +235,7 @@ Options vaults exist on other chains (Ribbon, now Aevo; Lyra, now Derive; Thetan
 | Pricing              | Order book                                                                                                     | Order book                                                                          | Oracle-anchored Black-Scholes at every purchase, with a spot buffer and an intrinsic-value floor                               |
 | Settlement           | USDG; winning calls are owed stock tokens                                                                      | Physical exercise, no oracle                                                        | First Chainlink round at or after expiry through `SafeStockFeed` (staleness, both pause layers, corporate actions, NYSE hours) |
 
-What Strike adds is the agent layer (immutable mandates, bonded agents, slashing paid to depositors, on-chain strike solving) and a price-safety layer written for ERC-8056 stock tokens that any Robinhood Chain protocol can reuse ([`SafeStockFeed`](docs/safestockfeed.md)).
+Strike adds two things. One is the agent layer: immutable mandates, bonded agents, slashes paid to depositors and strikes solved on-chain. The other is [`SafeStockFeed`](docs/safestockfeed.md), a price-safety library for ERC-8056 stock tokens that any Robinhood Chain protocol can reuse.
 
 ## Repository
 

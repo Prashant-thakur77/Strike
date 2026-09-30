@@ -1,6 +1,6 @@
 # Demo video script (3 minutes)
 
-Narration for the re-cut demo video, [docs/media/strike-demo.mp4](../media/strike-demo.mp4), which is captioned. The scenes below follow the new cut's order. Each scene gives a target window, what is on screen, and a narration line to read over the captions; the lines run at about 150 words a minute and leave a few seconds of slack. Every number is from the repo.
+Narration for the re-cut of the captioned demo video, [docs/media/strike-demo.mp4](../media/strike-demo.mp4). The scenes below follow the new cut's order. Each one has a target window, what is on screen, and a line to read over the captions. The lines run at about 150 words a minute, with a few seconds of slack. Every number is from the repo.
 
 If a timing drifts in the final cut, keep the order and shorten the narration, not the claims.
 
@@ -8,19 +8,19 @@ If a timing drifts in the final cut, keep the order and shorten the narration, n
 
 Screen: the landing page hero, "Stock tokens that pay every week", with the covered-call payoff line.
 
-> Stock tokens on Robinhood Chain earn nothing on their own. Strike turns them into weekly income, paid in USDG, with AI agents that can only act inside limits the contract enforces.
+> Stock tokens on Robinhood Chain earn nothing on their own. Strike sells weekly options on them for a premium paid in USDG. An AI agent picks the strike, and the contract holds it to fixed limits.
 
 ## 0:14 to 0:42 · Playground: accepted, then rejected
 
-Screen: `/app/playground`, no wallet connected. Pick the presets in order: **Honest agent** (0.20-delta call) shows **Accepted**; **Reckless agent** (at-the-money put) shows **DeltaOutOfBand** and the bond a real proposal would lose; then flash **Too big** (`SizeTooLarge`) and **50% of fair value** (`PremiumBelowFair`).
+Screen: `/app/playground`, no wallet connected. Pick the presets in order. "Honest agent" (0.20-delta call) shows `Accepted`. "Reckless agent" (at-the-money put) shows `DeltaOutOfBand` and the bond a real proposal would lose. Then flash "Too big" (`SizeTooLarge`) and "50% of fair value" (`PremiumBelowFair`).
 
-> No wallet needed. The playground asks the live EpochManager on Robinhood Chain testnet to judge a proposal, with previewProposal. An honest 0.20-delta call: accepted. A reckless at-the-money put: DeltaOutOfBand, and a real proposal like this would cost the agent part of its bond. Too big, or priced below fair value: rejected too.
+> No wallet needed. The playground sends a proposal to previewProposal on the live EpochManager, on Robinhood Chain testnet. An honest 0.20-delta call: accepted. A reckless at-the-money put: DeltaOutOfBand, and a real proposal like this would cost the agent part of its bond. Too big, or priced below fair value: rejected too.
 
 ## 0:42 to 1:14 · The real testnet epoch, on Blockscout
 
 Screen: [testnet-epochs/2026-09-29.md](../testnet-epochs/2026-09-29.md), then its Blockscout links: the accepted `proposeByDelta` ([0x92169eac…a9d4](https://explorer.testnet.chain.robinhood.com/tx/0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4)), the rejection with `ProposalRejected(DeltaOutOfBand)` and the slash ([0x3df523aa…c6a0](https://explorer.testnet.chain.robinhood.com/tx/0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0)), and the buyer agent's purchase ([0x425e5b63…e9f9](https://explorer.testnet.chain.robinhood.com/tx/0x425e5b63ddeb1fcff5d63aa9f5a9fd11f4d3c0f52facd05e0fb44096f2ede9f9)).
 
-> This happened on-chain on September 29. Our agent asked for a 0.20-delta TSLA call; the Stylus pricer solved the strike, $369.86, and the contract accepted it. Stylus makes that transaction 3.3 times cheaper, and the solver 6.5 times. Then a reckless agent forced an at-the-money put: rejected, and 10 USDG of its bond went to depositors. A buyer agent bought 4 calls for about 10 USDG.
+> This happened on-chain on September 29. Our agent asked for a 0.20-delta TSLA call; the Stylus pricer solved the strike, $369.86, and the contract accepted it. With Stylus, that transaction costs 3.3 times less gas, and the solver 6.5 times less. Then a reckless agent forced an at-the-money put: rejected, and 10 USDG of its bond went to depositors. A buyer agent bought 4 calls for about 10 USDG.
 
 ## 1:14 to 1:40 · Vault page: price breakdown and payoff chart
 
@@ -30,7 +30,7 @@ Screen: the TSLA covered-call vault page. The mandate panel, then the live serie
 
 ## 1:40 to 1:58 · Agents: ERC-8004 identity #114
 
-Screen: `/app/agents`, agent #1's row open: bond, one strike, accepted and rejected proposals, and the **ERC-8004 #114** link.
+Screen: `/app/agents`, agent #1's row open: bond, one strike, accepted and rejected proposals, and the "ERC-8004 #114" link.
 
 > Every agent posts a USDG bond, and three strikes suspend it. Agent one is linked to ERC-8004 identity 114 on the official Robinhood testnet registry, so each settled epoch and each rejection feeds its public reputation.
 
@@ -52,10 +52,10 @@ Check that the NVDA multiplier on screen still reads 1.000775 (it was read on 20
 
 Screen: `/app/proof`: the headline numbers, the security section, then the live activity feed.
 
-> The proof page puts each claim next to its evidence: 432 Foundry tests, 9 properties proven with Halmos, all 8 review findings fixed, one High, three Medium, four Low, plus three Info notes, and a live feed of the EpochManager's events.
+> The proof page puts each claim next to its evidence. There are 432 Foundry tests and 9 properties proven with Halmos. The internal review found 11 issues, one of them High, and all are fixed. At the bottom is a live feed of the EpochManager's events.
 
 ## 2:50 to the end · Close
 
 Screen: the landing page, "Try it without a wallet" (Playground, Monitor, Proof).
 
-> Strike: options on Robinhood Chain, run by agents that cannot break the rules, paid in USDG. Unaudited, live on testnet.
+> Strike: weekly options on Robinhood Chain, paid in USDG, with agents the contract holds to their mandate. Unaudited, and live on testnet.
