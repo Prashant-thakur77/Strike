@@ -41,6 +41,15 @@ export {
   vaultCapacity,
 } from "./pricing.js";
 export type { BlackScholesQuote, ProposalSuggestion, ProposalSuggestionInput } from "./pricing.js";
+export {
+  DEFAULT_SHOCKS,
+  PRICER_INPUT_ERRORS,
+  riskEngineError,
+  settlementPayout,
+  shockedSpot,
+  vaultExposure,
+} from "./risk.js";
+export type { Greeks, LastBuyImpliedVol, RiskScenario, SeriesRisk, SeriesRiskOptions } from "./risk.js";
 export { type CorporateAction, findSettlementHints, findSettlementRound } from "./settlement.js";
 export type { FeedRound, RoundReader } from "./settlement.js";
 export type * from "./types.js";

@@ -9,6 +9,7 @@ import {
   custom,
   decodeFunctionData,
   encodeAbiParameters,
+  encodeErrorResult,
   encodeEventTopics,
   encodeFunctionResult,
   keccak256,
@@ -17,6 +18,16 @@ import {
 
 /** A function's canned result, or a function of its decoded arguments. */
 export type FakeResult = unknown | ((args: readonly unknown[]) => unknown);
+
+/** Throw from a fake function to revert with a contract custom error the caller's ABI can decode. */
+export class FakeRevert extends Error {
+  constructor(
+    readonly errorName: string,
+    readonly args: readonly unknown[] = [],
+  ) {
+    super(`${errorName}(${args.join(", ")})`);
+  }
+}
 
 /** A log a fake transaction emits. */
 export interface FakeLog {
@@ -68,7 +79,14 @@ export function eventLog(
  */
 export function fakeChain(
   contracts: Record<Address, FakeContract>,
-  opts: { timestamp: bigint; account?: Address },
+  opts: {
+    timestamp: bigint;
+    account?: Address;
+    /** Past logs `eth_getLogs` serves (filtered by address and topics). */
+    logs?: (FakeLog & { blockNumber: bigint; transactionHash?: Hex })[];
+    /** Timestamps of past blocks by number (the latest block has `timestamp`). */
+    blockTimestamps?: Record<string, bigint>;
+  },
 ): { client: PublicClient; wallet: WalletClient; calls: string[]; sent: SentTx[] } {
   const byAddress = new Map(Object.entries(contracts).map(([a, c]) => [a.toLowerCase(), c]));
   const calls: string[] = [];
@@ -86,17 +104,40 @@ export function fakeChain(
           return toHex(999);
         case "eth_blockNumber":
           return "0x1";
-        case "eth_getBlockByNumber":
+        case "eth_getBlockByNumber": {
+          const [tag] = params as [string];
+          const past = tag.startsWith("0x") ? opts.blockTimestamps?.[BigInt(tag).toString()] : undefined;
           return {
-            number: "0x1",
+            number: past !== undefined ? tag : "0x1",
             hash: `0x${"11".repeat(32)}`,
             parentHash: `0x${"00".repeat(32)}`,
-            timestamp: toHex(opts.timestamp),
+            timestamp: toHex(past ?? opts.timestamp),
             gasLimit: "0x1c9c380",
             gasUsed: "0x0",
             baseFeePerGas: "0x1",
             transactions: [],
           };
+        }
+        case "eth_getLogs": {
+          const [filter] = params as [{ address?: Address; topics?: (Hex | null)[] }];
+          return (opts.logs ?? [])
+            .filter(
+              (l) =>
+                (!filter.address || l.address.toLowerCase() === filter.address.toLowerCase()) &&
+                (filter.topics ?? []).every((t, i) => t === null || t === undefined || l.topics[i] === t),
+            )
+            .map((l, i) => ({
+              address: l.address,
+              topics: l.topics,
+              data: l.data,
+              blockHash: `0x${"22".repeat(32)}`,
+              blockNumber: toHex(l.blockNumber),
+              transactionHash: l.transactionHash ?? keccak256(toHex(`log-${i}`)),
+              transactionIndex: "0x0",
+              logIndex: toHex(i),
+              removed: false,
+            }));
+        }
         case "eth_call": {
           const [{ to, data }] = params as [{ to: Address; data: Hex }];
           const contract = contractAt(to);
@@ -104,7 +145,18 @@ export function fakeChain(
           calls.push(functionName);
           if (!(functionName in contract.fns)) throw new Error(`unmocked ${functionName} on ${to}`);
           const fn = contract.fns[functionName];
-          const result = typeof fn === "function" ? fn(args ?? []) : fn;
+          let result: unknown;
+          try {
+            result = typeof fn === "function" ? fn(args ?? []) : fn;
+          } catch (err) {
+            if (!(err instanceof FakeRevert)) throw err;
+            const data = encodeErrorResult({
+              abi: contract.abi,
+              errorName: err.errorName,
+              args: err.args,
+            } as never);
+            throw Object.assign(new Error("execution reverted"), { code: 3, data });
+          }
           return encodeFunctionResult({ abi: contract.abi, functionName, result } as never);
         }
         case "eth_estimateGas":
@@ -160,7 +212,7 @@ export function fakeChain(
 /** A read-only view of {@link fakeChain}: just the public client and the names of the functions called. */
 export function fakePublicClient(
   contracts: Record<Address, FakeContract>,
-  opts: { timestamp: bigint },
+  opts: Parameters<typeof fakeChain>[1],
 ): { client: PublicClient; calls: string[] } {
   const { client, calls } = fakeChain(contracts, opts);
   return { client, calls };

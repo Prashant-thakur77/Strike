@@ -34,7 +34,7 @@ export const ERROR_HINTS: Record<string, string> = {
   SeriesNotFinal: "The series is not settled or cancelled yet.",
   UnsupportedByOracle: "The token has no price feed registered.",
   PricerInputOutOfRange:
-    "The pricer rejected an input (spot, strike, tenor, volatility or delta out of range).",
+    "The pricer rejected an input: 1 spot, 2 strike, 3 tenor, 4 volatility or 5 delta out of range; the risk engine adds 6 (price outside no-arbitrage bounds), 7 (implied volatility outside 5%-500%) and 8 (spot shock out of range).",
   EnforcedPause: "The protocol is paused by the guardian.",
   SignerTaken: "That signer key already belongs to an agent (one agent per signer); use a fresh key.",
   NotIdentityOwner: "The sending wallet does not own that ERC-8004 identity on the identity registry.",

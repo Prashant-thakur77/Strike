@@ -77,6 +77,8 @@ export const generatedDeployments = {
     "decisionLog": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
     "decisionLogTx": "0x9b2e902c16ef74f8f1180ecc5514cbcda3c1c5076a086e3a60e2da06a568665d",
     "decisionLogNote": "Additive (not part of v2): anchors agents' decision records; only AgentRegistry.signerOf(agentId) may record",
+    "riskEngine": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+    "riskEngineNote": "Additive (v3's Stylus pricer and risk engine, IRiskEngine; deployed with v3 in 46630-v3.json on branch v3-contracts, verified with cargo stylus verify). Pure math, no state: the SDK's seriesRisk, the MCP tool series_risk and the app's Risk panel call it on v2 series",
     "vaults": {
       "TSLA_cash_secured_put": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
       "TSLA_covered_call": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",

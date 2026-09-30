@@ -28,6 +28,7 @@ import { StrikeError } from "./errors.js";
 import { mandateProblems } from "./mandate.js";
 import { agentStatusName, epochStateName, feedStatusName, mandateReasonName } from "./names.js";
 import { roundStrikeToCent } from "./pricing.js";
+import { type SeriesRisk, type SeriesRiskOptions, computeSeriesRisk } from "./risk.js";
 import { type CorporateAction, type FeedRound, findSettlementHints } from "./settlement.js";
 import type {
   AgentInfo,
@@ -105,6 +106,8 @@ export interface StrikeClientConfig {
   chainId: number;
   /** Override (or supply) contract addresses; by default they come from the SDK's deployments map. */
   addresses?: Partial<StrikeAddresses>;
+  /** Risk engine (IRiskEngine) for `seriesRisk`; by default the deployment map's `riskEngine`, when it has one. */
+  riskEngine?: Address;
 }
 
 /** The viem clients a Strike client uses. */
@@ -169,6 +172,15 @@ export function createStrikeClient(config: StrikeClientConfig) {
   const addresses = resolveAddresses(chainId, config.addresses);
   const em = addresses.epochManager;
   let usdgDecimalsCache: number | undefined;
+  const deployment = (() => {
+    try {
+      return getDeployment(chainId);
+    } catch {
+      return undefined; // a chain outside the map (addresses passed in full)
+    }
+  })();
+  const riskEngine = config.riskEngine ?? deployment?.riskEngine;
+  const deployBlock = typeof deployment?.block === "number" ? BigInt(deployment.block) : 0n;
 
   function requireAccount(): { wallet: WalletClient; account: Account } {
     if (!walletClient)
@@ -663,6 +675,30 @@ export function createStrikeClient(config: StrikeClientConfig) {
 
     /** Raw `IPricer.strikeForDelta` call on the EpochManager's pricer (all values WAD, tenor in seconds). */
     pricerStrikeForDelta,
+
+    /**
+     * Live risk of a series from the risk engine contract (IRiskEngine): greeks per option at the live spot and the
+     * series' sigma (the epoch's opening sigma, and the current one when it differs), the vault's exposure
+     * (−greeks × sold), the payout over a spot-shock grid (default −30%…+30% in 5% steps, as RiskLens) against the
+     * locked collateral, and the implied volatility of the last buy. Expired series have zero greeks.
+     */
+    async seriesRisk(series: bigint | SeriesState, opts?: SeriesRiskOptions): Promise<SeriesRisk> {
+      return computeSeriesRisk(
+        {
+          publicClient,
+          epochManager: em,
+          stockOracle: addresses.stockOracle,
+          riskEngine: riskEngine ? getAddress(riskEngine) : undefined,
+          fromBlock: deployBlock,
+          chainId,
+          blockTimestamp,
+          usdgDecimals,
+          getSeries,
+        },
+        series,
+        opts,
+      );
+    },
 
     /** Current spot (WAD per raw token) after every SafeStockFeed check; reverts if the price is unsafe. */
     async spot(token: Address): Promise<bigint> {

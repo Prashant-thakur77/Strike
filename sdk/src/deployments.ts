@@ -15,6 +15,10 @@ export interface StrikeDeployment {
   vaultImplementation: Address;
   /** DecisionLog (additive, anchors agents' decision records); absent where it is not deployed. */
   decisionLog?: Address;
+  /** Risk engine (IRiskEngine: greeks, implied volatility, scenario loss); absent where it is not deployed. */
+  riskEngine?: Address;
+  /** Deployment block, where event scans start. */
+  block?: number;
   stocks: Record<string, { token: Address; feed: Address }>;
   vaults: Record<string, unknown>;
 }
