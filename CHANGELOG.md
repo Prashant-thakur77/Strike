@@ -4,6 +4,8 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-30
+
 ### Added
 
 - Live risk panel from the v3 Stylus (Rust) risk engine (`0x61158d98…a4ec`, deployed with v3 on Robinhood Chain testnet), reading the live v2 TSLA covered-call series. SDK `seriesRisk(seriesId | series)`: greeks at the live spot and the epoch's sigma (and the current sigma when it differs), the depositors' exposure (−greeks × sold), the payout over the RiskLens grid (−30%…+30% in 5% steps) with the worst case against the locked collateral, and the implied volatility of the last buy solved by the engine's `impliedVol`; zero greeks after expiry, the last print flagged when the feed is unsafe. `IRiskEngine` and `RiskLens` ABIs and `riskEngine` in the 46630 map. The fixed test vector (the live series) matches an independent scipy Black-Scholes to ~5e-15 and the last buy's implied vol recovers the 60% the contract priced it with. MCP tool `series_risk` (also on `/api/mcp`); a Risk rail on the vault page (four greeks in plain words, stress-test columns with a table view, engine footnote); a v3 card on `/app/proof`.
@@ -27,9 +29,23 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ### Changed
 
+- Demo and pitch videos re-cut to the pattern of 12 winning hackathon videos (`docs/research-winners.md`): the product on screen from the first second, one continuous journey, a 15-second explorer shot with the slash transfer highlighted, the Rust risk engine on the vault page, one evidence card and the live app URL at the close. Narration by Chatterbox at about 120 words a minute (was 165), checked with Whisper (0.98 word match). Every number is read from README.md at render time (`video/record.mjs`, scenes in `video/demo.mjs` and `video/pitch.mjs`).
+- README: "What works, what does not yet, what we cut", a table mapping each headline claim to one test and one command, "Why only here", the put vault against USDG lending, Tilt Protocol in the competition table. New docs: `docs/MILESTONES.md` (grant milestones), `docs/submission/qa-prep.md` (20 judge questions), `docs/research-winners.md`.
 - README: screenshot gallery of every page (desktop and mobile), "Evidence in numbers" with the tests, coverage and gas charts and their tables, the live epoch timeline, a backtest section, the competition section in place of Prior art, an architecture diagram, and a "Versions and deployments" timeline.
 - Screenshots in `docs/screenshots/` retaken from the current app on the live testnet (landing, vaults, vault, playground, backtest, agents, monitor, proof, faucet at 1440×900 and 390×844); the superseded images were removed.
 - Test counts re-measured: 477 Foundry tests passing and 7 skipped (the conformance suite's settlement rules on the `StockCollateral` example), SDK 109, MCP 49, example agents 44, Telegram bot 60, subgraph 10, and Playwright lists 106 tests (212 runs over two viewports): 891 tests and proofs with fork, differential, Halmos and Rust. Coverage 99.3% of lines and 98.8% of branches (`SafeStockFeed` now at 100%).
+
+### Fixed
+
+- SDK: transactions are sent with a 25% gas margin over the estimate, and a mined revert says whether it ran out of gas. The pricer's series expansions run a tenor-dependent number of terms, which is the likely cause of the intermittent CI failure where the dry run passed and the mined `proposeByDelta` reverted.
+- Playground: the reckless and cheap presets fall back to the funded vault, so an empty put vault no longer turns them into `ZeroSize`.
+- Charts: the gas chart reads only the dev-node tables in `docs/gas.md`, not the live-chain table.
+
+### Deployments
+
+- v3 on Robinhood Chain testnet (46630) next to v2, all contracts verified on Blockscout and the Stylus pricer and risk engine (`0x61158d98…a4ec`) with `cargo stylus verify`: EpochManager `0x256D4546…929F`, AgentRegistry `0x1c427401…052f`, RiskLens `0xFDb8Ba33…Cc6D`, a v3 DecisionLog `0xa98106db…03a4`; the MarketCalendar and MirrorFeeds are shared with v2. Agent #1 registered with EIP-712 signer consent and linked to ERC-8004 identity #114. No vaults yet: they need a bonded agent, which waits on testnet USDG ([log](docs/testnet-epochs/2026-09-30-v3.md), [D36](docs/decisions.md)).
+- `DecisionLog` for v2 at `0xbF94f54f…5D93`.
+- The v2 put vault's depositor withdrew the 20 USDG deposit and the 10 USDG slash.
 
 ## [0.8.0] - 2026-09-30
 
@@ -157,7 +173,8 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 - Project skeleton: Foundry workspace, Stylus Black-Scholes pricer crate, pnpm workspace, SDK, MCP, app and subgraph skeletons, CI, design spec and decision log.
 
-[Unreleased]: https://github.com/Prashant-thakur77/Strike/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/Prashant-thakur77/Strike/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Prashant-thakur77/Strike/compare/v0.5.0...v0.6.0
