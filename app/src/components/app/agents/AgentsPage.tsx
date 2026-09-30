@@ -12,6 +12,7 @@ import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
 import { DecisionLog } from "./DecisionLog";
 import { RegisterAgent } from "./RegisterAgent";
+import { SeasonBanner } from "./SeasonBanner";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
 import { Rail } from "../Rail";
@@ -45,6 +46,7 @@ export function AgentsPage() {
           </p>
         }
       />
+      <SeasonBanner />
       <Gate isLoading={reg.isLoading} error={reg.error} loading={<Skeleton width="40%" />}>
         {r ? (
           <MetaStrip

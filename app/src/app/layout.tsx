@@ -8,11 +8,13 @@ import "./globals.css";
 const interTight = Inter_Tight({ subsets: ["latin"], variable: "--font-inter-tight", display: "swap" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", display: "swap" });
 
-// Runs before first paint: enables JS-only styles, and hides the app's eligibility notice for visitors who already
-// acknowledged it (same key as EligibilityGate's ACK_KEY; storage may throw in private modes).
+// Runs before first paint: enables JS-only styles, and hides the app's eligibility notice and the agents page's
+// Season 0 banner for visitors who already acknowledged or dismissed them (same keys as EligibilityGate's ACK_KEY
+// and SeasonBanner's SEASON_STORAGE_ID; storage may throw in private modes).
 const BOOT =
   "document.documentElement.classList.add('js');" +
-  "try{if(localStorage.getItem('strike.ack.v1')==='1')document.documentElement.classList.add('acked')}catch(e){}";
+  "try{var s=localStorage;if(s.getItem('strike.ack.v1')==='1')document.documentElement.classList.add('acked');" +
+  "if(s.getItem('strike.season0.v1')==='dismissed')document.documentElement.classList.add('season0-off')}catch(e){}";
 
 export const metadata: Metadata = {
   title: { default: "Strike · Weekly options vaults for stock tokens", template: "%s · Strike" },

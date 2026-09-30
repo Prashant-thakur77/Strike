@@ -48,6 +48,9 @@ importers:
 
   app:
     dependencies:
+      '@strike/mcp':
+        specifier: workspace:*
+        version: link:../mcp
       '@strike/sdk':
         specifier: workspace:*
         version: link:../sdk

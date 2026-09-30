@@ -1,0 +1,64 @@
+name: Secret scan
+
+# gitleaks over the whole git history on every push and pull request, with the default rules plus an allowlist
+# (GITLEAKS_CONFIG_TOML below) for what is public by design: 20-byte contract and wallet addresses (flagged by
+# generic-api-key next to words like "token"), and the well-known, publicly documented dev keys of anvil and the
+# Arbitrum nitro devnode that the local demo scripts use. Transaction hashes do not trip the default rules and are
+# not allowlisted, since a 32-byte private key looks the same. Anything else that looks like a secret fails the job.
+# Locally: export GITLEAKS_CONFIG_TOML with the block below, then run `gitleaks git .`.
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gitleaks-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gitleaks:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      GITLEAKS_CONFIG_TOML: |
+        title = "Strike"
+
+        [extend]
+        useDefault = true
+
+        [[allowlists]]
+        description = "Public on-chain addresses (20 bytes) are not secrets"
+        regexTarget = "secret"
+        regexes = ['^0x[0-9a-fA-F]{40}$']
+
+        [[allowlists]]
+        description = "Well-known public dev keys: anvil accounts 0 and 1, the Arbitrum nitro devnode key"
+        regexTarget = "secret"
+        regexes = [
+          '^0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80$',
+          '^0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d$',
+          '^0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659$',
+        ]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" version
+      - name: Scan the git history
+        run: |
+          "$RUNNER_TEMP/gitleaks" git . --redact --verbose \
+            --report-format sarif --report-path "$RUNNER_TEMP/gitleaks.sarif"
+      - name: Upload the report
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gitleaks-report
+          path: ${{ runner.temp }}/gitleaks.sarif

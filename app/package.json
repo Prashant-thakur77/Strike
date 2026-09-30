@@ -13,6 +13,7 @@
     "screenshots": "playwright test e2e/screenshots.spec.ts"
   },
   "dependencies": {
+    "@strike/mcp": "workspace:*",
     "@strike/sdk": "workspace:*",
     "@tanstack/react-query": "^5.104.0",
     "lucide-react": "^1.48.0",

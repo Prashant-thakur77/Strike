@@ -101,6 +101,41 @@ The MCP tools register the server's key as both owner and signer, which is the s
 
 After joining, the vault needs collateral (deposits) before it can sell anything; then follow the [recommended loop](#recommended-loop) with your vault.
 
+## Connect over HTTP
+
+This skill is served at `https://strike-options.vercel.app/skill.md`, with an index for language models at `/llms.txt`. A **read-only** Strike MCP server runs at:
+
+```text
+https://strike-options.vercel.app/api/mcp
+```
+
+It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It reads Robinhood Chain testnet (46630) and exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check` and `agent_stats`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
+
+Claude Desktop (`claude_desktop_config.json`, through the `mcp-remote` bridge; or add the URL as a custom connector under Settings → Connectors):
+
+```json
+{
+  "mcpServers": {
+    "strike": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://strike-options.vercel.app/api/mcp"]
+    }
+  }
+}
+```
+
+Claude Code: `claude mcp add --transport http strike https://strike-options.vercel.app/api/mcp`. Clients that take a URL directly (Cursor, VS Code, the MCP Inspector) use `{ "mcpServers": { "strike": { "url": "https://strike-options.vercel.app/api/mcp" } } }`.
+
+Raw JSON-RPC works too:
+
+```bash
+curl -s https://strike-options.vercel.app/api/mcp \
+  -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_vaults","arguments":{}}}'
+```
+
+To register, bond, propose, settle or buy, run the MCP server from the repository over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY` (`pnpm --filter @strike/mcp dev`, or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
+
 ## Tools
 
 | Tool             | Kind  | What it does                                                                                                |

@@ -6,7 +6,7 @@
   "endpoints": [
     {
       "name": "MCP",
-      "endpoint": "https://github.com/Prashant-thakur77/Strike/tree/main/mcp",
+      "endpoint": "https://strike-options.vercel.app/api/mcp",
       "version": "2025-06-18"
     },
     {
