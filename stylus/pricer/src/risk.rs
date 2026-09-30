@@ -21,7 +21,8 @@ pub const IV_TOL: u128 = 1_000_000;
 /// ... or once the premium is within spot / 1e15 of the target: the engine's own accuracy (the normal CDF
 /// approximation is good to ~1e-15), below which a smaller vega only chases rounding noise.
 pub const IV_PRICE_TOL_DIV: u128 = 1_000_000_000_000_000;
-/// Upper bound on solver rounds (Newton with bisection fallback; Newton usually needs 3 to 6).
+/// Upper bound on solver rounds (Newton with bisection fallback: 3 to 8 for ordinary inputs, up to about 30
+/// for premiums below ~1e-10 of spot).
 pub const IV_MAX_ROUNDS: u32 = 64;
 /// Largest upward spot shock, +1000%. Downward shocks must stay above -100%.
 pub const MAX_SHOCK: u128 = 10 * WAD;

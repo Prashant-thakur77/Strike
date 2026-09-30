@@ -28,14 +28,15 @@ The same calls on the v2 binary (15,574 bytes, before the risk engine): `quote` 
 
 ## Inside the protocol
 
-`scripts/stylus-e2e.sh` deploys the whole protocol and the Stylus pricer to the Nitro dev node, then runs the same epoch twice, once with `EpochManager.pricer` set to the Solidity reference and once to the Stylus contract. Figures are L2 execution gas (receipt `gasUsed` minus Arbitrum's L1 data component `gasUsedForL1`):
+`scripts/stylus-e2e.sh` deploys the whole protocol and the Stylus pricer to the Nitro dev node, then runs the same epoch twice, once with `EpochManager.pricer` set to the Solidity reference and once to the Stylus contract. Transaction figures are L2 execution gas (receipt `gasUsed` minus Arbitrum's L1 data component `gasUsedForL1`); the `RiskLens` view is measured inside the EVM through `PricerGasProbe.measureCall`:
 
-| EpochManager transaction                                  | Solidity pricer | Stylus pricer | Saving    |
-| --------------------------------------------------------- | --------------: | ------------: | --------- |
-| `proposeByDelta` (0.20 delta; solves the strike on-chain) |       1,878,918 |       577,041 | 3.3× less |
-| `buy` 5 options (live Black-Scholes quote)                |         329,872 |       301,404 | 9% less   |
+| Call                                                                          | Solidity pricer | Stylus pricer | Stylus vs Solidity |
+| ----------------------------------------------------------------------------- | --------------: | ------------: | ------------------ |
+| `proposeByDelta` (0.20 delta; solves the strike on-chain, then `SeriesRisk`)  |       1,894,381 |       634,774 | **3.0× less**      |
+| `buy` 5 options (live Black-Scholes quote)                                    |         329,639 |       305,582 | 7% less            |
+| `RiskLens.seriesRisk` (view: feed and sigma reads, greeks, 13-shock scenario) |         146,888 |       182,609 | 1.24× more         |
 
-Both runs chose the same strike ($387.22 at a $369 spot, 60% volatility, expiring at Friday's close). Measured on 2026-09-29 against the v2 contracts, where `proposeByDelta` solves against the epoch-open snapshot.
+Both runs chose the same strike ($384.41 at a $369 spot, 60% volatility, expiring at Friday's close). Measured on 2026-09-30 against the v3 contracts. On v2 (2026-09-29, no `SeriesRisk`, the smaller Stylus program, a different tenor) `proposeByDelta` cost 1,878,918 and 577,041 and `buy` 329,872 and 301,404. The `greeks` call a v3 proposal adds costs about 34k in Solidity and 45k in Stylus (table above), and the larger Stylus program adds about 4k to each Stylus call.
 
 ## What this means
 
@@ -43,7 +44,7 @@ Both runs chose the same strike ($387.22 at a $369 spot, 60% volatility, expirin
 - Once a call does real work, WASM wins by a wide margin: `strikeForDelta` runs 48 Black-Scholes evaluations to solve for the strike with a target delta and costs 6.3× less in Stylus.
 - `impliedVol` is the second solver. Newton's method from the Manaster–Koehler starting point needs 3–8 premium-and-vega evaluations for ordinary inputs (plus two at the ends of the [5%, 500%] range to reject impossible prices), so it does less work than the 48-round bisection and saves 2.4–3.8×.
 - `scenarioLoss` is a few multiplications per shock: about 1,250 gas per shock in Solidity against about 290 in Stylus. Solidity is cheaper for the default 13-point grid; Stylus becomes cheaper from about 38 shocks.
-- Strike uses the solver in `EpochManager.proposeByDelta`: an agent proposes "a 0.20-delta call" and the contract solves the strike on-chain from the spot and sigma snapshotted at `openEpoch`, then rounds it to a cent toward the middle of the mandate's delta band. The agent's dry run and the transaction see the same inputs, so a price or volatility update before inclusion cannot get it slashed. With the Stylus pricer that costs ~0.25M gas instead of ~1.5M.
+- Strike uses the solver in `EpochManager.proposeByDelta`: an agent proposes "a 0.20-delta call" and the contract solves the strike on-chain from the spot and sigma snapshotted at `openEpoch`, then rounds it to a cent toward the middle of the mandate's delta band. The agent's dry run and the transaction see the same inputs, so a price or volatility update before inclusion cannot get it slashed. With the Stylus pricer the solve costs ~0.25M gas instead of ~1.5M, and the whole `proposeByDelta` transaction 0.63M instead of 1.89M.
 - Production setting: point `EpochManager.pricer` at the Stylus pricer (both implement `IRiskEngine`, which extends `IPricer`).
 
 ## The live Stylus pricer is verifiably the v2 source

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Strike on a Stylus-enabled chain (local Arbitrum Nitro dev node): deploy the protocol, deploy the Rust pricer,
-# switch the EpochManager to it, then measure real protocol transactions (proposeByDelta, buy) priced by Stylus
-# against the same calls priced by the Solidity reference.
+# switch the EpochManager to it, then measure real protocol transactions (proposeByDelta, buy) and the RiskLens
+# view priced by Stylus against the same calls priced by the Solidity reference.
 # Needs Docker, Foundry, cargo-stylus and Python 3. Must run during NYSE hours (the dev node cannot warp time).
 set -euo pipefail
 trap 'echo "stylus-e2e: failed at line $LINENO (it must run during NYSE hours: the dev node cannot warp time)" >&2' ERR
@@ -38,7 +38,8 @@ cd "$ROOT/contracts"
 PRIVATE_KEY=$KEY forge script script/Deploy.s.sol --rpc-url $RPC --broadcast --slow --skip-simulation >/dev/null
 STY=$(cd "$ROOT/stylus/pricer" && cargo stylus deploy --endpoint $RPC --private-key $KEY --no-verify 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -oE "deployed code at address: 0x[0-9a-fA-F]{40}" | grep -oE "0x[0-9a-fA-F]{40}" | tail -1)
 MANAGER=$(j "d['epochManager']"); SOL=$(j "d['pricer']"); TSLA=$(j "d['stocks']['TSLA']['token']"); FEED=$(j "d['stocks']['TSLA']['feed']")
-USDG=$(j "d['usdg']"); CAL=$(j "d['marketCalendar']")
+USDG=$(j "d['usdg']"); CAL=$(j "d['marketCalendar']"); LENS=$(j "d['riskLens']")
+PROBE=$(forge create script/gas/PricerGasProbe.sol:PricerGasProbe --rpc-url $RPC --private-key $KEY --broadcast | grep "Deployed to" | awk '{print $3}')
 echo "chain $CHAIN · EpochManager $MANAGER · Solidity pricer $SOL · Stylus pricer $STY"
 
 NOW=$(cast block latest --rpc-url $RPC -f timestamp)
@@ -59,21 +60,23 @@ VAULT_SOL=$(new_vault)
 VAULT_STY=$(new_vault)
 send $USDG 'approve(address,uint256)' $MANAGER 1000000000000 >/dev/null
 
-run_epoch() { # $1 = pricer, $2 = vault; prints: proposeByDelta gas, buy gas, strike
+run_epoch() { # $1 = pricer, $2 = vault; prints: proposeByDelta gas, buy gas, strike, RiskLens.seriesRisk gas
   send $MANAGER 'setPricer(address)' $1 >/dev/null
   send $MANAGER 'openEpoch(address)' $2 >/dev/null
   local g1; g1=$(send $MANAGER 'proposeByDelta(address,uint16,uint64,uint256,uint16)' $2 2000 $EXPIRY 100000000000000000000 10000)
   local sid; sid=$(cast call $MANAGER 'epochs(address)(uint8,uint64,uint256)' $2 --rpc-url $RPC | sed -n 3p | awk '{print $1}')
   local g2; g2=$(send $MANAGER 'buy(uint256,uint256,uint256,address)' $sid 5000000000000000000 1000000000000 $ME)
   local strike; strike=$(cast call $MANAGER 'getSeries(uint256)((address,address,uint256,uint64,uint16,bool,bool,bool,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))' $sid --rpc-url $RPC | python3 -c "import sys; print(sys.stdin.read().strip('()').split(', ')[8].split()[0])")
-  echo "$g1 $g2 $strike"
+  local g3; g3=$(cast call $PROBE 'measureCall(address,bytes)(uint256)' $LENS "$(cast calldata 'seriesRisk(uint256)' $sid)" --rpc-url $RPC | awk '{print $1}')
+  echo "$g1 $g2 $strike $g3"
 }
-read -r S_PROP S_BUY S_STRIKE < <(run_epoch $SOL $VAULT_SOL)
-read -r T_PROP T_BUY T_STRIKE < <(run_epoch $STY $VAULT_STY)
+read -r S_PROP S_BUY S_STRIKE S_LENS < <(run_epoch $SOL $VAULT_SOL)
+read -r T_PROP T_BUY T_STRIKE T_LENS < <(run_epoch $STY $VAULT_STY)
 echo
 echo "| Transaction (EpochManager), L2 execution gas | Solidity pricer | Stylus pricer |"
 echo "| --- | ---: | ---: |"
 echo "| proposeByDelta (0.20 delta, solves the strike on-chain) | $S_PROP | $T_PROP |"
 echo "| buy 5 options (live Black-Scholes quote) | $S_BUY | $T_BUY |"
+echo "| RiskLens.seriesRisk (view, gas inside the EVM: greeks + 13-shock scenario) | $S_LENS | $T_LENS |"
 echo "| strike chosen (WAD) | $S_STRIKE | $T_STRIKE |"
 [ "$S_STRIKE" = "$T_STRIKE" ] && echo "Both pricers chose the same strike." || { echo "Strikes differ"; exit 1; }
