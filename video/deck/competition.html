@@ -1,0 +1,23 @@
+<section id="competition" data-transition="fade" style="background:#e9e9e7; color:#121212; font-family:'Inter Tight', sans-serif; padding:128px 128px 160px; display:flex; flex-direction:column; gap:56px">
+<h2 style="font-size:88px; font-weight:800; line-height:1.0; letter-spacing:-3px">Competition</h2>
+<svg aria-label="Positioning: who picks the strike versus how the price is set" width="1664" height="600" viewBox="0 0 1664 600" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="1664" height="600" fill="#e9e9e7"/>
+<line x1="120" y1="560" x2="1600" y2="560" stroke="#55595a" stroke-width="2"/>
+<line x1="120" y1="560" x2="120" y2="20" stroke="#55595a" stroke-width="2"/>
+<line x1="860" y1="30" x2="860" y2="560" stroke="#c9cdcc" stroke-width="1" stroke-dasharray="6 6"/>
+<line x1="120" y1="290" x2="1600" y2="290" stroke="#c9cdcc" stroke-width="1" stroke-dasharray="6 6"/>
+<text x="130" y="596" font-size="24" fill="#55595a" font-family="Inter Tight, sans-serif">Each trader or writer picks the strike</text>
+<text x="1600" y="596" font-size="24" fill="#55595a" text-anchor="end" font-family="Inter Tight, sans-serif">A bonded agent proposes; the contract checks it</text>
+<text x="96" y="555" font-size="24" fill="#55595a" text-anchor="start" font-family="Inter Tight, sans-serif" transform="rotate(-90 96 555)">Order book / auction</text>
+<text x="96" y="30" font-size="24" fill="#55595a" text-anchor="end" font-family="Inter Tight, sans-serif" transform="rotate(-90 96 30)">Oracle-anchored model</text>
+<circle cx="300" cy="470" r="14" fill="#121212"/><text x="324" y="478" font-size="30" font-weight="700" fill="#121212" font-family="Inter Tight, sans-serif">Stonkhouse (mainnet)</text>
+<circle cx="300" cy="400" r="14" fill="#121212"/><text x="324" y="408" font-size="30" font-weight="700" fill="#121212" font-family="Inter Tight, sans-serif">Archer Markets (testnet)</text>
+<circle cx="760" cy="470" r="14" fill="#55595a"/><text x="784" y="478" font-size="30" font-weight="700" fill="#121212" font-family="Inter Tight, sans-serif">Vaults on other chains</text>
+<text x="784" y="512" font-size="24" fill="#55595a" font-family="Inter Tight, sans-serif">operator sets strikes, sold by auction</text>
+<circle cx="1120" cy="430" r="14" fill="#55595a"/><text x="1144" y="438" font-size="30" font-weight="700" fill="#121212" font-family="Inter Tight, sans-serif">Tilt Protocol (testnet)</text>
+<text x="1144" y="472" font-size="24" fill="#55595a" font-family="Inter Tight, sans-serif">AI manages stock vaults; RFQ; no options</text>
+<circle cx="1420" cy="110" r="20" fill="#178f9d"/><text x="1400" y="80" font-size="36" font-weight="800" fill="#0e6a74" text-anchor="end" font-family="Inter Tight, sans-serif">Strike</text>
+</svg>
+<p style="position:absolute; left:128px; bottom:64px; width:1664px; font-size:24px; color:#55595a">Stonkhouse: stonkhouse.fun and its docs (order book, covered calls, puts). Archer Markets: github.com/nachfq/archer-markets (on-chain bid/ask book). Other-chain vaults: Ribbon/Aevo, Thetanuts docs. Tilt: tiltprotocol.com, NYC Open House 1st. Detail: README "Competition".</p>
+<aside>Stonkhouse is live on mainnet and is the one to respect: an order book where writers and traders pick strikes. Archer Markets is a testnet order book. Vaults on other chains have an operator choose strikes and sell by auction. Tilt Protocol, which won the NYC online buildathon, is the closest agent product: an AI manager runs tokenized-stock vaults with RFQ pricing, but it sells no options and describes no bond that pays depositors when the agent breaks a rule. Strike is the only one where a bonded AI agent proposes, the contract checks the mandate and prices against the oracle, and a rule-breaking agent pays depositors.</aside>
+</section>

@@ -1,0 +1,11 @@
+<section id="traps" data-transition="fade" style="background:#e9e9e7; color:#121212; font-family:'Inter Tight', sans-serif; padding:128px; display:flex; flex-direction:column; gap:48px">
+<h2 style="font-size:72px; font-weight:800; line-height:1.05; letter-spacing:-2px">Four traps in every stock-token integration</h2>
+<table style="font-size:28px; color:#121212">
+<tr><th style="width:24%; text-align:left">Trap</th><th style="width:40%; text-align:left">What goes wrong</th><th style="width:36%; text-align:left">What Strike does</th></tr>
+<tr><td>Dividend multiplier (ERC-8056)</td><td>Chainlink already includes it. Applying it again overprices NVDA by its live 1.000775 multiplier.</td><td>Prices, strikes and payouts stay per raw token. The multiplier is never applied.</td></tr>
+<tr><td>Weekend and holiday feeds</td><td>Tokens trade 24/7, but the feed freezes while NYSE is closed.</td><td>Sell only in NYSE hours. Settle on the first print after expiry.</td></tr>
+<tr><td>Two pause layers</td><td>Token and oracle can both pause; testnet tokens lack oraclePaused().</td><td>Every read checks both, defensively. Settlement waits.</td></tr>
+<tr><td>Splits mid-epoch</td><td>Feed and multiplier can briefly disagree around the change.</td><td>Sales pause; settlement moves to the first print after the change plus a grace period.</td></tr>
+</table>
+<aside>This is SafeStockFeed: one library call that any Robinhood Chain protocol can reuse. The fork tests prove each rule against the real tokens and feeds on chain 4663.</aside>
+</section>

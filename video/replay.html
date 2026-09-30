@@ -4,8 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Strike video cards</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=block"
+      rel="stylesheet"
+    />
     <style>
-      /*__FONTS__*/
       :root {
         --ink: #0d0d0d;
         --ink-teal: #071111;
@@ -39,18 +44,18 @@
         display: flex;
       }
 
-      /* ------------------------------------------------------------ terminal */
+      /* ------------------------------------------------------------ terminal (the bottom 150 px hold the captions) */
       .stage {
         position: absolute;
-        inset: 56px 96px 170px;
+        inset: 44px 80px 178px;
         flex-direction: column;
       }
       .label {
-        font: 600 15px/1 var(--sans);
+        font: 600 17px/1 var(--sans);
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: var(--mint);
-        margin: 0 0 18px;
+        margin: 0 0 16px;
         display: flex;
         gap: 18px;
         align-items: center;
@@ -59,14 +64,14 @@
         color: var(--dim);
         text-transform: none;
         letter-spacing: 0.02em;
-        font: 500 15px/1 var(--mono);
+        font: 500 16px/1 var(--mono);
       }
       .win {
         flex: 1;
         min-height: 0;
         display: flex;
         flex-direction: column;
-        background: rgba(8, 10, 10, 0.92);
+        background: rgba(8, 10, 10, 0.94);
         border: 1px solid #1f2b2b;
         border-radius: 14px;
         box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
@@ -92,7 +97,7 @@
       .bar b {
         flex: 1;
         text-align: center;
-        font: 500 14px/1 var(--mono);
+        font: 500 15px/1 var(--mono);
         color: var(--dim);
         margin-right: 60px;
       }
@@ -100,17 +105,19 @@
         flex: 1;
         min-height: 0;
         overflow: hidden;
-        padding: 22px 28px 26px;
-        font: 400 21px/1.52 var(--mono);
+        padding: 20px 30px 24px;
+        font: 400 25px/1.5 var(--mono);
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         word-break: normal;
       }
       .screen .l {
-        min-height: 1.52em;
+        min-height: 1.5em;
+        border-radius: 4px;
+        transition: background 300ms ease;
       }
       .screen .l.ind {
-        padding-left: 4ch;
+        padding-left: 3ch;
       }
       .prompt {
         color: var(--mint);
@@ -138,6 +145,7 @@
       }
       .ok {
         color: var(--green);
+        font-weight: 600;
       }
       .bad {
         color: var(--red);
@@ -155,196 +163,71 @@
         font-weight: 600;
       }
       .l.hl {
-        background: rgba(117, 208, 203, 0.09);
-        box-shadow: inset 3px 0 0 var(--mint);
+        background: rgba(117, 208, 203, 0.13);
+        box-shadow: inset 4px 0 0 var(--mint);
       }
       .l.hlbad {
-        background: rgba(255, 122, 107, 0.1);
-        box-shadow: inset 3px 0 0 var(--red);
+        background: rgba(255, 122, 107, 0.14);
+        box-shadow: inset 4px 0 0 var(--red);
       }
 
-      /* ------------------------------------------------------------ problem card */
-      .problem {
+      /* ------------------------------------------------------------ evidence card: five numbers */
+      .evidence {
         position: absolute;
         inset: 0 0 150px;
         flex-direction: column;
         justify-content: center;
-        padding: 0 120px;
-        gap: 34px;
-      }
-      .problem .row {
-        display: flex;
-        align-items: baseline;
-        gap: 44px;
-        opacity: 0.16;
-        transform: translateX(-10px);
-        transition:
-          opacity 600ms ease,
-          transform 600ms ease;
-      }
-      .problem .row.seen {
-        opacity: 0.3;
-        transform: none;
-      }
-      .problem .row.on {
-        opacity: 1;
-        transform: none;
-      }
-      .problem .row span {
-        font: 600 24px/1 var(--mono);
-        color: var(--mint);
-        width: 60px;
-        flex: none;
-      }
-      .problem .row b {
-        font: 800 150px/0.95 var(--sans);
-        letter-spacing: -0.045em;
-      }
-      .problem .row b em {
-        font-style: normal;
-        color: var(--mint);
-      }
-
-      /* ------------------------------------------------------------ telegram mock */
-      .tg {
-        position: absolute;
-        inset: 0 0 150px;
-        align-items: center;
-        justify-content: center;
-        gap: 90px;
         padding: 0 110px;
       }
-      .tg .side {
-        width: 520px;
-        flex: none;
-      }
-      .tg .side .kicker {
-        font: 600 15px/1 var(--sans);
-        letter-spacing: 0.14em;
+      .evidence .kicker {
+        font: 600 18px/1 var(--sans);
+        letter-spacing: 0.16em;
         text-transform: uppercase;
         color: var(--mint);
-        margin: 0 0 22px;
+        margin: 0 0 26px;
       }
-      .tg .side h2 {
-        font: 800 76px/0.98 var(--sans);
-        letter-spacing: -0.04em;
-        margin: 0 0 28px;
+      .evidence h2 {
+        font: 800 84px/0.98 var(--sans);
+        letter-spacing: -0.045em;
+        margin: 0 0 64px;
       }
-      .tg .side p {
-        font: 500 22px/1.45 var(--sans);
-        color: #b9c4c3;
-        margin: 0 0 14px;
+      .evidence ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        border-top: 1px solid #294040;
       }
-      .tg .side code {
-        font: 500 18px/1.4 var(--mono);
-        color: var(--paper);
-        background: rgba(255, 255, 255, 0.07);
-        border-radius: 6px;
-        padding: 2px 8px;
-      }
-      .phone {
-        width: 900px;
-        height: 830px;
-        flex: none;
-        display: flex;
-        flex-direction: column;
-        border-radius: 18px;
-        overflow: hidden;
-        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
-        font-family: "Inter Tight", "Segoe UI", Roboto, system-ui, sans-serif;
-      }
-      .phone .head {
-        flex: none;
-        height: 76px;
-        background: #ffffff;
-        border-bottom: 1px solid #e3e6e8;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 0 24px;
-        color: #0f1419;
-      }
-      .phone .ava {
-        width: 46px;
-        height: 46px;
-        border-radius: 50%;
-        background: linear-gradient(160deg, #75d0cb, #3c9f9a);
-        color: #0d0d0d;
-        font: 800 22px/46px var(--sans);
-        text-align: center;
-      }
-      .phone .head b {
-        display: block;
-        font: 700 20px/1.2 var(--sans);
-      }
-      .phone .head small {
-        font: 500 15px/1.2 var(--sans);
-        color: #708499;
-      }
-      .phone .chat {
-        flex: 1;
-        min-height: 0;
-        overflow: hidden;
-        background: #d7e4d2;
-        background-image:
-          radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.35) 0 2px, transparent 3px),
-          radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.3) 0 2px, transparent 3px);
-        background-size: 46px 46px;
-        padding: 20px 26px 26px;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-end;
-        gap: 12px;
-      }
-      .msg {
-        max-width: 780px;
-        padding: 11px 16px 12px;
-        border-radius: 14px;
-        font:
-          400 19px/1.42 "Inter Tight",
-          system-ui,
-          sans-serif;
-        color: #0f1419;
-        white-space: pre-wrap;
-        overflow-wrap: anywhere;
-        box-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
-        opacity: 0;
-        transform: translateY(14px) scale(0.98);
+      .evidence li {
+        padding: 30px 30px 0 0;
+        font: 500 25px/1.3 var(--sans);
+        color: #c9d3d2;
+        opacity: 0.35;
         transition:
-          opacity 380ms ease,
-          transform 380ms ease;
+          opacity 350ms ease,
+          transform 350ms ease;
+        transform-origin: 0 30%;
       }
-      .msg.in {
-        opacity: 1;
-        transform: none;
-      }
-      .msg.bot {
-        align-self: flex-start;
-        background: #ffffff;
-        border-bottom-left-radius: 4px;
-      }
-      .msg.me {
-        align-self: flex-end;
-        background: #e1fec6;
-        border-bottom-right-radius: 4px;
-      }
-      .msg .who {
+      .evidence li strong {
         display: block;
-        font: 700 16px/1.3 var(--sans);
-        color: #2a9d97;
-        margin-bottom: 3px;
+        font: 800 76px/1 var(--sans);
+        letter-spacing: -0.03em;
+        color: var(--mint);
+        margin-bottom: 14px;
+        white-space: nowrap;
       }
-      .msg a {
-        color: #168acd;
-        text-decoration: none;
+      .evidence li.seen {
+        opacity: 0.9;
       }
-      .msg .cmd {
-        color: #168acd;
+      .evidence li.on {
+        opacity: 1;
+        transform: scale(1.12);
       }
-      .msg.hl {
-        box-shadow:
-          0 1px 1px rgba(0, 0, 0, 0.12),
-          0 0 0 3px rgba(117, 208, 203, 0.9);
+      .evidence .src {
+        margin-top: 56px;
+        font: 500 20px/1.4 var(--mono);
+        color: var(--dim);
       }
 
       /* ------------------------------------------------------------ closing card */
@@ -353,7 +236,7 @@
         inset: 0;
         flex-direction: column;
         justify-content: center;
-        padding: 0 120px 40px;
+        padding: 0 120px 20px;
       }
       .close .logo {
         font: 800 64px/1 var(--sans);
@@ -366,72 +249,48 @@
         color: var(--mint);
       }
       .close h1 {
-        font: 800 104px/0.95 var(--sans);
+        font: 800 96px/0.97 var(--sans);
         letter-spacing: -0.045em;
-        margin: 0 0 56px;
-        max-width: 1680px;
+        margin: 0 0 70px;
+        max-width: 1640px;
       }
-      .close ul {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-        display: grid;
-        grid-template-columns: 1.45fr 1fr 1fr 1.25fr 1.45fr;
-        gap: 0;
+      .close .links {
+        display: flex;
+        flex-direction: column;
+        gap: 26px;
         border-top: 1px solid #294040;
+        padding-top: 44px;
       }
-      .close li {
-        padding: 26px 28px 0 0;
-        font: 500 24px/1.3 var(--sans);
+      .close .app {
+        font: 700 60px/1 var(--mono);
+        color: var(--paper);
+        letter-spacing: -0.02em;
+      }
+      .close .app span,
+      .close .repo span {
+        color: var(--mint);
+      }
+      .close .repo {
+        font: 500 34px/1 var(--mono);
         color: #c9d3d2;
       }
-      .close li strong {
-        display: block;
-        font: 800 56px/1 var(--sans);
-        letter-spacing: -0.03em;
-        color: var(--mint);
-        margin-bottom: 12px;
-        white-space: nowrap;
+      .close .badge {
+        align-self: flex-start;
+        margin-top: 18px;
+        font: 700 22px/1 var(--sans);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink);
+        background: var(--amber);
+        border-radius: 999px;
+        padding: 14px 24px 13px;
       }
-      .close .link {
-        margin-top: 60px;
-        font: 600 30px/1 var(--mono);
-        color: var(--paper);
-      }
-      .close .link span {
-        color: var(--mint);
-      }
-      /* ------------------------------------------------------------ full-frame stills (the README charts) */
-      body.stills-on {
-        background: #e9e9e7; /* the light charts' own background, so each chart fills the frame */
-      }
-      .stills {
-        position: absolute;
-        inset: 0 0 150px;
-      }
-      .stills img {
-        position: absolute;
-        inset: 22px 48px 18px;
-        width: calc(100% - 96px);
-        height: calc(100% - 40px);
-        object-fit: contain;
-        opacity: 0;
-        transform: scale(0.985);
-        transition:
-          opacity 550ms ease,
-          transform 900ms ease;
-      }
-      .stills img.on {
-        opacity: 1;
-        transform: none;
-      }
-
       .fade {
         opacity: 0;
         transform: translateY(18px);
         transition:
-          opacity 700ms ease,
-          transform 700ms ease;
+          opacity 600ms ease,
+          transform 600ms ease;
       }
       .fade.in {
         opacity: 1;
@@ -448,54 +307,41 @@
       </div>
     </div>
 
-    <div class="problem mode" id="problem"></div>
-
-    <div class="tg mode" id="telegram">
-      <div class="side">
-        <p class="kicker">Telegram bot (bots/telegram)</p>
-        <h2>Alerts from the chain</h2>
-        <p id="tgNote"></p>
-      </div>
-      <div class="phone">
-        <div class="head">
-          <div class="ava">S</div>
-          <div><b id="tgName">Strike Alerts</b><small>bot</small></div>
-        </div>
-        <div class="chat" id="chat"></div>
-      </div>
+    <div class="evidence mode" id="evidence">
+      <p class="kicker" id="evKicker"></p>
+      <h2 id="evTitle"></h2>
+      <ul id="evList"></ul>
+      <p class="src" id="evSrc"></p>
     </div>
-
-    <div class="stills mode" id="stills"></div>
 
     <div class="close mode" id="close">
       <div class="logo fade">Strike<em>.</em></div>
-      <h1 class="fade">Options on Robinhood Chain, run by agents the contract holds to a mandate.</h1>
-      <ul class="fade" id="closeList"></ul>
-      <p class="link fade" id="closeLink"></p>
+      <h1 class="fade" id="closeTitle"></h1>
+      <div class="links">
+        <p class="app fade" id="closeApp"></p>
+        <p class="repo fade" id="closeRepo"></p>
+        <p class="badge fade" id="closeBadge"></p>
+      </div>
     </div>
 
     <script>
-      // Filled in by video/record.mjs: { mode: "terminal" | "problem" | "telegram" | "stills" | "close", ... }
+      // Filled in by video/record.mjs: { mode: "terminal" | "evidence" | "close", ... }. The recorder drives each card
+      // through window.__term / __ev / __close, in time with the narration.
       const DATA = /*__DATA__*/ null;
-      const screen = document.getElementById("screen");
       const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
 
-      function caption(text, tag) {
-        if (window.__caption) window.__caption(text, tag);
-      }
-
       // ---------------------------------------------------------------- terminal
+      const screen = document.getElementById("screen");
       function classify(line) {
         const t = line.trim();
         if (/^\[\d+\]/.test(t)) return "step";
         if (/^Strike example agent/.test(t)) return "title";
-        if (/REJECTED|Agent stopped|DeltaOutOfBand|Slashed|Not compliant/.test(t)) return "bad";
+        if (/REJECTED|Agent stopped|DeltaOutOfBand|Slashed|Not compliant|^Agent now/.test(t)) return "bad";
         if (/^(Accepted|Verdict: None|Bought|Max loss|Breakeven)/.test(t)) return "ok";
         if (/^(Connected to|tx 0x|Opened the epoch)/.test(t)) return "dimmed";
         return "";
       }
-
       function addLine(html, cls = "") {
         const div = document.createElement("div");
         div.className = "l" + (cls ? " " + cls : "");
@@ -504,151 +350,116 @@
         screen.scrollTop = screen.scrollHeight;
         return div;
       }
-
-      async function typeCommand(cmd, speed = 1) {
-        const div = addLine(
-          '<span class="prompt">strike $ </span><span class="cmd"></span><span class="caret"></span>',
+      function lineHtml(raw) {
+        const line = raw.replace(/\s+$/, "");
+        const indented = /^ {4}/.test(line);
+        const text = indented ? line.slice(4) : line;
+        const html = esc(text).replace(
+          /0x[0-9a-fA-F]{64}/g,
+          (h) => `<span class="tx">${h.slice(0, 10)}…${h.slice(-4)}</span>`,
         );
-        const span = div.querySelector(".cmd");
-        await sleep(400);
-        for (const ch of cmd) {
-          span.textContent += ch;
-          await sleep((ch === " " ? 40 : 22) * speed);
-        }
-        await sleep(350);
-        div.querySelector(".caret").remove();
+        return {
+          html: line ? `<span class="${classify(line)}">${html}</span>` : "",
+          cls: indented ? "ind" : "",
+        };
       }
-
-      async function runSegment(seg) {
-        if (seg.clear) screen.innerHTML = "";
-        if (seg.label) document.getElementById("label").textContent = seg.label;
-        if (seg.caption) caption(seg.caption);
-        await typeCommand(seg.command, seg.typeSpeed ?? 1);
-        for (const raw of seg.lines) {
-          const line = raw.replace(/\s+$/, "");
-          const cls = classify(line);
-          if (cls === "step") await sleep(seg.stepPause ?? 650);
-          const rule = (seg.rules || []).find((r) => new RegExp(r.match).test(line));
-          if (rule && rule.caption) caption(rule.caption);
-          const indented = /^ {4}/.test(line);
-          const text = indented ? line.slice(4) : line;
-          // Transaction hashes stand out in every line.
-          const html = esc(text).replace(/0x[0-9a-fA-F]{64}/g, '<span class="tx">$&</span>');
-          const div = addLine(line ? `<span class="${cls}">${html}</span>` : "", indented ? "ind" : "");
-          if (rule && rule.highlight) div.classList.add(rule.highlight);
-          await sleep(line ? (seg.linePause ?? 170) : 40);
-          if (rule && rule.hold) await sleep(rule.hold);
-        }
-        addLine('<span class="prompt">strike $ </span><span class="caret"></span>');
-        await sleep(seg.endHold ?? 1500);
-        screen.lastChild.querySelector(".caret")?.remove();
-      }
-
-      async function terminal() {
-        document.getElementById("labelN").textContent = DATA.sublabel || "";
-        if (DATA.wintitle) document.getElementById("wintitle").textContent = DATA.wintitle;
-        for (const seg of DATA.segments) await runSegment(seg);
-      }
-
-      // ---------------------------------------------------------------- problem card
-      async function problem() {
-        const root = document.getElementById("problem");
-        root.innerHTML = DATA.rows
-          .map((r, i) => `<div class="row"><span>0${i + 1}</span><b>${r.word}</b></div>`)
-          .join("");
-        const rows = [...root.querySelectorAll(".row")];
-        for (let i = 0; i < rows.length; i++) {
-          rows.forEach((el, j) => {
-            el.classList.toggle("on", j === i);
-            el.classList.toggle("seen", j < i);
-          });
-          caption(DATA.rows[i].caption, DATA.rows[i].tag);
-          await sleep(DATA.rows[i].hold);
-        }
-      }
-
-      // ---------------------------------------------------------------- telegram mock
-      function linkify(text) {
-        return esc(text)
-          .replace(/https?:\/\/\S+/g, (u) => `<a>${u}</a>`)
-          .replace(/^\/\w+/, (c) => `<span class="cmd">${c}</span>`);
-      }
-
-      async function telegram() {
-        document.getElementById("tgNote").innerHTML = DATA.note;
-        if (DATA.botName) document.getElementById("tgName").textContent = DATA.botName;
-        const chat = document.getElementById("chat");
-        for (const m of DATA.messages) {
-          if (m.caption) caption(m.caption, m.tag);
-          if (m.before) await sleep(m.before);
-          const div = document.createElement("div");
-          div.className = `msg ${m.from}`;
-          div.innerHTML =
-            (m.from === "bot" && m.who ? `<span class="who">${esc(m.who)}</span>` : "") + linkify(m.text);
-          chat.appendChild(div);
-          await sleep(30);
-          div.classList.add("in");
-          if (m.highlight) {
-            chat.querySelectorAll(".msg.hl").forEach((el) => el.classList.remove("hl"));
-            div.classList.add("hl");
+      const term = {
+        seg: null,
+        i: 0,
+        load(seg) {
+          this.seg = seg;
+          this.i = 0;
+          screen.innerHTML = "";
+          document.getElementById("label").textContent = seg.label || "";
+        },
+        promptLine(done = true) {
+          const d = addLine(
+            `<span class="prompt">strike $ </span><span class="cmd">${esc(this.seg.command)}</span>`,
+          );
+          if (!done) d.querySelector(".cmd").textContent = "";
+          return d;
+        },
+        /** Print the command and every line before the first one matching `until`, at once. */
+        prefill(until) {
+          this.promptLine();
+          const re = new RegExp(until);
+          while (this.i < this.seg.lines.length && !re.test(this.seg.lines[this.i])) this.put();
+        },
+        put() {
+          const { html, cls } = lineHtml(this.seg.lines[this.i++]);
+          return addLine(html, cls);
+        },
+        /** Type lines up to and including the first one matching `until`; returns when it is on screen. */
+        async type(until, pause = 90) {
+          const re = new RegExp(until);
+          while (this.i < this.seg.lines.length) {
+            const raw = this.seg.lines[this.i];
+            if (/^\s*\[\d+\]/.test(raw)) await sleep(pause * 2);
+            this.put();
+            await sleep(raw.trim() ? pause : 20);
+            if (re.test(raw)) return;
           }
-          await sleep(m.hold ?? 1500);
-        }
-      }
+        },
+        mark(match, cls) {
+          const re = new RegExp(match);
+          for (const d of screen.querySelectorAll(".l")) if (re.test(d.textContent)) d.classList.add(cls);
+        },
+        end() {
+          addLine('<span class="prompt">strike $ </span><span class="caret"></span>');
+        },
+      };
+      window.__term = term;
+
+      // ---------------------------------------------------------------- evidence card
+      window.__ev = {
+        focus(i) {
+          document.querySelectorAll("#evList li").forEach((el, j) => {
+            el.classList.toggle("on", j === i);
+            el.classList.toggle("seen", j < i || (i < 0 && j >= 0));
+          });
+        },
+        all() {
+          document.querySelectorAll("#evList li").forEach((el) => {
+            el.classList.remove("on");
+            el.classList.add("seen");
+          });
+        },
+      };
 
       // ---------------------------------------------------------------- closing card
-      async function close() {
-        document.getElementById("closeList").innerHTML = DATA.items
-          .map((it) => `<li><strong>${esc(it.big)}</strong>${esc(it.small)}</li>`)
-          .join("");
-        document.getElementById("closeLink").innerHTML = DATA.link;
-        const items = document.querySelectorAll("#close .fade");
-        for (const el of items) {
-          await sleep(380);
-          el.classList.add("in");
-        }
-        await sleep(DATA.hold ?? 5000);
-      }
-
-      // ---------------------------------------------------------------- full-frame stills
-      // DATA.stills: [{ src, alt, caption, tag?, hold }]. The images are loaded by prepare(), before recording.
-      async function prepareStills() {
-        document.body.classList.add("stills-on");
-        const root = document.getElementById("stills");
-        root.innerHTML = "";
-        for (const s of DATA.stills) {
-          const img = new Image();
-          img.src = s.src;
-          img.alt = s.alt || "";
-          root.appendChild(img);
-          await img.decode();
-        }
-        root.firstChild?.classList.add("on"); // on screen when the cut starts
-      }
-
-      async function stills() {
-        const imgs = [...document.querySelectorAll("#stills img")];
-        for (let i = 0; i < imgs.length; i++) {
-          imgs.forEach((el, j) => el.classList.toggle("on", j === i));
-          caption(DATA.stills[i].caption, DATA.stills[i].tag);
-          await sleep(DATA.stills[i].hold);
-        }
-      }
+      window.__close = {
+        async show(n) {
+          const items = [...document.querySelectorAll("#close .fade")].slice(0, n);
+          for (const el of items) {
+            if (el.classList.contains("in")) continue;
+            el.classList.add("in");
+            await sleep(260);
+          }
+        },
+      };
 
       window.__prepare = async () => {
         document.getElementById(DATA.mode).classList.add("on");
-        if (DATA.mode === "stills") await prepareStills();
+        if (DATA.mode === "terminal") {
+          document.getElementById("labelN").textContent = DATA.sublabel || "";
+          document.getElementById("wintitle").textContent = DATA.wintitle || "~/strike";
+        }
+        if (DATA.mode === "evidence") {
+          document.getElementById("evKicker").textContent = DATA.kicker;
+          document.getElementById("evTitle").textContent = DATA.title;
+          document.getElementById("evSrc").textContent = DATA.source;
+          document.getElementById("evList").innerHTML = DATA.items
+            .map((it) => `<li><strong>${esc(it.big)}</strong>${esc(it.small)}</li>`)
+            .join("");
+        }
+        if (DATA.mode === "close") {
+          document.getElementById("closeTitle").textContent = DATA.title;
+          document.getElementById("closeApp").innerHTML = `<span>→</span> ${esc(DATA.app)}`;
+          document.getElementById("closeRepo").innerHTML = `<span>→</span> ${esc(DATA.repo)}`;
+          document.getElementById("closeBadge").textContent = DATA.badge;
+        }
+        await document.fonts.ready;
       };
-
-      async function main() {
-        document.getElementById(DATA.mode).classList.add("on");
-        if (DATA.mode === "stills") return stills();
-        if (DATA.mode === "terminal") return terminal();
-        if (DATA.mode === "problem") return problem();
-        if (DATA.mode === "telegram") return telegram();
-        if (DATA.mode === "close") return close();
-      }
-      window.__run = () => main();
     </script>
   </body>
 </html>
