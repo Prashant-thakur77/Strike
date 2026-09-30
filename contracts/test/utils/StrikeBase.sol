@@ -87,7 +87,7 @@ abstract contract StrikeBase is Test {
         // The agent registers its signer and posts a bond.
         usdg.mint(agent, 1000e6);
         vm.startPrank(agent);
-        agentId = registry.register(agent, agent, 0);
+        agentId = registry.register(agent, agent, 0, 0, "");
         usdg.approve(address(registry), 1000e6);
         registry.postBond(agentId, 1000e6);
         vm.stopPrank();

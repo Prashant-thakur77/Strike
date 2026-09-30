@@ -183,9 +183,10 @@ contract AgentMandateTest is StrikeBase {
 
     /// Key compromise: the owner rotates the signer; the old key can no longer propose.
     function test_rotatedSignerLocksOutOldKey() public {
-        address fresh = makeAddr("fresh");
+        (address fresh, uint256 freshKey) = makeAddrAndKey("fresh");
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(freshKey, registry.setSignerDigest(fresh, agentId, block.timestamp));
         vm.prank(agent);
-        registry.setSigner(agentId, fresh);
+        registry.setSigner(agentId, fresh, block.timestamp, abi.encodePacked(r, s, v));
         vm.expectRevert(abi.encodeWithSelector(EpochManager.NotAgent.selector, agent));
         _propose(275 * WAD, FRIDAY_CLOSE, 1, 10_000);
         vm.prank(fresh);
@@ -196,7 +197,7 @@ contract AgentMandateTest is StrikeBase {
     function test_curatorSwitchesAgent() public {
         address other = makeAddr("other");
         vm.prank(other);
-        uint256 otherId = registry.register(other, other, 0);
+        uint256 otherId = registry.register(other, other, 0, 0, "");
         vm.expectRevert(abi.encodeWithSelector(EpochManager.NotCurator.selector, address(this)));
         manager.setVaultAgent(address(callVault), otherId);
         vm.prank(curator);

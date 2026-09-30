@@ -194,7 +194,7 @@ contract RobinhoodForkTest is Test {
         vm.startPrank(agent);
         // A real ERC-8004 identity from the official registry on chain 4663.
         uint256 identityId = IERC8004Identity(ERC8004_IDENTITY).register();
-        agentId = registry.register(agent, agent, identityId);
+        agentId = registry.register(agent, agent, identityId, 0, "");
         IERC20(USDG).approve(address(registry), 100e6);
         registry.postBond(agentId, 100e6);
         vm.stopPrank();

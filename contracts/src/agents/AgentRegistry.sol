@@ -7,6 +7,9 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {Nonces} from "@openzeppelin/contracts/utils/Nonces.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title AgentRegistry
@@ -15,10 +18,18 @@ import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 /// @dev A proposal the vault's mandate rejects costs the agent `slashAmount` of its bond (paid to that vault's
 ///      depositors) and a strike; at `maxStrikes` the agent is suspended. Unbonding takes `unbondDelay`, and bond in
 ///      the unbonding queue can still be slashed, so an agent cannot misbehave and exit in the same week.
-contract AgentRegistry is AccessControl, IAgentRegistry {
+///      A signer key that is not the caller must consent with an EIP-712 signature (`Register` or `SetSigner`), so
+///      nobody can bind someone else's address as a signer and block it ("one agent per signer").
+contract AgentRegistry is AccessControl, EIP712, Nonces, IAgentRegistry {
     using SafeERC20 for IERC20;
 
     bytes32 public constant SLASHER_ROLE = keccak256("SLASHER_ROLE");
+    /// @notice The signer's consent to be registered as the signer of a new agent owned by `owner`.
+    bytes32 public constant REGISTER_TYPEHASH =
+        keccak256("Register(address owner,address payout,uint256 erc8004Id,uint256 nonce,uint256 deadline)");
+    /// @notice The signer's consent to become the signer of agent `agentId`, owned by `owner`.
+    bytes32 public constant SET_SIGNER_TYPEHASH =
+        keccak256("SetSigner(address owner,uint256 agentId,uint256 nonce,uint256 deadline)");
 
     enum Status {
         None,
@@ -91,6 +102,8 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     error UnbondPending(uint64 availableAt);
     error InvalidParams();
     error InvalidStatus(Status status);
+    error ConsentExpired(uint256 deadline);
+    error InvalidConsent(address signer);
 
     constructor(
         address admin,
@@ -100,7 +113,7 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
         uint256 slashAmount_,
         uint32 maxStrikes_,
         uint32 unbondDelay_
-    ) {
+    ) EIP712("Strike AgentRegistry", "1") {
         if (admin == address(0) || address(usdg_) == address(0)) revert ZeroAddress();
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         usdg = usdg_;
@@ -110,10 +123,21 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
 
     // ------------------------------------------------------------------ agent owner
 
-    /// @notice Register an agent. With an ERC-8004 id, the caller must own that identity.
-    function register(address signer, address payout, uint256 erc8004Id) external returns (uint256 agentId) {
+    /// @notice Register an agent owned by the caller. With an ERC-8004 id, the caller must own that identity.
+    /// @param deadline Last timestamp at which the signer's consent is valid.
+    /// @param signature The signer's EIP-712 `Register` consent. Both are ignored (pass 0 and empty bytes) when the
+    ///        caller registers itself as the signer.
+    function register(address signer, address payout, uint256 erc8004Id, uint256 deadline, bytes calldata signature)
+        external
+        returns (uint256 agentId)
+    {
         if (signer == address(0) || payout == address(0)) revert ZeroAddress();
         if (agentOfSigner[signer] != 0) revert SignerTaken(signer);
+        if (signer != msg.sender) {
+            bytes32 structHash =
+                keccak256(abi.encode(REGISTER_TYPEHASH, msg.sender, payout, erc8004Id, _useNonce(signer), deadline));
+            _checkConsent(signer, structHash, deadline, signature);
+        }
         _checkIdentity(erc8004Id);
         agentId = ++agentCount;
         Agent storage a = _agents[agentId];
@@ -127,10 +151,17 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
     }
 
     /// @notice Rotate the signer key (for example after a key compromise).
-    function setSigner(uint256 agentId, address signer) external {
+    /// @param deadline Last timestamp at which the new signer's consent is valid.
+    /// @param signature The new signer's EIP-712 `SetSigner` consent. Both are ignored when the owner sets itself.
+    function setSigner(uint256 agentId, address signer, uint256 deadline, bytes calldata signature) external {
         Agent storage a = _owned(agentId);
         if (signer == address(0)) revert ZeroAddress();
         if (agentOfSigner[signer] != 0) revert SignerTaken(signer);
+        if (signer != msg.sender) {
+            bytes32 structHash =
+                keccak256(abi.encode(SET_SIGNER_TYPEHASH, msg.sender, agentId, _useNonce(signer), deadline));
+            _checkConsent(signer, structHash, deadline, signature);
+        }
         delete agentOfSigner[a.signer];
         a.signer = signer;
         agentOfSigner[signer] = agentId;
@@ -274,6 +305,29 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
         return a.status == Status.Active && a.bond >= minBond && a.strikes < maxStrikes;
     }
 
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
+    }
+
+    /// @notice The EIP-712 digest `signer` signs to consent to `register` by `owner` (at the signer's next nonce).
+    function registerDigest(address signer, address owner, address payout, uint256 erc8004Id, uint256 deadline)
+        external
+        view
+        returns (bytes32)
+    {
+        return _hashTypedDataV4(
+            keccak256(abi.encode(REGISTER_TYPEHASH, owner, payout, erc8004Id, nonces(signer), deadline))
+        );
+    }
+
+    /// @notice The EIP-712 digest `signer` signs to consent to `setSigner` on `agentId` (at the signer's next nonce).
+    function setSignerDigest(address signer, uint256 agentId, uint256 deadline) external view returns (bytes32) {
+        return _hashTypedDataV4(
+            keccak256(abi.encode(SET_SIGNER_TYPEHASH, _agents[agentId].owner, agentId, nonces(signer), deadline))
+        );
+    }
+
     function signerOf(uint256 agentId) external view returns (address) {
         return _agents[agentId].signer;
     }
@@ -314,6 +368,17 @@ contract AgentRegistry is AccessControl, IAgentRegistry {
         } catch {
             return false;
         }
+    }
+
+    /// @dev The nonce is already consumed by the caller, so a signature works once. Only ECDSA (EOA) signers can
+    ///      consent; a contract signer registers itself (`signer == msg.sender`).
+    function _checkConsent(address signer, bytes32 structHash, uint256 deadline, bytes calldata signature)
+        internal
+        view
+    {
+        if (block.timestamp > deadline) revert ConsentExpired(deadline);
+        (address recovered, ECDSA.RecoverError err,) = ECDSA.tryRecover(_hashTypedDataV4(structHash), signature);
+        if (err != ECDSA.RecoverError.NoError || recovered != signer) revert InvalidConsent(signer);
     }
 
     function _checkIdentity(uint256 erc8004Id) internal view {
