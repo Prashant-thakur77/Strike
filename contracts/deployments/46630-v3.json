@@ -41,11 +41,20 @@
   "version": "v3",
   "status": "deployed, not yet the app default",
   "sourceCommit": "448d83b",
-  "deployCommit": "",
+  "deployCommit": "64fcb93",
   "activePricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
   "activePricerNote": "EpochManager.pricer() is the Stylus pricer and risk engine (setPricer tx 0x086c2ec2d3eec2d4c389c6890bea06a2df7a1aa5140eecf9e3e27a0da100f309); `pricer` is the Solidity reference (BlackScholesRef with RiskLib), kept for the on-chain equality check",
   "sharedWithV2": "marketCalendar and the five stock MirrorFeeds are v2's (same source), so one keeper fills both versions",
   "decisionLog": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
   "decisionLogTx": "0xf55e1d4dfe09759377b3da3e9feab6a39727ff0bc71251b2fd6ec3148f896c28",
-  "decisionLogNote": "Additive, reads this v3 AgentRegistry; source contracts/src/agents/DecisionLog.sol on main (a98fff8). v2's DecisionLog reads the v2 registry and cannot authorise v3 signers"
+  "decisionLogNote": "Additive, reads this v3 AgentRegistry; source contracts/src/agents/DecisionLog.sol on main (a98fff8). v2's DecisionLog reads the v2 registry and cannot authorise v3 signers",
+  "agent": {
+    "agentId": 1,
+    "owner": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f",
+    "erc8004Id": 114,
+    "registerTx": "0x52f5999da7ab48d37ffb8fc5d3b476b9da1c0d3faa855de645cb80a784827162",
+    "setIdentityTx": "0xc617c3eb7feb026513bf791bb0e1c2108d4821bd86995c49a14f391832904154",
+    "note": "Registered by the owner with the signer's EIP-712 Register consent (domain Strike AgentRegistry / 1). Not bonded yet: vaults need an active agent (bond >= 50 USDG)"
+  }
 }
