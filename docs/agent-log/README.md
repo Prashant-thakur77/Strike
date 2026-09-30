@@ -16,6 +16,8 @@ Each record contains:
 7. The result: accepted (with the series, strike, expiry and size), or rejected (with the reason and the USDG slashed from the agent's bond). A run that stopped says why.
 8. The agent's on-chain track record afterwards: accepted and rejected proposals, strikes, bond, settled epochs and cumulative depositor PnL.
 
+Each record is also anchored on-chain. The agent commits the keccak256 hash of its JSON record and the record's URL to the [DecisionLog](../../contracts/src/agents/DecisionLog.sol) contract (`0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93` on Robinhood Chain testnet), signed by the agent's registered key. A record changed after the fact no longer matches its hash. `verifyAnchoredRecord` in [`agents/example/src/anchor.ts`](../../agents/example/src/anchor.ts) checks a published file. The first anchor is the 29 Sep epoch log ([tx](https://explorer.testnet.chain.robinhood.com/tx/0x934ab96ba12a9ad501e20c8366fc338ab35d0550b88cc2d76fc5c39991c524c4)).
+
 A `.json` file with the same name holds the same record in machine-readable form, for the app. A second run for the same vault on the same day gets a `-2` suffix, so no record is ever overwritten.
 
-The agent's source is in [`agents/example`](../../agents/example/). See its README for the `--log` flag and the switches that turn the weekly runs on.
+The agent's source is in [`agents/example`](../../agents/example/). See its README for the `--log` and `--anchor` flags and the switches that turn the weekly runs on.
