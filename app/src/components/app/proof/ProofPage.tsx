@@ -15,6 +15,7 @@ import {
   STYLUS,
   TESTS,
   THREAT_MODEL,
+  V3,
   VERIFICATION_NOTE,
   explorerAddress,
   explorerTx,
@@ -189,6 +190,74 @@ export function ProofPage() {
             <code className="mono">{DEPLOYMENT.deployCommit}</code>. The testnet has no Chainlink stock feeds,
             so MirrorFeeds copy the mainnet rounds.
           </p>
+          <div className={styles.v3Card} data-testid="proof-v3">
+            <div className={styles.v3Head}>
+              <span className="micro micro-muted">Deployed next to v2 · block {n(V3.block)}</span>
+              <h3 id="v3-title" className={styles.blockTitle}>
+                v3 and the Stylus risk engine
+              </h3>
+              <p className={styles.text}>
+                <strong>Stylus pricer + risk engine verified with cargo stylus verify</strong>: greeks,
+                implied volatility and scenario loss in Rust, on the same program as the pricer. The vault
+                page&apos;s Risk panel calls it live on the v2 series.
+              </p>
+            </div>
+            <dl className={styles.kv}>
+              <dt>Stylus program</dt>
+              <dd>
+                <Out href={explorerAddress(V3.stylus.address)} className={`mono ${styles.addr}`}>
+                  <span title={V3.stylus.address}>{shortAddr(V3.stylus.address)}</span>
+                </Out>{" "}
+                · {n(V3.stylus.wasmBytes)} bytes · <Out href={explorerTx(V3.stylus.deployTx)}>deploy tx</Out>{" "}
+                · <Out href={explorerTx(V3.stylus.activationTx)}>activation tx</Out> ·{" "}
+                <Out href={V3.stylus.source}>risk.rs</Out>
+              </dd>
+              <dt>Verified</dt>
+              <dd>
+                <code className="mono">cargo stylus verify</code>: Verification successful, metadata hash{" "}
+                <span className="mono">{V3.stylus.metadataHash.slice(0, 16)}…</span>
+              </dd>
+              <dt>Rust = Solidity</dt>
+              <dd>
+                {V3.vectors.count} vectors ({V3.vectors.detail}) reproduced exactly by the Solidity{" "}
+                <code className="mono">RiskLib</code>, plus differential fuzzing
+              </dd>
+              <dt>Source</dt>
+              <dd>
+                <code className="mono">{V3.sourceCommit}</code>, deployed from{" "}
+                <code className="mono">{V3.deployCommit}</code> · <Out href={V3.file}>46630-v3.json</Out> ·{" "}
+                <Out href={V3.log}>deployment log</Out>
+              </dd>
+            </dl>
+            <pre className={styles.cmd} tabIndex={0} aria-label="v3 verification command">
+              <code>{V3.stylus.command}</code>
+            </pre>
+            <Fold
+              summary={`Show the ${V3.contracts.length} v3 contracts, all verified on Blockscout`}
+              openSummary="Hide the v3 contracts"
+            >
+              <ul className={styles.contracts} aria-label="v3 contracts, verified on Blockscout">
+                {V3.contracts.map((c) => (
+                  <li key={c.address} className={styles.contract} data-verification="blockscout">
+                    <div className={styles.contractName}>
+                      <span className={styles.contractTitle}>{c.name}</span>
+                      {c.name === "RiskLens" ? (
+                        <span className={styles.contractRole}>Read-only risk view of v3 series</span>
+                      ) : null}
+                    </div>
+                    <Out href={explorerAddress(c.address)} className={`mono ${styles.addr}`}>
+                      <span title={c.address}>{shortAddr(c.address)}</span>
+                    </Out>
+                    <span className={styles.verified} data-verification="blockscout">
+                      Verified on Blockscout
+                    </span>
+                    <span className={styles.sourceNone}>v3-contracts</span>
+                  </li>
+                ))}
+              </ul>
+            </Fold>
+            <EvidenceLinks items={V3.vectors.evidence} />
+          </div>
         </Rail>
 
         {/* ------------------------------------------------------------ 02 stylus */}

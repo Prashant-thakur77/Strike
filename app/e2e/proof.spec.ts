@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
@@ -47,6 +48,16 @@ async function testnetUp(): Promise<boolean> {
   }
 }
 
+/** Does `git cat-file -e <spec>` succeed in the repository? */
+function gitHas(spec: string): boolean {
+  try {
+    execFileSync("git", ["-C", ROOT, "cat-file", "-e", spec], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const desktopOnly = () => test.skip(test.info().project.name !== "desktop", "one project is enough");
 
 test.beforeEach(async ({ page }) => {
@@ -64,8 +75,15 @@ test("proof: every GitHub link points to a file or folder in the repository", as
     .evaluateAll((els) => [...new Set(els.map((e) => (e as HTMLAnchorElement).href))]);
   expect(hrefs.length).toBeGreaterThan(30);
 
+  // v3's files live on the v3-contracts branch: checked in git when the branch is fetched, else skipped.
+  const v3Ref = ["origin/v3-contracts", "v3-contracts"].find((ref) => gitHas(`${ref}^{commit}`));
   const missing: string[] = [];
   for (const href of hrefs) {
+    const v3 = new URL(href).pathname.match(/^\/Prashant-thakur77\/Strike\/(blob|tree)\/v3-contracts\/(.+)$/);
+    if (v3) {
+      if (v3Ref && !gitHas(`${v3Ref}:${decodeURIComponent(v3[2] as string)}`)) missing.push(href);
+      continue;
+    }
     const m = new URL(href).pathname.match(/^\/Prashant-thakur77\/Strike\/(blob|tree)\/main\/(.+)$/);
     if (!m) {
       missing.push(`${href} (not a blob/tree link)`);

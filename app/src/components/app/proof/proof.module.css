@@ -758,3 +758,19 @@
     display: block;
   }
 }
+
+/* v3 card (rail 01) */
+.v3Card {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  margin-top: 8px;
+  padding: clamp(18px, 2.4vw, 32px);
+  border: 1px solid var(--rule-strong);
+  border-radius: 16px;
+}
+
+.v3Head {
+  display: grid;
+  gap: 10px;
+}
