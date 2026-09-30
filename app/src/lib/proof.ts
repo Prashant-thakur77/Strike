@@ -273,7 +273,7 @@ export interface TestFact {
 }
 
 // Sources: README.md "Safety evidence" and docs/testing.md (432 Foundry, 15 Rust, 164 TypeScript = SDK 86 +
-// MCP 40 + agents 38, 60 Telegram bot, 10 subgraph, 91 Playwright). Re-count (2026-09-30) with
+// MCP 40 + agents 38, 60 Telegram bot, 10 subgraph, 100 Playwright). Re-count (2026-09-30) with
 // `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
 // counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
 // subgraph/tests and the `test(` calls in app/e2e.
@@ -321,7 +321,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "91",
+    count: "100",
     detail: "The app at 1440 px desktop and 390 px mobile, including this page and its links",
     evidence: [
       { label: "app/e2e", href: ghTree("app/e2e") },

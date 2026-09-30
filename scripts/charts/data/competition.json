@@ -1,0 +1,194 @@
+{
+  "checked": "2026-09-30",
+  "rule": "Cells state what each project's own docs or repository say. 'not described' means the cited pages do not cover it; it does not mean the project lacks it.",
+  "projects": ["Strike", "Stonkhouse", "Archer Markets", "Ribbon / Aevo", "Derive (Lyra)", "Thetanuts"],
+  "rows": [
+    {
+      "row": "Chain",
+      "cells": [
+        "Robinhood Chain testnet (46630)",
+        "Robinhood Chain mainnet (4663)",
+        "Robinhood Chain testnet (46630)",
+        "Ethereum, Avalanche, Solana; Aevo is its own rollup",
+        "Optimism (Lyra v1); Derive chain (v2)",
+        "Base; Ethereum (WheelVault only)"
+      ]
+    },
+    {
+      "row": "Live status",
+      "cells": [
+        "Testnet, live epoch; unaudited",
+        "Mainnet since 2026-09-25; unaudited",
+        "Testnet proof of concept; unaudited",
+        "Aevo launched; vault status not described",
+        "v3 on testnet, mainnet \"coming soon\"",
+        "V4 on Base, early testing"
+      ]
+    },
+    {
+      "row": "Who picks the strike",
+      "cells": [
+        "A bonded AI agent; the contract checks it",
+        "Writers, from a listed ladder",
+        "Traders (one book per strike)",
+        "Off-chain algorithm at 10 delta",
+        "Owner lists boards (v1); users (v3)",
+        "The requesting trader (RFQ)"
+      ]
+    },
+    {
+      "row": "On-chain agent mandate",
+      "cells": [
+        "Yes: delta band, premium, yield, size, tenor",
+        "Partly: contract bounds on its auto-roll pricer (0.5–10% of spot, no reprice cut over 25%)",
+        "not described",
+        "not described",
+        "Curator stake floor; curators may trade any instrument",
+        "not described"
+      ]
+    },
+    {
+      "row": "Slashing paid to depositors",
+      "cells": [
+        "Yes: 10 USDG per rejected proposal",
+        "not described",
+        "not described",
+        "not described",
+        "not described",
+        "not described"
+      ]
+    },
+    {
+      "row": "Oracle-anchored pricing",
+      "cells": [
+        "Yes: Black-Scholes at oracle spot on every buy",
+        "Order book; oracle at settlement",
+        "Order book; no oracle",
+        "Auctions; oracle at settlement",
+        "AMM model (v1); order book and RFQ (v3)",
+        "RFQ; oracle at expiry"
+      ]
+    },
+    {
+      "row": "Stock-token (ERC-8056) safety",
+      "cells": [
+        "Yes: multiplier, both pauses, corporate actions, NYSE hours",
+        "NYSE-close expiry; ERC-8056 not described",
+        "not described",
+        "not described (crypto assets)",
+        "not described (crypto assets)",
+        "not described (crypto assets)"
+      ]
+    },
+    {
+      "row": "ERC-8004 agent identity",
+      "cells": [
+        "Yes: identity #114",
+        "not described",
+        "not described",
+        "not described",
+        "not described",
+        "not described"
+      ]
+    },
+    {
+      "row": "USDG",
+      "cells": [
+        "Yes: premium, put collateral, bonds, fees",
+        "Yes: premium and put collateral",
+        "Yes: quote token",
+        "not described",
+        "not described (USDC)",
+        "not described (USDC)"
+      ]
+    }
+  ],
+  "sources": {
+    "Strike": [
+      "README.md",
+      "docs/testnet-epochs/2026-09-29.md",
+      "contracts/src/libraries/MandateGuard.sol",
+      "contracts/src/libraries/SafeStockFeed.sol"
+    ],
+    "Stonkhouse": [
+      "https://docs.stonkhouse.fun",
+      "https://docs.stonkhouse.fun/writing/setting-your-ask.md",
+      "https://docs.stonkhouse.fun/writing/presets-and-auto-roll.md",
+      "https://docs.stonkhouse.fun/market/market-makers.md",
+      "https://docs.stonkhouse.fun/protocol/oracle-and-settlement.md",
+      "https://docs.stonkhouse.fun/resources/risks.md"
+    ],
+    "Archer Markets": [
+      "https://github.com/nachfq/archer-markets",
+      "https://github.com/nachfq/archer-markets/blob/main/docs/testnet-release.md",
+      "https://github.com/nachfq/archer-markets/blob/main/AGENTS.md"
+    ],
+    "Ribbon / Aevo": [
+      "https://docs.ribbon.finance/faq/general",
+      "https://docs.ribbon.finance/theta-vault/theta-vault/strike-selection-and-expiry",
+      "https://docs.ribbon.finance/theta-vault/theta-vault/auctions",
+      "https://docs.ribbon.finance/theta-vault/theta-vault/options-settlement",
+      "https://docs.ribbon.finance/aevo"
+    ],
+    "Derive (Lyra)": [
+      "https://github.com/derivexyz/v1-core",
+      "https://github.com/derivexyz/v2-core",
+      "https://docs.derive.xyz/getting-started/introduction.md",
+      "https://docs.derive.xyz/supported-products.md",
+      "https://docs.derive.xyz/vaults/create-a-vault.md"
+    ],
+    "Thetanuts": [
+      "https://docs.thetanuts.finance/sdk/getting-started/supported-chains.md",
+      "https://docs.thetanuts.finance/sdk/rfq-factory/overview.md",
+      "https://docs.thetanuts.finance/for-builders/network-and-products.md"
+    ]
+  },
+  "positions": {
+    "x_levels": [
+      "Each trader or writer",
+      "Listed by the operator",
+      "An algorithm at a fixed delta",
+      "A bonded agent the contract checks"
+    ],
+    "y_levels": [
+      "Order book",
+      "RFQ or auction",
+      "AMM with a pricing model",
+      "Oracle-anchored model at every purchase"
+    ],
+    "points": [
+      {
+        "name": "Strike",
+        "x": 3,
+        "y": 3,
+        "note": "agent proposes, MandateGuard checks; Black-Scholes at oracle spot"
+      },
+      { "name": "Stonkhouse", "x": 0, "y": 0, "note": "writers set the ask on an order book" },
+      { "name": "Archer Markets", "x": 0, "y": 0, "note": "on-chain bid/ask order book" },
+      { "name": "Aevo", "x": 0, "y": 0, "note": "order-book exchange" },
+      { "name": "Derive v3", "x": 0, "y": 0.35, "note": "users mint any strike; order book and RFQ" },
+      {
+        "name": "Thetanuts V4",
+        "x": 0,
+        "y": 1,
+        "note": "trader requests a strike; market makers quote (RFQ)"
+      },
+      {
+        "name": "Ribbon Theta Vaults",
+        "x": 2,
+        "y": 1,
+        "note": "off-chain 10-delta algorithm; sealed-bid auctions"
+      },
+      {
+        "name": "Lyra v1",
+        "x": 1,
+        "y": 2,
+        "note": "owner lists boards; AMM priced with a Black-Scholes model"
+      }
+    ],
+    "links": [
+      ["Lyra v1", "Derive v3"],
+      ["Ribbon Theta Vaults", "Aevo"]
+    ]
+  }
+}

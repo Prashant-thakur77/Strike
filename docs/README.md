@@ -26,11 +26,12 @@ Start with the [project README](../README.md). This page indexes every document 
 
 ## See it run
 
-| Document                                               | What it covers                                                                                                |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| [Live epoch, 2026-09-29](testnet-epochs/2026-09-29.md) | The first agent-run epoch on Robinhood Chain testnet, with Blockscout links                                   |
-| [Tester guide](testers.md)                             | Five minutes: the no-wallet playground, then testnet tokens, the app, the example agent and the feedback form |
-| [Backtest](backtest.md)                                | Eight years of weekly epochs on TSLA, NVDA, AMZN and SPY                                                      |
+| Document                                               | What it covers                                                                                                                  |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| [Live epoch, 2026-09-29](testnet-epochs/2026-09-29.md) | The first agent-run epoch on Robinhood Chain testnet, with Blockscout links                                                     |
+| [Deployments and versions](DEPLOYMENTS.md)             | Every deployment (v1, v2, the v3 branch): commits, blocks, addresses, verification, live transactions, and how to re-check each |
+| [Tester guide](testers.md)                             | Five minutes: the no-wallet playground, then testnet tokens, the app, the example agent and the feedback form                   |
+| [Backtest](backtest.md)                                | Eight years of weekly epochs on TSLA, NVDA, AMZN and SPY                                                                        |
 
 ## Build on it or run it
 
@@ -45,11 +46,12 @@ Start with the [project README](../README.md). This page indexes every document 
 
 ## Project history and hackathon
 
-| Document                                                 | What it covers                                            |
-| -------------------------------------------------------- | --------------------------------------------------------- |
-| [Changelog](../CHANGELOG.md)                             | Every release and deployment                              |
-| [Plan](PLAN.md) and [cycle plans](plans/)                | The original plan and each improvement cycle              |
-| [Progress](progress.md)                                  | Status by day                                             |
-| [Scorecard](review.md)                                   | Self-assessment against the judging criteria, by cycle    |
-| [Hackathon facts](hackathon.md), [research](research.md) | Rules, deadlines, verified chain facts, competitors       |
-| [Submission kit](submission/)                            | Form answers, demo and pitch scripts, deck outline, posts |
+| Document                                                 | What it covers                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------- |
+| [Changelog](../CHANGELOG.md)                             | Every release and deployment                                              |
+| [Charts](../scripts/charts/README.md)                    | How the README charts are built from data, the palette and its validation |
+| [Plan](PLAN.md) and [cycle plans](plans/)                | The original plan and each improvement cycle                              |
+| [Progress](progress.md)                                  | Status by day                                                             |
+| [Scorecard](review.md)                                   | Self-assessment against the judging criteria, by cycle                    |
+| [Hackathon facts](hackathon.md), [research](research.md) | Rules, deadlines, verified chain facts, competitors                       |
+| [Submission kit](submission/)                            | Form answers, demo and pitch scripts, deck outline, posts                 |

@@ -4,6 +4,18 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Added
+
+- `docs/DEPLOYMENTS.md`: v1, v2 and the v3 branch with source and deploy commits, deploy blocks, every address with its Blockscout verification status (checked through the Blockscout API on 2026-09-30), the active pricer read with `cast`, the Stylus `cargo stylus verify` result, the live transactions with blocks and times, ERC-8004 identity #114, and a reviewer's checklist of commands.
+- Charts from committed data (`scripts/charts/build_charts.py`, light and dark, SVG and PNG): tests by suite, coverage by contract with the CI gate, Solidity vs Stylus gas, backtest equity curves, the live epoch timeline, a competition matrix and a positioning chart. The palette is derived from the site colours and passes the dataviz validator in both modes ([scripts/charts/README.md](scripts/charts/README.md)).
+- Competition section with sources: Strike, Stonkhouse, Archer Markets, Ribbon / Aevo, Derive (Lyra) and Thetanuts, from each project's docs and repositories, with "not described" where the docs are silent.
+
+### Changed
+
+- README: screenshot gallery of every page (desktop and mobile), "Evidence in numbers" with the tests, coverage and gas charts and their tables, the live epoch timeline, a backtest section, the competition section in place of Prior art, an architecture diagram, and a "Versions and deployments" timeline.
+- Screenshots in `docs/screenshots/` retaken from the current app on the live testnet (landing, vaults, vault, playground, backtest, agents, monitor, proof, faucet at 1440×900 and 390×844); the superseded images were removed.
+- Test counts re-measured: Playwright lists 94 tests (188 runs over two viewports).
+
 ## [0.8.0] - 2026-09-30
 
 ### Added

@@ -1,0 +1,77 @@
+{
+  "title": "Live epoch on Robinhood Chain testnet (v2), 2026-09-29",
+  "source": "docs/testnet-epochs/2026-09-29.md; times are block timestamps read with `cast receipt <tx> blockNumber` and `cast block <n> --field timestamp` on https://rpc.testnet.chain.robinhood.com",
+  "explorer": "https://explorer.testnet.chain.robinhood.com/tx/",
+  "events": [
+    {
+      "utc": "2026-09-29T17:08:30Z",
+      "block": 126302119,
+      "kind": "neutral",
+      "text": "Put vault collateral: 20 USDG deposited",
+      "tx": "0x001cbf637009addbe13bb20e7c6ad5bdaf10f149cb1fc66a99a7afe599696498"
+    },
+    {
+      "utc": "2026-09-29T17:08:58Z",
+      "block": 126302279,
+      "kind": "neutral",
+      "text": "Seller agent opens the covered-call epoch",
+      "tx": "0x475be822c2a68c194999148e2c52d2ab134d74bb19fc235fe0b509a5333fc5a5"
+    },
+    {
+      "utc": "2026-09-29T17:09:01Z",
+      "block": 126302301,
+      "kind": "accepted",
+      "text": "proposeByDelta accepted: 0.20-delta TSLA call, strike $369.86",
+      "tx": "0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4"
+    },
+    {
+      "utc": "2026-09-29T17:09:21Z",
+      "block": 126302426,
+      "kind": "neutral",
+      "text": "Reckless agent opens the put epoch",
+      "tx": "0x5aea0d2022f0a83d480c64014273a21d8e47c932ed0aaff46227a2f8f13e518f"
+    },
+    {
+      "utc": "2026-09-29T17:09:25Z",
+      "block": 126302448,
+      "kind": "rejected",
+      "text": "At-the-money put rejected (DeltaOutOfBand, |delta| 0.4887): 10 USDG slashed",
+      "tx": "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0"
+    },
+    {
+      "utc": "2026-09-29T17:09:45Z",
+      "block": 126302569,
+      "kind": "neutral",
+      "text": "Buyer agent buys 4 calls for 10.005944 USDG",
+      "tx": "0x425e5b63ddeb1fcff5d63aa9f5a9fd11f4d3c0f52facd05e0fb44096f2ede9f9"
+    },
+    {
+      "utc": "2026-09-29T19:51:36Z",
+      "block": 126358479,
+      "kind": "neutral",
+      "text": "Agent #1 registered as ERC-8004 identity #114",
+      "tx": "0x3bb9cad397322da84adbf78fda288dcce9a19318798b63178467899cdf9c7e53"
+    },
+    {
+      "utc": "2026-09-29T19:51:40Z",
+      "block": 126358500,
+      "kind": "neutral",
+      "text": "Identity #114 linked in AgentRegistry (setIdentity)",
+      "tx": "0x324e08868492d51986b3da6142031e39ffbb67dcda5a4dbc2613205f35a87125"
+    },
+    {
+      "utc": "2026-09-29T21:24:16Z",
+      "block": 126385117,
+      "kind": "payout",
+      "text": "abortEpoch pays the slashed 10 USDG to put depositors (20 to 30 USDG)",
+      "tx": "0x62442f37b3601aa5b56d5e991d3199464ba2e60373f70e00892746c053b629a7"
+    },
+    {
+      "utc": "2026-10-02T20:00:00Z",
+      "block": null,
+      "kind": "pending",
+      "text": "Series expires at the NYSE close; settlement follows",
+      "tx": null
+    }
+  ]
+}

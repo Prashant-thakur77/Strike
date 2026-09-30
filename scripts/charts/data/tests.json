@@ -1,0 +1,76 @@
+{
+  "measured": "2026-09-30",
+  "note": "Counts for suites outside the Foundry main suite. The Foundry main suite is read from forge-tests.txt. Each entry names the command that produced its count.",
+  "groups": [
+    {
+      "group": "Foundry, separate CI jobs",
+      "items": [
+        {
+          "label": "Fork (Robinhood Chain mainnet)",
+          "count": 9,
+          "source": "contracts/test/fork/*.t.sol: 6 in RobinhoodFork, 3 in StockCollateralFork (grep -c 'function test')"
+        },
+        {
+          "label": "Differential (Rust vs Solidity)",
+          "count": 3,
+          "source": "contracts/test/differential/PricerDifferential.t.sol (grep -c 'function test')"
+        },
+        {
+          "label": "Halmos proofs",
+          "count": 9,
+          "source": "contracts/test/formal/*.t.sol: 9 check_* functions (16 more are unproven_*, not counted)"
+        }
+      ]
+    },
+    {
+      "group": "Rust",
+      "items": [
+        {
+          "label": "Stylus pricer",
+          "count": 15,
+          "source": "stylus/pricer/src: 13 #[test] in math.rs, 2 in lib.rs (make stylus-test)"
+        }
+      ]
+    },
+    {
+      "group": "TypeScript and subgraph",
+      "items": [
+        {
+          "label": "SDK",
+          "count": 86,
+          "source": "sdk: vitest run, 86 passed"
+        },
+        {
+          "label": "Telegram bot",
+          "count": 60,
+          "source": "bots/telegram: vitest run, 60 passed"
+        },
+        {
+          "label": "MCP server",
+          "count": 40,
+          "source": "mcp: vitest run, 40 passed"
+        },
+        {
+          "label": "Example agents",
+          "count": 38,
+          "source": "agents/example: vitest run, 38 passed"
+        },
+        {
+          "label": "Subgraph (matchstick)",
+          "count": 10,
+          "source": "subgraph/tests/*.test.ts: 10 test() cases"
+        }
+      ]
+    },
+    {
+      "group": "App (Playwright)",
+      "items": [
+        {
+          "label": "End-to-end, per viewport",
+          "count": 100,
+          "source": "app: npx playwright test --list reports 200 runs in 12 files = 100 tests x 2 viewports (desktop 1440x900, mobile 390x844)"
+        }
+      ]
+    }
+  ]
+}
