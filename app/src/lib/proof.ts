@@ -272,17 +272,17 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Sources: README.md "Safety evidence" and docs/testing.md (432 Foundry, 15 Rust, 164 TypeScript = SDK 86 +
-// MCP 40 + agents 38, 60 Telegram bot, 10 subgraph, 100 Playwright). Re-count (2026-09-30) with
+// Sources: README.md "Safety evidence" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 177 TypeScript
+// = SDK 86 + MCP 47 + agents 44, 60 Telegram bot, 10 subgraph, 104 Playwright). Re-count (2026-09-30) with
 // `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
 // counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
 // subgraph/tests and the `test(` calls in app/e2e.
 export const TESTS: readonly TestFact[] = [
   {
     label: "Foundry",
-    count: "432",
+    count: "477",
     detail:
-      "Unit, integration, fuzz, invariant and audit-regression suites (fork, differential and formal below)",
+      "Unit, integration, fuzz, invariant, conformance and audit-regression suites (fork, differential and formal below); 7 more are skipped: settlement rules the StockCollateral example has no use for",
     evidence: [
       { label: "contracts/test", href: ghTree("contracts/test") },
       { label: "docs/testing.md", href: gh("docs/testing.md") },
@@ -299,8 +299,8 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "164",
-    detail: "SDK 86, MCP server 40, example agents 38",
+    count: "177",
+    detail: "SDK 86, MCP server 47, example agents 44",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -321,7 +321,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "100",
+    count: "104",
     detail: "The app at 1440 px desktop and 390 px mobile, including this page and its links",
     evidence: [
       { label: "app/e2e", href: ghTree("app/e2e") },
@@ -331,12 +331,12 @@ export const TESTS: readonly TestFact[] = [
 ];
 
 // Source: docs/testing.md "Coverage" (make coverage, Foundry --ir-minimum, production code only) and README.md
-// "Safety evidence" (statements 99.2%). Re-run 2026-09-30: 99.13% lines, 99.22% statements, 97.48% branches.
+// "Safety evidence". Re-run 2026-09-30: 99.31% lines, 99.42% statements, 98.76% branches, 100% functions.
 // CI fails below 95% lines (.github/workflows/ci.yml).
 export const COVERAGE = {
-  lines: "99.1%",
-  branches: "97.5%",
-  statements: "99.2%",
+  lines: "99.3%",
+  branches: "98.8%",
+  statements: "99.4%",
   functions: "100%",
   evidence: [
     { label: "docs/testing.md#coverage", href: gh("docs/testing.md", "coverage") },
