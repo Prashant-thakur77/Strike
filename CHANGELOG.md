@@ -4,6 +4,13 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Added
+
+- Example agent: a Claude Code planner for `--llm` ([`src/claudeCode.ts`](agents/example/src/claudeCode.ts)), so Claude can plan on a Claude Pro/Max subscription through `claude -p` instead of an API key. The CLI runs in an empty temp directory with no settings, CLAUDE.md or built-in tools, only the Strike MCP server (`--strict-mcp-config`), `--allowedTools` limited to `vault_state`, `risk_check`, `agent_stats` and `quote`, `--permission-mode dontAsk`, and a `--json-schema` plan with `submit_plan`'s bounds; its Strike server is started read-only without the agent key. `--planner api|claude-code` forces a planner; by default the API is used when `ANTHROPIC_API_KEY` is set, else Claude Code when `claude` is on `PATH` or `CLAUDE_CODE_OAUTH_TOKEN` is set. The decision record names the planner (`decision.planner`, optional, so older records still parse). Checked once on the local devnet: Claude called `vault_state`, `agent_stats` and `risk_check` seven times and chose 0.20 delta at 105% of fair value, which passed the dry run.
+- Example agent `--dry-run`: a propose run stops after the final dry run and sends nothing (no agent key needed).
+- MCP: `STRIKE_MCP_READ_ONLY=1` registers only the read-only tools over stdio and ignores `STRIKE_AGENT_PRIVATE_KEY`.
+- `agent.yml`: with the secret `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) and no `ANTHROPIC_API_KEY`, the weekly propose run installs Claude Code 2.1.263 and plans with `--llm --planner claude-code`.
+
 ## [0.9.0] - 2026-09-30
 
 ### Added

@@ -10,7 +10,7 @@ Each record contains:
 1. The date (chain time) and the chain.
 2. The vault and its mandate: the delta band, minimum premium and yield, maximum share sold and tenor that the contract enforces.
 3. The market inputs: spot and implied volatility as the contract snapshotted them when the epoch opened (`EpochManager.epochs(vault)`: `openSpot`, `openSigma`). Proposals are judged against that snapshot. When no epoch is running, the record uses live values.
-4. The target delta and why: the default strategy's rule (0.20 delta at fair value, clamped into the band), or Claude's own reasoning when the run used `--llm`. Any correction by the agent's mandate guard is noted.
+4. The target delta and why: the default strategy's rule (0.20 delta at fair value, clamped into the band), or Claude's own reasoning when the run used `--llm`, with the planner that ran it (`Claude via API` or `Claude via Claude Code CLI`, and the model). Any correction by the agent's mandate guard is noted.
 5. The dry-run verdict from `risk_check`, the contract's own `previewProposal`.
 6. The transactions, linked to the Robinhood Chain testnet Blockscout explorer.
 7. The result: accepted (with the series, strike, expiry and size), or rejected (with the reason and the USDG slashed from the agent's bond). A run that stopped says why.

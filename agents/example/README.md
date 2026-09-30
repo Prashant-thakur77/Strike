@@ -7,19 +7,40 @@ A strike-picking agent that works entirely through the [Strike MCP server](../..
 STRIKE_CHAIN_ID=46630 STRIKE_AGENT_PRIVATE_KEY=0x... pnpm --filter @strike/agent-example start -- --vault sTSLA-CC
 ```
 
-| Flag                           | What it does                                                                                                                |
-| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| (none)                         | Propose this epoch's option at 0.20 delta (`--target-delta` to change), after a dry run                                     |
-| `--llm`                        | Claude chooses the delta and premium factor using read-only tools (needs `ANTHROPIC_API_KEY`); falls back to the default    |
-| `--reckless`                   | Force an at-the-money proposal to show the contract rejecting it and slashing the bond                                      |
-| `--settle`                     | Settle the vault's expired series                                                                                           |
-| `--status`                     | Print the vault and the agent's track record                                                                                |
-| `--buy`, `--hedge`, `--redeem` | Buyer side: buy options within `--budget`, hedge a holding, redeem settled options                                          |
-| `--register`                   | Join as a new agent: dry run, then register and bond (`--bond`), optionally `--create-vault TSLA:call\|put`                 |
-| `--log <dir>`                  | Write a decision record for a propose, `--reckless` or `--settle` run to `<dir>/<YYYY-MM-DD>-<vault symbol>.md` and `.json` |
-| `--anchor`                     | With `--log`: anchor each record's keccak256 hash on-chain in DecisionLog, signed by the agent's key                        |
+| Flag                           | What it does                                                                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| (none)                         | Propose this epoch's option at 0.20 delta (`--target-delta` to change), after a dry run                                      |
+| `--llm`                        | Claude chooses the delta and premium factor using read-only tools (API key or Claude Code, below); falls back to the default |
+| `--planner api\|claude-code`   | With `--llm`: force the Claude API or the Claude Code CLI                                                                    |
+| `--dry-run`                    | Stop a propose run after the final dry run; nothing is sent (no agent key needed)                                            |
+| `--reckless`                   | Force an at-the-money proposal to show the contract rejecting it and slashing the bond                                       |
+| `--settle`                     | Settle the vault's expired series                                                                                            |
+| `--status`                     | Print the vault and the agent's track record                                                                                 |
+| `--buy`, `--hedge`, `--redeem` | Buyer side: buy options within `--budget`, hedge a holding, redeem settled options                                           |
+| `--register`                   | Join as a new agent: dry run, then register and bond (`--bond`), optionally `--create-vault TSLA:call\|put`                  |
+| `--log <dir>`                  | Write a decision record for a propose, `--reckless` or `--settle` run to `<dir>/<YYYY-MM-DD>-<vault symbol>.md` and `.json`  |
+| `--anchor`                     | With `--log`: anchor each record's keccak256 hash on-chain in DecisionLog, signed by the agent's key                         |
 
 `--help` lists every option. `pnpm --filter @strike/agent-example market-open` prints whether the NYSE session is open at the chain's latest block (`marketOpen()` in the SDK).
+
+## Claude plans the epoch (`--llm`)
+
+With `--llm`, Claude reads the vault with the MCP server's read-only tools (`vault_state`, `risk_check`, `agent_stats`, `quote`), dry-runs candidates and hands back a target delta, a premium factor and its reasoning for depositors. It never gets a write tool: the agent code clamps the plan into the mandate, dry-runs it once more and proposes. Claude runs through one of two planners:
+
+- **Claude API** (`--planner api`, [`src/llm.ts`](src/llm.ts)): the Anthropic SDK's tool runner, billed per token to `ANTHROPIC_API_KEY`.
+- **Claude Code CLI** (`--planner claude-code`, [`src/claudeCode.ts`](src/claudeCode.ts)): `claude -p` on a Claude Pro or Max subscription, so no API key is needed. Log in once with `claude` (then `/login`), or, for CI and servers, run `claude setup-token` and set the long-lived token it prints as `CLAUDE_CODE_OAUTH_TOKEN`. Each run counts against the subscription's usage limits.
+
+Without `--planner`, the agent uses the API when `ANTHROPIC_API_KEY` is set, else Claude Code when `claude` is on `PATH` (or `CLAUDE_CODE_OAUTH_TOKEN` is set), else the default strategy. The decision record names the planner (`Claude via API, model claude-opus-5` or `Claude via Claude Code CLI, model claude-opus-5`).
+
+The Claude Code planner is locked down: the CLI runs in an empty temp directory with `--setting-sources ""` (no CLAUDE.md, settings or hooks), `--tools ""` (no Bash, Edit, Write or WebFetch), `--strict-mcp-config` with only the Strike server, `--allowedTools` set to the four `mcp__strike__*` planning tools and `--permission-mode dontAsk`, so anything else is denied. It starts its own Strike MCP server on the agent's chain and RPC with `STRIKE_MCP_READ_ONLY=1` (only the read tools are registered) and without the agent key; the CLI's environment has neither the key nor `ANTHROPIC_API_KEY`. The plan comes back as structured output (`--json-schema`, the same bounds as the API planner's `submit_plan`). A missing CLI, a missing login, a timeout (6 minutes), a refusal or an invalid answer falls back to the default strategy with the reason in the record.
+
+```bash
+# try it on the local devnet without sending anything (scripts/demo-local.sh shows the anvil + deploy steps)
+STRIKE_CHAIN_ID=31337 STRIKE_RPC_URL=http://127.0.0.1:8545 STRIKE_AGENT_PRIVATE_KEY=0x... \
+  pnpm --filter @strike/agent-example start -- --vault sTSLA-CC --llm --planner claude-code --dry-run
+```
+
+`STRIKE_CLAUDE_CODE_MODEL` changes the model (default `claude-opus-5`; e.g. `sonnet` uses less of the subscription), `CLAUDE_CODE_PATH` the CLI, and `STRIKE_PLANNER_MCP_URL` points Claude Code at a read-only HTTP MCP endpoint (such as `https://strike-options.vercel.app/api/mcp`, testnet) instead of a local server.
 
 ## Joining as a new agent (`--register`)
 
@@ -57,17 +78,18 @@ The transaction goes into the record's transactions list and an "On-chain anchor
 
 [`.github/workflows/agent.yml`](../../.github/workflows/agent.yml) runs the agent autonomously as agent #1 on Robinhood Chain testnet (46630) and commits the records to `docs/agent-log`:
 
-- **Monday 15:00 UTC** (11:00 New York in summer, 10:00 in winter): it checks the NYSE session with `marketOpen()` and skips the week cleanly on a holiday. Then it runs the keeper once to refresh prices and proposes on both TSLA vaults with `--log`. It adds `--llm` when `ANTHROPIC_API_KEY` is set.
+- **Monday 15:00 UTC** (11:00 New York in summer, 10:00 in winter): it checks the NYSE session with `marketOpen()` and skips the week cleanly on a holiday. Then it runs the keeper once to refresh prices and proposes on both TSLA vaults with `--log`. It adds `--llm` when `ANTHROPIC_API_KEY` (the API planner) or `CLAUDE_CODE_OAUTH_TOKEN` (the Claude Code planner; the job then installs Claude Code 2.1.263) is set.
 - **Friday 21:15 UTC** (after the 16:00 New York close all year): the keeper settles the expired series, then the agent runs `--settle --log` on each vault. It records the keeper's settlement, and settles itself only if nothing has yet.
 - The job shares a concurrency group with `keeper.yml`, so the two never send from the same key at once. It commits new records as `github-actions[bot]` with the message `agent-log: weekly epoch <date>`, and only when something changed.
 
 Switches the owner flips (repo Settings → Secrets and variables → Actions):
 
-| Kind     | Name                 | Value                                                                                                                                                      |
-| -------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Secret   | `KEEPER_PRIVATE_KEY` | The deployer key from `contracts/.env`: agent #1's signer and the keeper key (the same secret `keeper.yml` uses)                                           |
-| Variable | `AGENT_ENABLED`      | `true` turns the weekly runs on (anything else, or unset, keeps them off)                                                                                  |
-| Secret   | `ANTHROPIC_API_KEY`  | Optional. When set, Claude plans each epoch (`--llm`, model `claude-opus-5`); the mandate guard in the agent code still clamps its plan before the dry run |
+| Kind     | Name                      | Value                                                                                                                                                                                                                                                                         |
+| -------- | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Secret   | `KEEPER_PRIVATE_KEY`      | The deployer key from `contracts/.env`: agent #1's signer and the keeper key (the same secret `keeper.yml` uses)                                                                                                                                                              |
+| Variable | `AGENT_ENABLED`           | `true` turns the weekly runs on (anything else, or unset, keeps them off)                                                                                                                                                                                                     |
+| Secret   | `ANTHROPIC_API_KEY`       | Optional. When set, Claude plans each epoch (`--llm`, model `claude-opus-5`); the mandate guard in the agent code still clamps its plan before the dry run                                                                                                                    |
+| Secret   | `CLAUDE_CODE_OAUTH_TOKEN` | Optional, used when `ANTHROPIC_API_KEY` is not set. Run `claude setup-token` on a machine logged in to a Claude Pro/Max subscription and store the token it prints; Claude then plans each epoch through the Claude Code CLI, counted against the subscription's usage limits |
 
 `workflow_dispatch` runs it by hand (mode `propose` or `settle`). If `main` is branch-protected, allow GitHub Actions to push, or the commit step fails.
 
