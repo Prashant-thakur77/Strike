@@ -34,7 +34,7 @@ DeFi, Options, AI Agents, Robinhood Chain, Stock Tokens, USDG, Arbitrum Stylus, 
 Stock-token options vaults paid in USDG. An AI agent only proposes. The contract checks its immutable mandate, slashes the agent's bond to depositors on a breach and solves strikes in Stylus. Live on 46630: https://github.com/Prashant-thakur77/Strike/blob/main/contracts/deployments/46630.json
 ```
 
-Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 432 Foundry tests, 9 Halmos-proven properties, 99.1% line coverage, and agent #1 linked to ERC-8004 identity #114. Judges can start at [JUDGES.md](../JUDGES.md).
+Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 477 Foundry tests, 9 Halmos-proven properties, 99.3% line coverage, and agent #1 linked to ERC-8004 identity #114. Judges can start at [JUDGES.md](../JUDGES.md).
 
 ## Link to frontend / demo (253 characters)
 

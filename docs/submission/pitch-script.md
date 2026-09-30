@@ -56,7 +56,7 @@ The voice is Chatterbox TTS (Resemble AI, open source) with its built-in default
 
 ## 1:36 · Slide 14: Evidence, not claims
 
-> Behind it are 802 tests and proofs: 432 Foundry tests, 9 properties proven with Halmos, and 99.1% line coverage. An internal review found 11 issues, one of them High, and all are fixed.
+> Behind it are 864 tests and proofs: 477 Foundry tests, 9 properties proven with Halmos, and 99.3% line coverage. An internal review found 11 issues, one of them High, and all are fixed.
 
 ## 1:49 · Slide 15: What comes next
 

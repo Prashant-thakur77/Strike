@@ -82,16 +82,16 @@ Check that the NVDA multiplier on screen still reads 1.000775; if it changed, sa
 
 Screen: `/app/proof`: verified contracts, the test counts, the Halmos properties, the internal review.
 
-> The proof page puts each claim next to its evidence. Every deployed contract is verified on Blockscout. There are 432 Foundry tests and 9 properties proven with Halmos. An internal review found 11 issues, and all are fixed.
+> The proof page puts each claim next to its evidence. Every deployed contract is verified on Blockscout. There are 477 Foundry tests and 9 properties proven with Halmos. An internal review found 11 issues, and all are fixed.
 
 ## 2:35 to 2:48 · Evidence
 
 Screen: three README charts, full frame: tests by suite, coverage by contract, and gas for Stylus against Solidity.
 
-> In total there are 802 tests and proofs, including 9 fork tests on mainnet. Line coverage is 99.1%. The strike solver written for Stylus costs 6.5 times less gas than the Solidity one.
+> In total there are 864 tests and proofs, including 9 fork tests on mainnet. Line coverage is 99.3%. The strike solver written for Stylus costs 6.5 times less gas than the Solidity one.
 
 ## 2:48 to 2:55 · Close
 
-Screen: the closing card: 802 tests and proofs (432 Foundry tests), 9 invariants, 9 formal proofs, fork tests on mainnet, 6.5× less gas for the solver, and the repository link.
+Screen: the closing card: 864 tests and proofs (477 Foundry tests), 9 invariants, 9 formal proofs, fork tests on mainnet, 6.5× less gas for the solver, and the repository link.
 
 > Strike: options on Robinhood Chain, run by agents that cannot break the rules. Unaudited, and live on testnet.

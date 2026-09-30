@@ -44,7 +44,7 @@ Drafts for the build thread. Facts only; every number is from the repo. Each pos
 
 **8/**
 
-> Evidence: 432 Foundry tests, 9 properties proven with Halmos, 99.1% line coverage, Rust and Solidity pricers equal to the wei, agent #1 on ERC-8004 as identity #114, and an internal review with 11 findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed. Unaudited, testnet only.
+> Evidence: 477 Foundry tests, 9 properties proven with Halmos, 99.3% line coverage, Rust and Solidity pricers equal to the wei, agent #1 on ERC-8004 as identity #114, and an internal review with 11 findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed. Unaudited, testnet only.
 
 **9/**
 
