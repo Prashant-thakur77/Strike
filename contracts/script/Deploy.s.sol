@@ -26,6 +26,10 @@ import {Script, console2} from "forge-std/Script.sol";
 ///     --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api/
 ///
 /// Env: PRIVATE_KEY (deployer = admin); optional GUARDIAN, KEEPER, TREASURY (default: deployer).
+/// Optional, to deploy a new version next to a live one on the same chain:
+///   MARKET_CALENDAR=<address>  reuse a deployed MarketCalendar (identical source; StockOracle only reads it)
+///   FEED_<SYMBOL>=<address>    reuse a deployed price feed for that stock (e.g. FEED_TSLA), so one keeper fills both
+///   DEPLOYMENT_NAME=<name>     write deployments/<name>.json instead of deployments/<chainId>.json
 ///
 /// Chains:
 ///   4663   Robinhood Chain mainnet: real USDG, real stock tokens, real Chainlink feeds, small deposit cap
@@ -78,7 +82,8 @@ contract Deploy is Script {
 
         vm.startBroadcast(pk);
         d.usdg = cfg.usdg == address(0) ? address(new TestUSDG()) : cfg.usdg;
-        d.calendar = address(new MarketCalendar(deployer, _holidays(), _earlyCloses()));
+        d.calendar = vm.envOr("MARKET_CALENDAR", address(0));
+        if (d.calendar == address(0)) d.calendar = address(new MarketCalendar(deployer, _holidays(), _earlyCloses()));
         d.oracle = address(new StockOracle(deployer, MarketCalendar(d.calendar)));
         d.pricer = address(new BlackScholesRef());
         d.fees = address(new FeeManager(deployer, IERC20(d.usdg), treasury, 1000, 5000));
@@ -121,6 +126,7 @@ contract Deploy is Script {
     }
 
     function _listStock(Stock storage s, uint32 maxPriceAge, address keeper) internal {
+        if (s.feed == address(0)) s.feed = vm.envOr(string.concat("FEED_", s.symbol), address(0));
         if (s.token == address(0)) {
             s.token = address(new TestStockToken(deployer, string.concat(s.symbol, " (Strike test stock)"), s.symbol));
         }
@@ -264,7 +270,8 @@ contract Deploy is Script {
         }
         string memory json = vm.serializeString(k, "stocks", stocksJson);
         vm.createDir(string.concat(vm.projectRoot(), "/deployments"), true);
-        string memory path = string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json");
+        string memory name = vm.envOr("DEPLOYMENT_NAME", vm.toString(block.chainid));
+        string memory path = string.concat(vm.projectRoot(), "/deployments/", name, ".json");
         vm.writeJson(json, path);
         console2.log("Strike deployed; addresses written to", path);
     }
