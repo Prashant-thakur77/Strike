@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "action": "propose",
+  "date": "2026-10-01",
+  "chainTimeIso": "2026-10-01T14:49:09.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    "symbol": "sTSLA-CC",
+    "name": "Strike TSLA Covered Call",
+    "kind": "covered-call",
+    "underlying": "TSLA",
+    "collateral": "5",
+    "collateralAsset": "TSLA",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "358.5505",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-01T14:50:53.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": true
+  },
+  "decision": {
+    "strategy": "claude",
+    "targetDeltaBps": 2000,
+    "premiumBps": 10500,
+    "reasoning": "We sell 4 TSLA calls (80% of capacity) expiring Friday Oct 2 at a 0.20 target delta, which the on-chain pricer solves to a ~$369.37 strike — about 3.0% above the $358.55 spot, roughly 0.9 standard deviations away at the snapshot sigma of 0.60 over a 1.2-day tenor. That sits mid-band in the mandate's 0.10–0.35 range, so the proposal has margin against both delta edges and against spot drifting through the strike before the transaction lands, protecting the agent bond. Pricing at 105% of Black-Scholes fair value adds about 5% to depositor income over selling at fair value while keeping the ask cheap enough in absolute terms (~$1.43 per option) that buyers should still clear the series; the yield is ~40 bps of locked collateral for a one-day hold, well above the 0.05% floor. Richer strikes at 0.25–0.30 delta were only 1.9–2.4% out of the money, and a 2% single-day TSLA move is common, so the extra ~25 bps did not justify the higher odds of having the tokens called away.",
+    "notes": ["Claude via Claude Code CLI, model claude-opus-5."],
+    "planner": {
+      "kind": "claude-code",
+      "model": "claude-opus-5",
+      "label": "Claude via Claude Code CLI, model claude-opus-5"
+    }
+  },
+  "dryRun": {
+    "ok": true,
+    "reason": "None",
+    "explanation": "Inside the mandate: the contract would accept this proposal.",
+    "optionType": "call",
+    "strike": "369.37",
+    "delta": 0.2,
+    "targetDeltaBps": 2000,
+    "expiryIso": "2026-10-02T20:00:00.000Z",
+    "size": "4",
+    "capacity": "5",
+    "premiumBps": 10500,
+    "fairValue": "1.3632",
+    "yieldBps": 39.92
+  },
+  "transactions": [
+    {
+      "label": "openEpoch",
+      "hash": "0x4b179fb1809a4777961e5fe1439f7ad4dd2c418f4cc2e20c99b397d561d959e1",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x4b179fb1809a4777961e5fe1439f7ad4dd2c418f4cc2e20c99b397d561d959e1"
+    },
+    {
+      "label": "proposeByDelta",
+      "hash": "0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45"
+    },
+    {
+      "label": "DecisionLog.record",
+      "hash": "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388"
+    }
+  ],
+  "result": {
+    "status": "accepted",
+    "summary": "Accepted: series 48103703716925406245656156603615117052914973735876202170787552644395932337728 is on sale (strike $369.36, |delta| 0.2002, expiry 2026-10-02T20:00:00.000Z).",
+    "seriesId": "48103703716925406245656156603615117052914973735876202170787552644395932337728",
+    "strike": "369.36",
+    "expiryIso": "2026-10-02T20:00:00.000Z",
+    "size": "4"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 1,
+    "rejected": 0,
+    "strikes": 0,
+    "maxStrikes": 3,
+    "bond": "60",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+    "recordHash": "0xa68cb23065b54095d6e4b75987cc6ebe035a45b2a449693d2e3737c93483a175",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-01-sTSLA-CC.json",
+    "epoch": 1,
+    "txHash": "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388"
+  }
+}
