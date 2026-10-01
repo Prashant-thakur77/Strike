@@ -110,7 +110,7 @@ export function scenes(f) {
       "The ask",
       [
         L(
-          "Next: an external audit, then a capped mainnet vault. | We are asking for a place at Founder House Singapore, | and introductions to wallets and market makers.",
+          "We are building Strike as a company on Robinhood Chain and Arbitrum. | Funding buys an external audit and the first capped mainnet vault. | We are asking for a place at Founder House Singapore, | and introductions to wallets and market makers.",
         ),
         L(
           "Try the playground at strike-options.vercel.app.",
