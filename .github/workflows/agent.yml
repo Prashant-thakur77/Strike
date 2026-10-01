@@ -1,16 +1,25 @@
 name: Weekly agent
 
-# Agent #1 (the example agent, agents/example) runs the live Robinhood Chain testnet vaults by itself and publishes
-# a decision record per vault in docs/agent-log (markdown and JSON), committed back to main, and anchors each record's
-# hash on-chain in the DecisionLog contract (--anchor).
-#   Monday: refresh prices with the keeper, check the NYSE session, then propose this week's option on each vault
-#           (Claude picks the delta with --llm when ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is set).
+# Agent #1 (the example agent, agents/example) runs every live deployment by itself and publishes a decision record per
+# vault, committed back to main, with each record's hash anchored on-chain in that deployment's DecisionLog (--anchor):
+#   Robinhood Chain testnet (46630): v2 (46630.json) and v3 next to it (46630-v3.json, through the SDK's STRIKE_*
+#     address overrides), records in docs/agent-log (v3's get the `-2` suffix when v2 wrote one for the symbol that day);
+#   Arbitrum Sepolia (421614): v3 (421614.json), records in docs/agent-log/arbitrum-sepolia.
+# scripts/weekly-agent.sh does one chain: every active deployment file (the keeper's rule) and the TSLA covered-call and
+# cash-secured-put vaults in each -vaults.json.
+#   Monday: check the NYSE session, refresh prices with the keeper, then propose this week's option on each vault
+#           (Claude picks the delta with --llm when ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is set, else the
+#           default rule: 0.20 delta at fair value).
 #   Friday after the close: the keeper settles the expired series (it also does so every 10 minutes in keeper.yml);
 #           the agent then records each settlement, and settles itself only if nothing has yet.
-# Switches: secret KEEPER_PRIVATE_KEY (agent #1's signer, which is also the keeper key), variable AGENT_ENABLED =
-# true, and optionally one Claude credential: secret ANTHROPIC_API_KEY (the Claude API, billed per token) or secret
-# CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`: the Claude Code CLI on a Pro/Max subscription, counted against
-# its usage limits). The API key wins when both are set.
+# Agent #2 (sTSLA-CSP-A2 on 46630 v2, its own key) runs after them with --profile conservative when AGENT2_PRIVATE_KEY
+# is set.
+# Switches: variable AGENT_ENABLED = true; secret KEEPER_PRIVATE_KEY (the deployer: the keeper key and agent #1's
+# signer on 46630 v2); secret AGENT_SIGNER_KEY (agent #1's v3 signer 0x4fd9…AC6f on 46630 v3 and 421614; without it
+# those deployments are skipped with a warning); optionally one Claude credential, secret ANTHROPIC_API_KEY (the
+# Claude API, billed per token) or CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`: the Claude Code CLI on a
+# Pro/Max subscription, counted against its usage limits; the API key wins when both are set); optionally
+# AGENT2_PRIVATE_KEY (agent #2's signer).
 on:
   schedule:
     # 15:00 UTC is 11:00 New York in summer (EDT) and 10:00 in winter (EST): inside the 09:30-16:00 session all year,
@@ -30,24 +39,21 @@ permissions:
   contents: write
 
 jobs:
-  agent:
+  plan:
+    name: Mode and NYSE session
     if: ${{ vars.AGENT_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # One signer, one nonce: never send at the same time as the keeper (keeper.yml uses the same group).
-    concurrency:
-      group: strike-signer-46630
-      cancel-in-progress: false
+    timeout-minutes: 10
+    outputs:
+      mode: ${{ steps.mode.outputs.mode }}
+      date: ${{ steps.mode.outputs.date }}
+      go: ${{ steps.gate.outputs.go }}
+      agent2: ${{ steps.mode.outputs.agent2 }}
     env:
-      CHAIN_ID: "46630"
-      RPC_URL: https://rpc.testnet.chain.robinhood.com
       STRIKE_CHAIN_ID: "46630"
       STRIKE_RPC_URL: https://rpc.testnet.chain.robinhood.com
     steps:
       - uses: actions/checkout@v6
-      - uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: v1.7.1
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -61,15 +67,24 @@ jobs:
           SCHEDULE: ${{ github.event.schedule }}
           INPUT_MODE: ${{ inputs.mode }}
           KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          SIGNER_KEY: ${{ secrets.AGENT_SIGNER_KEY }}
+          AGENT2_KEY: ${{ secrets.AGENT2_PRIVATE_KEY }}
         run: |
           if [ -z "$KEY" ]; then
-            echo "::error::Set the repository secret KEEPER_PRIVATE_KEY (agent #1's signer key)."
+            echo "::error::Set the repository secret KEEPER_PRIVATE_KEY (the deployer: keeper key and agent #1's v2 signer)."
             exit 1
           fi
+          if [ -z "$SIGNER_KEY" ]; then
+            echo "::warning::AGENT_SIGNER_KEY is not set: agent #1's v3 vaults (46630-v3, 421614) will be skipped."
+          fi
           if [ "$SCHEDULE" = "15 21 * * 5" ]; then mode=settle; else mode="${INPUT_MODE:-propose}"; fi
-          echo "mode=$mode" >> "$GITHUB_OUTPUT"
-          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-          echo "Mode: $mode"
+          if [ -n "$AGENT2_KEY" ]; then agent2=true; else agent2=false; fi
+          {
+            echo "mode=$mode"
+            echo "date=$(date -u +%F)"
+            echo "agent2=$agent2"
+          } >> "$GITHUB_OUTPUT"
+          echo "Mode: $mode; agent #2: $agent2"
 
       - name: NYSE session check (propose only; uses the SDK's marketOpen())
         id: market
@@ -89,8 +104,49 @@ jobs:
             echo "The NYSE is closed (holiday?): epochs open only during regular hours. Nothing to do this week."
           fi
 
+  agent:
+    name: Agent 1 on ${{ matrix.name }}
+    needs: plan
+    if: ${{ needs.plan.outputs.go == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - chain: 46630
+            name: Robinhood Chain testnet (v2 and v3)
+            rpc: https://rpc.testnet.chain.robinhood.com
+            log: docs/agent-log
+          - chain: 421614
+            name: Arbitrum Sepolia (v3)
+            rpc: https://sepolia-rollup.arbitrum.io/rpc
+            log: docs/agent-log/arbitrum-sepolia
+    # One signer, one nonce: never send at the same time as the keeper on this chain (keeper.yml's job for the chain
+    # uses the same group, strike-signer-<chainId>).
+    concurrency:
+      group: strike-signer-${{ matrix.chain }}
+      cancel-in-progress: false
+    env:
+      CHAIN_ID: ${{ matrix.chain }}
+      RPC_URL: ${{ matrix.rpc }}
+      LOG_DIR: ${{ matrix.log }}
+      STRIKE_CHAIN_ID: ${{ matrix.chain }}
+      STRIKE_RPC_URL: ${{ matrix.rpc }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
       - name: Install Claude Code (the --llm planner on a Claude subscription)
-        if: steps.gate.outputs.go == 'true' && steps.mode.outputs.mode == 'propose'
+        if: needs.plan.outputs.mode == 'propose'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -102,62 +158,44 @@ jobs:
           npm install -g @anthropic-ai/claude-code@2.1.263
           claude --version
 
-      - name: Refresh prices (keeper, once; also settles expired series)
-        if: steps.gate.outputs.go == 'true'
+      - name: Refresh prices (keeper, once; also settles the expired series of every deployment on the chain)
         env:
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
         run: scripts/keeper.sh --once
 
-      - name: Run the agent on each vault
+      - name: Run agent 1 on each deployment and vault
         id: agent
-        if: steps.gate.outputs.go == 'true'
         env:
-          MODE: ${{ steps.mode.outputs.mode }}
-          STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          AGENT_SIGNER_KEY: ${{ secrets.AGENT_SIGNER_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
-          # --anchor: each record's keccak256 hash and GitHub URL go on-chain in DecisionLog, signed by agent #1.
-          flags=(--log "$GITHUB_WORKSPACE/docs/agent-log" --anchor)
-          if [ "$MODE" = settle ]; then
-            flags+=(--settle)
-          elif [ -n "$ANTHROPIC_API_KEY" ]; then
-            flags+=(--llm --planner api)
-            echo "ANTHROPIC_API_KEY is set: Claude plans each epoch through the API (--llm)."
-          elif [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
-            flags+=(--llm --planner claude-code)
-            echo "CLAUDE_CODE_OAUTH_TOKEN is set: Claude plans each epoch through the Claude Code CLI (--llm)."
-          fi
-          failed=0
-          for key in TSLA_covered_call TSLA_cash_secured_put; do
-            vault=$(jq -r ".$key" "contracts/deployments/$CHAIN_ID-vaults.json")
-            echo "::group::$key ($vault) ${flags[*]}"
-            if ! pnpm --silent --filter @strike/agent-example start --vault "$vault" "${flags[@]}"; then
-              failed=1
-              echo "::warning::the agent stopped on $key; its decision record says why"
-            fi
-            echo "::endgroup::"
-          done
+          # Signs each deployment with the key whose address is its -vaults.json agentSigner; --anchor sends each
+          # record's keccak256 hash and GitHub URL to that deployment's DecisionLog.
+          if scripts/weekly-agent.sh "$MODE"; then failed=0; else failed=1; fi
           echo "failed=$failed" >> "$GITHUB_OUTPUT"
 
       - name: Commit the decision records
-        if: ${{ !cancelled() && steps.gate.outputs.go == 'true' && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
         env:
-          DATE: ${{ steps.mode.outputs.date }}
+          DATE: ${{ needs.plan.outputs.date }}
+          MODE: ${{ needs.plan.outputs.mode }}
         run: |
-          pnpm exec prettier --write docs/agent-log >/dev/null
-          git add docs/agent-log
+          pnpm exec prettier --write "$LOG_DIR" >/dev/null
+          git add "$LOG_DIR"
           if git diff --cached --quiet; then
             echo "No new decision records."
             exit 0
           fi
-          for f in $(git diff --cached --name-only -- 'docs/agent-log/*.md'); do
+          for f in $(git diff --cached --name-only -- "$LOG_DIR/*.md"); do
             { cat "$f"; echo; } >> "$GITHUB_STEP_SUMMARY"
           done
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "agent-log: weekly epoch $DATE"
-          for attempt in 1 2 3; do
+          git commit -m "agent-log: weekly epoch $DATE ($MODE, chain $CHAIN_ID)"
+          for attempt in 1 2 3 4 5; do
             if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
             echo "push attempt $attempt failed; retrying"
             sleep $((attempt * 5))
@@ -167,5 +205,73 @@ jobs:
       - name: Fail when an agent run stopped
         if: steps.agent.outputs.failed == '1'
         run: |
-          echo "::error::At least one vault's agent run stopped; see its decision record in docs/agent-log."
+          echo "::error::At least one vault's agent run stopped; see its decision record in $LOG_DIR."
+          exit 1
+
+  agent2:
+    name: Agent 2 on Robinhood Chain testnet (v2, conservative)
+    # After agent #1's jobs: on Friday the keeper there has settled sTSLA-CSP-A2 first, and the commits do not race.
+    needs: [plan, agent]
+    if: ${{ !cancelled() && needs.plan.outputs.go == 'true' && needs.plan.outputs.agent2 == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Its own signer and nonce, so it stays out of strike-signer-46630 (a queued keeper run there would replace it).
+    concurrency:
+      group: strike-agent2-46630
+      cancel-in-progress: false
+    env:
+      STRIKE_CHAIN_ID: "46630"
+      STRIKE_RPC_URL: https://rpc.testnet.chain.robinhood.com
+      VAULT: "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969"
+      LOG_DIR: docs/agent-log
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run agent 2 on sTSLA-CSP-A2
+        id: agent
+        env:
+          MODE: ${{ needs.plan.outputs.mode }}
+          STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.AGENT2_PRIVATE_KEY }}
+        run: |
+          # --anchor: into the v2 DecisionLog, which accepts AgentRegistry.signerOf(2), this key.
+          flags=(--vault "$VAULT" --log "$GITHUB_WORKSPACE/$LOG_DIR" --anchor)
+          if [ "$MODE" = settle ]; then flags+=(--settle); else flags+=(--profile conservative); fi
+          if pnpm --silent --filter @strike/agent-example start "${flags[@]}"; then failed=0; else failed=1; fi
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+
+      - name: Commit the decision record
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        env:
+          DATE: ${{ needs.plan.outputs.date }}
+          MODE: ${{ needs.plan.outputs.mode }}
+        run: |
+          pnpm exec prettier --write "$LOG_DIR" >/dev/null
+          git add "$LOG_DIR"
+          if git diff --cached --quiet; then
+            echo "No new decision records."
+            exit 0
+          fi
+          for f in $(git diff --cached --name-only -- "$LOG_DIR/*.md"); do
+            { cat "$f"; echo; } >> "$GITHUB_STEP_SUMMARY"
+          done
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "agent-log: weekly epoch $DATE ($MODE, agent 2)"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
+            echo "push attempt $attempt failed; retrying"
+            sleep $((attempt * 5))
+          done
+          exit 1
+
+      - name: Fail when the agent run stopped
+        if: steps.agent.outputs.failed == '1'
+        run: |
+          echo "::error::Agent #2's run stopped; see its decision record in $LOG_DIR."
           exit 1

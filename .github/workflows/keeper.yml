@@ -11,7 +11,8 @@ jobs:
   keep:
     if: ${{ vars.KEEPER_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    # One signer, one nonce: the weekly agent (agent.yml) signs with the same key on 46630 and joins this group.
+    # One signer, one nonce: the weekly agent's job for the same chain (agent.yml, agent #1 on 46630 or 421614) runs the
+    # keeper and signs with the same key, and joins this group (strike-signer-46630, strike-signer-421614).
     concurrency:
       group: strike-signer-${{ matrix.chain }}
       cancel-in-progress: false
