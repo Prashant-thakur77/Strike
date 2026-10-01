@@ -1,19 +1,45 @@
-This is Strike: weekly options vaults for Robinhood Chain stock tokens. A covered call pays a weekly premium, but someone has to pick the strike. Here an AI agent picks it, and the contract checks it against a mandate.
+Millions of people own stocks. On Robinhood Chain, they can hold them as tokens. But a token earns nothing while it sits in a wallet. On Wall Street, holders sell covered calls for weekly income. But someone has to pick the strike each week, and you have to trust them. On-chain it is harder: a multiplier that is easy to apply twice, prices that freeze on weekends, pause switches, and mid-week splits. So the tokens sit idle, or go to a manager nobody can check.
 
-The playground asks the deployed Epoch Manager about a proposal, with no wallet. An honest 0.20-delta call: accepted. A reckless at-the-money strike: rejected, delta out of band. A real one would cost the agent 10 USDG of its bond.
+Now imagine an AI agent that picks the strike every week, and a contract that won't let it break the rules. This is Strike: weekly options vaults for Robinhood Chain stock tokens.
 
-It happened for real on September 29. The seller agent asked for a 0.20-delta Tesla call, and the contract solved the strike on-chain: $369.86, accepted. Then a reckless agent forced an at-the-money put. Rejected, and 10 USDG slashed: its bond went from 60 to 50.
+Depositors earn a weekly premium in USDG. An AI agent picks the strike, inside a mandate the contract enforces. Break the mandate, and its bond goes to the depositors. The math runs on-chain, in Rust on Arbitrum Stylus. And it is live on Robinhood Chain testnet and Arbitrum Sepolia.
 
-Here it is on the Robinhood Chain explorer. The status says Success, because a rejection is not a revert. The transaction ran, the contract refused the proposal, and 10 USDG left the agent's bond.
+Here is one week, inside Strike. Depositors put stock tokens in a vault with a fixed mandate. An agent reads the vault through MCP tools, and dry-runs its proposal. Then it proposes a call: a delta, an expiry, a size and a price. The Epoch Manager checks it against the mandate, at prices from a guarded stock oracle. A Rust pricer on Stylus solves the strike, and a risk engine stress-tests it. If it passes, buyers pay premium in USDG. If not, it is rejected, and the bond is slashed to depositors. Each decision is hashed into a DecisionLog, and the agent has an ERC-8004 identity. After Friday's close the options settle, and the premium, less a fee, goes to depositors. The same contracts run on Robinhood Chain testnet and Arbitrum Sepolia.
 
-The Tesla covered-call vault this week: the $369.86 call, all four sold to a buyer agent, for 10.01 USDG. The buyer profits above $372.36. At or below the strike, depositors keep the whole premium. A risk engine written in Rust on Stylus stress-tests this week's option on-chain. Its worst case: a 30% jump in Tesla, and −$321.40 for the vault.
+Now one depositor: say Maya holds Tesla tokens, and opens the covered-call vault. This week it sold the $369.86 call, all four options, to a buyer agent, for 10.01 USDG. At or below the strike, depositors like Maya keep all of it. The buyer only profits above $372.36.
 
-Agent one is ERC-8004 identity 114: one accepted, one rejected, and a 50 USDG bond.
+She doesn't have to trust the agent: the limits are in the contract. Delta between 0.10 and 0.35. At least 95% of fair value. A yield of at least 0.05%. At most 80% sold, and 1 to 8 days to expiry. Nobody can change them.
+
+She can test the rules herself: the playground asks the deployed Epoch Manager, with no wallet. An honest 0.20-delta call: accepted. A reckless at-the-money strike: rejected, delta out of band. A real one would cost the agent 10 USDG of its bond, paid to depositors like Maya.
+
+Buyers pay a price set when they buy: the oracle spot moved 0.5% against them, priced with Black-Scholes, times the agent's premium factor. Never below intrinsic value, so Monday's price can't be picked off on Wednesday.
+
+Maya's vault ran for real on September 29. The seller agent asked for a 0.20-delta Tesla call, and the contract solved the strike on-chain: $369.86, accepted. Then a reckless agent forced an at-the-money put. Rejected, and 10 USDG slashed: its bond went from 60 to 50.
+
+On the explorer it says Success: a rejection is not a revert, and 10 USDG left the agent's bond.
+
+On Arbitrum Sepolia, Claude planned the proposal itself. Through Claude Code and Strike's MCP server, it read the vault, and dry-ran five candidates with risk_check. It chose a 0.20 delta at 105% of fair value, and wrote down why: mid-band, so a small move can't push it out of the mandate. The contract solved the strike, $364.29, and accepted it.
+
+On Arbiscan: a successful call to the Epoch Manager, from the agent's signer. In the same run, a reckless put was rejected with a 10 USDG slash, and a buyer took all 4 calls.
+
+Here is that covered call, in 3D. Across, Tesla's price. Front to back, days to expiry. Up, one covered share's value. At expiry, it bends flat at the $364.29 strike: above it, the upside goes to the buyer. Below it, the depositor keeps the stock, plus $2.23 of premium per option.
+
+The math is written in Rust, and runs on Arbitrum Stylus. Solving the strike takes 48 Black-Scholes evaluations. In Stylus, that costs 6.5 times less gas than in Solidity, and the whole proposal 3.3 times less.
+
+Every run leaves a decision record: what the agent saw, what it chose and why, and what the contract said. Its hash is anchored in the DecisionLog contract. Hash the published file again, and it matches the chain.
+
+On the leaderboard, the agent's public ERC-8004 identity: 114 on Robinhood Chain testnet, 253 on Arbitrum Sepolia. Any agent can join the same way, through the public MCP server, with no allow-list.
 
 This monitor reads every stock token on Robinhood Chain mainnet, live. Nvidia's multiplier, 1.000775, is already in the price, so Strike never applies it twice.
 
-Over 403 weekly epochs since 2019, the covered call traded upside for 25 to 46% lower volatility. On Nvidia, from 45.6% down to 26.5%.
+Over 403 weekly epochs since 2019, the covered call cut volatility by 25 to 46%. But it lagged holding on every ticker: Tesla returned 23.1% a year in the vault, against 44.0% held. And it assumes buyers take the full size every week, which no contract can guarantee.
 
-891 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, all 11 internal-review findings fixed, and a Stylus strike solver that uses 6.5 times less gas.
+The proof page puts every claim next to its evidence. 891 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
 
-Strike: options on Robinhood Chain, run by agents the contract holds to a mandate. Try the playground at strike-options.vercel.app. It is unaudited, and on testnet.
+Who else is here? Stonkhouse and Archer Markets, on Robinhood Chain, are order books: traders and writers pick the strike and set the price. Ribbon, Derive and Thetanuts, on other chains, sell options on crypto by auction, order book or RFQ. Tilt Protocol, a past winner, has an AI manage tokenized-asset vaults. It sells no options, and its sources don't describe what limits that AI on-chain.
+
+In Strike, a bonded agent proposes, the contract checks an immutable mandate, prices every buy at the oracle, and makes a rule-breaking agent pay the depositors. The stock-token traps are handled in the contract. For a holder: income without handing over the keys, and every decision checkable on-chain.
+
+Weekend freezes: settle on the first price after expiry. The multiplier: never applied, tested on a mainnet fork. Trusting an agent: a fixed mandate, a bond, and slashing. On-chain pricing: Rust on Stylus, 6.5 times cheaper. What's not done: there is no external audit, it is testnet only, and both epochs settle on Friday 2 October.
+
+Strike: options on Robinhood Chain and Arbitrum, run by agents the contract holds to a mandate. Try the playground at strike-options.vercel.app. It is unaudited, and on testnet.

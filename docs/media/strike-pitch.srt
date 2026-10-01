@@ -78,67 +78,76 @@ and 10 USDG of its bond
 went to depositors.
 
 18
-00:01:01,579 --> 00:01:06,073
-It is live on testnet: two
-vaults, 14 contracts verified,
+00:01:01,579 --> 00:01:05,721
+It is live on Robinhood Chain
+testnet and Arbitrum Sepolia,
 
 19
-00:01:06,123 --> 00:01:11,120
+00:01:05,771 --> 00:01:07,897
+with 14 contracts verified,
+
+20
+00:01:07,947 --> 00:01:12,554
 and a buyer agent that
 paid 10.01 USDG of premium.
 
-20
-00:01:11,270 --> 00:01:14,724
+21
+00:01:12,604 --> 00:01:16,172
+On Arbitrum, Claude planned
+the accepted proposal.
+
+22
+00:01:16,322 --> 00:01:19,776
 Stonkhouse and Archer Markets
 let traders pick strikes.
 
-21
-00:01:14,774 --> 00:01:19,297
+23
+00:01:19,826 --> 00:01:24,349
 In Strike, a bonded agent
 proposes and the contract checks.
 
-22
-00:01:19,447 --> 00:01:24,097
+24
+00:01:24,499 --> 00:01:29,149
 We take 10% of a week's positive
 net premium, half to the agent,
 
-23
-00:01:24,147 --> 00:01:26,578
+25
+00:01:29,199 --> 00:01:31,630
 and nothing on a losing week.
 
-24
-00:01:26,728 --> 00:01:32,417
+26
+00:01:31,780 --> 00:01:37,469
 Behind it: 891 tests and
 proofs, 99.3% line coverage,
 
-25
-00:01:32,467 --> 00:01:34,710
+27
+00:01:37,519 --> 00:01:39,762
 nine properties proven with Halmos,
 
-26
-00:01:34,760 --> 00:01:38,173
+28
+00:01:39,812 --> 00:01:43,225
 and all 11 internal-review findings fixed.
 
-27
-00:01:38,223 --> 00:01:40,191
+29
+00:01:43,275 --> 00:01:45,243
 It is not audited yet.
 
-28
-00:01:40,341 --> 00:01:44,104
+30
+00:01:45,393 --> 00:01:49,156
 Next: an external audit,
 then a capped mainnet vault.
 
-29
-00:01:44,154 --> 00:01:48,499
+31
+00:01:49,206 --> 00:01:53,551
 We are asking for a place
 at Founder House Singapore,
 
-30
-00:01:48,549 --> 00:01:51,626
+32
+00:01:53,601 --> 00:01:56,678
 and introductions to
 wallets and market makers.
 
-31
-00:01:51,676 --> 00:01:56,492
+33
+00:01:56,728 --> 00:02:01,544
 Try the playground at
 strike-options.vercel.app.

@@ -1,8 +1,8 @@
-# Pitch video script (1:57)
+# Pitch video script (2:02)
 
-The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (117.6 s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by `node video/record.mjs pitch` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
+The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (122.6 s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by `node video/record.mjs pitch` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
 
-The voice is Chatterbox TTS with a synthetic reference voice: 253 words in 118 s (129 words a minute). Every number is read from README.md at render time. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
+The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): 264 words in 123 s (129 words a minute). Every number is read from README.md at render time. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
 
 ## 0:00 to 0:09 · Slide 1: Strike
 
@@ -28,25 +28,27 @@ The voice is Chatterbox TTS with a synthetic reference voice: 253 words in 118 s
 >
 > On September 29, a reckless at-the-money put was rejected, and 10 USDG of its bond went to depositors.
 
-## 1:01 to 1:10 · Slide 9: Traction, on-chain
+## 1:01 to 1:16 · Slide 9: Traction, on-chain
 
-> It is live on testnet: two vaults, 14 contracts verified, and a buyer agent that paid 10.01 USDG of premium.
+> It is live on Robinhood Chain testnet and Arbitrum Sepolia, with 14 contracts verified, and a buyer agent that paid 10.01 USDG of premium.
+>
+> On Arbitrum, Claude planned the accepted proposal.
 
-## 1:10 to 1:19 · Slide 12: Competition
+## 1:16 to 1:24 · Slide 12: Competition
 
 > Stonkhouse and Archer Markets let traders pick strikes. In Strike, a bonded agent proposes and the contract checks.
 
-## 1:19 to 1:26 · Slide 13: Paid only when depositors win
+## 1:24 to 1:31 · Slide 13: Paid only when depositors win
 
 > We take 10% of a week's positive net premium, half to the agent, and nothing on a losing week.
 
-## 1:26 to 1:40 · Slide 14: Evidence, not claims
+## 1:31 to 1:45 · Slide 14: Evidence, not claims
 
 > Behind it: 891 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
 >
 > It is not audited yet.
 
-## 1:40 to 1:57 · Slide 16: The ask
+## 1:45 to 2:02 · Slide 16: The ask
 
 > Next: an external audit, then a capped mainnet vault. We are asking for a place at Founder House Singapore, and introductions to wallets and market makers.
 >
