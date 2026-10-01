@@ -566,6 +566,49 @@
   gap: 8px 16px;
 }
 
+/* A chain with more than one deployment (v3 and v2 on Robinhood Chain testnet): one group per version. */
+.listGroup {
+  display: grid;
+}
+
+.listGroupHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 22px 0 6px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.rowTags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The protocol version of a vault or agent, where a chain runs more than one. */
+.version {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  text-transform: none;
+  color: var(--fg);
+  background: var(--paper);
+  white-space: nowrap;
+}
+
+.version[data-version="v3"] {
+  border-color: var(--fg);
+}
+
 /* The strategy, so two rows with the same ticker read apart at a glance. */
 .kind {
   display: inline-flex;
@@ -2891,7 +2934,6 @@ a.idChip:hover {
 .whyLater {
   color: var(--fg);
 }
-
 
 .whyAnchorText {
   overflow-wrap: anywhere;

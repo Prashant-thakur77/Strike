@@ -4,6 +4,8 @@ import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { Address } from "viem";
 import { useVault, useVaultHistory } from "@/hooks/queries";
+import { useStrike } from "@/hooks/useStrike";
+import { DeploymentScope } from "@/components/providers/DeploymentScope";
 import { FEED_STATUS } from "@/lib/labels";
 import { fmtAmount, fmtDay, fmtPct, fmtUsd, fmtWadUsd } from "@/lib/format";
 import { LINKS } from "@/lib/links";
@@ -16,7 +18,7 @@ import { PerShare } from "../PerShare";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { StateTag } from "../StateTag";
-import { strategyName } from "../VaultList";
+import { VersionTag, strategyName } from "../VaultList";
 import { DepositPanel } from "./DepositPanel";
 import { MandatePanel } from "./MandatePanel";
 import { OptionsPanel } from "./OptionsPanel";
@@ -31,12 +33,15 @@ import styles from "../app.module.css";
 export function VaultDetail({ address }: { address: Address }) {
   const vault = useVault(address);
   const history = useVaultHistory(vault.data);
+  const { deployments } = useStrike();
   const v = vault.data;
+  // Where a chain runs more than one deployment (v2 and v3 on Robinhood Chain testnet), say which one this vault is.
+  const showVersion = deployments.length > 1 && !!v?.version;
 
   return (
     <Gate isLoading={vault.isLoading} error={vault.error} loading={<DetailSkeleton />}>
       {v ? (
-        <>
+        <DeploymentScope deployment={v.deployment}>
           <PageHero
             theme={v.isCall ? "call" : "put"}
             label={`${strategyName(v)} vault · ${v.symbol}`}
@@ -57,7 +62,14 @@ export function VaultDetail({ address }: { address: Address }) {
                     : `Deposit USDG. Each week the vault sells cash-secured puts on ${v.underlying.symbol} and pays you the premium. If ${v.underlying.symbol} closes below the strike, the vault pays the difference in USDG.`}
                 </p>
                 <p className={`micro ${styles.heroAddr}`}>
-                  {v.name} · <AddressLink address={v.address} />
+                  {showVersion ? (
+                    <>
+                      <VersionTag version={v.version} /> {v.name}
+                    </>
+                  ) : (
+                    v.name
+                  )}{" "}
+                  · <AddressLink address={v.address} />
                 </p>
               </>
             }
@@ -180,7 +192,7 @@ export function VaultDetail({ address }: { address: Address }) {
               </div>
             </aside>
           </div>
-        </>
+        </DeploymentScope>
       ) : null}
     </Gate>
   );

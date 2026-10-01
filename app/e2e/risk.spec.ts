@@ -44,6 +44,18 @@ const CASES: Case[] = [
     version: "v3",
     shot: "vault-arbitrum-sepolia-risk",
   },
+  {
+    // v3 next to v2 on Robinhood Chain testnet: read through the vault's own deployment (v3's RiskLens).
+    chainId: 46630,
+    chain: "Robinhood Chain testnet",
+    rpc: process.env.E2E_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.com",
+    vault: "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    engine: "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+    lens: "0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D",
+    epochManager: "0x256D4546486368dCb23E94758b4cb500c215929F",
+    version: "v3",
+    shot: "vault-robinhood-v3-risk",
+  },
 ];
 
 async function rpcUp(rpc: string, chainId: number): Promise<boolean> {
@@ -62,7 +74,7 @@ async function rpcUp(rpc: string, chainId: number): Promise<boolean> {
 }
 
 for (const c of CASES) {
-  test(`vault risk panel on ${c.chain}: live greeks, stress test and where they came from (${c.version})`, async ({
+  test(`vault risk panel on ${c.chain}: live greeks, stress test and where they came from (${c.version}, ${c.shot})`, async ({
     page,
   }, info) => {
     test.skip(!(await rpcUp(c.rpc, c.chainId)), `${c.chain} RPC unreachable`);

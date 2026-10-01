@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { ArrowUpRight, ChevronDown } from "lucide-react";
 import { useId, useState } from "react";
-import { useRegistry, useRejections, useVaults } from "@/hooks/queries";
+import { useAllVaults, useRegistries, useRegistry, useRejections } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { AGENT_STATUS, reasonOf } from "@/lib/labels";
 import { explorerNftUrl, explorerUrl } from "@/lib/chains";
 import { fmtAmount, fmtBps, fmtNy, fmtWadUsd, shortAddr } from "@/lib/format";
 import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
+import { VersionTag } from "../VaultList";
 import { DecisionLog } from "./DecisionLog";
 import { RegisterAgent } from "./RegisterAgent";
 import { SeasonBanner } from "./SeasonBanner";
@@ -25,9 +26,14 @@ function rank(a: AgentRow, b: AgentRow) {
 }
 
 export function AgentsPage() {
-  const { meta } = useStrike();
+  const { meta, deployments } = useStrike();
   const reg = useRegistry();
+  const all = useRegistries();
   const r = reg.data;
+  // v2 and v3 run side by side on Robinhood Chain testnet, each with its own AgentRegistry (ids repeat).
+  const multi = deployments.length > 1;
+  const everyAgent = all.data?.flatMap((x) => x.registry.agents) ?? r?.agents ?? [];
+  const versions = all.data?.map((x) => x.version).join(" and ");
   return (
     <>
       <PageHero
@@ -63,8 +69,8 @@ export function AgentsPage() {
             cells={[
               {
                 label: "Agents registered",
-                value: String(r.agents.length),
-                sub: `${r.agents.filter((a) => a.status === 1).length} active`,
+                value: String(everyAgent.length),
+                sub: `${everyAgent.filter((a) => a.status === 1).length} active${multi && versions ? ` · ${versions} registries` : ""}`,
               },
               {
                 label: "Minimum bond",
@@ -91,7 +97,10 @@ export function AgentsPage() {
             label="Leaderboard"
             note="Ranked by accepted proposals, then fewest rejections. Open a row for the track record (AgentRegistry.track), the ERC-8004 identity and reputation, and the vaults it runs."
           >
-            <Leaderboard registry={r} />
+            <Leaderboard
+              registries={all.data ?? [{ version: r.agents[0]?.registryVersion ?? "", registry: r }]}
+              multi={multi}
+            />
           </Rail>
         ) : null}
         <Rail
@@ -122,7 +131,14 @@ export function AgentsPage() {
             index="04"
             id="run-your-own-agent"
             label="Run your own agent"
-            note="Any wallet can register an AI agent, bond it and run a vault with it. No permission needed: the contracts enforce the rules."
+            note={
+              multi
+                ? `Any wallet can register an AI agent, bond it and run a vault with it. No permission needed: the contracts enforce the rules. On ${meta.label} this registers with the ${deployments[0]?.version ?? "default"} contracts, the network's default; the ${deployments
+                    .slice(1)
+                    .map((d) => d.version)
+                    .join(", ")} deployment next to it is run by the reference agent.`
+                : "Any wallet can register an AI agent, bond it and run a vault with it. No permission needed: the contracts enforce the rules."
+            }
           >
             <RegisterAgent registry={r} />
           </Rail>
@@ -132,13 +148,24 @@ export function AgentsPage() {
   );
 }
 
-function Leaderboard({ registry }: { registry: Registry }) {
-  const vaults = useVaults().data;
+function Leaderboard({
+  registries,
+  multi,
+}: {
+  registries: { version: string; registry: Registry }[];
+  multi: boolean;
+}) {
+  const vaults = useAllVaults().data;
   const vaultName = (a: string) => {
     const v = vaults?.find((x) => x.summary.address.toLowerCase() === a.toLowerCase())?.summary;
-    return v ? `${v.underlying.symbol} ${v.isCall ? "covered call" : "cash-secured put"}` : shortAddr(a);
+    return v
+      ? `${v.underlying.symbol} ${v.isCall ? "covered call" : "cash-secured put"}${multi && v.version ? ` (${v.version})` : ""}`
+      : shortAddr(a);
   };
-  const agents = [...registry.agents].sort(rank);
+  // Every registry's agents in one ranking; an id that appears in two registries is two agents, labelled by version.
+  const agents = registries
+    .flatMap((x) => x.registry.agents.map((agent) => ({ agent, registry: x.registry })))
+    .sort((a, b) => rank(a.agent, b.agent));
   if (agents.length === 0) return <p className="body">No agents registered yet.</p>;
   return (
     <div className={styles.tableWrap}>
@@ -163,14 +190,15 @@ function Leaderboard({ registry }: { registry: Registry }) {
             </th>
           </tr>
         </thead>
-        {agents.map((a, i) => (
+        {agents.map(({ agent: a, registry }, i) => (
           <AgentRows
-            key={a.id.toString()}
+            key={`${a.registry}-${a.id.toString()}`}
             agent={a}
             rank={i}
             registry={registry}
             vaultName={vaultName}
             defaultOpen={i === 0}
+            showVersion={multi}
           />
         ))}
       </table>
@@ -184,12 +212,14 @@ function AgentRows({
   registry,
   vaultName,
   defaultOpen,
+  showVersion,
 }: {
   agent: AgentRow;
   rank: number;
   registry: Registry;
   vaultName: (a: string) => string;
   defaultOpen: boolean;
+  showVersion: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const { chainId } = useStrike();
@@ -209,6 +239,9 @@ function AgentRows({
         <td className="index">{String(i + 1).padStart(2, "0")}</td>
         <td>
           <strong>Agent {a.id.toString()}</strong>
+          {showVersion && a.registryVersion ? (
+            <VersionTag version={a.registryVersion} label={`${a.registryVersion} registry`} />
+          ) : null}
           <span className={`mono ${styles.cellMuted}`} title={`Signer ${a.signer}`}>
             {shortAddr(a.signer)}
           </span>
@@ -253,7 +286,11 @@ function AgentRows({
           >
             <span>{open ? "Less" : "More"}</span>
             <ChevronDown size={14} aria-hidden />
-            <span className="sr-only"> about agent {a.id.toString()}</span>
+            <span className="sr-only">
+              {" "}
+              about agent {a.id.toString()}
+              {showVersion && a.registryVersion ? ` (${a.registryVersion} registry)` : ""}
+            </span>
           </button>
         </td>
       </tr>
@@ -376,8 +413,9 @@ function TrackRecord({ agent, decimals }: { agent: AgentRow; decimals: number })
 
 function RejectionFeed() {
   const feed = useRejections();
-  const { chainId } = useStrike();
-  const vaults = useVaults().data;
+  const { chainId, deployments } = useStrike();
+  const multi = deployments.length > 1;
+  const vaults = useAllVaults().data;
   if (feed.isLoading) return <Skeleton width="50%" />;
   if (!feed.data || feed.data.length === 0) {
     return <p className="body">No rejected proposals yet. Every agent has stayed inside its mandate.</p>;
@@ -395,7 +433,8 @@ function RejectionFeed() {
             <div className={styles.feedMain}>
               <span className={styles.reason}>{reason.name}</span>
               <p>
-                <strong>Agent {r.agentId.toString()}</strong> on{" "}
+                <strong>Agent {r.agentId.toString()}</strong>
+                {multi && r.version ? ` (${r.version})` : ""} on{" "}
                 <Link href={`/app/vault/${r.vault}`} className="text-link">
                   {v
                     ? `${v.underlying.symbol} ${v.isCall ? "covered call" : "cash-secured put"}`

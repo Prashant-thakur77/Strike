@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { useMarket, useVaults } from "@/hooks/queries";
+import { useAllVaults, useMarket } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { fmtAmount, fmtDay, fmtNy, fmtPct, fmtUsd, fmtWadUsd, toNumber } from "@/lib/format";
 import type { VaultHistory, VaultSummary } from "@/lib/reads";
@@ -20,11 +20,38 @@ export function strategyName(v: Pick<VaultSummary, "isCall">) {
   return v.isCall ? "Covered call" : "Cash-secured put";
 }
 
+/** Which protocol version's contracts a vault (or agent) belongs to, where a chain runs more than one. */
+export function VersionTag({ version, label }: { version: string; label?: string }) {
+  return (
+    <span className={styles.version} data-version={version} title={`Strike ${version} contracts`}>
+      {label ?? version}
+    </span>
+  );
+}
+
+type Row = { summary: VaultSummary; history: VaultHistory | null };
+
+/** Newest protocol version first ("v3" before "v2"), keeping each deployment's own order inside. */
+function byVersion(rows: Row[]): { version: string; rows: Row[] }[] {
+  const groups: { version: string; rows: Row[] }[] = [];
+  for (const r of rows) {
+    const g = groups.find((x) => x.version === r.summary.version);
+    if (g) g.rows.push(r);
+    else groups.push({ version: r.summary.version, rows: [r] });
+  }
+  const n = (v: string) => Number(v.replace(/^v/, "")) || 0;
+  return groups.sort((a, b) => n(b.version) - n(a.version));
+}
+
 export function VaultsPage() {
-  const { meta } = useStrike();
-  const vaults = useVaults();
+  const { meta, deployments } = useStrike();
+  const vaults = useAllVaults();
   const market = useMarket();
   const rows = vaults.data ?? [];
+  // One group per deployment where the chain runs more than one (v3 and v2 on Robinhood Chain testnet).
+  const multi = deployments.length > 1;
+  const groups = multi ? byVersion(rows) : [{ version: "", rows }];
+  const defaultVersion = deployments[0]?.version ?? "";
   const tvl = rows.reduce((s, r) => s + (r.summary.tvlUsd ?? 0), 0);
   const live = rows.filter((r) => r.summary.state === 2).length;
   const onSale = rows.filter(
@@ -105,9 +132,37 @@ export function VaultsPage() {
           {rows.length === 0 ? (
             <p className="body">No vaults on this network yet.</p>
           ) : (
-            rows.map((r, i) => (
-              <VaultRow key={r.summary.address} index={i} vault={r.summary} history={r.history} />
-            ))
+            groups.map((g, gi) => {
+              const offset = groups.slice(0, gi).reduce((n, x) => n + x.rows.length, 0);
+              return (
+                <div
+                  key={g.version || "all"}
+                  className={styles.listGroup}
+                  data-version={g.version || undefined}
+                >
+                  {multi ? (
+                    <p className={`micro micro-muted ${styles.listGroupHead}`}>
+                      <VersionTag version={g.version} />
+                      <span>
+                        {g.rows.length} vault{g.rows.length === 1 ? "" : "s"}
+                        {g.version === defaultVersion
+                          ? " · the network's default deployment"
+                          : ` · deployed next to ${defaultVersion}`}
+                      </span>
+                    </p>
+                  ) : null}
+                  {g.rows.map((r, i) => (
+                    <VaultRow
+                      key={r.summary.address}
+                      index={offset + i}
+                      vault={r.summary}
+                      history={r.history}
+                      showVersion={multi}
+                    />
+                  ))}
+                </div>
+              );
+            })
           )}
         </section>
       </Gate>
@@ -119,10 +174,12 @@ function VaultRow({
   vault,
   history,
   index,
+  showVersion,
 }: {
   vault: VaultSummary;
   history: VaultHistory | null;
   index: number;
+  showVersion: boolean;
 }) {
   const s = vault.series;
   return (
@@ -130,14 +187,18 @@ function VaultRow({
       href={`/app/vault/${vault.address}`}
       className={styles.row}
       data-tone={vault.isCall ? "call" : "put"}
-      aria-label={`${vault.underlying.symbol} ${strategyName(vault)} vault`}
+      aria-label={`${vault.underlying.symbol} ${strategyName(vault)} vault${showVersion && vault.version ? ` (${vault.version})` : ""}`}
+      data-version={vault.version || undefined}
     >
       <span className="index">{String(index + 1).padStart(2, "0")}</span>
       <span className={styles.rowName}>
         <span className={styles.rowTitle}>
           <span className={styles.rowTicker}>{vault.underlying.symbol}</span>
-          <span className={styles.kind} data-tone={vault.isCall ? "call" : "put"}>
-            {strategyName(vault)}
+          <span className={styles.rowTags}>
+            <span className={styles.kind} data-tone={vault.isCall ? "call" : "put"}>
+              {strategyName(vault)}
+            </span>
+            {showVersion && vault.version ? <VersionTag version={vault.version} /> : null}
           </span>
         </span>
         <span className="micro micro-muted">{vault.asset.symbol} in · USDG premium out</span>

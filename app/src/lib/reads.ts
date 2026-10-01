@@ -7,7 +7,7 @@ import {
   testStockTokenAbi,
 } from "@strike/sdk";
 import { erc20Abi, parseAbi, type Address, type PublicClient } from "viem";
-import { fromBlock, type Deployment } from "./deployment";
+import { deploymentOfManager, deploymentVersion, fromBlock, type Deployment } from "./deployment";
 import { toNumber, usdValue } from "./format";
 import { UNIT_MULTIPLIER } from "./shares";
 
@@ -82,6 +82,10 @@ export interface VaultSummary {
   pricing: { sigma: bigint; spotBufferBps: number } | null;
   tvlUsd: number | null;
   sharePrice: number | null;
+  /** The deployment the vault belongs to (its EpochManager's); every read of the vault goes to its contracts. */
+  deployment: Deployment;
+  /** Its protocol version ("v2", "v3"; "" when the record has none). */
+  version: string;
 }
 
 const tokenCache = new Map<string, TokenInfo>();
@@ -170,6 +174,29 @@ export async function uiMultiplierOf(client: PublicClient, token: Address): Prom
     return m > 0n ? m : UNIT_MULTIPLIER;
   } catch {
     return UNIT_MULTIPLIER;
+  }
+}
+
+const vaultManagerAbi = parseAbi(["function manager() view returns (address)"]);
+
+/**
+ * The deployment of `chainId` a vault belongs to: the one whose EpochManager is the vault's `manager()`. Null when
+ * the address is not a vault or its manager is none of the chain's deployments.
+ */
+export async function vaultDeployment(
+  client: PublicClient,
+  chainId: number,
+  vault: Address,
+): Promise<Deployment | null> {
+  try {
+    const manager = await client.readContract({
+      address: vault,
+      abi: vaultManagerAbi,
+      functionName: "manager",
+    });
+    return deploymentOfManager(chainId, manager);
+  } catch {
+    return null;
   }
 }
 
@@ -312,6 +339,8 @@ export async function vaultSummary(
     pricing,
     tvlUsd: assetsUsd,
     sharePrice,
+    deployment: dep,
+    version: deploymentVersion(dep),
   };
 }
 
@@ -589,6 +618,9 @@ export interface AgentRow {
   registrationUri: string | null;
   /** `ReputationFeedback` events the registry posted for this agent (null when the logs could not be read). */
   feedbackPosted: number | null;
+  /** The AgentRegistry the agent is registered in, and its protocol version (ids repeat across registries). */
+  registry: Address;
+  registryVersion: string;
 }
 
 export interface Registry {
@@ -674,6 +706,8 @@ export async function registry(client: PublicClient, dep: Deployment): Promise<R
         vaults: vaults.filter((_, j) => configs[j]?.agentId === ids[i]),
         registrationUri: uris[i] ?? null,
         feedbackPosted: feedback ? feedback.filter((l) => l.args.agentId === ids[i]).length : null,
+        registry: dep.agentRegistry,
+        registryVersion: deploymentVersion(dep),
       };
     }),
     minBond,
@@ -698,6 +732,8 @@ export interface Rejection {
   premiumBps: number;
   time?: number;
   tx: `0x${string}`;
+  /** The protocol version of the EpochManager that rejected it ("v2", "v3"). */
+  version: string;
 }
 
 export async function rejections(client: PublicClient, dep: Deployment): Promise<Rejection[]> {
@@ -725,6 +761,7 @@ export async function rejections(client: PublicClient, dep: Deployment): Promise
       premiumBps: Number(l.args.premiumBps ?? 0),
       time: l.blockNumber === null ? undefined : times.get(l.blockNumber),
       tx: l.transactionHash!,
+      version: deploymentVersion(dep),
     }))
     .reverse();
 }
