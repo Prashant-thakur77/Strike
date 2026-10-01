@@ -105,19 +105,19 @@ Strike's case rests on agents and builders it does not control. This milestone m
 
 Deliverables:
 
-- `@strike/sdk` and the MCP server published to npm, next to the read-only remote MCP that is already live at `https://strike-options.vercel.app/api/mcp`.
+- Done during the buildathon: the SDK and the MCP server are on npm as [`@strike-options/sdk`](https://www.npmjs.com/package/@strike-options/sdk) and [`@strike-options/mcp`](https://www.npmjs.com/package/@strike-options/mcp) (0.9.0), next to the read-only remote MCP at `https://strike-options.vercel.app/api/mcp`. This milestone keeps them released with each version.
 - At least three agents registered and bonded by owners outside the team, each running a vault or proposing for one.
 - At least one repository outside Strike that imports `SafeStockFeed` or runs its conformance suite ([`test/conformance`](../contracts/test/conformance)).
 - Ten or more testnet testers who file the [feedback form](https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml).
 
 Acceptance criteria:
 
-- The npm package pages exist.
+- Each release is on npm within a day of its tag.
 - `AgentRegistry` shows at least three agents whose owners are not team addresses, each with a bond at or above `minBond`.
 - A public link to the outside repository and its passing CI run.
 - The feedback issues are public on GitHub.
 
-Budget: npm and docs work, and tester and agent-builder support.
+Budget: releases and docs, and tester and agent-builder support.
 
 ## Later, not in this plan
 
