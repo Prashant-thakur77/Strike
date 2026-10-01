@@ -1,3 +1,4 @@
+import { encodeAbiParameters, encodeEventTopics, type Hex, TransactionReceiptNotFoundError } from "viem";
 import { describe, expect, it } from "vitest";
 import rhCc from "../../docs/agent-log/2026-10-01-sTSLA-CC.json?raw";
 import rhCsp from "../../docs/agent-log/2026-10-01-sTSLA-CSP.json?raw";
@@ -5,6 +6,8 @@ import arbCc from "../../docs/agent-log/arbitrum-sepolia/2026-09-30-sTSLA-CC.jso
 import arbCsp from "../../docs/agent-log/arbitrum-sepolia/2026-09-30-sTSLA-CSP.json?raw";
 import epochLog from "../../docs/testnet-epochs/2026-09-29.md?raw";
 import {
+  checkAnchorReceipt,
+  decisionLogAbi,
   decisionRecordHash,
   epochLogHash,
   rawGithubUrl,
@@ -12,6 +15,7 @@ import {
   recordIdentityOf,
   recordMatchRank,
   unanchoredRecordJson,
+  verifyDecisionAnchor,
 } from "../src/index.js";
 
 // The anchored decision records published in docs/agent-log (and the hand-run epoch log of 29 September): the
@@ -164,5 +168,119 @@ describe("rawGithubUrl", () => {
     expect(rawGithubUrl("http://github.com/a/b/blob/main/x.json")).toBeNull();
     expect(rawGithubUrl("https://example.com/a/b/blob/main/x.json")).toBeNull();
     expect(rawGithubUrl("not a url")).toBeNull();
+  });
+});
+
+describe("verifying a record against its own anchoring transaction", () => {
+  // The Claude-planned covered call on Robinhood Chain testnet (v3), anchored in v3's DecisionLog for epoch 1 by
+  // tx 0x00e27f…; a settlement record for the same epoch will overwrite latestHash(1, vault, 1) on Friday.
+  const record = JSON.parse(read(RH_CC)) as { vault: { address: string } };
+  const anchor = recordAnchorOf(record)!;
+  const LOG = anchor.contract;
+  const VAULT = record.vault.address;
+  const OTHER = "0x00000000000000000000000000000000DeaDBeef";
+  const SETTLEMENT_HASH = `0x${"5e".repeat(32)}` as Hex;
+  const computed = decisionRecordHash(read(RH_CC));
+
+  const eventLog = (
+    over: Partial<{ emitter: string; agentId: bigint; vault: string; epoch: bigint; hash: Hex }> = {},
+  ) => ({
+    address: over.emitter ?? LOG,
+    topics: encodeEventTopics({
+      abi: decisionLogAbi,
+      eventName: "DecisionRecorded",
+      args: { agentId: over.agentId ?? 1n, vault: (over.vault ?? VAULT) as Hex, epoch: over.epoch ?? 1n },
+    }) as Hex[],
+    data: encodeAbiParameters(
+      [{ type: "bytes32" }, { type: "string" }, { type: "uint256" }],
+      [over.hash ?? anchor.recordHash, anchor.uri, 1790870000n],
+    ),
+    logIndex: 0,
+  });
+  const receipt = (logs = [eventLog()], status: "success" | "reverted" = "success") => ({ status, logs });
+  const expected = { decisionLogs: [LOG], agentId: 1n, vault: VAULT, epoch: 1, recordHash: computed };
+
+  /** A chain whose anchor tx has `logs` and whose latestHash(1, vault, 1) is `latest`. */
+  const chain = (opts: { receipt?: ReturnType<typeof receipt> | null; latest?: Hex }) => {
+    const calls: string[] = [];
+    const client = {
+      getTransactionReceipt: async ({ hash }: { hash: Hex }) => {
+        calls.push(`receipt ${hash}`);
+        if (opts.receipt === null) throw new TransactionReceiptNotFoundError({ hash });
+        return opts.receipt ?? receipt();
+      },
+      readContract: async ({ address, functionName }: { address: string; functionName: string }) => {
+        calls.push(`${functionName} ${address}`);
+        return opts.latest ?? anchor.recordHash;
+      },
+    };
+    return { client: client as never, calls };
+  };
+
+  it("verifies the proposal record by its tx after a settlement record overwrote latestHash", async () => {
+    const { client, calls } = chain({ latest: SETTLEMENT_HASH });
+    const check = await verifyDecisionAnchor(client, { ...expected, txHash: anchor.txHash });
+    expect(check.status).toBe("match");
+    expect(check.via).toBe("tx");
+    expect(check.tx?.status).toBe("match");
+    expect(check.tx?.event?.recordHash).toBe(computed);
+    expect(check.decisionLog?.toLowerCase()).toBe(LOG.toLowerCase());
+    // latestHash is secondary: a later record exists for the epoch, which is not a failure.
+    expect(check.latestHash).toBe(SETTLEMENT_HASH);
+    expect(check.superseded).toBe(true);
+    expect(calls[0]).toBe(`receipt ${anchor.txHash}`);
+  });
+
+  it("is not superseded while latestHash still holds the record's hash", async () => {
+    const { client } = chain({});
+    const check = await verifyDecisionAnchor(client, { ...expected, txHash: anchor.txHash });
+    expect(check).toMatchObject({ status: "match", via: "tx", superseded: false });
+  });
+
+  it("fails a tampered record", async () => {
+    const tampered = { ...JSON.parse(read(RH_CC)), decision: { reasoning: "We sell at the money." } };
+    const { client } = chain({ latest: SETTLEMENT_HASH });
+    const check = await verifyDecisionAnchor(client, {
+      ...expected,
+      recordHash: decisionRecordHash(tampered),
+      txHash: anchor.txHash,
+    });
+    expect(check.status).toBe("mismatch");
+    expect(check.tx?.status).toBe("hash-mismatch");
+    expect(check.superseded).toBe(false);
+  });
+
+  it("fails an anchor emitted by a contract that is not a known DecisionLog", async () => {
+    const { client } = chain({ receipt: receipt([eventLog({ emitter: OTHER })]) });
+    const check = await verifyDecisionAnchor(client, { ...expected, txHash: anchor.txHash });
+    expect(check.status).toBe("bad-tx");
+    expect(check.tx?.status).toBe("wrong-emitter");
+    expect(check.tx?.event?.emitter).toBe(OTHER);
+  });
+
+  it("fails an anchor for another agent, vault or epoch, a reverted tx and a tx without the event", () => {
+    expect(checkAnchorReceipt(receipt([eventLog({ agentId: 2n })]), expected).status).toBe("wrong-target");
+    expect(checkAnchorReceipt(receipt([eventLog({ vault: OTHER })]), expected).status).toBe("wrong-target");
+    expect(checkAnchorReceipt(receipt([eventLog({ epoch: 2n })]), expected).status).toBe("wrong-target");
+    expect(checkAnchorReceipt(receipt([eventLog()], "reverted"), expected).status).toBe("reverted");
+    expect(checkAnchorReceipt(receipt([]), expected).status).toBe("no-event");
+    // A fake event next to the real one does not hide it.
+    expect(checkAnchorReceipt(receipt([eventLog({ emitter: OTHER }), eventLog()]), expected).status).toBe(
+      "match",
+    );
+  });
+
+  it("falls back to latestHash without a tx or when the chain does not know it", async () => {
+    const noTx = await verifyDecisionAnchor(chain({}).client, expected);
+    expect(noTx).toMatchObject({ status: "match", via: "latestHash", tx: null, superseded: false });
+    const overwritten = await verifyDecisionAnchor(chain({ latest: SETTLEMENT_HASH }).client, expected);
+    expect(overwritten.status).toBe("mismatch");
+    const unknownTx = await verifyDecisionAnchor(chain({ receipt: null }).client, {
+      ...expected,
+      txHash: anchor.txHash,
+    });
+    expect(unknownTx).toMatchObject({ status: "match", via: "latestHash" });
+    const none = await verifyDecisionAnchor(chain({ latest: `0x${"0".repeat(64)}` }).client, expected);
+    expect(none.status).toBe("no-anchor");
   });
 });
