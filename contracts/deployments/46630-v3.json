@@ -39,7 +39,7 @@
   "stylusPricerTx": "0xc71be99442c8bbc9b9be9d419795ac2709b95b8b70214a465a71aeef9b89d49a",
   "stylusActivationTx": "0x19277b827e7b979963e71118f69874b83c3d6c69acac58a494c49881efed417a",
   "version": "v3",
-  "status": "deployed, not yet the app default",
+  "status": "deployed next to v2, not yet the app default; live epoch 2026-10-01 (series expires 2026-10-02 20:00 UTC)",
   "sourceCommit": "448d83b",
   "deployCommit": "64fcb93",
   "activePricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
@@ -55,6 +55,29 @@
     "erc8004Id": 114,
     "registerTx": "0x52f5999da7ab48d37ffb8fc5d3b476b9da1c0d3faa855de645cb80a784827162",
     "setIdentityTx": "0xc617c3eb7feb026513bf791bb0e1c2108d4821bd86995c49a14f391832904154",
-    "note": "Registered by the owner with the signer's EIP-712 Register consent (domain Strike AgentRegistry / 1). Not bonded yet: vaults need an active agent (bond >= 50 USDG)"
+    "note": "Registered by the owner with the signer's EIP-712 Register consent (domain Strike AgentRegistry / 1). Bonded 2026-10-01 by the signer itself (60 USDG)",
+    "postBondTx": "0x23a42953480fe13db45b0ebbfba10f7d44d06052a52192ed78989c5ae6517581",
+    "bondApproveTx": "0x0eb488c20fb5ca49d1070163c32455d09425be29c99816ae9a98da3bf3b68fd4",
+    "bond": "60 USDG posted, 50 after the 10 USDG slash on 2026-10-01"
+  },
+  "vaults": {
+    "TSLA_covered_call": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    "TSLA_cash_secured_put": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+    "createCallTx": "0xfe0ad7b0ea283980f0a70fa743a65290611ba8580579461e62cd2692e63b3027",
+    "createPutTx": "0xe6a20a2fa543d7dd10445a3337f5233601cfa15d6630e531d4148def1b02d1cb"
+  },
+  "epoch1": {
+    "callVaultSeries": "48103703716925406245656156603615117052914973735876202170787552644395932337728",
+    "strike": "369.36",
+    "expiry": 1790971200,
+    "openEpochTx": "0x4b179fb1809a4777961e5fe1439f7ad4dd2c418f4cc2e20c99b397d561d959e1",
+    "proposeByDeltaTx": "0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45",
+    "putOpenEpochTx": "0x6feeaeebac01b2288ea6000557b4c9d4f41bfecd73c25808dc2fc0a2e4239fc3",
+    "rejectedPutTx": "0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2",
+    "buyTx": "0x16d9345d815d1d5fb5a39540533b725367cfbaeab0287647f984d0202b6a61fc",
+    "decisionLogRecordTxs": [
+      "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388",
+      "0x966985d8ca2026bb6426a46d35ae708a48724a6ed74208a1ecd9c65fbf4a6e27"
+    ]
   }
 }
