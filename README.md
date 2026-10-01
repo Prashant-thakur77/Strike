@@ -669,6 +669,8 @@ Measured on an Arbitrum Nitro dev node, L2 execution gas ([docs/gas.md](docs/gas
 
 ## The live epochs
 
+Live counts across all three deployments (wallets, and how many are outside the team; vault epochs; proposals accepted and rejected; options bought and premium; USDG slashed to depositors; decision records anchored; value locked) are on [/app/proof#usage](https://strike-options.vercel.app/app/proof#usage), counted from contract logs and refreshed every 10 minutes, as JSON at [`/api/stats`](https://strike-options.vercel.app/api/stats).
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/live-epoch-timeline-dark.svg">
   <img alt="Timeline of the first agent-run epoch on 2026-09-29 UTC: 17:08 collateral, 17:08 epoch opened, 17:09 proposeByDelta accepted at strike $369.86, 17:09 put epoch opened, 17:09 at-the-money put rejected with DeltaOutOfBand and 10 USDG slashed, 17:09 4 calls bought for 10.005944 USDG, 19:51 ERC-8004 identity #114 registered and linked, 21:24 the slashed 10 USDG paid to put depositors; expiry pending on Friday 2026-10-02 20:00 UTC." src="docs/media/charts/live-epoch-timeline-light.svg" width="100%">
