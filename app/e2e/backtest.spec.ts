@@ -160,8 +160,8 @@ test("the app nav lists Backtest between Playground and Agents", async ({ page }
   const i = links.indexOf("Backtest");
   expect(links[i - 1]).toBe("Playground");
   expect(links[i + 1]).toBe("Agents");
-  await expect(page.getByRole("link", { name: "Backtest", exact: true })).toHaveAttribute(
-    "aria-current",
-    "page",
-  );
+  // Scoped to the nav: the footer lists every page too.
+  await expect(
+    page.getByRole("navigation", { name: "App" }).getByRole("link", { name: "Backtest", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
 });
