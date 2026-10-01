@@ -147,7 +147,9 @@ contract RobinhoodForkTest is Test {
         vm.stopPrank();
 
         uint64 expiry = uint64(calendar.weeklyExpiry(block.timestamp));
-        if (expiry < block.timestamp + 1 days) expiry = uint64(calendar.weeklyExpiry(block.timestamp + 3 days));
+        // A strike 6% out of the money needs a few days to expiry to stay inside the 0.05-0.40 delta band: with
+        // about one day left its delta drops under 0.05. Late in the week, use the next weekly expiry instead.
+        if (expiry < block.timestamp + 3 days) expiry = uint64(calendar.weeklyExpiry(block.timestamp + 3 days));
         uint256 strike = manager.spot(TSLA) * 106 / 100;
         vm.prank(agent);
         manager.openEpoch(address(vault));

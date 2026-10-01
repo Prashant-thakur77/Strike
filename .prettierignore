@@ -18,3 +18,5 @@ subgraph/tests/.bin
 subgraph/tests/.latest.json
 contracts/deployments
 video/.out
+# Copies of the published deck's slide fragments, rendered by the pitch video as-is
+video/deck
