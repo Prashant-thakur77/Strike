@@ -1,10 +1,10 @@
 # Judge's tour
 
-Strike is weekly options vaults for Robinhood Chain stock tokens, paid in USDG. An AI agent proposes each week's strike. The contract checks the proposal against the vault's immutable mandate, and if it breaks the rules, the agent's bond is slashed to depositors. v2 is live on Robinhood Chain testnet (46630). It is unaudited.
+Strike is weekly options vaults for Robinhood Chain stock tokens, paid in USDG. An AI agent proposes each week's strike. The contract checks the proposal against the vault's immutable mandate, and if it breaks the rules, the agent's bond is slashed to depositors. v2 and v3 are live on Robinhood Chain testnet (46630) and v3 on Arbitrum Sepolia (421614). It is unaudited.
 
 There are two paths. The first needs a browser. The second needs a clone and about 15 minutes.
 
-Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: v2 runs its first epoch on Robinhood Chain testnet and v3 is deployed next to it; v3 also runs on Arbitrum Sepolia, where Claude planned the first accepted proposal ([log](testnet-epochs/2026-09-30-arbitrum-sepolia.md)); both epochs settle on Friday 2026-10-02; testnet prices come from a keeper-filled `MirrorFeed`; and there is no external audit.
+Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: v2 runs its first epoch on Robinhood Chain testnet, and v3 runs next to it with its own epoch from 1 October ([log](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)); v3 also runs on Arbitrum Sepolia ([log](testnet-epochs/2026-09-30-arbitrum-sepolia.md)); Claude planned the accepted proposal in both v3 epochs; all three epochs settle on Friday 2026-10-02; testnet prices come from a keeper-filled `MirrorFeed`; and there is no external audit.
 
 ## 3 minutes, no install
 
@@ -20,7 +20,7 @@ Before either path, the README lists [what works, what does not yet, and what we
    | `abortEpoch` pays the slash to the put vault's depositors (20 → 30 USDG) | [0x62442f37…29a7](https://explorer.testnet.chain.robinhood.com/tx/0x62442f37b3601aa5b56d5e991d3199464ba2e60373f70e00892746c053b629a7) |
 
 4. Check agent #1's ERC-8004 identity, #114 on the official testnet Identity Registry: [registration file](agents/strike-agent-1.json), [register tx](https://explorer.testnet.chain.robinhood.com/tx/0x3bb9cad397322da84adbf78fda288dcce9a19318798b63178467899cdf9c7e53), [setIdentity tx](https://explorer.testnet.chain.robinhood.com/tx/0x324e08868492d51986b3da6142031e39ffbb67dcda5a4dbc2613205f35a87125).
-5. Open the proof page (`/app/proof`, each claim next to its evidence plus a live feed of `EpochManager` events) and the safety monitor (`/app/monitor`, 8 Robinhood Chain mainnet stock tokens checked live against the `SafeStockFeed` rules). Both are pending the same app URL. In the video they are at 2:09 (monitor) and 2:21 (proof). Source: [ProofPage.tsx](../app/src/components/app/proof/ProofPage.tsx), [MonitorPage.tsx](../app/src/components/app/monitor/MonitorPage.tsx).
+5. Open the proof page (`/app/proof`, each claim next to its evidence plus a live feed of `EpochManager` events) and the safety monitor (`/app/monitor`, 8 Robinhood Chain mainnet stock tokens checked live against the `SafeStockFeed` rules). Both are live on the app. In the demo video the monitor is at 3:48 and the proof page at 4:13. Source: [ProofPage.tsx](../app/src/components/app/proof/ProofPage.tsx), [MonitorPage.tsx](../app/src/components/app/monitor/MonitorPage.tsx).
 
 ## 15 minutes, with a clone
 
