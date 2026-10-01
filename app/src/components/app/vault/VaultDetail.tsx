@@ -19,6 +19,7 @@ import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { StateTag } from "../StateTag";
 import { VersionTag, strategyName } from "../VaultList";
+import { DripNudge } from "../faucet/UsdgDrip";
 import { DepositPanel } from "./DepositPanel";
 import { MandatePanel } from "./MandatePanel";
 import { OptionsPanel } from "./OptionsPanel";
@@ -137,6 +138,7 @@ export function VaultDetail({ address }: { address: Address }) {
                   : "The vault is between epochs, so deposits and withdrawals go through at once."
               }
             >
+              {v.isCall ? null : <DripNudge />}
               <DepositPanel vault={v} />
             </Rail>
             <Rail
@@ -144,6 +146,7 @@ export function VaultDetail({ address }: { address: Address }) {
               label="This week's option"
               note="Buyers pay USDG: fair value at the moment of purchase times the series' premium factor, never below intrinsic value."
             >
+              {v.isCall ? <DripNudge /> : null}
               <SeriesPanel vault={v} />
             </Rail>
             <Rail

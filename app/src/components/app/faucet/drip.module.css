@@ -1,0 +1,46 @@
+/* The team USDG faucet: the summary under the faucet page's balances and the nudge on vault pages. */
+
+.summary {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.remaining {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
+  margin: 0;
+}
+
+.remaining :global(.mono) {
+  font-size: 1.05rem;
+}
+
+.remaining > span:last-child {
+  margin-top: 0;
+}
+
+.nudge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin-bottom: 20px;
+  padding: 0 0 14px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.nudge > :last-child:not(button):not(.nudgeText) {
+  flex-basis: 100%;
+}
+
+.nudgeText {
+  flex: 1 1 18em;
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}

@@ -14,13 +14,14 @@ interface ITestUsdg {
 ///         it mints TestUSDG first and writes `usdgDrip` into deployments/<chainId>.json; elsewhere add the printed
 ///         address to that file as `usdgDrip`, then run `node scripts/export-abis.mjs`.
 ///
-/// Env: PRIVATE_KEY (deployer, becomes the owner); FUND (USDG base units sent to the faucet, default 100e6).
+/// Env: PRIVATE_KEY (deployer, becomes the owner); FUND (USDG base units sent to the faucet, default 100e6; 1,000,000e6
+///      minted and sent on local devnets).
 contract DeployUsdgDrip is Script {
     function run() external returns (UsdgDrip drip) {
         require(block.chainid != 4663, "testnets only");
         uint256 pk = vm.envUint("PRIVATE_KEY");
-        uint256 fund = vm.envOr("FUND", uint256(100e6));
         bool local = block.chainid == 31_337 || block.chainid == 412_346;
+        uint256 fund = vm.envOr("FUND", local ? uint256(1_000_000e6) : uint256(100e6));
         string memory path = string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json");
         string memory json = vm.readFile(path);
         IERC20 usdg = IERC20(vm.parseJsonAddress(json, ".usdg"));

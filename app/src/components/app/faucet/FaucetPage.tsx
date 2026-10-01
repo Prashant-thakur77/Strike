@@ -10,6 +10,7 @@ import { useStrike } from "@/hooks/useStrike";
 import { useTx } from "@/hooks/useTx";
 import { fmtAmount, fmtNy } from "@/lib/format";
 import { LINKS } from "@/lib/links";
+import { dripOf } from "@/lib/drip";
 import type { FaucetToken } from "@/lib/reads";
 import { ConnectButton } from "@/components/site/ConnectButton";
 import { NotDeployed } from "../NotDeployed";
@@ -17,6 +18,7 @@ import { PageHero } from "../PageHero";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { TxNote } from "../TxNote";
+import { DripButton, DripSummary } from "./UsdgDrip";
 import appStyles from "../app.module.css";
 
 // The local devnet's TestUSDG mints freely (it only exists on chain 31337).
@@ -27,6 +29,7 @@ export function FaucetPage() {
   const { isConnected } = useConnection();
   const balances = useWalletBalances();
   const local = chainId === 31337;
+  const drip = !!dripOf(chainId);
   const robinhood = chainId === 46630 || chainId === 4663;
   const gas =
     chainId === 421614
@@ -97,7 +100,16 @@ export function FaucetPage() {
                   balance={b ? fmtAmount(b.usdg.balance, b.usdg.decimals) : null}
                   connected={isConnected}
                 >
-                  {local ? <MintUsdg /> : <ExtLink href={LINKS.paxosFaucet}>faucet.paxos.com</ExtLink>}
+                  {drip ? (
+                    <div className={appStyles.faucetRow}>
+                      <DripButton />
+                      {local ? <MintUsdg /> : <ExtLink href={LINKS.paxosFaucet}>or faucet.paxos.com</ExtLink>}
+                    </div>
+                  ) : local ? (
+                    <MintUsdg />
+                  ) : (
+                    <ExtLink href={LINKS.paxosFaucet}>faucet.paxos.com</ExtLink>
+                  )}
                 </BalanceRow>
                 {stocks.map(({ symbol, full }) => {
                   const t = { symbol };
@@ -124,9 +136,12 @@ export function FaucetPage() {
                   );
                 })}
               </ul>
+              <DripSummary />
               <p className={appStyles.hint}>
                 {robinhood
-                  ? "Robinhood's testnet faucet hands out gas and TSLA, AMZN, PLTR, NFLX and AMD tokens. Paxos runs the USDG faucet: pick Robinhood Chain testnet there."
+                  ? drip
+                    ? "Robinhood's testnet faucet hands out gas and TSLA, AMZN, PLTR, NFLX and AMD tokens. For USDG, use Strike's faucet above or Paxos's (pick Robinhood Chain testnet there)."
+                    : "Robinhood's testnet faucet hands out gas and TSLA, AMZN, PLTR, NFLX and AMD tokens. Paxos runs the USDG faucet: pick Robinhood Chain testnet there."
                   : local
                     ? "On the local devnet Strike deploys mintable test tokens: 10 stock tokens per address per day."
                     : chainId === 421614
