@@ -168,7 +168,13 @@ function RecordBody({
   ];
 
   return (
-    <div className={styles.why} data-testid="why-panel" data-kind="record" data-anchor={anchor.status}>
+    <div
+      className={styles.why}
+      data-testid="why-panel"
+      data-kind="record"
+      data-anchor={anchor.status}
+      data-anchor-via={anchor.via ?? undefined}
+    >
       <p className={styles.whyLead}>{LEAD}</p>
 
       <dl className={styles.whyFacts}>
@@ -355,7 +361,13 @@ function HandRunBody({
   const tone = log.accepted === true ? "good" : log.accepted === false ? "bad" : "neutral";
   const VerdictIcon = tone === "good" ? Check : tone === "bad" ? Ban : Minus;
   return (
-    <div className={styles.why} data-testid="why-panel" data-kind="log" data-anchor={anchor.status}>
+    <div
+      className={styles.why}
+      data-testid="why-panel"
+      data-kind="log"
+      data-anchor={anchor.status}
+      data-anchor-via={anchor.via ?? undefined}
+    >
       <p className={styles.whyLead}>{LEAD}</p>
       <dl className={styles.whyFacts}>
         <div>
@@ -431,29 +443,68 @@ function HandRunBody({
 const STATUS_TEXT: Record<AnchorCheck["status"], string> = {
   match: "hash matches",
   mismatch: "hash does not match",
+  "bad-tx": "the anchor transaction does not check out",
   "no-anchor": "no anchor",
   "unknown-contract": "anchored in a contract this app does not know",
   unreadable: "the chain could not be read",
 };
 
-/** keccak256 of the record against DecisionLog.latestHash on the vault's chain. */
+const TX_PROBLEM: Record<string, string> = {
+  "wrong-emitter": "its DecisionRecorded event was emitted by a contract that is not a deployed DecisionLog",
+  "wrong-target": "it anchored a record for another agent, vault or epoch",
+  "no-event": "it emitted no DecisionRecorded event",
+  reverted: "it reverted",
+};
+
+/**
+ * keccak256 of the record against its own anchoring transaction on the vault's chain (the DecisionRecorded event of a
+ * deployed DecisionLog for this agent, vault and epoch), with DecisionLog.latestHash as secondary information.
+ */
 function AnchorLine({ anchor: a, chainId }: { anchor: AnchorCheck; chainId: number }) {
   const chain = CHAIN_META[chainId as keyof typeof CHAIN_META]?.label ?? `chain ${chainId}`;
-  const Icon = a.status === "match" ? Check : a.status === "mismatch" ? Ban : CircleAlert;
+  const Icon =
+    a.status === "match" ? Check : a.status === "mismatch" || a.status === "bad-tx" ? Ban : CircleAlert;
+  const log = `${a.version ? `${a.version} ` : ""}DecisionLog on ${chain}`;
   const explain: ReactNode =
     a.status === "match" ? (
       <>
-        keccak256 of the record, rebuilt here from the file on GitHub, equals the hash agent #{a.agentId}{" "}
-        committed to the {a.version ? `${a.version} ` : ""}DecisionLog on {chain} for epoch {a.epoch}
+        {a.via === "tx" ? (
+          <>
+            keccak256 of the record, rebuilt here from the file on GitHub, equals the hash agent #{a.agentId}{" "}
+            anchored in its own transaction: the DecisionRecorded event of the {log} for this vault and epoch{" "}
+            {a.epoch}
+          </>
+        ) : (
+          <>
+            keccak256 of the record, rebuilt here from the file on GitHub, equals the hash agent #{a.agentId}{" "}
+            committed to the {log} for epoch {a.epoch} (latestHash)
+          </>
+        )}
         {a.claimed && a.claimed.toLowerCase() !== a.computed.toLowerCase()
           ? "; the record's own anchor field disagrees with it"
           : ""}
         .
+        {a.superseded && a.latest ? (
+          <span className={styles.whyLater} data-testid="why-anchor-later">
+            {" "}
+            A later record for this epoch exists: latestHash now holds{" "}
+            <span className="mono" title={a.latest}>
+              {shortHash(a.latest)}
+            </span>{" "}
+            (for example the settlement record), which does not change this one&apos;s anchor.
+          </span>
+        ) : null}
       </>
     ) : a.status === "mismatch" ? (
       <>
-        keccak256 of the file on GitHub is not the hash committed to the DecisionLog on {chain} for epoch{" "}
+        keccak256 of the file on GitHub is not the hash{" "}
+        {a.via === "tx" ? "its anchor transaction committed to the" : "committed to the"} {log} for epoch{" "}
         {a.epoch}: the record changed after it was anchored, or this is not the file that was anchored.
+      </>
+    ) : a.status === "bad-tx" ? (
+      <>
+        the transaction the record names as its anchor is not one:{" "}
+        {TX_PROBLEM[a.txProblem ?? ""] ?? "it does not anchor this record"}.
       </>
     ) : a.status === "no-anchor" ? (
       <>
@@ -473,6 +524,12 @@ function AnchorLine({ anchor: a, chainId }: { anchor: AnchorCheck; chainId: numb
         <Icon size={13} aria-hidden />
         <Term id="anchored">Anchored on-chain</Term>:{" "}
         <span data-testid="why-anchor-status">{STATUS_TEXT[a.status]}</span>
+        {a.status === "match" && a.via === "tx" && a.txHash ? (
+          <span className={styles.whyAnchorVia} data-testid="why-anchor-via">
+            {" "}
+            (anchored in tx <span className="mono">{shortHash(a.txHash)}</span>)
+          </span>
+        ) : null}
       </span>
       <span className={styles.whyAnchorText}>
         {explain}{" "}

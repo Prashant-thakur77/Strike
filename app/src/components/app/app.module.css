@@ -2878,9 +2878,20 @@ a.idChip:hover {
   color: var(--gain-c);
 }
 
-.whyAnchorState[data-status="mismatch"] {
+.whyAnchorState[data-status="mismatch"],
+.whyAnchorState[data-status="bad-tx"] {
   color: var(--loss-c);
 }
+
+.whyAnchorVia {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.whyLater {
+  color: var(--fg);
+}
+
 
 .whyAnchorText {
   overflow-wrap: anywhere;

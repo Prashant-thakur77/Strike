@@ -1,12 +1,13 @@
 import {
-  decisionLogAbi,
   decisionRecordHash,
+  deploymentsFor,
   epochLogHash,
   recordMatchRank,
+  verifyDecisionAnchor,
+  type AnchorTxStatus,
   type SeriesTarget,
 } from "@strike/sdk";
 import { getAddress, type Address, type Hex, type PublicClient } from "viem";
-import v3Robinhood from "../../../contracts/deployments/46630-v3.json";
 import {
   AGENT_LOG_BRANCH,
   AGENT_LOG_DIR,
@@ -16,12 +17,13 @@ import {
   txLink,
   type LogRecord,
 } from "./agentLog";
-import { findDeployment } from "./deployment";
 import type { VaultSummary } from "./reads";
 
 // "Why this strike" on the vault page: the agent's decision record for the vault's live (or last) epoch, fetched
 // from GitHub without the API (raw.githubusercontent.com has no 60-an-hour limit), matched to the epoch by chain,
-// vault and series or epoch, and checked against the hash the agent anchored in the DecisionLog contract.
+// vault and series or epoch, and checked against its own anchoring transaction: the DecisionRecorded event of a
+// known DecisionLog for this agent, vault and epoch must carry the hash rebuilt from the file. `latestHash` is
+// secondary (a settlement record anchored for the same epoch overwrites it).
 //
 // The record's file name is derived, not listed: the agent names a record `<YYYY-MM-DD>-<vault symbol>[-N].json`
 // after the UTC date its run started, and a propose run opens the epoch minutes later, so the epoch's `openedAt`
@@ -74,25 +76,20 @@ export const HAND_RUN_LOGS: HandRunLog[] = [
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /**
- * The DecisionLog contracts a record on `chainId` may be anchored in: the deployment map's (v2 on Robinhood Chain
- * testnet, v3 on Arbitrum Sepolia) and, on Robinhood Chain testnet, v3's own next to it (it reads the v3 registry).
+ * The DecisionLog contracts a record on `chainId` may be anchored in: one per deployment of the chain (v2 and v3 on
+ * Robinhood Chain testnet, v3 on Arbitrum Sepolia), the default deployment's first.
  */
 export function knownDecisionLogs(chainId: number): Address[] {
   const out: Address[] = [];
-  const mapped = findDeployment(chainId)?.decisionLog;
-  if (mapped) out.push(getAddress(mapped));
-  if (chainId === 46630 && typeof v3Robinhood.decisionLog === "string") {
-    out.push(getAddress(v3Robinhood.decisionLog));
+  for (const d of deploymentsFor(chainId)) {
+    if (d.decisionLog && !out.some((a) => same(a, d.decisionLog!))) out.push(getAddress(d.decisionLog));
   }
   return out;
 }
 
 /** "v2" or "v3" for a known DecisionLog, else null. */
 export function decisionLogVersion(chainId: number, contract: string): string | null {
-  const mapped = findDeployment(chainId);
-  if (mapped?.decisionLog && same(mapped.decisionLog, contract)) return mapped.version ?? null;
-  if (chainId === 46630 && same(v3Robinhood.decisionLog, contract)) return v3Robinhood.version;
-  return null;
+  return deploymentsFor(chainId).find((d) => d.decisionLog && same(d.decisionLog, contract))?.version ?? null;
 }
 
 /* ================================================================ file names */
@@ -183,14 +180,22 @@ export async function fetchRepoFile(
 
 /* ================================================================ the result */
 
-export type AnchorStatus = "match" | "mismatch" | "no-anchor" | "unknown-contract" | "unreadable";
+export type AnchorStatus = "match" | "mismatch" | "bad-tx" | "no-anchor" | "unknown-contract" | "unreadable";
 
 export interface AnchorCheck {
   status: AnchorStatus;
+  /** How a match was found: the record's own anchoring transaction, or `latestHash` (no transaction named). */
+  via: "tx" | "latestHash" | null;
   /** keccak256 rebuilt from the fetched file. */
   computed: Hex;
-  /** `DecisionLog.latestHash(agentId, vault, epoch)`; null when the chain could not be read. */
+  /** The hash the anchor carries: the transaction's event (via tx), else `latestHash`; null when not read. */
   onchain: Hex | null;
+  /** `DecisionLog.latestHash(agentId, vault, epoch)`, when read. */
+  latest: Hex | null;
+  /** The record's own anchor checks out, but a later record for this epoch was anchored after it (`latest`). */
+  superseded: boolean;
+  /** Why the named transaction is not this record's anchor (status `bad-tx`). */
+  txProblem: AnchorTxStatus | null;
   /** The hash the record itself claims (JSON records only). */
   claimed: Hex | null;
   /** The DecisionLog read (the one holding the anchor, else the record's own, else the chain's). */
@@ -236,26 +241,11 @@ export type WhyStrike =
     }
   | { kind: "log"; log: HandRunParsed; source: HandRunLog; url: string; anchor: AnchorCheck };
 
-const ZERO_HASH = `0x${"0".repeat(64)}` as Hex;
-
-async function readLatestHash(
-  client: PublicClient,
-  contract: Address,
-  agentId: bigint,
-  vault: Address,
-  epoch: bigint,
-): Promise<Hex> {
-  return client.readContract({
-    address: contract,
-    abi: decisionLogAbi,
-    functionName: "latestHash",
-    args: [agentId, vault, epoch],
-  });
-}
-
 /**
- * Compare a rebuilt hash with the chain: `latestHash(agentId, vault, epoch)` on the contract the record names when
- * it is a known DecisionLog, else on every known DecisionLog of the chain (the first non-zero answer counts).
+ * Check a rebuilt hash on the chain (`verifyDecisionAnchor` in the SDK): by the record's own anchoring transaction
+ * when it names one (its DecisionRecorded event must come from a known DecisionLog, for this agent, vault and epoch,
+ * with this hash), with `latestHash` read as secondary information; else by `latestHash` on the DecisionLog the
+ * record names, or on every known DecisionLog of the chain.
  */
 export async function checkAnchor(
   client: PublicClient,
@@ -271,7 +261,7 @@ export async function checkAnchor(
   },
 ): Promise<AnchorCheck> {
   const known = knownDecisionLogs(chainId);
-  const named = opts.contract && known.find((k) => same(k, opts.contract!));
+  const named = opts.contract ? known.find((k) => same(k, opts.contract!)) : undefined;
   const base = {
     computed,
     claimed: opts.claimed,
@@ -280,60 +270,48 @@ export async function checkAnchor(
     txHash: opts.txHash,
     txUrl: opts.txHash ? txLink(chainId, opts.txHash, null) : null,
     error: null,
+    via: null,
+    onchain: null,
+    latest: null,
+    superseded: false,
+    txProblem: null,
   };
   if (opts.contract && !named) {
-    return {
-      ...base,
-      status: "unknown-contract",
-      onchain: null,
-      contract: getAddress(opts.contract),
-      version: null,
-    };
+    return { ...base, status: "unknown-contract", contract: getAddress(opts.contract), version: null };
   }
   const contracts = named ? [named] : known;
-  if (contracts.length === 0) {
-    return { ...base, status: "no-anchor", onchain: null, contract: null, version: null };
-  }
-  type Read = { c: Address; hash: Hex; error: null } | { c: Address; hash: null; error: string };
-  const reads: Read[] = await Promise.all(
-    contracts.map(async (c): Promise<Read> => {
-      try {
-        const hash = await readLatestHash(client, c, opts.agentId, opts.vault, BigInt(opts.epoch));
-        return { c, hash, error: null };
-      } catch (e) {
-        return { c, hash: null, error: e instanceof Error ? e.message : String(e) };
-      }
-    }),
-  );
-  const hit = reads.find((r) => r.hash !== null && r.hash !== ZERO_HASH);
-  if (hit?.hash) {
+  if (contracts.length === 0) return { ...base, status: "no-anchor", contract: null, version: null };
+  try {
+    const r = await verifyDecisionAnchor(client, {
+      decisionLogs: contracts,
+      agentId: opts.agentId,
+      vault: opts.vault,
+      epoch: opts.epoch,
+      recordHash: computed,
+      txHash: opts.txHash,
+    });
+    const contract = r.decisionLog ?? contracts[0]!;
     return {
       ...base,
-      status: hit.hash.toLowerCase() === computed.toLowerCase() ? "match" : "mismatch",
-      onchain: hit.hash,
-      contract: hit.c,
-      version: decisionLogVersion(chainId, hit.c),
+      status: r.status,
+      via: r.via,
+      onchain: r.tx?.event?.recordHash ?? r.latestHash,
+      latest: r.latestHash,
+      superseded: r.superseded,
+      txProblem: r.status === "bad-tx" ? (r.tx?.status ?? null) : null,
+      contract,
+      version: decisionLogVersion(chainId, contract),
     };
-  }
-  const failed = reads.find((r) => r.error !== null);
-  if (failed?.error !== null && failed !== undefined && !reads.some((r) => r.hash !== null)) {
+  } catch (e) {
+    const first = contracts[0]!;
     return {
       ...base,
       status: "unreadable",
-      onchain: null,
-      contract: failed.c,
-      version: decisionLogVersion(chainId, failed.c),
-      error: failed.error,
+      contract: first,
+      version: decisionLogVersion(chainId, first),
+      error: e instanceof Error ? e.message.split("\n")[0]! : String(e),
     };
   }
-  const first = contracts[0]!;
-  return {
-    ...base,
-    status: "no-anchor",
-    onchain: ZERO_HASH,
-    contract: first,
-    version: decisionLogVersion(chainId, first),
-  };
 }
 
 /* ================================================================ the hand-run log */

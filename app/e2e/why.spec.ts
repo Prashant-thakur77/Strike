@@ -1,15 +1,25 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import {
+  decodeFunctionData,
+  decodeFunctionResult,
+  encodeFunctionResult,
+  multicall3Abi,
+  type Hex,
+} from "viem";
 import { acknowledge, horizontalOverflow, settle } from "./helpers";
 
 // "Why this strike" on the live TSLA covered-call vaults: v2 on Robinhood Chain testnet (46630), whose first epoch
 // was run by hand and whose epoch log is anchored in the v2 DecisionLog, and v3 on Arbitrum Sepolia (421614), whose
-// Claude-planned decision record is anchored in its DecisionLog. The panel must name the planner, show the chosen
-// delta and premium, the agent's reasoning and the contract's verdict, and rebuild the record's hash from the file
-// on GitHub and find it on-chain ("hash matches"). Each case skips when its RPC or GitHub is unreachable, and when
+// Claude-planned decision record is anchored in its DecisionLog, and v3 on Robinhood Chain testnet (next to v2), whose
+// record of 1 October is anchored in v3's DecisionLog there. The panel must name the planner, show the chosen delta
+// and premium, the agent's reasoning and the contract's verdict, rebuild the record's hash from the file on GitHub
+// and find it in the record's own anchoring transaction ("hash matches (anchored in tx …)"), so a later settlement
+// record for the same epoch does not break it. Each case skips when its RPC or GitHub is unreachable, and when
 // the vault has moved on to an epoch with no published record. Set WHY_SHOTS=<dir> to save the rail as
-// <project>-vault-why.png (46630) and <project>-vault-arbitrum-sepolia-why.png (421614).
+// <project>-vault-why.png (46630 v2), <project>-vault-arbitrum-sepolia-why.png (421614) and
+// <project>-vault-robinhood-v3-why.png (46630 v3).
 
 interface Case {
   chainId: number;
@@ -37,6 +47,15 @@ const CASES: Case[] = [
     vault: "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
     decisionLog: "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
     shot: "vault-arbitrum-sepolia-why",
+  },
+  {
+    // v3 next to v2 on Robinhood Chain testnet: the Claude-planned epoch of 1 October, anchored in v3's DecisionLog.
+    chainId: 46630,
+    chain: "Robinhood Chain testnet",
+    rpc: process.env.E2E_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.com",
+    vault: "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    decisionLog: "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+    shot: "vault-robinhood-v3-why",
   },
 ];
 
@@ -85,7 +104,7 @@ async function openPanel(page: Page, c: Case) {
 }
 
 for (const c of CASES) {
-  test(`why this strike on ${c.chain}: planner, choice, reasoning, verdict and the on-chain hash check`, async ({
+  test(`why this strike on ${c.chain} (${c.shot}): planner, choice, reasoning, verdict and the on-chain hash check`, async ({
     page,
   }, info) => {
     test.skip(!(await rpcUp(c.rpc, c.chainId)), `${c.chain} RPC unreachable`);
@@ -119,6 +138,13 @@ for (const c of CASES) {
     await expect(panel).toHaveAttribute("data-anchor", "match");
     await expect(anchor).toContainText("Anchored on-chain");
     await expect(anchor.getByTestId("why-anchor-status")).toHaveText("hash matches");
+    // Checked against the record's own anchoring transaction, not only latestHash (a settlement record anchored
+    // for the same epoch overwrites that): its DecisionRecorded event carries this hash.
+    await expect(panel).toHaveAttribute("data-anchor-via", "tx");
+    await expect(anchor.getByTestId("why-anchor-via")).toHaveText(
+      /^\s*\(anchored in tx 0x[0-9a-f]{6}…[0-9a-f]{4}\)$/i,
+    );
+    await expect(anchor).toContainText("anchored in its own transaction");
     await expect(anchor).toContainText(`DecisionLog on ${c.chain}`);
     await expect(anchor).toContainText(/hash 0x[0-9a-f]{6}…[0-9a-f]{4}/);
     await expect(anchor).toContainText(`${c.decisionLog.slice(0, 6)}…${c.decisionLog.slice(-4)}`);
@@ -206,4 +232,53 @@ test("says when there is no record, and offers a retry when GitHub cannot be rea
   const panel = page.locator("section#why").getByTestId("why-panel");
   const stillEmpty = page.locator("section#why").getByTestId("why-empty");
   await expect(panel.or(stillEmpty)).toBeVisible({ timeout: 60_000 });
+});
+
+test("a later record for the same epoch (the settlement's) does not break the check: the record's own tx proves it", async ({
+  page,
+}) => {
+  const c = CASES[2]!; // v3 on Robinhood Chain testnet: Claude's record of 1 October
+  test.skip(!(await rpcUp(c.rpc, c.chainId)), `${c.chain} RPC unreachable`);
+  test.skip(!(await githubUp()), "GitHub (raw.githubusercontent.com) unreachable");
+  await acknowledge(page);
+  // What Friday's anchored settlement record does to DecisionLog.latestHash(agent, vault, epoch): another hash.
+  // The app batches reads through Multicall3, so the latestHash call is rewritten inside aggregate3's answer.
+  const LATER = `0x${"5e".repeat(32)}` as Hex;
+  const LATEST_HASH = "0x92e1a7ee"; // latestHash(uint256,address,uint64)
+  type Rpc = { id?: number; method?: string; params?: [{ data?: Hex; input?: Hex }] };
+  const rewrite = (call: Rpc, result: Hex): Hex => {
+    const data = call.params?.[0]?.data ?? call.params?.[0]?.input;
+    if (call.method !== "eth_call" || !data) return result;
+    if (data.startsWith(LATEST_HASH)) return LATER;
+    if (!data.includes(LATEST_HASH.slice(2))) return result;
+    const { functionName, args } = decodeFunctionData({ abi: multicall3Abi, data });
+    if (functionName !== "aggregate3") return result;
+    const out = decodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", data: result });
+    const patched = out.map((r, i) =>
+      args[0][i]!.callData.startsWith(LATEST_HASH) ? { ...r, returnData: LATER } : r,
+    );
+    return encodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", result: patched });
+  };
+  await page.route(c.rpc, async (route) => {
+    if (!route.request().postData()?.includes(LATEST_HASH.slice(2))) return route.continue();
+    const body = route.request().postDataJSON() as Rpc | Rpc[];
+    const calls = Array.isArray(body) ? body : [body];
+    const res = await route.fetch();
+    const json = (await res.json()) as { id: number; result?: Hex } | { id: number; result?: Hex }[];
+    const answers = Array.isArray(json) ? json : [json];
+    for (const a of answers) {
+      const call = calls.find((x) => x.id === a.id);
+      if (call && a.result) a.result = rewrite(call, a.result);
+    }
+    await route.fulfill({ response: res, json: Array.isArray(json) ? answers : answers[0] });
+  });
+  const { panel } = await openPanel(page, c);
+  const anchor = panel.getByTestId("why-anchor");
+  await expect(anchor).toHaveAttribute("data-status", "match");
+  await expect(anchor.getByTestId("why-anchor-status")).toHaveText("hash matches");
+  await expect(anchor.getByTestId("why-anchor-via")).toContainText("anchored in tx");
+  const later = anchor.getByTestId("why-anchor-later");
+  await expect(later).toContainText("A later record for this epoch exists");
+  await expect(later).toContainText("0x5e5e5e…5e5e");
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
