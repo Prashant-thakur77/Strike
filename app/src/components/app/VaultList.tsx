@@ -4,7 +4,17 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { useAllVaults, useMarket } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
-import { fmtAmount, fmtDay, fmtNy, fmtPct, fmtUsd, fmtWadUsd, toNumber } from "@/lib/format";
+import {
+  fmtAmount,
+  fmtBps,
+  fmtDay,
+  fmtDelta,
+  fmtNy,
+  fmtPct,
+  fmtUsd,
+  fmtWadUsd,
+  toNumber,
+} from "@/lib/format";
 import type { VaultHistory, VaultSummary } from "@/lib/reads";
 import { StartHere } from "@/components/ui/StartHere";
 import { Gate } from "./Gate";
@@ -187,7 +197,7 @@ function VaultRow({
       href={`/app/vault/${vault.address}`}
       className={styles.row}
       data-tone={vault.isCall ? "call" : "put"}
-      aria-label={`${vault.underlying.symbol} ${strategyName(vault)} vault${showVersion && vault.version ? ` (${vault.version})` : ""}`}
+      aria-label={`${vault.underlying.symbol} ${strategyName(vault)} vault ${vault.symbol}, agent #${vault.agentId}${showVersion && vault.version ? ` (${vault.version})` : ""}`}
       data-version={vault.version || undefined}
     >
       <span className="index">{String(index + 1).padStart(2, "0")}</span>
@@ -201,7 +211,14 @@ function VaultRow({
             {showVersion && vault.version ? <VersionTag version={vault.version} /> : null}
           </span>
         </span>
-        <span className="micro micro-muted">{vault.asset.symbol} in · USDG premium out</span>
+        <span className={`micro micro-muted ${styles.rowMeta}`} data-testid="vault-row-meta">
+          <span className={styles.rowSymbol}>{vault.symbol}</span> · agent #{vault.agentId.toString()} ·{" "}
+          {vault.asset.symbol} in · USDG premium out
+        </span>
+        <span className={styles.rowMandate} data-testid="vault-row-mandate">
+          Mandate: delta {fmtDelta(vault.mandate.minDeltaBps)}–{fmtDelta(vault.mandate.maxDeltaBps)} · premium
+          ≥ {fmtBps(vault.mandate.minPremiumBps)} of fair · sells ≤ {fmtBps(vault.mandate.maxShareSoldBps)}
+        </span>
       </span>
       <span className={styles.rowCell} data-label="Value locked">
         <span className="mono">{fmtUsd(vault.tvlUsd)}</span>

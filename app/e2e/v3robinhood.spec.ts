@@ -11,6 +11,8 @@ const RPC = process.env.E2E_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.
 const V3_CALL = "0x478E7BC3C3aB07fdd104e4765F178977adEe6285";
 const V3_PUT = "0x1bc73c1B28F520E57982FAe6127477190FA53690";
 const V2_CALL = "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e";
+const V2_PUT = "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7";
+const A2_PUT = "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969";
 const V3_EM = "0x256D4546486368dCb23E94758b4cb500c215929F";
 const V3_LENS = "0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D";
 
@@ -50,6 +52,28 @@ test("the vault list shows v3 and v2 vaults on Robinhood Chain testnet, tagged b
   await expect(list.locator("> [data-version]")).toHaveCount(2);
   await expect(list.locator("> [data-version]").first()).toHaveAttribute("data-version", "v3");
   await expect(groups.last()).toContainText("the network's default deployment");
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+});
+
+test("each vault row names its symbol, agent and mandate, so two TSLA put vaults read apart", async ({
+  page,
+}) => {
+  await acknowledge(page);
+  await page.goto("/app?chain=46630");
+  const list = page.locator("#vault-list");
+  const a1 = list.locator(`a[href="/app/vault/${V2_PUT}"]`);
+  const a2 = list.locator(`a[href="/app/vault/${A2_PUT}"]`);
+  await expect(a1).toBeVisible({ timeout: 60_000 });
+  await expect(a1.getByTestId("vault-row-meta")).toContainText("sTSLA-CSP · agent #1");
+  await expect(a1).toHaveAttribute("aria-label", /sTSLA-CSP, agent #1 \(v2\)/);
+  // Agent #2's put vault, created from the app's "Run your own agent" form with a tighter mandate.
+  await expect(a2.getByTestId("vault-row-meta")).toContainText("sTSLA-CSP-A2 · agent #2");
+  await expect(a2.getByTestId("vault-row-mandate")).toHaveText(
+    "Mandate: delta 0.10–0.25 · premium ≥ 100% of fair · sells ≤ 50%",
+  );
+  await expect(list.locator(`a[href="/app/vault/${V3_PUT}"]`).getByTestId("vault-row-meta")).toContainText(
+    "sTSLA-CSP · agent #1",
+  );
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 

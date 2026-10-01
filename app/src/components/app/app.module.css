@@ -580,6 +580,22 @@
   border-bottom: 1px solid var(--rule);
 }
 
+.rowMeta {
+  overflow-wrap: anywhere;
+}
+
+.rowSymbol {
+  color: var(--fg);
+  text-transform: none;
+}
+
+.rowMandate {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
 .rowTags {
   display: inline-flex;
   flex-wrap: wrap;
