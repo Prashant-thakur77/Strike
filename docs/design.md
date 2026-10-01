@@ -2,6 +2,8 @@
 
 This document is the contract-level specification. [PLAN.md](PLAN.md) says what we build and why; this file says exactly how it behaves. Code, tests and this document must agree; when they disagree, fix the one that is wrong and log it in [decisions.md](decisions.md).
 
+It describes the source on `main`, from which the v2 deployment was built. v3 (the [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch, deployed on Robinhood Chain testnet next to v2 and on Arbitrum Sepolia) adds a fee high-water mark, EIP-712 signer consent, an active-agent check, `InvalidMandate(reason)` and the Stylus risk engine with `SeriesRisk` and `RiskLens`; that branch's design.md specifies them in §11 ([decisions.md D36](decisions.md)).
+
 ## 1. Actors and contracts
 
 | Contract                           | Role                                                                                                                                                                                                |
@@ -14,8 +16,10 @@ This document is the contract-level specification. [PLAN.md](PLAN.md) says what 
 | `AgentRegistry`                    | Agents, their signer and payout addresses, ERC-8004 identity link, USDG bond, strikes and slashing.                                                                                                 |
 | `FeeManager`                       | Performance-fee parameters and fee balances (pull payments).                                                                                                                                        |
 | `SafeStockFeed`                    | Library. Every price read goes through it: staleness, pauses, corporate actions, decimals.                                                                                                          |
+| `StockOracle`                      | Registry of stock tokens and their feeds, read through `SafeStockFeed`; records one settlement price per (token, expiry) for every consumer.                                                        |
 | `MarketCalendar`                   | NYSE trading calendar: DST-aware open/close times plus an admin-maintained holiday list.                                                                                                            |
 | `BlackScholesRef` / `StylusPricer` | `IPricer` implementations. Identical integer algorithm in Solidity and Rust.                                                                                                                        |
+| `DecisionLog`                      | Deployed separately. An agent's current `AgentRegistry` signer records the keccak256 hash and URL of each decision record ([D35](decisions.md)).                                                    |
 
 Roles (OpenZeppelin `AccessControl`): `DEFAULT_ADMIN_ROLE` (config, allow-list), `GUARDIAN_ROLE` (pause, emergency cancel), `KEEPER_ROLE` (volatility updates, opening epochs). Each vault also has a `curator` (who created it) who can change the vault's agent.
 

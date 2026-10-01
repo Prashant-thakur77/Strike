@@ -1,6 +1,6 @@
 # Security policy
 
-Strike is **unaudited** and runs on **Robinhood Chain testnet**. Do not deposit real funds. Any mainnet vault will be capped until an external audit is done.
+Strike is **unaudited** and runs on testnets only: **Robinhood Chain testnet** (v2 and v3) and **Arbitrum Sepolia** (v3). Do not deposit real funds. Any mainnet vault will be capped until an external audit is done.
 
 ## Reporting a vulnerability
 
@@ -10,12 +10,12 @@ Include the affected contract or package, the commit or deployed address, a desc
 
 ## Scope
 
-| In scope                                                                                         | Out of scope                                                                         |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| `contracts/src/**` except `src/testnet/*`                                                        | `contracts/src/testnet/*` (testnet-only mocks: MirrorFeed, TestStockToken, TestUSDG) |
-| The deployed contracts in [`contracts/deployments/46630.json`](contracts/deployments/46630.json) | The v1 deployment in `46630-v1.json` (superseded)                                    |
-| The Stylus pricer `stylus/pricer/src/**`                                                         | Third-party dependencies (report upstream)                                           |
-| `sdk/`, `mcp/`, `bots/`, `app/` where a bug can move or lock user funds or mislead a signer      | Issues requiring a compromised admin key (see the trust model)                       |
+| In scope                                                                                                                                                                                            | Out of scope                                                                         |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `contracts/src/**` except `src/testnet/*`, on `main` and on the `v3-contracts` branch                                                                                                               | `contracts/src/testnet/*` (testnet-only mocks: MirrorFeed, TestStockToken, TestUSDG) |
+| The deployed contracts in [`46630.json`](contracts/deployments/46630.json) (v2), [`46630-v3.json`](contracts/deployments/46630-v3.json) and [`421614.json`](contracts/deployments/421614.json) (v3) | The v1 deployment in `46630-v1.json` (superseded)                                    |
+| The Stylus pricer `stylus/pricer/src/**`                                                                                                                                                            | Third-party dependencies (report upstream)                                           |
+| `sdk/`, `mcp/`, `bots/`, `app/` where a bug can move or lock user funds or mislead a signer                                                                                                         | Issues requiring a compromised admin key (see the trust model)                       |
 
 ## What is already known
 
@@ -26,4 +26,4 @@ Include the affected contract or package, the commit or deployed address, a desc
 
 ## Supported versions
 
-Only the current deployment (v2 on Robinhood Chain testnet) and the `main` branch receive fixes. Contracts are not upgradeable; a fix ships as a new deployment and is recorded in [CHANGELOG.md](CHANGELOG.md).
+Only the current deployments (v2 and v3 on Robinhood Chain testnet, v3 on Arbitrum Sepolia), the `main` branch and the `v3-contracts` branch receive fixes. Contracts are not upgradeable; a fix ships as a new deployment and is recorded in [CHANGELOG.md](CHANGELOG.md).

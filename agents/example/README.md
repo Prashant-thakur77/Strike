@@ -21,6 +21,8 @@ STRIKE_CHAIN_ID=46630 STRIKE_AGENT_PRIVATE_KEY=0x... pnpm --filter @strike/agent
 | `--log <dir>`                  | Write a decision record for a propose, `--reckless` or `--settle` run to `<dir>/<YYYY-MM-DD>-<vault symbol>.md` and `.json`  |
 | `--anchor`                     | With `--log`: anchor each record's keccak256 hash on-chain in DecisionLog, signed by the agent's key                         |
 
+`STRIKE_CHAIN_ID=46630` is v2 on Robinhood Chain testnet and `STRIKE_CHAIN_ID=421614` is v3 on Arbitrum Sepolia (the SDK's deployment map). v3 on Robinhood Chain testnet is reached with the SDK's address overrides (`STRIKE_EPOCH_MANAGER` and friends, listed in [the v3 log](../../docs/testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)).
+
 `--help` lists every option. `pnpm --filter @strike/agent-example market-open` prints whether the NYSE session is open at the chain's latest block (`marketOpen()` in the SDK).
 
 ## Claude plans the epoch (`--llm`)
@@ -60,7 +62,7 @@ The vault then needs deposits before it can sell; after that the usual loop appl
 
 ## Decision records (`--log`)
 
-With `--log <dir>` the agent keeps its console output and also writes what it did and why: the date and chain, the vault and its mandate, the market inputs (the spot and sigma snapshotted when the epoch opened, or live values when no epoch runs), the target delta with the strategy's rule or Claude's own reasoning, the dry-run verdict, each transaction with a Blockscout link on chain 46630, the result (accepted with its series, or rejected with the reason and the slash) and the agent's track record afterwards. A JSON copy with the same name sits next to the markdown for the app. The directory is relative to where you run the command. A second run on the same day for the same vault gets a `-2` suffix, so no record is ever overwritten. With `--settle --log`, a series the keeper already settled this week is looked up on-chain (`EpochSettled`) and recorded instead of failing.
+With `--log <dir>` the agent keeps its console output and also writes what it did and why: the date and chain, the vault and its mandate, the market inputs (the spot and sigma snapshotted when the epoch opened, or live values when no epoch runs), the target delta with the strategy's rule or Claude's own reasoning, the dry-run verdict, each transaction with an explorer link (Blockscout on 46630, Arbiscan on 421614), the result (accepted with its series, or rejected with the reason and the slash) and the agent's track record afterwards. A JSON copy with the same name sits next to the markdown for the app. The directory is relative to where you run the command. A second run on the same day for the same vault gets a `-2` suffix, so no record is ever overwritten. With `--settle --log`, a series the keeper already settled this week is looked up on-chain (`EpochSettled`) and recorded instead of failing.
 
 The records of the live testnet vaults are published in [docs/agent-log](../../docs/agent-log/).
 
@@ -76,7 +78,7 @@ The transaction goes into the record's transactions list and an "On-chain anchor
 
 ## Running it every week (GitHub Actions)
 
-[`.github/workflows/agent.yml`](../../.github/workflows/agent.yml) runs the agent autonomously as agent #1 on Robinhood Chain testnet (46630) and commits the records to `docs/agent-log`:
+[`.github/workflows/agent.yml`](../../.github/workflows/agent.yml) runs the agent autonomously as agent #1 on Robinhood Chain testnet (46630) and commits the records to `docs/agent-log`. It is off until the owner sets the switches below:
 
 - **Monday 15:00 UTC** (11:00 New York in summer, 10:00 in winter): it checks the NYSE session with `marketOpen()` and skips the week cleanly on a holiday. Then it runs the keeper once to refresh prices and proposes on both TSLA vaults with `--log`. It adds `--llm` when `ANTHROPIC_API_KEY` (the API planner) or `CLAUDE_CODE_OAUTH_TOKEN` (the Claude Code planner; the job then installs Claude Code 2.1.263) is set.
 - **Friday 21:15 UTC** (after the 16:00 New York close all year): the keeper settles the expired series, then the agent runs `--settle --log` on each vault. It records the keeper's settlement, and settles itself only if nothing has yet.
