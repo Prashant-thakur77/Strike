@@ -61,7 +61,7 @@ Internal security review ([review-2026-09-29.md](security/review-2026-09-29.md))
 forge test --root contracts --match-path "test/audit/*" -vv
 ```
 
-Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 202 TypeScript tests (SDK 109, MCP 49, agents 44), 60 Telegram bot tests, 10 subgraph tests, 106 Playwright tests. The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
+Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 231 TypeScript tests (SDK 120, MCP 51, agents 60), 60 Telegram bot tests, 10 subgraph tests, 148 Playwright tests per viewport (116 run by default; 32 are the opt-in UI audit). The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
 
 ## What each step shows
 
@@ -83,9 +83,9 @@ USDG is the premium, the put collateral, the fee currency and the agent bond, so
 
 ## Further reading
 
-| Document                                                                 | What it covers                                                                                          |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| [Hard questions](submission/qa-prep.md)                                  | Twenty likely judge questions (buyers, liquidity, malicious agents, weekend oracles, regulation, money) |
-| [Milestones](MILESTONES.md)                                              | The milestone plan for the grant: v3 on two chains, the Stylus risk engine, audit and mainnet, adoption |
-| [Past winners](research-winners.md)                                      | What earlier Open House and Stylus winners built, and what Strike took from them                        |
-| [Why only here](../README.md#why-only-here-robinhood-chain-and-arbitrum) | Why Strike needs Robinhood Chain and Arbitrum: stock tokens, equity feeds, USDG, ERC-8004, Stylus       |
+| Document                                                                 | What it covers                                                                                                                                                 |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Hard questions](submission/qa-prep.md)                                  | Twenty likely judge questions (buyers, liquidity, malicious agents, weekend oracles, regulation, money)                                                        |
+| [Milestones](MILESTONES.md)                                              | The milestone plan for the grant: v3 on two chains and the Stylus risk engine (both done), then v3 on `main`, eight settled weeks, audit and mainnet, adoption |
+| [Past winners](research-winners.md)                                      | What earlier Open House and Stylus winners built, and what Strike took from them                                                                               |
+| [Why only here](../README.md#why-only-here-robinhood-chain-and-arbitrum) | Why Strike needs Robinhood Chain and Arbitrum: stock tokens, equity feeds, USDG, ERC-8004, Stylus                                                              |
