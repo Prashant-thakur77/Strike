@@ -208,7 +208,7 @@ export function useSeriesRisk(vault: VaultSummary | undefined) {
   const seriesId = vault?.state === 2 ? vault.series?.id : undefined;
   return useQuery({
     queryKey: ["strike", chainId, "risk", seriesId?.toString()],
-    enabled: !!client && !!deployment?.riskEngine && seriesId !== undefined,
+    enabled: !!client && !!(deployment?.riskEngine || deployment?.riskLens) && seriesId !== undefined,
     refetchInterval: 30_000,
     placeholderData: (prev) => prev,
     retry: 1,

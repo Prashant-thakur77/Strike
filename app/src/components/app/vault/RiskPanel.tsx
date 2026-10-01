@@ -6,7 +6,8 @@ import { useId, useState } from "react";
 import { useSeriesRisk } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { errorMessage } from "@/hooks/useTx";
-import { explorerUrl } from "@/lib/chains";
+import { CHAIN_META, explorerUrl, type AppChainId } from "@/lib/chains";
+import type { Deployment } from "@/lib/deployment";
 import { fmtAmount, fmtDuration, shortAddr, toNumber } from "@/lib/format";
 import type { VaultSummary } from "@/lib/reads";
 import { Skeleton } from "../Skeleton";
@@ -33,10 +34,10 @@ const GREEKS = [
 export function RiskPanel({ vault }: { vault: VaultSummary }) {
   const { deployment } = useStrike();
   const risk = useSeriesRisk(vault);
-  if (!deployment?.riskEngine) {
+  if (!deployment?.riskEngine && !deployment?.riskLens) {
     return (
       <p className={styles.hint}>
-        No risk engine is deployed on this network. It runs on Robinhood Chain testnet.
+        No risk engine is deployed on this network. It runs on Robinhood Chain testnet and Arbitrum Sepolia.
       </p>
     );
   }
@@ -85,7 +86,7 @@ function RiskSkeleton() {
 }
 
 function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; stale: boolean }) {
-  const { chainId } = useStrike();
+  const { chainId, deployment } = useStrike();
   const [view, setView] = useState<"chart" | "table">("chart");
   const titleId = useId();
   const sym = vault.underlying.symbol;
@@ -104,7 +105,6 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
   const collUnit = r.isCall ? sym : "USDG";
   const sold = fmtAmount(r.sold, r.tokenDecimals, 6);
   const kind = r.isCall ? "call" : "put";
-  const engineUrl = explorerUrl(chainId as never, "address", r.riskEngine);
   const iv = r.impliedVol;
   const share = (r.worstShareOfCollateralBps / 100).toFixed(1);
 
@@ -269,23 +269,87 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
         )}
       </p>
 
-      <p className={styles.riskFoot}>
-        Computed live by the Stylus (Rust) risk engine at{" "}
-        {engineUrl ? (
-          <a href={engineUrl} target="_blank" rel="noreferrer" className="text-link" title={r.riskEngine}>
-            <span className="mono">{shortAddr(r.riskEngine)}</span> <ArrowUpRight size={11} aria-hidden />
-          </a>
-        ) : (
-          <span className="mono">{shortAddr(r.riskEngine)}</span>
-        )}{" "}
-        (<code className="mono">greeks</code>, <code className="mono">scenarioLoss</code>
-        {iv ? (
-          <>
-            , <code className="mono">impliedVol</code>
-          </>
-        ) : null}
-        ). v3 risk engine reading a v2 series.
-      </p>
+      <RiskSource r={r} chainId={chainId} deployment={deployment} />
     </div>
+  );
+}
+
+/** An address linked to the chain's explorer, shortened, with the full address on hover. */
+function AddressLink({ chainId, address }: { chainId: AppChainId; address: string }) {
+  const url = explorerUrl(chainId, "address", address);
+  const label = <span className="mono">{shortAddr(address)}</span>;
+  return url ? (
+    <a href={url} target="_blank" rel="noreferrer" className="text-link" title={address}>
+      {label} <ArrowUpRight size={11} aria-hidden />
+    </a>
+  ) : (
+    <span title={address}>{label}</span>
+  );
+}
+
+const sameAddr = (a: string | undefined, b: string) => !!a && a.toLowerCase() === b.toLowerCase();
+
+/**
+ * Which contracts computed the panel, on which chain, and which protocol version the series belongs to: all from
+ * the SDK's result (the vault's EpochManager against the deployment map, and whether RiskLens answered).
+ */
+function RiskSource({
+  r,
+  chainId,
+  deployment,
+}: {
+  r: SeriesRisk;
+  chainId: AppChainId;
+  deployment: Deployment | null;
+}) {
+  const chain = CHAIN_META[chainId]?.label ?? `chain ${r.chainId}`;
+  const stylus =
+    sameAddr(deployment?.stylusPricer, r.riskEngine) || sameAddr(deployment?.riskEngine, r.riskEngine);
+  const engineName = stylus ? "the Stylus (Rust) risk engine" : "the risk engine";
+  const iv = r.impliedVol;
+  const fn = (name: string) => <code className="mono">{name}</code>;
+  const em = <AddressLink chainId={chainId} address={r.epochManager} />;
+
+  return (
+    <p
+      className={styles.riskFoot}
+      data-testid="risk-source"
+      data-source={r.source}
+      data-version={r.version ?? "unknown"}
+      data-chain={r.chainId}
+    >
+      {r.source === "riskLens" && r.riskLens ? (
+        <>
+          Computed live on {chain} through RiskLens (v3) at{" "}
+          <AddressLink chainId={chainId} address={r.riskLens} /> ({fn(r.riskLensFunction ?? "seriesRisk")}),
+          which called {engineName} at <AddressLink chainId={chainId} address={r.riskEngine} />, the
+          EpochManager&apos;s pricer ({fn("greeks")}, {fn("scenarioLoss")})
+          {iv ? <>; {fn("impliedVol")} is called on the engine directly</> : null}.
+        </>
+      ) : (
+        <>
+          Computed live on {chain} by {engineName} at <AddressLink chainId={chainId} address={r.riskEngine} />{" "}
+          ({fn("greeks")}, {fn("scenarioLoss")}
+          {iv ? <>, {fn("impliedVol")}</> : null}), called directly.
+        </>
+      )}{" "}
+      {r.version === "v2" ? (
+        <>
+          A v2 series: the vault&apos;s EpochManager {em} is the v2 deployment. v2&apos;s pricer has no risk
+          functions and v2 has no RiskLens, so this is the v3 engine, deployed next to v2.
+        </>
+      ) : r.version === "v3" ? (
+        <>A v3 series: the vault&apos;s EpochManager {em} is the v3 deployment.</>
+      ) : r.version ? (
+        <>
+          A {r.version} series: the vault&apos;s EpochManager is {em}.
+        </>
+      ) : (
+        <>
+          The vault&apos;s EpochManager {em} is not in the app&apos;s deployment map, so its version is not
+          known.
+        </>
+      )}
+    </p>
   );
 }

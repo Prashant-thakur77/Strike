@@ -17,6 +17,7 @@ import {
   settlementPayout,
   shockedSpot,
   stockOracleAbi,
+  strikeVaultAbi,
   vaultExposure,
   wadToNumber,
 } from "../src/index.js";
@@ -34,6 +35,9 @@ const A: StrikeAddresses = {
   vaultFactory: addr(0xfa),
 };
 const ENGINE = addr(0x5e);
+const LENS = addr(0x1e);
+/** The EpochManager's pricer, which RiskLens calls (a different address from ENGINE, to tell the paths apart). */
+const PRICER = addr(0x9e);
 const FEED = addr(0xf0);
 const VAULT = getAddress("0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e");
 const TSLA = getAddress("0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E");
@@ -108,14 +112,77 @@ interface Setup {
   logs?: boolean;
   impliedVol?: (args: readonly unknown[]) => bigint;
   scenarioLoss?: (args: readonly unknown[]) => unknown;
+  /** Address of the EpochManager (default A.epochManager) and the chain id the client is created with. */
+  em?: Address;
+  chainId?: number;
+  /** Deploy a RiskLens bound to `manager` (default: the series' EpochManager) and pass it to the client. */
+  lens?: { manager?: Address };
 }
 
 function setup(o: Setup = {}) {
-  const seen = { greeks: [] as unknown[][], scenarioLoss: [] as unknown[][], impliedVol: [] as unknown[][] };
+  const seen = {
+    greeks: [] as unknown[][],
+    scenarioLoss: [] as unknown[][],
+    impliedVol: [] as unknown[][],
+    seriesRisk: [] as unknown[][],
+    seriesRiskAt: [] as unknown[][],
+    pricerImpliedVol: [] as unknown[][],
+  };
   const record = (name: keyof typeof seen, args: readonly unknown[]) => seen[name].push([...args]);
   const s = { ...series, sold: o.sold ?? series.sold };
+  const em = o.em ?? A.epochManager;
+  /** RiskLens._risk: the engine's greeks (zero once expired) and scenarioLoss, the first worst shock's payout. */
+  const lensRisk = (spot: bigint, sigma: bigint, shocks: readonly bigint[]) => {
+    const now = o.now ?? NOW;
+    const tenor = EXPIRY > now ? EXPIRY - now : 0n;
+    const [delta, gamma, vega, theta] = tenor === 0n ? [0n, 0n, 0n, 0n] : STYLUS.greeks;
+    const losses = STYLUS.losses.slice(0, shocks.length).map((l) => (l * s.sold) / (4n * WAD));
+    const worstLoss = losses.reduce((m, x) => (x > m ? x : m), 0n);
+    const i = losses.findIndex((l) => l === worstLoss);
+    const worstPayout = settlementPayout(true, STRIKE, s.sold, shockedSpot(spot, shocks[i]!), 18, 6);
+    return {
+      spot,
+      sigma,
+      tenor,
+      delta,
+      gamma,
+      vega,
+      theta,
+      sold: s.sold,
+      collateral: s.collateral,
+      worstShock: shocks[i]!,
+      worstLoss,
+      worstPayout,
+      shocks,
+      losses,
+    };
+  };
   const contracts: Record<Address, FakeContract> = {
-    [A.epochManager]: {
+    [VAULT]: { abi: strikeVaultAbi, fns: { manager: em } },
+    [LENS]: {
+      abi: riskLensAbi,
+      fns: {
+        manager: o.lens?.manager ?? em,
+        seriesRisk: (args: readonly unknown[]) => {
+          record("seriesRisk", args);
+          return lensRisk(SPOT, o.currentSigma ?? SIGMA, DEFAULT_SHOCKS);
+        },
+        seriesRiskAt: (args: readonly unknown[]) => {
+          record("seriesRiskAt", args);
+          return lensRisk(args[1] as bigint, args[2] as bigint, args[3] as readonly bigint[]);
+        },
+      },
+    },
+    [PRICER]: {
+      abi: riskEngineAbi,
+      fns: {
+        impliedVol: (args: readonly unknown[]) => {
+          record("pricerImpliedVol", args);
+          return STYLUS.impliedVol;
+        },
+      },
+    },
+    [em]: {
       abi: epochManagerAbi,
       fns: {
         getSeries: (args: readonly unknown[]) => (args[0] === SERIES_ID ? s : { ...s, vault: addr(0) }),
@@ -129,6 +196,7 @@ function setup(o: Setup = {}) {
         ],
         spot: o.spot ?? SPOT,
         usdgDecimals: 6,
+        pricer: PRICER,
       },
     },
     [A.stockOracle]: {
@@ -186,7 +254,7 @@ function setup(o: Setup = {}) {
                 amount: 4n * WAD,
                 premium: 10_005_944n,
               },
-              A.epochManager,
+              em,
             ),
             blockNumber: BUY_BLOCK,
             transactionHash: BUY_TX,
@@ -197,7 +265,13 @@ function setup(o: Setup = {}) {
     logs,
     blockTimestamps: { [BUY_BLOCK.toString()]: BUY_TIME },
   });
-  const strike = createStrikeClient({ publicClient: client, chainId: 999, addresses: A, riskEngine: ENGINE });
+  const strike = createStrikeClient({
+    publicClient: client,
+    chainId: o.chainId ?? 999,
+    addresses: { ...A, epochManager: em },
+    riskEngine: ENGINE,
+    ...(o.lens ? { riskLens: LENS } : {}),
+  });
   return { strike, calls, seen };
 }
 
@@ -415,6 +489,108 @@ describe("seriesRisk edge cases", () => {
     expect(deployments["46630"]?.riskEngine?.toLowerCase()).toBe(
       "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
     );
+  });
+});
+
+describe("seriesRisk: which contract, which chain, which version", () => {
+  it("calls the engine directly and leaves the version unknown off the deployment map", async () => {
+    const { strike, calls } = setup();
+    const r = await strike.seriesRisk(SERIES_ID, { impliedVol: false });
+    expect(r.source).toBe("riskEngine");
+    expect(r.riskLens).toBeNull();
+    expect(r.riskLensFunction).toBeNull();
+    expect(r.riskEngine).toBe(ENGINE);
+    expect(r.chainId).toBe(999);
+    expect(r.epochManager).toBe(A.epochManager);
+    expect(r.version).toBeNull();
+    expect(calls).toContain("manager");
+    expect(calls).not.toContain("seriesRisk");
+  });
+
+  it("names a v2 series when the vault's EpochManager is the map's v2 deployment (46630)", async () => {
+    const { deployments } = await import("../src/index.js");
+    const v2 = getAddress(deployments["46630"]!.epochManager);
+    const { strike } = setup({ em: v2, chainId: 46630 });
+    const r = await strike.seriesRisk(SERIES_ID, { impliedVol: false });
+    expect(r.version).toBe("v2");
+    expect(r.epochManager).toBe(v2);
+    expect(r.source).toBe("riskEngine");
+    expect(r.riskEngine).toBe(ENGINE);
+  });
+
+  it("reads a v3 series through RiskLens.seriesRisk, priced by the EpochManager's pricer", async () => {
+    const { deployments } = await import("../src/index.js");
+    const v3 = getAddress(deployments["421614"]!.epochManager);
+    const { strike, seen } = setup({ em: v3, chainId: 421614, lens: {} });
+    const r = await strike.seriesRisk(SERIES_ID);
+    expect(r.source).toBe("riskLens");
+    expect(r.riskLens).toBe(LENS);
+    expect(r.riskLensFunction).toBe("seriesRisk");
+    expect(r.riskEngine).toBe(PRICER);
+    expect(r.version).toBe("v3");
+    expect(r.chainId).toBe(421614);
+    expect(seen.seriesRisk).toEqual([[SERIES_ID]]);
+    expect(seen.greeks).toEqual([]);
+    expect(seen.scenarioLoss).toEqual([]);
+    // The same numbers as the direct path, and the implied volatility from the pricer RiskLens used.
+    const direct = await setup().strike.seriesRisk(SERIES_ID);
+    expect(r.greeks).toEqual(direct.greeks);
+    expect(r.exposure).toEqual(direct.exposure);
+    expect(r.scenarios).toEqual(direct.scenarios);
+    expect(r.worstLoss).toBe(direct.worstLoss);
+    expect(r.worstShock).toBe(direct.worstShock);
+    expect(r.worstPayout).toBe(direct.worstPayout);
+    expect(r.tenor).toBe(direct.tenor);
+    expect(seen.pricerImpliedVol).toHaveLength(1);
+    expect(r.impliedVol?.sigma).toBe(STYLUS.impliedVol);
+  });
+
+  it("uses RiskLens.seriesRiskAt for the epoch's opening sigma and for a last print", async () => {
+    const moved = 550_000_000_000_000_000n;
+    const { strike, seen } = setup({ lens: {}, currentSigma: moved });
+    const r = await strike.seriesRisk(SERIES_ID, { impliedVol: false });
+    expect(r.riskLensFunction).toBe("seriesRiskAt");
+    expect(seen.seriesRisk).toEqual([]);
+    expect(seen.seriesRiskAt.map((a) => [a[0], a[1], a[2]])).toEqual([
+      [SERIES_ID, SPOT, SIGMA],
+      [SERIES_ID, SPOT, moved],
+    ]);
+    expect(r.sigma).toBe(SIGMA);
+    expect(r.atCurrentSigma).not.toBeNull();
+    // A RiskLens bound to this EpochManager makes the series v3 even off the map.
+    expect(r.version).toBe("v3");
+
+    const stale = setup({
+      lens: {},
+      spot: () => {
+        throw new Error("StalePrice");
+      },
+      status: [2, SPOT, 1_790_777_939n],
+    });
+    const rs = await stale.strike.seriesRisk(SERIES_ID, { impliedVol: false });
+    expect(rs.spotStatus).toBe("StalePrice");
+    expect(rs.riskLensFunction).toBe("seriesRiskAt");
+    expect(stale.seen.seriesRiskAt[0]?.[1]).toBe(SPOT);
+  });
+
+  it("ignores a RiskLens bound to another EpochManager and calls the engine directly", async () => {
+    const { strike, seen } = setup({ lens: { manager: addr(0xbad) } });
+    const r = await strike.seriesRisk(SERIES_ID, { impliedVol: false });
+    expect(r.source).toBe("riskEngine");
+    expect(r.riskLens).toBeNull();
+    expect(r.riskEngine).toBe(ENGINE);
+    expect(r.version).toBeNull();
+    expect(seen.seriesRisk).toEqual([]);
+    expect(seen.greeks).toHaveLength(1);
+  });
+
+  it("finds RiskLens and the version in the Arbitrum Sepolia deployment map", async () => {
+    const { deployments } = await import("../src/index.js");
+    const d = deployments["421614"]!;
+    expect(d.version).toBe("v3");
+    expect(d.riskLens?.toLowerCase()).toBe("0x94ac10ff1a71cebfd825079aaf897858a9953ece");
+    expect(deployments["46630"]?.version).toBe("v2");
+    expect(deployments["46630"]?.riskLens).toBeUndefined();
   });
 });
 

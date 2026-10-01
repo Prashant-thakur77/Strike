@@ -1,5 +1,12 @@
 import { type Address, type Hex, type PublicClient, getAddress } from "viem";
-import { epochManagerAbi, mirrorFeedAbi, riskEngineAbi, stockOracleAbi } from "./abi/index.js";
+import {
+  epochManagerAbi,
+  mirrorFeedAbi,
+  riskEngineAbi,
+  riskLensAbi,
+  stockOracleAbi,
+  strikeVaultAbi,
+} from "./abi/index.js";
 import { StrikeError, describeError } from "./errors.js";
 import { type FeedStatus, feedStatusName } from "./names.js";
 import type { SeriesState } from "./types.js";
@@ -76,8 +83,21 @@ export interface SeriesRisk {
   expiry: bigint;
   settled: boolean;
   cancelled: boolean;
-  /** The contract that computed greeks, scenarios and implied volatility. */
+  /** The contract that computed greeks, scenarios and implied volatility (through RiskLens, the EpochManager's pricer). */
   riskEngine: Address;
+  /** How the greeks and scenarios were read: through the v3 RiskLens, or by calling the risk engine directly. */
+  source: "riskLens" | "riskEngine";
+  /** The RiskLens read (null when the engine was called directly) and the function used. */
+  riskLens: Address | null;
+  riskLensFunction: "seriesRisk" | "seriesRiskAt" | null;
+  chainId: number;
+  /** The vault's EpochManager (`StrikeVault.manager()`). */
+  epochManager: Address;
+  /**
+   * Protocol version the series belongs to ("v2", "v3"): the deployment map's `version` when the vault's
+   * EpochManager is the map's, "v3" when a RiskLens bound to that EpochManager answered, else null (unknown).
+   */
+  version: string | null;
   /** Latest block timestamp. */
   chainTime: bigint;
   /** Seconds to expiry; 0 once expired, and the greeks are then 0 (as RiskLens). */
@@ -137,6 +157,10 @@ export interface RiskContext {
   epochManager: Address;
   stockOracle: Address;
   riskEngine: Address | undefined;
+  /** RiskLens (v3); used when its `manager()` is the series' EpochManager. */
+  riskLens?: Address | undefined;
+  /** The deployment map's record for the chain, before any env override: which EpochManager is which version. */
+  mapped?: { epochManager: Address; version?: string | undefined } | undefined;
   fromBlock: bigint;
   chainId: number;
   blockTimestamp: () => Promise<bigint>;
@@ -242,51 +266,112 @@ export async function computeSeriesRisk(
   seriesOrId: bigint | SeriesState,
   opts: SeriesRiskOptions = {},
 ): Promise<SeriesRisk> {
-  const engine = ctx.riskEngine;
-  if (!engine) throw new StrikeError(`no risk engine is deployed on chain ${ctx.chainId}`);
+  if (!ctx.riskEngine && !ctx.riskLens)
+    throw new StrikeError(`no risk engine is deployed on chain ${ctx.chainId}`);
   const s = typeof seriesOrId === "bigint" ? await ctx.getSeries(seriesOrId) : seriesOrId;
   if (!s) throw new StrikeError(`series ${String(seriesOrId)} does not exist`);
   const pc = ctx.publicClient;
   const em = ctx.epochManager;
 
-  const [chainTime, usdgDecimals, u, epoch, live] = await Promise.all([
+  const [chainTime, usdgDecimals, u, epoch, live, vaultManager, lensManager] = await Promise.all([
     ctx.blockTimestamp(),
     ctx.usdgDecimals(),
     pc.readContract({ address: em, abi: epochManagerAbi, functionName: "underlyings", args: [s.underlying] }),
     pc.readContract({ address: em, abi: epochManagerAbi, functionName: "epochs", args: [s.vault] }),
     readSpot(ctx, s.underlying),
+    pc.readContract({ address: s.vault, abi: strikeVaultAbi, functionName: "manager" }),
+    ctx.riskLens
+      ? pc
+          .readContract({ address: ctx.riskLens, abi: riskLensAbi, functionName: "manager" })
+          .catch(() => null)
+      : Promise.resolve(null),
   ]);
+  const same = (a: Address | null | undefined, b: Address | null | undefined) =>
+    !!a && !!b && a.toLowerCase() === b.toLowerCase();
+  // RiskLens is v3-only and bound to one EpochManager: use it only when it is this series' manager.
+  const lens =
+    ctx.riskLens && same(lensManager, vaultManager) && same(vaultManager, em) ? ctx.riskLens : null;
+  const version = same(ctx.mapped?.epochManager, vaultManager)
+    ? (ctx.mapped?.version ?? (lens ? "v3" : null))
+    : lens
+      ? "v3"
+      : null;
+  // Through RiskLens the engine is the EpochManager's pricer (what RiskLens calls); otherwise the configured one.
+  const engine = lens
+    ? await pc.readContract({ address: em, abi: epochManagerAbi, functionName: "pricer" })
+    : ctx.riskEngine;
+  if (!engine)
+    throw new StrikeError(
+      `no risk engine for series ${s.id} on chain ${ctx.chainId}: the RiskLens is not bound to its EpochManager`,
+    );
+
   const [tokenDecimals, , currentSigma, , , spotBufferBps] = u;
   const [, , epochSeriesId, , openSigma] = epoch;
   const fromEpoch = epochSeriesId === s.id && openSigma > 0n;
   const sigma = fromEpoch ? openSigma : currentSigma;
-  const { spot, status: spotStatus } = live;
+  let { spot } = live;
+  const { status: spotStatus } = live;
 
-  const tenor = s.expiry > chainTime ? s.expiry - chainTime : 0n;
+  let tenor = s.expiry > chainTime ? s.expiry - chainTime : 0n;
   const soldWad = (s.sold * WAD) / 10n ** BigInt(tokenDecimals);
   const shocks = [...(opts.shocks ?? DEFAULT_SHOCKS)];
+  const defaultGrid =
+    shocks.length === DEFAULT_SHOCKS.length && shocks.every((x, i) => x === DEFAULT_SHOCKS[i]);
 
-  const greeksAt = (vol: bigint) =>
-    tenor === 0n
-      ? Promise.resolve(ZERO_GREEKS)
-      : readGreeks(ctx, engine, [spot, s.strike, tenor, vol, s.isCall]);
   let greeks: Greeks;
   let atCurrent: Greeks | null;
   let worstLoss: bigint;
   let losses: readonly bigint[];
+  let lensFn: "seriesRisk" | "seriesRiskAt" | null = null;
+  let lensWorst: { shock: bigint; payout: bigint } | null = null;
+  const needCurrent = currentSigma !== sigma && currentSigma > 0n;
   try {
-    [greeks, atCurrent, [worstLoss, losses]] = await Promise.all([
-      greeksAt(sigma),
-      currentSigma !== sigma && currentSigma > 0n ? greeksAt(currentSigma) : Promise.resolve(null),
-      pc.readContract({
-        address: engine,
-        abi: riskEngineAbi,
-        functionName: "scenarioLoss",
-        args: [s.isCall, s.strike, soldWad, spot, shocks],
-      }),
-    ]);
+    if (lens) {
+      // RiskLens.seriesRisk is the live view (EpochManager.spot, the current sigma, the ±30% grid). The epoch's
+      // opening sigma, a last print while the feed is unsafe, or another grid go through seriesRiskAt.
+      const liveView = spotStatus === "Ok" && sigma === currentSigma && defaultGrid;
+      lensFn = liveView ? "seriesRisk" : "seriesRiskAt";
+      const at = (vol: bigint) =>
+        pc.readContract({
+          address: lens,
+          abi: riskLensAbi,
+          functionName: "seriesRiskAt",
+          args: [s.id, spot, vol, shocks],
+        });
+      const [main, cur] = await Promise.all([
+        liveView
+          ? pc.readContract({ address: lens, abi: riskLensAbi, functionName: "seriesRisk", args: [s.id] })
+          : at(sigma),
+        needCurrent ? at(currentSigma) : Promise.resolve(null),
+      ]);
+      spot = main.spot;
+      tenor = main.tenor;
+      greeks = { delta: main.delta, gamma: main.gamma, vega: main.vega, theta: main.theta };
+      atCurrent = cur ? { delta: cur.delta, gamma: cur.gamma, vega: cur.vega, theta: cur.theta } : null;
+      worstLoss = main.worstLoss;
+      losses = main.losses;
+      lensWorst = { shock: main.worstShock, payout: main.worstPayout };
+    } else {
+      const greeksAt = (vol: bigint) =>
+        tenor === 0n
+          ? Promise.resolve(ZERO_GREEKS)
+          : readGreeks(ctx, engine, [spot, s.strike, tenor, vol, s.isCall]);
+      [greeks, atCurrent, [worstLoss, losses]] = await Promise.all([
+        greeksAt(sigma),
+        needCurrent ? greeksAt(currentSigma) : Promise.resolve(null),
+        pc.readContract({
+          address: engine,
+          abi: riskEngineAbi,
+          functionName: "scenarioLoss",
+          args: [s.isCall, s.strike, soldWad, spot, shocks],
+        }),
+      ]);
+    }
   } catch (err) {
-    throw new StrikeError(`the risk engine at ${engine} rejected series ${s.id}: ${riskEngineError(err)}`);
+    const via = lens ? ` (through RiskLens at ${getAddress(lens)})` : "";
+    throw new StrikeError(
+      `the risk engine at ${getAddress(engine)}${via} rejected series ${s.id}: ${riskEngineError(err)}`,
+    );
   }
 
   const scenarios = shocks.map((shock, i) => ({
@@ -295,9 +380,11 @@ export async function computeSeriesRisk(
     loss: losses[i] as bigint,
   }));
   const worst = scenarios.find((x) => x.loss === worstLoss) ?? scenarios[0];
-  const worstPayout = worst
-    ? settlementPayout(s.isCall, s.strike, s.sold, worst.spot, tokenDecimals, usdgDecimals)
-    : 0n;
+  const worstPayout = lensWorst
+    ? lensWorst.payout
+    : worst
+      ? settlementPayout(s.isCall, s.strike, s.sold, worst.spot, tokenDecimals, usdgDecimals)
+      : 0n;
 
   let impliedVol: LastBuyImpliedVol | null = null;
   let impliedVolNote = "not requested";
@@ -322,6 +409,12 @@ export async function computeSeriesRisk(
     settled: s.settled,
     cancelled: s.cancelled,
     riskEngine: getAddress(engine),
+    source: lens ? "riskLens" : "riskEngine",
+    riskLens: lens ? getAddress(lens) : null,
+    riskLensFunction: lensFn,
+    chainId: ctx.chainId,
+    epochManager: getAddress(vaultManager),
+    version,
     chainTime,
     tenor,
     spot,
@@ -341,7 +434,7 @@ export async function computeSeriesRisk(
     atCurrentSigma: atCurrent ? { greeks: atCurrent, exposure: vaultExposure(atCurrent, soldWad) } : null,
     scenarios,
     worstLoss,
-    worstShock: worst?.shock ?? 0n,
+    worstShock: lensWorst?.shock ?? worst?.shock ?? 0n,
     worstPayout,
     worstShareOfCollateralBps: s.collateral > 0n ? Number((worstPayout * BigInt(BPS)) / s.collateral) : 0,
     impliedVol,

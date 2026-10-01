@@ -17,6 +17,14 @@ export interface StrikeDeployment {
   decisionLog?: Address;
   /** Risk engine (IRiskEngine: greeks, implied volatility, scenario loss); absent where it is not deployed. */
   riskEngine?: Address;
+  /** RiskLens (v3 only): reads a series' greeks and stress test through the EpochManager's pricer. */
+  riskLens?: Address;
+  /** The Stylus (Rust/WASM) program of this deployment, when it has one. */
+  stylusPricer?: Address;
+  /** Protocol version of this deployment's contracts ("v2", "v3"). */
+  version?: string;
+  /** Network name, when the record carries one. */
+  network?: string;
   /** Deployment block, where event scans start. */
   block?: number;
   stocks: Record<string, { token: Address; feed: Address }>;
@@ -43,6 +51,7 @@ export const DEPLOYMENT_ENV = {
   vaultImplementation: "STRIKE_VAULT_IMPLEMENTATION",
   decisionLog: "STRIKE_DECISION_LOG",
   riskEngine: "STRIKE_RISK_ENGINE",
+  riskLens: "STRIKE_RISK_LENS",
 } as const satisfies Partial<Record<keyof StrikeDeployment, string>>;
 
 type Env = Record<string, string | undefined>;

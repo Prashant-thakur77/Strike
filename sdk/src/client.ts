@@ -23,7 +23,7 @@ import {
   strikeVaultAbi,
   vaultFactoryAbi,
 } from "./abi/index.js";
-import { getDeployment } from "./deployments.js";
+import { deployments, getDeployment } from "./deployments.js";
 import { StrikeError } from "./errors.js";
 import { mandateProblems } from "./mandate.js";
 import { agentStatusName, epochStateName, feedStatusName, mandateReasonName } from "./names.js";
@@ -108,6 +108,8 @@ export interface StrikeClientConfig {
   addresses?: Partial<StrikeAddresses>;
   /** Risk engine (IRiskEngine) for `seriesRisk`; by default the deployment map's `riskEngine`, when it has one. */
   riskEngine?: Address;
+  /** RiskLens (v3) for `seriesRisk`; by default the deployment map's `riskLens`, when it has one. */
+  riskLens?: Address;
 }
 
 /** The viem clients a Strike client uses. */
@@ -180,6 +182,9 @@ export function createStrikeClient(config: StrikeClientConfig) {
     }
   })();
   const riskEngine = config.riskEngine ?? deployment?.riskEngine;
+  const riskLens = config.riskLens ?? deployment?.riskLens;
+  // The map's own record (no env override): which EpochManager carries which protocol version.
+  const mapped = deployments[String(chainId)];
   const deployBlock = typeof deployment?.block === "number" ? BigInt(deployment.block) : 0n;
 
   function requireAccount(): { wallet: WalletClient; account: Account } {
@@ -689,6 +694,10 @@ export function createStrikeClient(config: StrikeClientConfig) {
           epochManager: em,
           stockOracle: addresses.stockOracle,
           riskEngine: riskEngine ? getAddress(riskEngine) : undefined,
+          riskLens: riskLens ? getAddress(riskLens) : undefined,
+          mapped: mapped
+            ? { epochManager: getAddress(mapped.epochManager), version: mapped.version }
+            : undefined,
           fromBlock: deployBlock,
           chainId,
           blockTimestamp,
