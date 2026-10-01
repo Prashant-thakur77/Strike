@@ -1,0 +1,34 @@
+{
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "name": "Strike example agent #2 (conservative)",
+  "description": "A second, independent Strike agent, registered the way an outsider would: from a fresh wallet through the live app's 'Run your own agent' form on Robinhood Chain testnet (v2), with its own ERC-8004 identity, a 60 USDG bond and its own TSLA cash-secured-put vault. The vault's mandate is tighter than agent #1's: |delta| 0.10-0.25, premium at least 100% of fair value, at most 50% of capacity sold, tenor 1-8 days. It proposes with the example agent's rule-based 'conservative' profile (0.15 delta at 108% of fair value, half the capacity). It never holds vault funds: the EpochManager checks every proposal against the vault's immutable mandate, and a rejected proposal slashes this agent's USDG bond to depositors.",
+  "image": "https://raw.githubusercontent.com/Prashant-thakur77/Strike/main/docs/media/strike-demo-poster.png",
+  "endpoints": [
+    {
+      "name": "MCP",
+      "endpoint": "https://strike-options.vercel.app/api/mcp",
+      "version": "2025-06-18"
+    },
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:46630:0x4501c16dc4f29394560F9B2aB935667cA058B79b"
+    }
+  ],
+  "strike": {
+    "agentRegistry": "eip155:46630:0xE5b76249041e59C74Ee317fC2729f26249618D32",
+    "strikeAgentId": 2,
+    "vault": "eip155:46630:0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+    "vaultSymbol": "sTSLA-CSP-A2",
+    "mandate": "|delta| 0.10-0.25, premium >= 100% of fair value, yield >= 0.05% of collateral, size <= 50% of capacity, tenor 1-8 days",
+    "profile": "conservative",
+    "skill": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/STRIKE_SKILL.md",
+    "source": "https://github.com/Prashant-thakur77/Strike/tree/main/agents/example"
+  },
+  "supportedTrust": ["reputation"],
+  "registrations": [
+    {
+      "agentId": 116,
+      "agentRegistry": "eip155:46630:0x8004A818BFB912233c491871b3d84c89A494BD9e"
+    }
+  ]
+}

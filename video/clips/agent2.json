@@ -1,0 +1,24 @@
+{
+ "recorded": "2026-10-01T20:28:00.000Z",
+ "wallet": "0x4501c16dc4f29394560F9B2aB935667cA058B79b",
+ "rpc": "https://rpc.testnet.chain.robinhood.com",
+ "agentId": "2",
+ "erc8004Id": "116",
+ "vault": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+ "vaultSymbol": "sTSLA-CSP-A2",
+ "mandate": "|delta| 0.10-0.25, premium >= 100% of fair value, yield >= 0.05% of collateral, size <= 50% of capacity, tenor 1-8 days",
+ "transactions": {
+  "erc8004Register": "0x46b6e7961426769c44169faea5705990b96e25d9d6f7d95feb2b0e4842b4c033",
+  "approveBond": "0x0e39e62443505fae90ced127775c0fbdcfb3e881bf83ed573d34be3dcd019ce6",
+  "register": "0xab52b9983e7cb261606b0e1bd5e1fb6af2ea1baf79190ab952106d3f98632854",
+  "postBond": "0xc9708eb6c4332c89449cd20fdcc1646473e587f179848da5cbbf7baee56a466a",
+  "createVault": "0xc56dd89e6ff51d3bf5a5c286e9a8b76f844346e30c50ba8d6d1f41f4038a40ff",
+  "approveDeposit": "0x55abdf284b80ae5f152fc5cd69e77dcdcc8e9e5e30d53ff23325e1735f69b2d3",
+  "deposit": "0x8c9504234bae72bd16566a4c363f0a90f9b18ae52a82a26453a6cc902e5a0bc2"
+ },
+ "clips": {
+  "signing.mp4": "register (with ERC-8004 id 116) and post the 60 USDG bond on /app/agents, then the bond transaction on Blockscout: the demo's signing scene, 33.5 s, lines in signing.json",
+  "agent2-vault.mp4": "the 'Create a vault run by agent 2' form: TSLA, cash-secured put, the conservative mandate, the createVault signature and 'Create vault: done.' with the sTSLA-CSP-A2 link (18.8 s, unnarrated)",
+  "agent2-deposit.mp4": "the vault page: the 150 USDG deposit signature and 'Deposit: done.' (the approve was sent in an earlier take; unnarrated)"
+ }
+}

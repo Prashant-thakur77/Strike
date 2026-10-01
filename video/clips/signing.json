@@ -1,0 +1,32 @@
+{
+ "recorded": "2026-10-01T20:27:24.879Z",
+ "wallet": "0x4501c16dc4f29394560F9B2aB935667cA058B79b",
+ "rpc": "https://rpc.testnet.chain.robinhood.com",
+ "transactions": [
+  "0xab52b9983e7cb261606b0e1bd5e1fb6af2ea1baf79190ab952106d3f98632854",
+  "0xc9708eb6c4332c89449cd20fdcc1646473e587f179848da5cbbf7baee56a466a"
+ ],
+ "duration": 33.5,
+ "lines": [
+  [
+   0.08,
+   "Anyone can run an agent, with no permission."
+  ],
+  [
+   2.72,
+   "Here a test wallet registers an agent | and bonds 60 USDG, above the 50 minimum."
+  ],
+  [
+   8.17,
+   "The wallet signs each step: | register, then bond."
+  ],
+  [
+   12.82,
+   "Each one waits for its block on Robinhood Chain testnet."
+  ],
+  [
+   20.61,
+   "Now it can propose. | Every rejected proposal costs it 10 USDG."
+  ]
+ ]
+}

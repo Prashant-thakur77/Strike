@@ -7,19 +7,20 @@ A strike-picking agent that works entirely through the [Strike MCP server](../..
 STRIKE_CHAIN_ID=46630 STRIKE_AGENT_PRIVATE_KEY=0x... pnpm --filter @strike/agent-example start -- --vault sTSLA-CC
 ```
 
-| Flag                           | What it does                                                                                                                 |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| (none)                         | Propose this epoch's option at 0.20 delta (`--target-delta` to change), after a dry run                                      |
-| `--llm`                        | Claude chooses the delta and premium factor using read-only tools (API key or Claude Code, below); falls back to the default |
-| `--planner api\|claude-code`   | With `--llm`: force the Claude API or the Claude Code CLI                                                                    |
-| `--dry-run`                    | Stop a propose run after the final dry run; nothing is sent (no agent key needed)                                            |
-| `--reckless`                   | Force an at-the-money proposal to show the contract rejecting it and slashing the bond                                       |
-| `--settle`                     | Settle the vault's expired series                                                                                            |
-| `--status`                     | Print the vault and the agent's track record                                                                                 |
-| `--buy`, `--hedge`, `--redeem` | Buyer side: buy options within `--budget`, hedge a holding, redeem settled options                                           |
-| `--register`                   | Join as a new agent: dry run, then register and bond (`--bond`), optionally `--create-vault TSLA:call\|put`                  |
-| `--log <dir>`                  | Write a decision record for a propose, `--reckless` or `--settle` run to `<dir>/<YYYY-MM-DD>-<vault symbol>.md` and `.json`  |
-| `--anchor`                     | With `--log`: anchor each record's keccak256 hash on-chain in DecisionLog, signed by the agent's key                         |
+| Flag                           | What it does                                                                                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| (none)                         | Propose this epoch's option at 0.20 delta (`--target-delta` to change), after a dry run                                                                                                          |
+| `--profile conservative`       | A named rule instead of the default: 0.15 delta at 108% of fair value, at most half the vault's capacity. The decision record names the planner `rule: conservative` (`rule: default` otherwise) |
+| `--llm`                        | Claude chooses the delta and premium factor using read-only tools (API key or Claude Code, below); falls back to the default                                                                     |
+| `--planner api\|claude-code`   | With `--llm`: force the Claude API or the Claude Code CLI                                                                                                                                        |
+| `--dry-run`                    | Stop a propose run after the final dry run; nothing is sent (no agent key needed)                                                                                                                |
+| `--reckless`                   | Force an at-the-money proposal to show the contract rejecting it and slashing the bond                                                                                                           |
+| `--settle`                     | Settle the vault's expired series                                                                                                                                                                |
+| `--status`                     | Print the vault and the agent's track record                                                                                                                                                     |
+| `--buy`, `--hedge`, `--redeem` | Buyer side: buy options within `--budget`, hedge a holding, redeem settled options                                                                                                               |
+| `--register`                   | Join as a new agent: dry run, then register and bond (`--bond`), optionally `--create-vault TSLA:call\|put`                                                                                      |
+| `--log <dir>`                  | Write a decision record for a propose, `--reckless` or `--settle` run to `<dir>/<YYYY-MM-DD>-<vault symbol>.md` and `.json`                                                                      |
+| `--anchor`                     | With `--log`: anchor each record's keccak256 hash on-chain in DecisionLog, signed by the agent's key                                                                                             |
 
 `STRIKE_CHAIN_ID=46630` is v2 on Robinhood Chain testnet and `STRIKE_CHAIN_ID=421614` is v3 on Arbitrum Sepolia (the SDK's deployment map). v3 on Robinhood Chain testnet is reached with the SDK's address overrides (`STRIKE_EPOCH_MANAGER` and friends, listed in [the v3 log](../../docs/testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)).
 

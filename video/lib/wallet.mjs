@@ -18,12 +18,22 @@ const { privateKeyToAccount } = require("viem/accounts");
 
 export const TESTNET_RPC = "https://rpc.testnet.chain.robinhood.com";
 const DEP = JSON.parse(readFileSync(join(ROOT, "contracts/deployments/46630.json"), "utf8"));
-const NAMES = { [DEP.usdg.toLowerCase()]: "USDG", [DEP.agentRegistry.toLowerCase()]: "AgentRegistry" };
+const NAMES = {
+  [DEP.usdg.toLowerCase()]: "USDG",
+  [DEP.agentRegistry.toLowerCase()]: "AgentRegistry",
+  [DEP.vaultFactory.toLowerCase()]: "VaultFactory",
+};
 const ABI = viem.parseAbi([
   "function approve(address spender, uint256 amount)",
   "function register(address signer, address payout, uint256 erc8004Id)",
   "function postBond(uint256 agentId, uint256 amount)",
+  "struct Mandate { uint16 minDeltaBps; uint16 maxDeltaBps; uint16 minPremiumBps; uint16 minYieldBps; uint16 maxShareSoldBps; uint32 minTenor; uint32 maxTenor; }",
+  "struct CreateParams { address underlying; bool isCall; uint256 agentId; uint256 depositCap; string name; string symbol; Mandate mandate; }",
+  "function createVault(CreateParams p)",
+  "function deposit(uint256 assets, address receiver)",
 ]);
+/** The bond the scene posts: 60 USDG, above the registry's 50 USDG minimum (the narration says so). */
+export const BOND = 60_000_000n;
 const short = (a) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 export function walletEnv() {
@@ -65,6 +75,18 @@ async function describe(w, tx) {
         ["Agent", `#${d.args[0]}`],
         ["Bond", `${viem.formatUnits(d.args[1], 6)} USDG`],
       ];
+    if (fn === "createVault") {
+      const p = d.args[0];
+      const m = p.mandate;
+      rows = [
+        ["Vault", `${p.symbol} · agent #${p.agentId}`],
+        ["Kind", p.isCall ? "covered call" : "cash-secured put"],
+        ["Delta band", `${(m.minDeltaBps / 1e4).toFixed(2)}–${(m.maxDeltaBps / 1e4).toFixed(2)}`],
+        ["Premium, size", `≥ ${m.minPremiumBps / 100}% of fair · ≤ ${m.maxShareSoldBps / 100}%`],
+        ["Tenor", `${m.minTenor / 86_400}–${m.maxTenor / 86_400} days`],
+      ];
+    }
+    if (fn === "deposit") rows = [["Amount", `${viem.formatUnits(d.args[0], 6)} USDG`]];
   } catch {}
   const gas = await w.client.estimateGas({
     account: w.account.address,
@@ -74,7 +96,14 @@ async function describe(w, tx) {
   });
   const price = await w.client.getGasPrice();
   return {
-    title: { approve: "Approve USDG", register: "Register agent", postBond: "Post bond" }[fn] ?? fn,
+    title:
+      {
+        approve: "Approve USDG",
+        register: "Register agent",
+        postBond: "Post bond",
+        createVault: "Create vault",
+        deposit: "Deposit USDG",
+      }[fn] ?? fn,
     contract: `${NAMES[to] ?? "Contract"} ${short(tx.to)}`,
     fn: `${fn}()`,
     rows,
@@ -135,6 +164,7 @@ export async function signingContext(ctx, env) {
 function injectedWallet({ address }) {
   const listeners = {};
   let confirmResolve = null;
+  let hideTimer = null; // the previous request's fade-out must not hide the next request's panel
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
   const css = `
   #__wal{position:fixed;top:60px;right:40px;width:540px;z-index:2147483646;font:500 20px/1.35 "Inter Tight",system-ui,sans-serif;
@@ -171,6 +201,7 @@ function injectedWallet({ address }) {
   };
   const show = (d) => {
     const el = mount();
+    clearTimeout(hideTimer);
     el.innerHTML = `<div class="hd"><div class="dot"></div><div><b>Test wallet</b><small>${esc(address.slice(0, 6) + "…" + address.slice(-4))} · made for this recording</small></div><span class="net">RH testnet</span></div>
       <div class="bd"><div class="req">Signature request</div><h3>${esc(d.title)}</h3><div class="ct">${esc(d.contract)} · ${esc(d.fn)}</div>
       <dl>${d.rows.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}<div><dt>Network fee</dt><dd>${esc(d.fee)}</dd></div></dl></div>
@@ -209,9 +240,16 @@ function injectedWallet({ address }) {
           await new Promise((r) => (confirmResolve = r));
           window.__walletPending = false;
           el.querySelector(".st").textContent = "Signing…";
-          const hash = await window.__walletSend(tx, d.gas);
+          let hash;
+          try {
+            hash = await window.__walletSend(tx, d.gas);
+          } catch (err) {
+            el.querySelector(".st").textContent = `Not sent: ${String(err?.message ?? err).slice(0, 80)}`;
+            hideTimer = setTimeout(() => el.classList.remove("on"), 2500);
+            throw err;
+          }
           el.querySelector(".st").textContent = `Sent ${hash.slice(0, 10)}…${hash.slice(-4)}`;
-          setTimeout(() => el.classList.remove("on"), 900);
+          hideTimer = setTimeout(() => el.classList.remove("on"), 900);
           return hash;
         }
         default:
@@ -233,7 +271,7 @@ export async function signingPrepare(page, env) {
   const w = env.wallet;
   // Set up before the clock: the USDG allowance for the bond (so the scene shows two signatures, register and bond,
   // not three), and the wallet connection.
-  const bond = 50_000_000n;
+  const bond = BOND;
   const allowance = await w.client.readContract({
     address: DEP.usdg,
     abi: viem.parseAbi(["function allowance(address,address) view returns (uint256)"]),
@@ -267,11 +305,53 @@ export async function signingPrepare(page, env) {
   await page.evaluate((y) => window.__v.scrollTo(y - 110, 0), y);
 }
 
+/** Press the panel's Confirm: a real click when the panel takes pointer events, else its click handler directly. */
+export async function pressConfirm(page) {
+  const registered = () =>
+    page.evaluate(
+      () => window.__walletPending !== true || !!document.querySelector("#__wal button.ok.press"),
+    );
+  try {
+    await page.locator("#__wal button.ok").click({ timeout: 5_000 });
+  } catch (err) {
+    log(`  the pointer click on Confirm failed (${String(err.message).split("\n")[0]})`);
+  }
+  await sleep(200);
+  if (await registered()) return;
+  log("  the Confirm press did not register; pressing it through the DOM");
+  await page.evaluate(() => document.querySelector("#__wal button.ok")?.click());
+  await sleep(200);
+  if (!(await registered())) throw new Error("the signature request was not confirmed");
+}
+
 /** Press Confirm on the next signature request, `delay` ms after it shows. */
 async function confirmNext(page, delay = 1100) {
   await page.waitForFunction(() => window.__walletPending === true, null, { timeout: 60_000 });
   await sleep(delay);
-  await page.locator("#__wal button.ok").click();
+  await pressConfirm(page);
+}
+
+/**
+ * Click a form's submit button and wait for its signature request. If none comes and the app shows its own error
+ * state (a read failed before the request, which a public RPC does now and then), click once more; a request that
+ * is merely slow is never duplicated.
+ */
+async function submitAndWait(page, form, button) {
+  await button.click();
+  const appeared = () =>
+    page
+      .waitForFunction(() => window.__walletPending === true, null, { timeout: 25_000 })
+      .then(() => true)
+      .catch(() => false);
+  if (await appeared()) return;
+  const error = form.locator('p[data-phase="error"]');
+  if ((await error.count()) === 0) {
+    await page.waitForFunction(() => window.__walletPending === true, null, { timeout: 60_000 });
+    return;
+  }
+  log(`  the app reported "${(await error.first().innerText()).trim().slice(0, 160)}"; clicking again`);
+  await button.click();
+  await page.waitForFunction(() => window.__walletPending === true, null, { timeout: 60_000 });
 }
 
 export async function signingRun(h, env) {
@@ -281,6 +361,13 @@ export async function signingRun(h, env) {
   await section.getByText("Register an agent", { exact: true }).click();
   const form = section.getByRole("form", { name: "Register an agent" });
   await form.waitFor();
+  // The form: an ERC-8004 identity this wallet already owns (SIGN_ERC8004_ID, optional) and the 60 USDG bond.
+  const identity = process.env.SIGN_ERC8004_ID?.trim();
+  if (identity) {
+    await form.getByLabel("ERC-8004 identity (optional)").fill(identity);
+    await form.getByText(`Your wallet owns identity #${identity}.`).waitFor({ timeout: 30_000 });
+  }
+  await form.getByLabel("Bond", { exact: true }).fill(viem.formatUnits(BOND, 6));
   await h.cue(1, -0.3);
   await h.scrollTo(form, { offset: 90, ms: 900 });
   await page
@@ -291,8 +378,13 @@ export async function signingRun(h, env) {
   await h.zoom(form.getByLabel("Bond", { exact: true }), { scale: 1.6 });
   await h.cue(2, -0.6);
   await h.unzoom(250);
-  await form.getByRole("button", { name: /register/i }).click();
-  await confirmNext(page, 1300); // register
+  // every check resolved (the signer is free; the identity, if any, is owned) before the one-shot click
+  await form.getByText(/is free\. Only this key may propose/).waitFor({ timeout: 60_000 });
+  const register = form.getByRole("button", { name: /register/i });
+  await page.waitForFunction((el) => !el.disabled, await register.elementHandle(), { timeout: 60_000 });
+  await submitAndWait(page, form, register);
+  await sleep(1300);
+  await pressConfirm(page); // register
   // the app's own status line: waiting for the block, then done
   await sleep(500);
   await h.zoom(form.locator("p[data-phase]").first(), { scale: 1.7 });

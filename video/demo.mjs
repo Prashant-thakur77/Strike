@@ -1160,7 +1160,7 @@ function signingScene(f) {
   return {
     id: "signing",
     screen:
-      '`/app/agents`, "Run your own agent": a test wallet connects, fills the form (50 USDG bond) and signs two transactions (register, then bond; the USDG allowance was set before the take) in a confirmation panel labelled as the test wallet; the app shows each pending and done state; then the bond transaction on the explorer.',
+      '`/app/agents`, "Run your own agent": a test wallet connects, fills the form (its ERC-8004 identity, a 60 USDG bond) and signs two transactions (register, then bond; the USDG allowance was set before the take) in a confirmation panel labelled as the test wallet; the app shows each pending and done state; then the bond transaction on the explorer. Recorded for real on 1 October: this is how agent #2 joined.',
     tag: "Run an agent",
     kind: "clip",
     clip: "video/clips/signing.mp4",
@@ -1168,8 +1168,8 @@ function signingScene(f) {
     lines: [
       L("Anyone can run an agent, with no permission."),
       L(
-        "Here a test wallet registers an agent | and bonds 50 USDG, the minimum.",
-        `Here a test wallet registers an agent | and bonds fifty ${U}, the minimum.`,
+        "Here a test wallet registers an agent | and bonds 60 USDG, above the 50 minimum.",
+        `Here a test wallet registers an agent | and bonds sixty ${U}, above the fifty minimum.`,
       ),
       L("The wallet signs each step: | register, then bond."),
       L(

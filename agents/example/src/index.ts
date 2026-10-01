@@ -12,11 +12,17 @@ import { type PlannerKind, parsePlanner, plannerLabel, selectPlanner } from "./p
 import { type RecordAction, type RecordAnchorer, txUrl, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
+  PROFILES,
   type Plan,
+  type Profile,
   atTheMoneyStrike,
+  capSize,
   deterministicPlan,
   enforceMandate,
+  parseProfile,
   pickVault,
+  profileLabel,
+  profilePlan,
 } from "./strategy.js";
 import type {
   AgentStats,
@@ -47,6 +53,10 @@ Usage: pnpm --filter @strike/agent-example start [options]
   --vault <v>        Vault address or share symbol (default: the first vault this agent runs
                      that can take a proposal, covered calls first).
   --target-delta <d> Target |delta| for the default strategy (default ${DEFAULT_TARGET_DELTA}).
+  --profile <p>      A named rule instead of the default: ${Object.keys(PROFILES).join(" or ")}.
+                     conservative: ${PROFILES.conservative!.targetDelta} delta at ${PROFILES.conservative!.premiumBps / 100}% of fair value, at
+                     most ${PROFILES.conservative!.sizeShare * 100}% of the vault's capacity. The record names the planner
+                     "rule: <profile>".
   --log <dir>        After a propose, --reckless or --settle run, write a decision record to
                      <dir>/<YYYY-MM-DD>-<vault symbol>.md and .json (relative to the directory the
                      command was run from; inputs, reasoning, dry run,
@@ -152,6 +162,8 @@ interface DecideOptions {
   llm: boolean;
   planner?: PlannerKind;
   targetDelta: number;
+  /** The rule-based profile (`--profile`), used when Claude does not plan. */
+  profile: Profile;
   /** Stop after the dry run; send nothing. */
   dryRun?: boolean;
 }
@@ -238,8 +250,10 @@ async function decide(
     });
     return enforced;
   }
-  log.step("Choose the target delta");
-  const plan = deterministicPlan(mandate, opts.targetDelta);
+  const profile = opts.profile;
+  const named = profile.name !== "default";
+  log.step(`Choose the target delta${named ? ` (profile: ${profile.name})` : ""}`);
+  const plan = named ? profilePlan(profile, mandate) : deterministicPlan(mandate, opts.targetDelta);
   log.say(plan.reasoning);
   journal.decided({
     strategy: "default",
@@ -247,6 +261,7 @@ async function decide(
     premiumBps: plan.premiumBps,
     reasoning: plan.reasoning,
     notes,
+    planner: { kind: "rule", model: profile.name, label: profileLabel(profile) },
   });
   return plan;
 }
@@ -275,7 +290,18 @@ async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: 
   log.say(
     `Fair value $${check.measured.fairValue} per option (${pct(check.measured.yieldBps)} of collateral); offer ${check.proposal.size} of ${check.measured.capacity} options.`,
   );
-  let size = check.proposal.size;
+  // A profile that offers less than the mandate allows caps the size at its share of capacity.
+  const share = opts.profile.sizeShare;
+  const sized = (offered: string): string => {
+    if (share >= 1) return offered;
+    const capped = capSize(offered, check.measured.capacity, share);
+    if (capped === offered) return offered;
+    const pctText = `${Math.round(share * 100)}% of capacity`;
+    log.say(`Profile "${opts.profile.name}" offers at most ${pctText}: size ${offered} → ${capped}.`);
+    journal.note(`Profile "${opts.profile.name}" capped the size at ${pctText}: ${offered} → ${capped}.`);
+    return capped;
+  };
+  let size = sized(check.proposal.size);
   if (!check.ok) {
     log.say(`Not compliant (${check.reason}): ${check.explanation}`);
     const s = check.suggestion;
@@ -298,7 +324,7 @@ async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: 
       journal.decision.premiumBps = s.premiumBps;
     }
     plan = { ...plan, targetDeltaBps: s.targetDeltaBps, premiumBps: s.premiumBps };
-    size = s.size;
+    size = sized(s.size);
   }
 
   log.step("Dry run the exact proposal");
@@ -519,6 +545,7 @@ async function main() {
       status: { type: "boolean" },
       vault: { type: "string" },
       "target-delta": { type: "string" },
+      profile: { type: "string" },
       buy: { type: "boolean" },
       redeem: { type: "boolean" },
       budget: { type: "string" },
@@ -539,6 +566,11 @@ async function main() {
   const targetDelta = Number(values["target-delta"] ?? DEFAULT_TARGET_DELTA);
   if (!(targetDelta > 0 && targetDelta < 1))
     throw new Error("--target-delta must be between 0 and 1 (e.g. 0.2)");
+  const profile = parseProfile(values.profile);
+  if (values.profile !== undefined && values["target-delta"] !== undefined)
+    throw new Error("--profile and --target-delta both set the target delta: use one of them");
+  if (values.profile !== undefined && values.llm)
+    throw new Error("--profile is a rule; it does not go with --llm");
   const positive = (flag: string, value: string | undefined) => {
     if (value === undefined) return undefined;
     const n = Number(value);
@@ -583,9 +615,11 @@ async function main() {
           ? " (reckless mode)"
           : values.llm
             ? ` (Claude mode${dryRun ? ", dry run" : ""})`
-            : dryRun
-              ? " (dry run)"
-              : "";
+            : profile.name !== "default"
+              ? ` (${profileLabel(profile)}${dryRun ? ", dry run" : ""})`
+              : dryRun
+                ? " (dry run)"
+                : "";
   console.log(`Strike example agent${mode}`);
   const mcp = await connectStrikeMcp();
   try {
@@ -632,7 +666,13 @@ async function main() {
       if (values.settle) await settle(mcp, vault, log, journal, logDir !== undefined);
       else if (values.reckless) await reckless(mcp, vault, log, journal);
       else
-        await propose(mcp, vault, { llm: values.llm === true, planner, targetDelta, dryRun }, log, journal);
+        await propose(
+          mcp,
+          vault,
+          { llm: values.llm === true, planner, targetDelta, profile, dryRun },
+          log,
+          journal,
+        );
     } catch (err) {
       failure = err instanceof Error ? err.message : String(err);
       throw err;

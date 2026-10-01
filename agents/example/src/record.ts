@@ -44,15 +44,21 @@ export interface RecordDecision {
   reasoning: string;
   /** Mandate guard corrections and fallbacks, in order. */
   notes: string[];
-  /** With strategy "claude": how the agent reached Claude and the model (absent in older records). */
+  /**
+   * Who planned: with strategy "claude", how the agent reached Claude and the model; with strategy "default", the
+   * rule-based profile (`--profile`). Absent in older records.
+   */
   planner?: RecordPlanner;
 }
 
-/** How `--llm` reached Claude: the Anthropic API, or the Claude Code CLI on a Claude subscription. */
+/**
+ * The planner: `--llm` through the Anthropic API or the Claude Code CLI on a Claude subscription, or a rule-based
+ * profile ("rule", `model` is the profile's name).
+ */
 export interface RecordPlanner {
-  kind: "api" | "claude-code";
+  kind: "api" | "claude-code" | "rule";
   model: string;
-  /** "Claude via API, model X" or "Claude via Claude Code CLI, model X". */
+  /** "Claude via API, model X", "Claude via Claude Code CLI, model X" or "rule: conservative". */
   label: string;
 }
 

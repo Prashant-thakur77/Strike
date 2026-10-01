@@ -227,6 +227,30 @@ describe("decision record", () => {
     expect(JSON.parse(formatRecordJson(r)).decision.planner).toEqual(r.decision.planner);
   });
 
+  it("names a rule-based profile as the planner (rule: conservative)", () => {
+    const r = acceptedRecord();
+    r.decision = {
+      strategy: "default",
+      targetDeltaBps: 1500,
+      premiumBps: 10_800,
+      reasoning: 'Profile "conservative": target 0.15 delta.',
+      notes: ['Profile "conservative" capped the size at 50% of capacity: 0.419 → 0.2095.'],
+      planner: { kind: "rule", model: "conservative", label: "rule: conservative" },
+    };
+    const md = formatRecordMarkdown(r);
+    expect(md).toContain("- **Strategy:** default strategy (deterministic)");
+    expect(md).toContain("- **Planner:** rule: conservative\n");
+    expect(md).toContain("- **Target:** 0.15 delta at 108% of Black-Scholes fair value");
+    expect(md).toContain(
+      '- **Note:** Profile "conservative" capped the size at 50% of capacity: 0.419 → 0.2095.',
+    );
+    expect(JSON.parse(formatRecordJson(r)).decision.planner).toEqual({
+      kind: "rule",
+      model: "conservative",
+      label: "rule: conservative",
+    });
+  });
+
   it("records a rejection with its reason and slash", () => {
     const rejected = proposeResult({
       ...accepted,

@@ -1,7 +1,36 @@
 import { BPS, MAX_PREMIUM_BPS, type Mandate, clampDeltaToMandate } from "@strike/sdk";
+import { formatUnits, parseUnits } from "viem";
 
 /** The example agent's default: sell a 0.20-delta option each week. */
 export const DEFAULT_TARGET_DELTA = 0.2;
+
+/** A named rule-based profile: the target |delta|, the price in bps of fair value, and the share of capacity to offer. */
+export interface Profile {
+  name: string;
+  targetDelta: number;
+  premiumBps: number;
+  /** Largest share of the vault's capacity to offer (1: whatever the mandate allows). */
+  sizeShare: number;
+}
+
+/** The rule-based profiles `--profile` selects. "default" is the 0.20-delta rule below. */
+export const PROFILES: Record<string, Profile> = {
+  default: { name: "default", targetDelta: DEFAULT_TARGET_DELTA, premiumBps: BPS, sizeShare: 1 },
+  conservative: { name: "conservative", targetDelta: 0.15, premiumBps: 10_800, sizeShare: 0.5 },
+};
+
+/** Parse `--profile` (default "default"). */
+export function parseProfile(value: string | undefined): Profile {
+  const name = (value ?? "default").trim().toLowerCase();
+  const profile = PROFILES[name];
+  if (!profile) {
+    throw new Error(`--profile must be one of ${Object.keys(PROFILES).join(", ")}, got "${value}"`);
+  }
+  return profile;
+}
+
+/** How the decision record names a rule-based planner: "rule: conservative". */
+export const profileLabel = (profile: Profile) => `rule: ${profile.name}`;
 
 /** A proposal plan: what the agent (or Claude) decided, before the dry run. */
 export interface Plan {
@@ -29,6 +58,32 @@ export function deterministicPlan(mandate: Mandate, desired = DEFAULT_TARGET_DEL
     premiumBps: defaultPremiumBps(mandate),
     reasoning: `Target ${(bps / BPS).toFixed(2)} delta${clamped ? ` (clamped from ${desired.toFixed(2)} into the mandate band)` : ""}: far enough out of the money that the stock rarely gets called away, close enough to earn a meaningful premium. Price at ${(defaultPremiumBps(mandate) / 100).toFixed(0)}% of Black-Scholes fair value.`,
   };
+}
+
+/**
+ * A profile's plan: its delta clamped into the mandate band, priced at its share of fair value or the mandate's
+ * minimum, whichever is higher. The default profile is {@link deterministicPlan}.
+ */
+export function profilePlan(profile: Profile, mandate: Mandate): Plan {
+  if (profile.name === "default") return deterministicPlan(mandate, profile.targetDelta);
+  const bps = targetDeltaBps(mandate, profile.targetDelta);
+  const clamped = bps !== Math.round(profile.targetDelta * BPS);
+  const premiumBps = Math.min(Math.max(profile.premiumBps, mandate.minPremiumBps), MAX_PREMIUM_BPS);
+  return {
+    targetDeltaBps: bps,
+    premiumBps,
+    reasoning: `Profile "${profile.name}": target ${(bps / BPS).toFixed(2)} delta${clamped ? ` (clamped from ${profile.targetDelta.toFixed(2)} into the mandate band)` : ""}, further out of the money than the default ${DEFAULT_TARGET_DELTA.toFixed(2)}, so the option is exercised less often and the premium is smaller. Price at ${(premiumBps / 100).toFixed(0)}% of Black-Scholes fair value, and offer at most ${Math.round(profile.sizeShare * 100)}% of the vault's capacity, so a bad week costs depositors less.`,
+  };
+}
+
+/**
+ * Cap an offered size at `share` of the vault's capacity (both decimal strings of underlying tokens): the smaller of
+ * the size and share × capacity.
+ */
+export function capSize(size: string, capacity: string, share: number): string {
+  const offered = parseUnits(size, 18);
+  const cap = (parseUnits(capacity, 18) * BigInt(Math.round(share * BPS))) / BigInt(BPS);
+  return formatUnits(offered < cap ? offered : cap, 18);
 }
 
 /**

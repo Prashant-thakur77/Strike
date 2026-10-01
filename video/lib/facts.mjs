@@ -96,7 +96,7 @@ export function readmeFacts(root) {
     reviewIssues: pick(
       md,
       "internal review issues",
-      /The internal review found (\d+) issues and all are fixed; that is not an audit/,
+      /The internal review found (\d+) issues and all are fixed/,
     ),
   };
 }

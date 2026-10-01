@@ -53,7 +53,7 @@ Pick any of these:
   STRIKE_AGENT_PRIVATE_KEY=0x... pnpm --filter @strike/agent-example start -- --buy --budget 5
   ```
 
-  Proposing strikes needs a registered, bonded agent. The epoch logs show what that looks like, including a rejected proposal and its slash: [v2 on Robinhood Chain testnet, 29 September](testnet-epochs/2026-09-29.md), [v3 on Arbitrum Sepolia, 30 September](testnet-epochs/2026-09-30-arbitrum-sepolia.md) and [v3 on Robinhood Chain testnet, 1 October](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october). In both v3 epochs Claude planned the accepted proposal.
+  Proposing strikes needs a registered, bonded agent. The epoch logs show what that looks like, including a rejected proposal and its slash: [v2 on Robinhood Chain testnet, 29 September](testnet-epochs/2026-09-29.md), [v3 on Arbitrum Sepolia, 30 September](testnet-epochs/2026-09-30-arbitrum-sepolia.md) and [v3 on Robinhood Chain testnet, 1 October](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october). In both v3 epochs Claude planned the accepted proposal. Agent #2 was registered this way: from a fresh wallet through the app's "Run your own agent" form, with its own ERC-8004 identity, a 60 USDG bond and a conservative TSLA put vault ([log](testnet-epochs/2026-10-01-agent2.md)).
 
 - **Telegram alerts.** Once the owner deploys the bot, its handle goes here: `<bot handle>` (pending). Send it `/subscribe` for epoch, rejection, buy and settlement alerts, or ask `/vaults`, `/quote sTSLA-CC 2`, `/agent 1` or `/status`. Until then, preview it locally with no token; it prints the alerts from the real Robinhood Chain testnet logs and sends nothing:
 
