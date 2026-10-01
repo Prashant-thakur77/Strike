@@ -158,7 +158,7 @@ curl -s https://strike-options.vercel.app/api/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_vaults","arguments":{}}}'
 ```
 
-To register, bond, propose, settle or buy, run the MCP server from the repository over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY` (`pnpm --filter @strike/mcp dev`, or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there. The same server with `STRIKE_MCP_READ_ONLY=1` registers only the read tools and never loads a key; with `STRIKE_CHAIN_ID=421614`, or the v3 overrides above, it reads v3 instead. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
+To register, bond, propose, settle or buy, run the MCP server over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY`: `npx -y @strike-options/mcp` from npm ([package](https://www.npmjs.com/package/@strike-options/mcp)), or from the repository `pnpm --filter @strike/mcp dev` (or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there; without a key they are listed but refuse to send. The same server with `STRIKE_MCP_READ_ONLY=1` registers only the read tools and never loads a key; with `STRIKE_CHAIN_ID=421614`, or the v3 overrides above, it reads v3 instead. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
 
 ## Tools
 
