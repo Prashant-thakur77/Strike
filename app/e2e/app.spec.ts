@@ -99,28 +99,32 @@ test.describe("on Robinhood Chain testnet", () => {
 
   test("agents show the ERC-8004 identity and reputation", async ({ page }) => {
     await page.goto("/app/agents?chain=46630");
-    const chip = page.getByRole("link", { name: /ERC-8004 #114/ });
-    await expect(chip).toBeVisible({ timeout: 45_000 });
+    // v2 and v3 each have an agent #1 here (both linked to identity #114): the v2 registry's row.
+    const toggle = page.getByRole("button", { name: /about agent 1 \(v2 registry\)/ });
+    await expect(toggle).toBeVisible({ timeout: 45_000 });
+    const group = page.locator("tbody").filter({ has: toggle });
+    const chip = group.getByRole("link", { name: /ERC-8004 #114/ });
+    await expect(chip).toBeVisible();
     await expect(chip).toHaveAttribute(
       "href",
       `https://explorer.testnet.chain.robinhood.com/token/${IDENTITY_REGISTRY}/instance/114`,
     );
-    // The top agent's row starts open; the toggle closes and reopens it.
-    const toggle = page.getByRole("button", { name: /about agent 1/ });
+    // The toggle opens and closes the row's details.
+    if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await expect(page.getByRole("link", { name: /Registration file/ })).toHaveAttribute(
+    await expect(group.getByRole("link", { name: /Registration file/ })).toHaveAttribute(
       "href",
       /docs\/agents\/strike-agent-1\.json$/,
     );
-    await expect(page.getByRole("link", { name: /Reputation registry/ })).toHaveAttribute(
+    await expect(group.getByRole("link", { name: /Reputation registry/ })).toHaveAttribute(
       "href",
       new RegExp(`/address/${REPUTATION_REGISTRY}$`),
     );
-    await expect(page.getByText(/\d+ feedback posts?/)).toBeVisible();
-    await expect(page.getByText(/No settled epochs yet|USDG/).first()).toBeVisible();
+    await expect(group.getByText(/\d+ feedback posts?/)).toBeVisible();
+    await expect(group.getByText(/No settled epochs yet|USDG/).first()).toBeVisible();
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(page.getByRole("link", { name: /Registration file/ })).toBeHidden();
+    await expect(group.getByRole("link", { name: /Registration file/ })).toBeHidden();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
 });
