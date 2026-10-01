@@ -9,7 +9,7 @@
     "set-network": "node scripts/set-network.mjs",
     "graph:codegen": "graph codegen",
     "graph:build": "graph build",
-    "graph:test": "graph test",
+    "graph:test": "graph test -v 0.6.0",
     "graph:test:binary": "node scripts/matchstick.mjs"
   },
   "devDependencies": {
