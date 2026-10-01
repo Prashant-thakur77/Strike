@@ -24,7 +24,7 @@ Then change the strike, size or premium yourself. Two more pages need no wallet:
 
 ## 2. Network, wallet and tokens (2 minutes)
 
-**Pick the network.** The network menu in the app's top bar (inside the Menu on a phone) switches between Robinhood Chain testnet and Arbitrum Sepolia. Reads work without a wallet; a connected wallet is asked to switch too, and the app follows the wallet when it is on a supported network. A link can also choose it: `/app?chain=46630` or `/app?chain=421614`. On Robinhood Chain testnet the app shows the v2 vaults (the app's default deployment there); on Arbitrum Sepolia it shows v3.
+**Pick the network.** The network menu in the app's top bar (inside the Menu on a phone) switches between Robinhood Chain testnet and Arbitrum Sepolia. Reads work without a wallet; a connected wallet is asked to switch too, and the app follows the wallet when it is on a supported network. A link can also choose it: `/app?chain=46630` or `/app?chain=421614`. On Robinhood Chain testnet the app shows the v2 vaults (the default deployment there) and the v3 vaults deployed next to them, each tagged v2 or v3; on Arbitrum Sepolia it shows v3.
 
 **Get test tokens.** The app's [faucet page](https://strike-options.vercel.app/app/faucet) (`/app/faucet`) shows your balances on the selected network and links the right faucet for each token.
 
