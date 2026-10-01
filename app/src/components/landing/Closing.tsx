@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowDown } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { Footer } from "@/components/site/Footer";
@@ -19,7 +19,41 @@ function ramp(p: number, from: number, to: number) {
  */
 export function Closing() {
   const ref = useRef<HTMLElement>(null);
+  const curtainRef = useRef<HTMLDivElement>(null);
   const reduce = useReducedMotion();
+  // The pinned curtain is one screen tall and clips: when its content (call to action plus footer) is taller than
+  // the screen, as on short phones, stack the two panels instead so nothing is cut off.
+  const [tooTall, setTooTall] = useState(false);
+  useEffect(() => {
+    const el = curtainRef.current;
+    if (!el) return;
+    const check = () => {
+      // The inner block stretches to fill the pin, so add up its children for its natural height.
+      const inner = el.firstElementChild as HTMLElement;
+      const foot = el.lastElementChild as HTMLElement;
+      const cs = getComputedStyle(inner);
+      const kids = [...inner.children] as HTMLElement[];
+      const innerH =
+        parseFloat(cs.paddingTop) +
+        parseFloat(cs.paddingBottom) +
+        kids.reduce((h, k) => h + k.offsetHeight, 0) +
+        (parseFloat(cs.rowGap) || 0) * Math.max(0, kids.length - 1);
+      const content = innerH + foot.offsetHeight;
+      const banner =
+        parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--banner-h")) || 0;
+      setTooTall(content > window.innerHeight - banner);
+    };
+    check();
+    const ro = new ResizeObserver(check);
+    for (const c of el.children) ro.observe(c);
+    for (const c of el.firstElementChild?.children ?? []) ro.observe(c);
+    window.addEventListener("resize", check);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", check);
+    };
+  }, []);
+  const stacked = reduce || tooTall;
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
   // Function transforms run in JS every frame. (Range-mapped ones get hardware-accelerated onto a native
   // ScrollTimeline, which drops back to the unclipped base style at exactly 100% progress.)
@@ -34,13 +68,13 @@ export function Closing() {
     <section
       ref={ref}
       className={styles.closing}
-      data-static={reduce ? "true" : undefined}
+      data-static={stacked ? "true" : undefined}
       aria-labelledby="closing-title"
     >
       <div className={styles.closingPin}>
         <motion.div
           className={`theme-teal ${styles.closingIntro}`}
-          style={reduce ? undefined : { y: introY, opacity: introOpacity }}
+          style={stacked ? undefined : { y: introY, opacity: introOpacity }}
         >
           <div className={styles.glow} aria-hidden />
           <span className="micro">One more thing</span>
@@ -53,8 +87,9 @@ export function Closing() {
           </span>
         </motion.div>
         <motion.div
+          ref={curtainRef}
           className={`theme-mint ${styles.curtain}`}
-          style={reduce ? undefined : { clipPath: curtain }}
+          style={stacked ? undefined : { clipPath: curtain }}
         >
           <div className={`gutter ${styles.curtainInner}`}>
             <div className={styles.closingHead}>
