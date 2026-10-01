@@ -109,6 +109,7 @@ test("proof: layout fits the viewport with no horizontal scroll", async ({ page 
     "Stylus",
     "Tests",
     "Security",
+    "Testnet usage",
     "Live activity",
     "Research",
   ]) {

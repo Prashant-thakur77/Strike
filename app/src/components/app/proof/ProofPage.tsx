@@ -23,6 +23,7 @@ import {
   type Evidence,
 } from "@/lib/proof";
 import { ActivityFeed } from "../activity/ActivityFeed";
+import { UsageTable } from "../usage/UsageTable";
 import { Fold } from "../Fold";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
@@ -41,6 +42,7 @@ const SECTIONS = [
   { id: "tests", label: "Tests" },
   { id: "checks", label: "Invariants" },
   { id: "security", label: "Security" },
+  { id: "usage", label: "Usage" },
   { id: "activity", label: "Activity" },
   { id: "research", label: "Research" },
 ];
@@ -511,9 +513,25 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 06 live activity */}
+        {/* ------------------------------------------------------------ 06 testnet usage */}
         <Rail
           index="06"
+          id="usage"
+          label="Testnet usage"
+          note={
+            <>
+              Counted from the logs of every deployment (Robinhood Chain testnet v2 and v3, Arbitrum Sepolia
+              v3) by <Out href={gh("app/src/lib/usage/aggregate.ts")}>aggregate.ts</Out>, served by{" "}
+              <code className="mono">/api/stats</code>. Each figure links to the contract it is read from.
+            </>
+          }
+        >
+          <UsageTable teamFileHref={gh("app/src/lib/usage/team.ts")} />
+        </Rail>
+
+        {/* ------------------------------------------------------------ 07 live activity */}
+        <Rail
+          index="07"
           id="activity"
           label="Live activity"
           note={
@@ -526,8 +544,8 @@ export function ProofPage() {
           <ActivityFeed />
         </Rail>
 
-        {/* ------------------------------------------------------------ 07 research */}
-        <Rail index="07" id="research" label="Research">
+        {/* ------------------------------------------------------------ 08 research */}
+        <Rail index="08" id="research" label="Research">
           <Fold summary="Show research" openSummary="Hide section">
             <ul className={styles.research}>
               {RESEARCH.map((r) => (

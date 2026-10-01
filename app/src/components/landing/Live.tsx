@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ActivityFeed } from "@/components/app/activity/ActivityFeed";
+import { UsageStrip } from "@/components/app/usage/UsageStrip";
 import { Reveal } from "@/components/ui/Reveal";
 import { SectionHead } from "@/components/ui/SectionHead";
 import styles from "./landing.module.css";
@@ -20,6 +21,7 @@ export function Live() {
             sales. Each row links to its transaction on Blockscout.
           </Reveal>
         </div>
+        <UsageStrip />
         <div className={styles.liveFeed}>
           <p className={`micro micro-muted ${styles.liveStatus}`}>
             <span className={styles.liveDot} aria-hidden />

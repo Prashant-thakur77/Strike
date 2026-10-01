@@ -1,0 +1,281 @@
+/* Testnet usage: the landing strip (inside the black live band) and the table on /app/proof (paper). Colours come
+   from the host theme's tokens (--fg, --fg-muted, --rule, --accent-text), so both work on ink and on paper. */
+
+/* ---------------------------------------------------------------- landing strip */
+
+.strip {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin-top: var(--sp-l);
+  padding: 18px 0 16px;
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule);
+}
+
+.stripLabel {
+  color: var(--accent-text);
+}
+
+.stripList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-body);
+  line-height: 1.35;
+}
+
+.stripList > li {
+  min-width: 0;
+}
+
+.stripList > li + li::before {
+  content: "·";
+  margin: 0 0.6em;
+  color: var(--fg-muted);
+}
+
+.stripNum {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.stripAside {
+  color: var(--fg-muted);
+}
+
+.stripAside .stripNum {
+  color: var(--accent-text);
+}
+
+.stripText {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: var(--fs-body);
+}
+
+.stripFoot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 16px;
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+@media (max-width: 640px) {
+  /* One figure per line reads better than a wrapped run of separators at phone width. */
+  .stripList {
+    display: grid;
+    gap: 6px;
+  }
+  .stripList > li + li::before {
+    content: none;
+  }
+}
+
+/* ---------------------------------------------------------------- proof table */
+
+.table {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.status {
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+.warn {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--loss-c);
+  overflow-wrap: anywhere;
+}
+
+.tableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.grid th,
+.grid td {
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: baseline;
+}
+
+.grid th:last-child,
+.grid td:last-child {
+  padding-right: 0;
+}
+
+.grid thead th {
+  padding-top: 0;
+  border-bottom-color: var(--rule-strong);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.grid tbody th {
+  font-weight: 400;
+}
+
+.grid thead th.num {
+  font-family: var(--font-sans);
+  letter-spacing: 0.09em;
+}
+
+.rowLabel {
+  display: block;
+  font-weight: 600;
+}
+
+.grid .rowSource {
+  display: block;
+  margin-top: 2px;
+}
+
+.rowSource {
+  font-size: 0.78rem;
+  line-height: 1.35;
+  color: var(--fg-muted);
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-align: right !important;
+  white-space: nowrap;
+}
+
+.total {
+  font-weight: 650;
+}
+
+.cellLink {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: 3px;
+}
+
+.cellLink:hover {
+  color: var(--accent-text);
+  text-decoration-color: currentColor;
+}
+
+.small {
+  max-width: 46em;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.outside {
+  display: grid;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--rule);
+}
+
+.outsideTitle {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.outsideList {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+}
+
+.state {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 24px 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.stateTitle {
+  font-size: var(--fs-h3);
+  font-weight: 680;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.stateText {
+  max-width: 38em;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.loading {
+  display: grid;
+  gap: 12px;
+}
+
+/* At phone width each row becomes a block: the figure's name, then one line per deployment and the total. */
+@media (max-width: 640px) {
+  .grid thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .grid,
+  .grid tbody,
+  .grid tr {
+    display: block;
+  }
+  .grid tr {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .grid tbody th {
+    display: block;
+    padding: 0 0 6px;
+    border: 0;
+  }
+  .grid td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 3px 0;
+    border: 0;
+  }
+  .grid td::before {
+    content: attr(data-label);
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    letter-spacing: 0;
+    color: var(--fg-muted);
+  }
+}
