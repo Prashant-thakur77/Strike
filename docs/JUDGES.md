@@ -8,7 +8,7 @@ Before either path, the README lists [what works, what does not yet, and what we
 
 ## 3 minutes, no install
 
-1. Watch the [narrated demo walkthrough](media/strike-demo.mp4) (8:02, captioned, with [chapters](submission/demo-script.md#chapters); [without voice](media/strike-demo-silent.mp4)) or the [2-minute pitch](media/strike-pitch.mp4) (2:02, over the deck). Both show v3 live on Arbitrum Sepolia, where Claude planned the accepted proposal.
+1. Watch the [narrated demo walkthrough](media/strike-demo.mp4) (5:13, captioned, with [chapters](submission/demo-script.md#chapters); [without voice](media/strike-demo-silent.mp4)) or the [2-minute pitch](media/strike-pitch.mp4) (2:02, over the deck). Both show v3 live on Arbitrum Sepolia, where Claude planned the accepted proposal.
 2. Try the mandate playground: open [strike-options.vercel.app/app/playground](https://strike-options.vercel.app/app/playground), click "Reckless agent", and the deployed `EpochManager.previewProposal` returns `DeltaOutOfBand`. No wallet is needed ([source](../app/src/components/app/playground/PlaygroundPage.tsx)).
 3. Open the live epoch from 2026-09-29 on Blockscout ([full log](testnet-epochs/2026-09-29.md)):
 
