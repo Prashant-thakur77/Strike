@@ -487,6 +487,10 @@ The live app at [strike-options.vercel.app](https://strike-options.vercel.app), 
   <tr>
     <td><a href="docs/screenshots/desktop-agents-rejections.png"><img src="docs/screenshots/desktop-agents-rejections.png" alt="Agents page on Arbitrum Sepolia: the rejected proposals list shows agent 1's at-the-money put on 30 September, rejected with DeltaOutOfBand and 10 USDG slashed"></a><br><sub><b>Rejections.</b> Every <code>ProposalRejected</code> event, here the 10 USDG slash on Arbitrum Sepolia.</sub></td>
   </tr>
+  <tr>
+    <td><a href="docs/screenshots/desktop-vault-arbitrum-sepolia-why.png"><img src="docs/screenshots/desktop-vault-arbitrum-sepolia-why.png" alt="Why this strike on the Arbitrum Sepolia TSLA covered-call vault: planned by Claude via Claude Code CLI, model claude-opus-5; chosen 0.20 delta at a premium of 105% of fair value against $350.23 spot and 60% sigma; the contract's verdict Accepted, strike $364.29, 4 options, expires Friday 2 October 16:00 ET; the dry run it sent, strike $364.29, fair $1.74, yield 0.52% of collateral, inside the mandate; Claude's reasoning quoted; Anchored on-chain: hash matches the v3 DecisionLog 0x60E9…d04C, with the anchor transaction"></a><br><sub><b>Why this strike, v3.</b> Claude's record for the live series, and its hash checked against <code>DecisionLog.latestHash</code> in the browser (<a href="docs/screenshots/mobile-vault-arbitrum-sepolia-why.png">phone</a>). Captured 2 October.</sub></td>
+    <td><a href="docs/screenshots/desktop-vault-why.png"><img src="docs/screenshots/desktop-vault-why.png" alt="Why this strike on the Robinhood Chain testnet TSLA covered-call vault: planned by the rule-based default strategy, run by hand on 29 September; chosen 0.20 delta at a premium of 100% of fair value, a 0.20-delta call striking at $369.86 with fair value $2.1268 per option; the contract's verdict Accepted, strike $369.86; the rule quoted; Anchored on-chain: hash matches the v2 DecisionLog 0xbF94…5D93, with the anchor transaction"></a><br><sub><b>Why this strike, v2.</b> The hand-run first epoch: its anchored log, the rule and the same hash check against the v2 DecisionLog (<a href="docs/screenshots/mobile-vault-why.png">phone</a>). Captured 2 October.</sub></td>
+  </tr>
 </table>
 
 <table>
@@ -499,7 +503,7 @@ The live app at [strike-options.vercel.app](https://strike-options.vercel.app), 
   </tr>
 </table>
 
-Phone captures of the other pages: [vaults](docs/screenshots/mobile-vaults.png), [backtest](docs/screenshots/mobile-backtest.png), [proof](docs/screenshots/mobile-proof.png), [faucet](docs/screenshots/mobile-faucet.png), [Arbitrum Sepolia vault](docs/screenshots/mobile-vault-arbitrum-sepolia.png), [rejections](docs/screenshots/mobile-agents-rejections.png).
+Phone captures of the other pages: [vaults](docs/screenshots/mobile-vaults.png), [backtest](docs/screenshots/mobile-backtest.png), [proof](docs/screenshots/mobile-proof.png), [faucet](docs/screenshots/mobile-faucet.png), [Arbitrum Sepolia vault](docs/screenshots/mobile-vault-arbitrum-sepolia.png), [rejections](docs/screenshots/mobile-agents-rejections.png), [why this strike on v2](docs/screenshots/mobile-vault-why.png) and [on v3](docs/screenshots/mobile-vault-arbitrum-sepolia-why.png).
 
 ### From the demo video
 
