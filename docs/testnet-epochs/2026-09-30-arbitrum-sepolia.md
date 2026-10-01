@@ -185,7 +185,7 @@ The `proposeByDelta` receipt (block 314,364,888) carries the v3 **`SeriesRisk`**
 Anchored the record on-chain: DecisionLog.record tx 0x6ee65ef8…8c6e (epoch 1)
 ```
 
-`ProposalRejected` came with reason 8 (`DeltaOutOfBand`). The 10 USDG went into `compensation(putVault)`, which reads 10,000,000, and the put epoch stays `Open`. Because the bond was 60 USDG, the agent is still active at the 50 USDG minimum.
+`ProposalRejected` came with reason 8 (`DeltaOutOfBand`). The 10 USDG went into `compensation(putVault)`, which reads 10,000,000, and the put epoch stays `Open`. The same transaction posted a −10 feedback with tag `strike.mandate.rejection` for ERC-8004 identity #253 to the official Reputation Registry `0x8004B663056A597Dffe9eCcC1965A193B7388713`. Its `NewFeedback` log (topic0 `0x6a4a6174…febc`, log index 36) decodes to agentId 253, client `0xAa3CA784…341E` (the AgentRegistry), feedbackIndex 1, value −10,000,000 with valueDecimals 6 (−10 USDG), tag1 `strike.mandate.rejection`, and empty tag2, endpoint, feedbackURI and a zero feedbackHash. The AgentRegistry's own log is `ReputationFeedback(1, 253, −10e6, "strike.mandate.rejection", posted = true)`. Because the bond was 60 USDG, the agent is still active at the 50 USDG minimum.
 
 **Buyer agent (separate wallet `0x85f0A3A3cb02253e578ec3BE2feDE1F1a1dC33E1`).** The wallet was generated for this run and funded with 0.002 ETH and 10 USDG. Its key lives only in a local file outside the repository. It bought with a 10 USDG budget:
 
@@ -218,15 +218,15 @@ Anchored the record on-chain: DecisionLog.record tx 0x6ee65ef8…8c6e (epoch 1)
 
 ### Transactions
 
-| Step                                                                | Transaction                                                                                                            |  L2 gas |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ------: |
-| Signer opens the covered-call epoch                                 | [`0x9865efd7…de59`](https://sepolia.arbiscan.io/tx/0x9865efd793e63ee8386e4a670eeb0bc65f5d45f1c3070126bc295f261a98de59) | 157,917 |
-| `proposeByDelta` accepted, 0.20-delta call at $364.29, `SeriesRisk` | [`0xf26315b3…b5f4`](https://sepolia.arbiscan.io/tx/0xf26315b33df93548bfa31d68b7d9964792ef88184cb154796180e19b9365b5f4) | 595,760 |
-| Decision record anchored (call)                                     | [`0x1f9f7eaf…3538`](https://sepolia.arbiscan.io/tx/0x1f9f7eafdf448c205df43e81d75e94f5282dd3b2bb465473330012c04cac3538) |  79,328 |
-| Signer opens the put epoch                                          | [`0xf92fba5d…1605`](https://sepolia.arbiscan.io/tx/0xf92fba5da7558aeccd5c5270adf46b6f218e6024a42000922c09cc8e8fdb1605) | 157,929 |
-| At-the-money put **rejected** (`DeltaOutOfBand`), 10 USDG slashed   | [`0x4813b108…756d`](https://sepolia.arbiscan.io/tx/0x4813b1089c8e6a3f3e728c74b9b6bb2d79ec73fb36ab0b5142abc72aa333756d) | 468,684 |
-| Decision record anchored (put)                                      | [`0x6ee65ef8…8c6e`](https://sepolia.arbiscan.io/tx/0x6ee65ef8a6fa002f4388f7cf279f6fd098c0a45ab2bff118c0fc0ab0ed266c8e) |  62,252 |
-| Buyer buys 4 calls for 8.905435 USDG                                | [`0x82e2d5b4…65f4`](https://sepolia.arbiscan.io/tx/0x82e2d5b4e476edec205c80daca431a8becdd5fbdb1f84e3ca0dea8d7d49265f4) | 336,946 |
+| Step                                                                                             | Transaction                                                                                                            |  L2 gas |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- | ------: |
+| Signer opens the covered-call epoch                                                              | [`0x9865efd7…de59`](https://sepolia.arbiscan.io/tx/0x9865efd793e63ee8386e4a670eeb0bc65f5d45f1c3070126bc295f261a98de59) | 157,917 |
+| `proposeByDelta` accepted, 0.20-delta call at $364.29, `SeriesRisk`                              | [`0xf26315b3…b5f4`](https://sepolia.arbiscan.io/tx/0xf26315b33df93548bfa31d68b7d9964792ef88184cb154796180e19b9365b5f4) | 595,760 |
+| Decision record anchored (call)                                                                  | [`0x1f9f7eaf…3538`](https://sepolia.arbiscan.io/tx/0x1f9f7eafdf448c205df43e81d75e94f5282dd3b2bb465473330012c04cac3538) |  79,328 |
+| Signer opens the put epoch                                                                       | [`0xf92fba5d…1605`](https://sepolia.arbiscan.io/tx/0xf92fba5da7558aeccd5c5270adf46b6f218e6024a42000922c09cc8e8fdb1605) | 157,929 |
+| At-the-money put **rejected** (`DeltaOutOfBand`), 10 USDG slashed, −10 ERC-8004 feedback to #253 | [`0x4813b108…756d`](https://sepolia.arbiscan.io/tx/0x4813b1089c8e6a3f3e728c74b9b6bb2d79ec73fb36ab0b5142abc72aa333756d) | 468,684 |
+| Decision record anchored (put)                                                                   | [`0x6ee65ef8…8c6e`](https://sepolia.arbiscan.io/tx/0x6ee65ef8a6fa002f4388f7cf279f6fd098c0a45ab2bff118c0fc0ab0ed266c8e) |  62,252 |
+| Buyer buys 4 calls for 8.905435 USDG                                                             | [`0x82e2d5b4…65f4`](https://sepolia.arbiscan.io/tx/0x82e2d5b4e476edec205c80daca431a8becdd5fbdb1f84e3ca0dea8d7d49265f4) | 336,946 |
 
 ## 7. Funds
 

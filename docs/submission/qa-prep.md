@@ -52,7 +52,7 @@ No. `openEpoch` snapshots spot and sigma, and the proposal is judged against tha
 
 ### 12. Why ERC-8004?
 
-It gives an agent an identity and a reputation record that other applications can read, instead of a record kept only by Strike. `AgentRegistry` checks `ownerOf` on the official registry before linking an identity, and posts settled results and rejections as feedback (`test_settledEpochPostsPnlFeedback`, `test_rejectionPostsNegativeFeedback`). Agent #1 is identity #114 on Robinhood Chain testnet and #253 on Arbitrum Sepolia (the same registry address on both). On 1 October the v3 rejection on Robinhood Chain testnet posted −10 feedback to #114 in the same transaction as the slash ([log §7](../testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)). Settled results post after Friday's settlement on 2 October.
+It gives an agent an identity and a reputation record that other applications can read, instead of a record kept only by Strike. `AgentRegistry` checks `ownerOf` on the official registry before linking an identity, and posts settled results and rejections as feedback (`test_settledEpochPostsPnlFeedback`, `test_rejectionPostsNegativeFeedback`). Agent #1 is identity #114 on Robinhood Chain testnet and #253 on Arbitrum Sepolia (the same registry address on both). Both v3 rejections posted −10 feedback in the same transaction as the slash: to #114 on Robinhood Chain testnet on 1 October ([log §7](../testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)) and to #253 on Arbitrum Sepolia on 30 September ([log §6](../testnet-epochs/2026-09-30-arbitrum-sepolia.md#6-the-epoch-1729-to-1734-utc-nyse-open)). Settled results post after Friday's settlement on 2 October.
 
 ### 13. Has an AI actually planned anything?
 
