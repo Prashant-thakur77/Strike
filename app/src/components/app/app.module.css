@@ -13,7 +13,9 @@
 
 .heroGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 34rem);
+  /* The title's column never gets narrower than its longest word, so a title can't break mid-word (VAULT/S at
+     tablet widths); the lead gives way down to 16rem instead. */
+  grid-template-columns: minmax(min-content, 1fr) minmax(16rem, 34rem);
   column-gap: 7vw;
   row-gap: 28px;
   align-items: end;
@@ -22,7 +24,7 @@
 
 .heroTitle {
   text-transform: uppercase;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .heroLead {
@@ -62,7 +64,7 @@
 
 @media (max-width: 820px) {
   .heroGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -599,6 +601,10 @@
   color: var(--fg-muted);
 }
 
+.rowStrike {
+  white-space: nowrap;
+}
+
 .rowApy {
   font-size: clamp(1.6rem, 2.6vw, 2.6rem);
   font-weight: 700;
@@ -611,7 +617,7 @@
   font-size: 0.92rem;
   font-weight: 560;
   line-height: 1.25;
-  white-space: nowrap;
+  text-wrap: balance;
 }
 
 .right {
@@ -682,9 +688,6 @@
   .rowTitle {
     flex-direction: column;
     align-items: flex-start;
-  }
-  .rowApyPending {
-    white-space: normal;
   }
   .rowArrow {
     grid-column: 4;
@@ -826,7 +829,8 @@
   margin-top: -8px;
 }
 
-@media (max-width: 720px) {
+/* Two by two until the rail is wide enough for "Fri, Oct 2, 16:00 ET" and "100% of fair value" on one line. */
+@media (max-width: 1180px) {
   .seriesStats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
