@@ -4,15 +4,41 @@
 #     Chainlink stock feeds). Only newer rounds are pushed, with their original timestamps.
 #  2. Settles expired epochs (settle is permissionless; the first round at or after expiry is found automatically).
 #
-# Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com PRIVATE_KEY=0x... scripts/keeper.sh [--once]
+# Both steps cover every active deployment file for the chain: contracts/deployments/<chainId>.json and
+# <chainId>-<name>.json (for example 46630-v3.json, v3 next to v2), skipping *-vaults.json and files whose `status`
+# starts with "superseded" (46630-v1.json). A MirrorFeed shared by two deployments is pushed once.
+#
+# Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com PRIVATE_KEY=0x... scripts/keeper.sh [--once] [--dry-run]
+#   --dry-run  read only: print what would be pushed or settled and send nothing (PRIVATE_KEY not needed).
 # Needs Foundry (cast) and python3.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CHAIN_ID="${CHAIN_ID:-46630}"
 RPC_URL="${RPC_URL:-https://rpc.testnet.chain.robinhood.com}"
 MAINNET_RPC="${MAINNET_RPC:-https://rpc.mainnet.chain.robinhood.com}"
-: "${PRIVATE_KEY:?PRIVATE_KEY is required (keeper role on the MirrorFeeds)}"
-DEPLOY="$ROOT/contracts/deployments/$CHAIN_ID.json"
+ONCE=0
+DRY_RUN="${DRY_RUN:-0}"
+for arg in "$@"; do
+  case "$arg" in
+    --once) ONCE=1 ;;
+    --dry-run) DRY_RUN=1 ;;
+    *) echo "unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
+[ "$DRY_RUN" = "1" ] || : "${PRIVATE_KEY:?PRIVATE_KEY is required (keeper role on the MirrorFeeds)}"
+
+# The active deployment files for this chain, the primary <chainId>.json first.
+deploy_files() {
+  local f
+  for f in "$ROOT/contracts/deployments/$CHAIN_ID.json" "$ROOT"/contracts/deployments/"$CHAIN_ID"-*.json; do
+    [ -f "$f" ] || continue
+    case "$f" in *-vaults.json) continue ;; esac
+    python3 -c "import json,sys; sys.exit(1 if str(json.load(open(sys.argv[1])).get('status','')).startswith('superseded') else 0)" "$f" || continue
+    echo "$f"
+  done
+}
+DEPLOYS=$(deploy_files)
+[ -n "$DEPLOYS" ] || { echo "no deployment file for chain $CHAIN_ID" >&2; exit 1; }
 
 # Robinhood Chain mainnet Chainlink feeds (docs.chain.link, see docs/research.md). NFLX has none.
 declare -A MAINNET_FEED=(
@@ -24,24 +50,41 @@ declare -A MAINNET_FEED=(
   [SPY]=0x319724394D3A0e3669269846abE664Cd621f9f6A
 )
 
-json() { python3 -c "import json,sys; d=json.load(open('$DEPLOY')); print(eval(sys.argv[1]))" "$1"; }
+# json <file> <python expression over d>
+json() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))" "$1" "$2"; }
+
+# send <description> <cast send args...>: sends, or only prints in a dry run.
+send() {
+  local what="$1"; shift
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "$(date -u +%FT%TZ) dry run: would $what"
+    return 0
+  fi
+  cast send "$@" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null
+}
 
 mirror_prices() {
-  for sym in $(json "' '.join(d['stocks'].keys())"); do
+  local deploy sym seen=" "
+  for deploy in $DEPLOYS; do
+  for sym in $(json "$deploy" "' '.join(d['stocks'].keys())"); do
     local src="${MAINNET_FEED[$sym]:-}"
     [ -z "$src" ] && continue
-    local dst; dst=$(json "d['stocks']['$sym']['feed']")
+    local dst; dst=$(json "$deploy" "d['stocks']['$sym']['feed'].lower()")
+    case "$seen" in *" $dst "*) continue ;; esac
+    seen="$seen$dst "
     read -r _ answer _ updated _ < <(cast call "$src" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$MAINNET_RPC" | awk '{print $1}' | tr '\n' ' ')
     read -r _ _ _ last _ < <(cast call "$dst" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$RPC_URL" | awk '{print $1}' | tr '\n' ' ')
     if [ "$updated" -gt "$last" ]; then
-      cast send "$dst" "push(int256,uint64)" "$answer" "$updated" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null
-      echo "$(date -u +%FT%TZ) $sym mirrored $answer @ $updated"
+      send "push $sym $answer @ $updated to $dst" "$dst" "push(int256,uint64)" "$answer" "$updated"
+      [ "$DRY_RUN" = "1" ] || echo "$(date -u +%FT%TZ) $sym mirrored $answer @ $updated"
     fi
+  done
   done
 }
 
+# settle_expired <deployment file>
 settle_expired() {
-  local manager count; manager=$(json "d['epochManager']")
+  local deploy="$1" manager count; manager=$(json "$deploy" "d['epochManager']")
   count=$(cast call "$manager" "vaultCount()(uint256)" --rpc-url "$RPC_URL" | awk '{print $1}')
   local now; now=$(date -u +%s)
   for ((i = 0; i < count; i++)); do
@@ -51,10 +94,13 @@ settle_expired() {
     [ "$state" != "2" ] && continue
     local expiry underlying sym feed
     expiry=$(cast call "$manager" "getSeries(uint256)((address,address,uint256,uint64,uint16,bool,bool,bool,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))" "$series" --rpc-url "$RPC_URL" | python3 -c "import sys; print(sys.stdin.read().strip('()').split(', ')[3].split()[0])")
-    [ "$now" -lt "$expiry" ] && continue
+    if [ "$now" -lt "$expiry" ]; then
+      [ "$DRY_RUN" = "1" ] && echo "$(date -u +%FT%TZ) dry run: $vault ($(basename "$deploy")) selling, expires $(date -u -d "@$expiry" +%FT%TZ)"
+      continue
+    fi
     underlying=$(cast call "$vault" "underlying()(address)" --rpc-url "$RPC_URL")
-    sym=$(json "[k for k,v in d['stocks'].items() if v['token'].lower()=='$underlying'.lower()][0]")
-    feed=$(json "d['stocks']['$sym']['feed']")
+    sym=$(json "$deploy" "[k for k,v in d['stocks'].items() if v['token'].lower()=='$underlying'.lower()][0]")
+    feed=$(json "$deploy" "d['stocks']['$sym']['feed']")
     # Walk back from the latest round to the first one at or after expiry.
     local round prev at
     round=$(cast call "$feed" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$RPC_URL" | head -1 | awk '{print $1}')
@@ -66,21 +112,47 @@ settle_expired() {
       [ -z "$at" ] || [ "$at" -lt "$expiry" ] && break
       round=$prev
     done
-    if cast send "$manager" "settle(address,uint80)" "$vault" "$round" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+    if [ "$DRY_RUN" = "1" ]; then
+      send "settle $vault ($(basename "$deploy")) at round $round" "$manager"
+    elif cast send "$manager" "settle(address,uint80)" "$vault" "$round" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
       echo "$(date -u +%FT%TZ) settled $vault at round $round"
     else
       # One round is not enough after a Chainlink phase change or a corporate action at expiry: the SDK finds every
-      # hint (findSettlementHints), records the price with recordSettlementPriceWithHints, then settles.
+      # hint (findSettlementHints), records the price with recordSettlementPriceWithHints, then settles. For a
+      # deployment other than <chainId>.json (the SDK's entry), its addresses go in as the SDK's STRIKE_* overrides.
       echo "$(date -u +%FT%TZ) $sym: single-round settle failed; settling through the SDK with hints"
-      (cd "$ROOT" && STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_AGENT_PRIVATE_KEY="$PRIVATE_KEY" STRIKE_RPC_URL="$RPC_URL" \
+      (cd "$ROOT" && export STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_AGENT_PRIVATE_KEY="$PRIVATE_KEY" STRIKE_RPC_URL="$RPC_URL" &&
+        if [ "$deploy" != "$ROOT/contracts/deployments/$CHAIN_ID.json" ]; then eval "$(sdk_overrides "$deploy")"; fi &&
         pnpm -s --filter @strike/agent-example start -- --settle --vault "$vault") || echo "settle failed for $vault"
     fi
   done
 }
 
+# export lines for the SDK's address overrides (sdk/src/deployments.ts DEPLOYMENT_ENV) from a deployment file.
+sdk_overrides() {
+  python3 - "$1" <<'PY'
+import json, shlex, sys
+d = json.load(open(sys.argv[1]))
+env = {"epochManager": "STRIKE_EPOCH_MANAGER", "agentRegistry": "STRIKE_AGENT_REGISTRY",
+       "vaultFactory": "STRIKE_VAULT_FACTORY", "stockOracle": "STRIKE_STOCK_ORACLE",
+       "optionToken": "STRIKE_OPTION_TOKEN", "feeManager": "STRIKE_FEE_MANAGER",
+       "marketCalendar": "STRIKE_MARKET_CALENDAR", "usdg": "STRIKE_USDG", "pricer": "STRIKE_PRICER",
+       "vaultImplementation": "STRIKE_VAULT_IMPLEMENTATION", "decisionLog": "STRIKE_DECISION_LOG",
+       "riskLens": "STRIKE_RISK_LENS"}
+for key, name in env.items():
+    v = d.get(key)
+    if isinstance(v, str) and v.startswith("0x") and len(v) == 42:
+        print(f"export {name}={shlex.quote(v)}")
+if isinstance(d.get("block"), int):
+    print(f"export STRIKE_DEPLOY_BLOCK={d['block']}")
+PY
+}
+
 while true; do
   mirror_prices || echo "mirror failed"
-  settle_expired || echo "settle failed"
-  [ "${1:-}" = "--once" ] && break
+  for deploy in $DEPLOYS; do
+    settle_expired "$deploy" || echo "settle failed ($(basename "$deploy"))"
+  done
+  [ "$ONCE" = "1" ] && break
   sleep "${INTERVAL:-60}"
 done

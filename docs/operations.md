@@ -9,12 +9,32 @@ How Strike is run week to week and what to do when something goes wrong. Every a
 | Monday 11:00 (15:00 UTC; 10:00 in winter)   | Agent #1, autonomous (GitHub Actions `agent.yml`) | Check the NYSE session (skip on holidays), run the keeper once, propose on both TSLA vaults (Claude plans with `--llm` when `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` is set) and commit a decision record per vault to `docs/agent-log`   | `pnpm --filter @strike/agent-example start -- --vault <symbol> --log docs/agent-log` |
 | Monday after 09:30                          | Agent (or keeper)                                 | Open the epoch; propose by delta                                                                                                                                                                                                                  | `pnpm --filter @strike/agent-example start -- --vault <symbol>`                      |
 | Monday–Friday 16:00 minus sale cutoff       | Buyers                                            | Buy options                                                                                                                                                                                                                                       | app or `--buy` agent                                                                 |
-| Every 10 minutes (testnet)                  | Keeper                                            | Mirror mainnet Chainlink rounds into MirrorFeeds                                                                                                                                                                                                  | `scripts/keeper.sh --once` (GitHub Actions `keeper.yml`)                             |
+| Every 10 minutes (testnet)                  | Keeper                                            | Mirror mainnet Chainlink rounds into the MirrorFeeds and settle expired epochs, on Robinhood Chain testnet (v2 and v3) and Arbitrum Sepolia (v3)                                                                                                  | `scripts/keeper.sh --once` (GitHub Actions `keeper.yml`, one job per chain)          |
 | Friday after 16:00                          | Anyone (keeper by default)                        | Settle at the first round at or after expiry. When that needs more than one hint (new Chainlink phase, corporate action at expiry), record the price first with `StockOracle.recordSettlementPriceWithHints`; the SDK's `settle` does this itself | `--settle` agent (SDK) or `scripts/keeper.sh --once` (one hint only)                 |
 | Friday 21:15 UTC (after the close all year) | Agent #1, autonomous (`agent.yml`)                | Keeper once (settles), then record each settlement in `docs/agent-log`; the agent settles itself only if nothing has yet                                                                                                                          | `--settle --log docs/agent-log`                                                      |
 | After settlement                            | Depositors, buyers                                | Claim premium, queued deposits and redemptions; redeem options                                                                                                                                                                                    | app                                                                                  |
 
 The autonomous runs are off until the owner flips three switches in the repository settings (Settings → Secrets and variables → Actions): the secret `KEEPER_PRIVATE_KEY` (the deployer key, agent #1's signer and the keeper key, also used by `keeper.yml`), the variable `AGENT_ENABLED` = `true`, and optionally a Claude credential so Claude plans each epoch: the secret `ANTHROPIC_API_KEY` (the Claude API, billed per token), or the secret `CLAUDE_CODE_OAUTH_TOKEN` to use a Claude Pro/Max subscription instead. Create that token with `claude setup-token` on a machine where Claude Code is logged in to the subscription; the job then installs Claude Code (pinned) and plans through `claude -p` with only the read-only Strike tools, and each run counts against the subscription's usage limits. The API key wins when both are set. See [Claude plans the epoch](../agents/example/README.md#claude-plans-the-epoch---llm). The agent and the keeper share a concurrency group, so they never send from the same key at once. See [agent-log](agent-log/README.md) for what each record contains.
+
+## Keeper: which vaults it covers
+
+`scripts/keeper.sh` reads every active deployment file for its `CHAIN_ID` in [`contracts/deployments`](../contracts/deployments): `<chainId>.json` and any `<chainId>-<name>.json`, skipping `*-vaults.json` and files whose `status` starts with "superseded" (`46630-v1.json`). For each one it walks the `EpochManager`'s `allVaults` and settles every epoch that is past expiry.
+
+| Chain                         | Deployment files read                               | Vaults settled                                               |
+| ----------------------------- | --------------------------------------------------- | ------------------------------------------------------------ |
+| Robinhood Chain testnet 46630 | `46630.json` (v2), `46630-v3.json` (v3, next to v2) | Both versions' TSLA covered-call and cash-secured-put vaults |
+| Arbitrum Sepolia 421614       | `421614.json` (v3)                                  | The v3 TSLA covered-call and cash-secured-put vaults         |
+
+v3 on Robinhood Chain shares v2's `MarketCalendar` and MirrorFeeds, so one push serves both; a feed listed in two files is pushed once. If a single settlement round is not enough (a Chainlink phase change or a corporate action at expiry), the keeper settles through the example agent and the SDK; for a file other than `<chainId>.json` it passes that file's addresses as the SDK's `STRIKE_*` overrides. Settlement is permissionless, so anyone can also settle a vault with `EpochManager.settle(vault, round)` or the agent's `--settle --vault <address>`.
+
+Check what a run would do without sending anything (no key needed):
+
+```bash
+CHAIN_ID=46630 scripts/keeper.sh --once --dry-run
+CHAIN_ID=421614 RPC_URL=https://sepolia-rollup.arbitrum.io/rpc scripts/keeper.sh --once --dry-run
+```
+
+On 2026-10-01 this listed the v2 and v3 covered-call epochs on 46630 and the v3 covered-call epoch on 421614 as selling, all expiring 2026-10-02 20:00 UTC.
 
 ## Incidents
 

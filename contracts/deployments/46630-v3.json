@@ -1,0 +1,83 @@
+{
+  "agentRegistry": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+  "block": 126713718,
+  "chainId": 46630,
+  "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+  "epochManager": "0x256D4546486368dCb23E94758b4cb500c215929F",
+  "feeManager": "0x8DBE22eAa3CEFC367C435ce2b6F779fabe7D2Fa7",
+  "marketCalendar": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
+  "optionToken": "0xfbeb6cf8350C182c7895165A8Fdd3D9884aB46B6",
+  "pricer": "0x2B6A2A51bd802Ed11bE7c0B954a7Ec9287c362d0",
+  "riskLens": "0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D",
+  "stockOracle": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A",
+  "stocks": {
+    "AMD": {
+      "feed": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+      "token": "0x71178BAc73cBeb415514eB542a8995b82669778d"
+    },
+    "AMZN": {
+      "feed": "0x698a624940DdAfA8380dbF933AbC1c2908796877",
+      "token": "0x5884aD2f920c162CFBbACc88C9C51AA75eC09E02"
+    },
+    "NFLX": {
+      "feed": "0xc7e34AC0E39663b580Fe044c04F2b7aa7949b30D",
+      "token": "0x3b8262A63d25f0477c4DDE23F83cfe22Cb768C93"
+    },
+    "PLTR": {
+      "feed": "0x2992a2661f4eb802EFF63a985914a80D262c5291",
+      "token": "0x1FBE1a0e43594b3455993B5dE5Fd0A7A266298d0"
+    },
+    "TSLA": {
+      "feed": "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+      "token": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+    }
+  },
+  "usdg": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+  "vaultFactory": "0x97ab9ed707758Fc23b4e59132d97Ab7cb9fb215e",
+  "vaultImplementation": "0x2E67F1Cf23eAAeecaee36d248d76e8366DA076D9",
+  "stylusPricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+  "stylusPricerTx": "0xc71be99442c8bbc9b9be9d419795ac2709b95b8b70214a465a71aeef9b89d49a",
+  "stylusActivationTx": "0x19277b827e7b979963e71118f69874b83c3d6c69acac58a494c49881efed417a",
+  "version": "v3",
+  "status": "deployed next to v2, not yet the app default; live epoch 2026-10-01 (series expires 2026-10-02 20:00 UTC)",
+  "sourceCommit": "448d83b",
+  "deployCommit": "64fcb93",
+  "activePricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+  "activePricerNote": "EpochManager.pricer() is the Stylus pricer and risk engine (setPricer tx 0x086c2ec2d3eec2d4c389c6890bea06a2df7a1aa5140eecf9e3e27a0da100f309); `pricer` is the Solidity reference (BlackScholesRef with RiskLib), kept for the on-chain equality check",
+  "sharedWithV2": "marketCalendar and the five stock MirrorFeeds are v2's (same source), so one keeper fills both versions",
+  "decisionLog": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+  "decisionLogTx": "0xf55e1d4dfe09759377b3da3e9feab6a39727ff0bc71251b2fd6ec3148f896c28",
+  "decisionLogNote": "Additive, reads this v3 AgentRegistry; source contracts/src/agents/DecisionLog.sol on main (a98fff8). v2's DecisionLog reads the v2 registry and cannot authorise v3 signers",
+  "agent": {
+    "agentId": 1,
+    "owner": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f",
+    "erc8004Id": 114,
+    "registerTx": "0x52f5999da7ab48d37ffb8fc5d3b476b9da1c0d3faa855de645cb80a784827162",
+    "setIdentityTx": "0xc617c3eb7feb026513bf791bb0e1c2108d4821bd86995c49a14f391832904154",
+    "note": "Registered by the owner with the signer's EIP-712 Register consent (domain Strike AgentRegistry / 1). Bonded 2026-10-01 by the signer itself (60 USDG)",
+    "postBondTx": "0x23a42953480fe13db45b0ebbfba10f7d44d06052a52192ed78989c5ae6517581",
+    "bondApproveTx": "0x0eb488c20fb5ca49d1070163c32455d09425be29c99816ae9a98da3bf3b68fd4",
+    "bond": "60 USDG posted, 50 after the 10 USDG slash on 2026-10-01"
+  },
+  "vaults": {
+    "TSLA_covered_call": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    "TSLA_cash_secured_put": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+    "createCallTx": "0xfe0ad7b0ea283980f0a70fa743a65290611ba8580579461e62cd2692e63b3027",
+    "createPutTx": "0xe6a20a2fa543d7dd10445a3337f5233601cfa15d6630e531d4148def1b02d1cb"
+  },
+  "epoch1": {
+    "callVaultSeries": "48103703716925406245656156603615117052914973735876202170787552644395932337728",
+    "strike": "369.36",
+    "expiry": 1790971200,
+    "openEpochTx": "0x4b179fb1809a4777961e5fe1439f7ad4dd2c418f4cc2e20c99b397d561d959e1",
+    "proposeByDeltaTx": "0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45",
+    "putOpenEpochTx": "0x6feeaeebac01b2288ea6000557b4c9d4f41bfecd73c25808dc2fc0a2e4239fc3",
+    "rejectedPutTx": "0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2",
+    "buyTx": "0x16d9345d815d1d5fb5a39540533b725367cfbaeab0287647f984d0202b6a61fc",
+    "decisionLogRecordTxs": [
+      "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388",
+      "0x966985d8ca2026bb6426a46d35ae708a48724a6ed74208a1ecd9c65fbf4a6e27"
+    ]
+  }
+}
