@@ -40,7 +40,7 @@ import {
   registerConsentTypedData,
   setSignerConsentTypedData,
 } from "./consent.js";
-import { deployments, getDeployment } from "./deployments.js";
+import { deployments, getDeployment, type StrikeDeployment } from "./deployments.js";
 import { StrikeError } from "./errors.js";
 import { mandateProblems } from "./mandate.js";
 import { agentStatusName, epochStateName, feedStatusName, mandateReasonName } from "./names.js";
@@ -123,6 +123,12 @@ export interface StrikeClientConfig {
   /** Signs writes. It must carry an `account`. Omit for a read-only client. */
   walletClient?: WalletClient;
   chainId: number;
+  /**
+   * The deployment to use instead of the chain's default one in the map (for example a {@link deploymentsFor} entry:
+   * v3 next to v2 on Robinhood Chain testnet). It supplies the addresses, `riskEngine`, `riskLens`, `version` and
+   * scan block; `addresses`, `riskEngine` and `riskLens` still override it.
+   */
+  deployment?: StrikeDeployment;
   /** Override (or supply) contract addresses; by default they come from the SDK's deployments map. */
   addresses?: Partial<StrikeAddresses>;
   /** Risk engine (IRiskEngine) for `seriesRisk`; by default the deployment map's `riskEngine`, when it has one. */
@@ -152,6 +158,13 @@ const ADDRESS_KEYS = [
   "feeManager",
   "vaultFactory",
 ] as const satisfies readonly (keyof StrikeAddresses)[];
+
+/** The client's addresses out of a deployment record. */
+function pickAddresses(d: StrikeDeployment): StrikeAddresses {
+  const out = {} as StrikeAddresses;
+  for (const k of ADDRESS_KEYS) out[k] = d[k];
+  return out;
+}
 
 /** Contract addresses for a chain: the deployments map, with `overrides` on top. */
 export function resolveAddresses(chainId: number, overrides: Partial<StrikeAddresses> = {}): StrikeAddresses {
@@ -195,20 +208,26 @@ function assertDeltaBps(bps: number): void {
  */
 export function createStrikeClient(config: StrikeClientConfig) {
   const { publicClient, walletClient, chainId } = config;
-  const addresses = resolveAddresses(chainId, config.addresses);
+  const chosen = config.deployment;
+  const addresses = resolveAddresses(
+    chainId,
+    chosen ? { ...pickAddresses(chosen), ...config.addresses } : config.addresses,
+  );
   const em = addresses.epochManager;
   let usdgDecimalsCache: number | undefined;
-  const deployment = (() => {
-    try {
-      return getDeployment(chainId);
-    } catch {
-      return undefined; // a chain outside the map (addresses passed in full)
-    }
-  })();
+  const deployment =
+    chosen ??
+    (() => {
+      try {
+        return getDeployment(chainId);
+      } catch {
+        return undefined; // a chain outside the map (addresses passed in full)
+      }
+    })();
   const riskEngine = config.riskEngine ?? deployment?.riskEngine;
   const riskLens = config.riskLens ?? deployment?.riskLens;
-  // The map's own record (no env override): which EpochManager carries which protocol version.
-  const mapped = deployments[String(chainId)];
+  // The chosen deployment, else the map's own record (no env override): which EpochManager carries which version.
+  const mapped = chosen ?? deployments[String(chainId)];
   const deployBlock = typeof deployment?.block === "number" ? BigInt(deployment.block) : 0n;
 
   function requireAccount(): { wallet: WalletClient; account: Account } {

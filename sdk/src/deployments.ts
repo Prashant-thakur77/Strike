@@ -1,5 +1,5 @@
 import type { Address } from "viem";
-import { generatedDeployments } from "./deployments.generated.js";
+import { generatedDeployments, generatedSecondaryDeployments } from "./deployments.generated.js";
 
 export interface StrikeDeployment {
   chainId: number;
@@ -33,6 +33,38 @@ export interface StrikeDeployment {
 
 /** Deployed Strike contracts by chain id (regenerate with `node scripts/export-abis.mjs`). */
 export const deployments = generatedDeployments as unknown as Record<string, StrikeDeployment>;
+
+/**
+ * Newer deployments running next to a chain's default one, oldest first: v3 next to v2 on Robinhood Chain testnet
+ * (from contracts/deployments/<chainId>-v<N>.json). `deployments` and {@link getDeployment} keep the default.
+ */
+export const secondaryDeployments = generatedSecondaryDeployments as unknown as Record<
+  string,
+  StrikeDeployment[]
+>;
+
+/**
+ * Every Strike deployment on `chainId`, the default one ({@link getDeployment}'s, without env overrides) first and
+ * then the newer ones beside it; empty where Strike is not deployed. Use it to list all vaults or agents of a chain,
+ * and {@link deploymentForEpochManager} to pick the one a vault belongs to.
+ */
+export function deploymentsFor(chainId: number): StrikeDeployment[] {
+  const primary = deployments[String(chainId)];
+  const out = primary ? [primary] : [];
+  for (const d of secondaryDeployments[String(chainId)] ?? []) {
+    if (!out.some((o) => o.epochManager.toLowerCase() === d.epochManager.toLowerCase())) out.push(d);
+  }
+  return out;
+}
+
+/**
+ * The deployment on `chainId` whose EpochManager is `epochManager` (a vault's `manager()`), or null when none of the
+ * chain's deployments has it.
+ */
+export function deploymentForEpochManager(chainId: number, epochManager: string): StrikeDeployment | null {
+  const em = epochManager.toLowerCase();
+  return deploymentsFor(chainId).find((d) => d.epochManager.toLowerCase() === em) ?? null;
+}
 
 /**
  * Environment variables that replace one address of the deployment record, so a second deployment on the same
