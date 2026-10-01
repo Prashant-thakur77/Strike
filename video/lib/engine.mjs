@@ -485,7 +485,7 @@ export function srt(tls) {
   return { text: lines.join("\n"), cues };
 }
 
-/** Check the caption rules: two lines of about 42 characters, at most 17 characters a second. */
+/** Check the caption rules: two lines of about 42 characters, at most 20 characters a second. */
 export function captionReport(tls) {
   const bad = [];
   for (const tl of tls)
@@ -495,7 +495,7 @@ export function captionReport(tls) {
         const next = l.chunks[k + 1];
         const d = (next ? next.start : l.end + 0.5) - c.start;
         const cps = c.text.length / d;
-        if (cps > 17) bad.push(`${tl.id}: ${cps.toFixed(1)} cps "${c.text}"`);
+        if (cps > 20) bad.push(`${tl.id}: ${cps.toFixed(1)} cps "${c.text}"`);
       });
   return bad;
 }

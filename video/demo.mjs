@@ -231,12 +231,6 @@ export function scenes(f, live) {
   const m = a.mandate;
   const prem = round2(a.buyPerOption);
   const worst = round2(a.worstLoss);
-  const fifth = (n) =>
-    ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth"][n];
-  const expirySaid = f.expiryDay.replace(
-    /^(\w+) (\d+) (\w+)$/,
-    (_, d, n, mo) => `${d}, ${mo} ${fifth(Number(n)) ?? n}`,
-  );
   return [
     // ============================================================================================ 1. the problem
     {
@@ -248,16 +242,14 @@ export function scenes(f, live) {
       tag: "The problem",
       lines: [
         L("Millions of people own stocks."),
+        L("On Robinhood Chain, stocks are tokens, | but a token earns nothing while it sits."),
         L(
-          "On Robinhood Chain, they can hold them as tokens. | But a token earns nothing while it sits in a wallet.",
+          "Wall Street holders sell covered calls for income, | but someone must pick each week's strike, | and you must trust them.",
         ),
         L(
-          "On Wall Street, holders sell covered calls for weekly income. | But someone has to pick the strike each week, | and you have to trust them.",
+          "On-chain it's harder: | multipliers easy to apply twice, | weekend price freezes, | pauses, mid-week splits.",
         ),
-        L(
-          "On-chain it is harder: | a multiplier that is easy to apply twice, | prices that freeze on weekends, | pause switches, and mid-week splits.",
-        ),
-        L("So the tokens sit idle, | or go to a manager nobody can check."),
+        L("So tokens sit idle, | or go to managers nobody can check."),
       ],
       // shot list: which clip plays from which caption chunk (line, chunk); clips in video/footage.json
       shots: [
@@ -275,7 +267,7 @@ export function scenes(f, live) {
     // ============================================================================================ 2. the turn
     {
       id: "turn",
-      chapter: "Strike",
+      chapter: "Strike and its key features",
       kind: "replay",
       screen: "The wordmark, the one-liner and two promises, appearing as they are said.",
       tag: "Strike",
@@ -290,10 +282,8 @@ export function scenes(f, live) {
         ],
       },
       lines: [
-        L(
-          "Now imagine an AI agent that picks the strike every week, | and a contract that won't let it break the rules.",
-        ),
-        L("This is Strike: | weekly options vaults for Robinhood Chain stock tokens."),
+        L("Now imagine an agent picking the strike each week, | held to the rules by a contract."),
+        L("This is Strike: | options vaults for stock tokens."),
       ],
       async run(h) {
         await h.cue(1, -0.2);
@@ -307,7 +297,6 @@ export function scenes(f, live) {
     // ============================================================================================ 3. key features
     {
       id: "features",
-      chapter: "Key features",
       kind: "replay",
       screen: "Five feature cards with line icons, appearing one by one.",
       tag: "Key features",
@@ -339,11 +328,13 @@ export function scenes(f, live) {
         ],
       },
       lines: [
-        L("Depositors earn a weekly premium in USDG.", `Depositors earn a weekly premium in ${U}.`),
-        L("An AI agent picks the strike, inside a mandate the contract enforces."),
-        L("Break the mandate, and its bond goes to the depositors."),
-        L("The math runs on-chain, in Rust on Arbitrum Stylus."),
-        L("And it is live on Robinhood Chain testnet and Arbitrum Sepolia."),
+        L("Weekly premium in USDG.", `Weekly premium in ${U}.`),
+        L("An AI agent picks the strike, inside a mandate."),
+        L("Break it, and its bond goes to depositors."),
+        L("Rust on Stylus does the math."),
+        L("Live on Robinhood Chain and Arbitrum Sepolia.", "Live on Robinhood Chain and Arbitrum Sepolia.", {
+          seeds: [11, 23, 37, 51, 64, 77],
+        }),
       ],
       async run(h) {
         for (let i = 0; i < 5; i++) {
@@ -362,26 +353,27 @@ export function scenes(f, live) {
       tag: "Architecture",
       three: { mode: "flow", delta: a.delta, size: a.bought, premiumPct: a.premiumPct },
       lines: [
-        L("Here is one week, inside Strike."),
-        L("Depositors put stock tokens in a vault with a fixed mandate."),
+        L("Inside one week:"),
+        L("Depositors fill a vault with a fixed mandate."),
+        L("An agent reads it via MCP and dry-runs.", "An agent reads it via M C P and dry-runs."),
+        L("It proposes delta, expiry, size and price."),
         L(
-          "An agent reads the vault through MCP tools, | and dry-runs its proposal.",
-          "An agent reads the vault through M C P tools, | and dry-runs its proposal.",
+          "The Epoch Manager checks the mandate at guarded oracle prices.",
+          `The ${EM} checks the mandate at guarded oracle prices.`,
         ),
-        L("Then it proposes a call: | a delta, an expiry, a size and a price."),
-        L(
-          "The Epoch Manager checks it against the mandate, | at prices from a guarded stock oracle.",
-          `The ${EM} checks it against the mandate, | at prices from a guarded stock oracle.`,
-        ),
-        L("A Rust pricer on Stylus solves the strike, | and a risk engine stress-tests it."),
+        L("Rust on Stylus solves and stress-tests the strike."),
         L("If it passes, buyers pay premium in USDG.", `If it passes, buyers pay premium in ${U}.`),
-        L("If not, it is rejected, and the bond is slashed to depositors."),
+        L("If not, the bond is slashed to depositors."),
         L(
-          "Each decision is hashed into a DecisionLog, | and the agent has an ERC-8004 identity.",
-          "Each decision is hashed into a Decision Log, | and the agent has an E R C eighty oh four identity.",
+          "Decisions are hashed on-chain; | the agent has an ERC-8004 identity.",
+          "Decisions are hashed on-chain; | the agent has an E R C eighty oh four identity.",
         ),
-        L("After Friday's close the options settle, | and the premium, less a fee, goes to depositors."),
-        L("The same contracts run on Robinhood Chain testnet and Arbitrum Sepolia."),
+        L("Friday's close settles; | depositors get the premium, less a fee."),
+        L(
+          "Same contracts on Robinhood Chain and Arbitrum Sepolia.",
+          "Same contracts on Robinhood Chain and Arbitrum Sepolia.",
+          { seeds: [11, 23, 37, 51, 64, 77] },
+        ),
       ],
       async run(h) {
         await play3d(
@@ -397,14 +389,14 @@ export function scenes(f, live) {
       screen: `The TSLA covered-call vault page: zoom on the $${f.strike} strike and the ${f.premium} USDG premium collected, then the payoff chart with a zoom on the $372.36 breakeven.`,
       tag: "Vault",
       lines: [
-        L("Now one depositor: | say Maya holds Tesla tokens, and opens the covered-call vault."),
+        L("Say Maya opens the Tesla vault."),
         L(
-          `This week it sold the $${f.strike} call, all four options, | to a buyer agent, for ${f.premium} USDG.`,
-          `This week it sold the ${sayUsd(f.strike)} call, all four options, | to a buyer agent, for ${sayDec(f.premium)} ${U}.`,
+          `This week it sold the $${f.strike} call: | four options, ${f.premium} USDG.`,
+          `This week it sold the ${sayUsd(f.strike)} call: | four options, ${sayDec(f.premium)} ${U}.`,
         ),
         L(
-          "At or below the strike, depositors like Maya keep all of it. | The buyer only profits above $372.36.",
-          `At or below the strike, depositors like Maya keep all of it. | The buyer only profits above ${sayUsd("372.36")}.`,
+          "At or below the strike, Maya keeps it; | the buyer profits above $372.36.",
+          `At or below the strike, Maya keeps it; | the buyer profits above ${sayUsd("372.36")}.`,
         ),
       ],
       async prepare(page) {
@@ -439,14 +431,14 @@ export function scenes(f, live) {
       screen: `The same vault page, Mandate section: each limit boxed as it is said (delta ${m.deltaLo} to ${m.deltaHi}, at least ${m.minPremiumPct}% of fair value, at least ${m.minYieldPct}% yield, at most ${m.maxSoldPct}% sold, ${m.tenorMin} to ${m.tenorMax} days).`,
       tag: "Mandate",
       lines: [
-        L("She doesn't have to trust the agent: | the limits are in the contract."),
+        L("The limits are in the contract:"),
         L(
-          `Delta between ${m.deltaLo} and ${m.deltaHi}. | At least ${m.minPremiumPct}% of fair value. | A yield of at least ${m.minYieldPct}%.`,
-          `Delta between ${sayDelta(m.deltaLo)} and ${sayDelta(m.deltaHi)}. | At least ${sayInt(m.minPremiumPct)} percent of fair value. | A yield of at least ${sayDelta(m.minYieldPct)} percent.`,
+          `Delta ${m.deltaLo} to ${m.deltaHi}, | at least ${m.minPremiumPct}% of fair value, | at least ${m.minYieldPct}% yield,`,
+          `Delta ${sayDelta(m.deltaLo)} to ${sayDelta(m.deltaHi)}, | at least ${sayInt(m.minPremiumPct)} percent of fair value, | at least ${sayDelta(m.minYieldPct)} percent yield,`,
         ),
         L(
-          `At most ${m.maxSoldPct}% sold, | and ${m.tenorMin} to ${m.tenorMax} days to expiry. | Nobody can change them.`,
-          `At most ${sayInt(m.maxSoldPct)} percent sold, | and ${sayInt(m.tenorMin)} to ${sayInt(m.tenorMax)} days to expiry. | Nobody can change them.`,
+          `at most ${m.maxSoldPct}% sold, | ${m.tenorMin} to ${m.tenorMax} days, | fixed for good.`,
+          `at most ${sayInt(m.maxSoldPct)} percent sold, | ${sayInt(m.tenorMin)} to ${sayInt(m.tenorMax)} days, | fixed for good.`,
         ),
       ],
       async prepare(page) {
@@ -476,15 +468,12 @@ export function scenes(f, live) {
       screen: `\`/app/playground\`, no wallet. Zoom on the honest 0.20-delta call preset, click it, zoom on **Accepted**; click the reckless at-the-money preset, zoom on **Rejected: DeltaOutOfBand**, then on the ${f.slash} USDG slash panel.`,
       tag: "Playground",
       lines: [
-        L(
-          "She can test the rules herself: | the playground asks the deployed Epoch Manager, with no wallet.",
-          `She can test the rules herself: | the playground asks the deployed ${EM}, with no wallet.`,
-        ),
+        L("The playground tests proposals live, | no wallet."),
         L("An honest 0.20-delta call: accepted.", "An honest zero point two oh delta call: accepted."),
         L("A reckless at-the-money strike: | rejected, delta out of band."),
         L(
-          `A real one would cost the agent ${f.slash} USDG of its bond, | paid to depositors like Maya.`,
-          `A real one would cost the agent ${sayInt(f.slash)} ${U} of its bond, | paid to depositors like Maya.`,
+          `A real one costs the agent ${f.slash} USDG, paid to depositors.`,
+          `A real one costs the agent ${sayInt(f.slash)} ${U}, paid to depositors.`,
         ),
       ],
       async prepare(page) {
@@ -524,10 +513,10 @@ export function scenes(f, live) {
       tag: "Pricing",
       lines: [
         L(
-          `Buyers pay a price set when they buy: | the oracle spot moved ${a.spotBufferPct}% against them, | priced with Black-Scholes, times the agent's premium factor.`,
-          `Buyers pay a price set when they buy: | the oracle spot moved ${sayDec(a.spotBufferPct)} percent against them, | priced with Black Scholes, times the agent's premium factor.`,
+          `Buyers pay at the moment they buy: | oracle spot moved ${a.spotBufferPct}% against them, | Black-Scholes, times the agent's factor.`,
+          `Buyers pay at the moment they buy: | oracle spot moved ${sayDec(a.spotBufferPct)} percent against them, | Black Scholes, times the agent's factor.`,
         ),
-        L("Never below intrinsic value, | so Monday's price can't be picked off on Wednesday."),
+        L("Never below intrinsic value, | so stale prices can't be picked off."),
       ],
       async prepare(page) {
         await openApp(page, `/app/vault/${CC_VAULT}`, () =>
@@ -565,18 +554,15 @@ export function scenes(f, live) {
         sublabel: "docs/testnet-epochs/2026-09-29.md",
       },
       lines: [
+        L("The vault ran live on September 29.", "The vault ran live on September twenty-ninth."),
         L(
-          "Maya's vault ran for real on September 29.",
-          "Maya's vault ran for real on September twenty-ninth.",
+          `The seller agent asked for 0.20 delta; | the contract solved $${f.strike}, accepted.`,
+          `The seller agent asked for zero point two oh delta; | the contract solved ${sayUsd(f.strike)}. Accepted.`,
         ),
+        L("A reckless agent forced an at-the-money put:"),
         L(
-          `The seller agent asked for a 0.20-delta Tesla call, | and the contract solved the strike on-chain: $${f.strike}, accepted.`,
-          `The seller agent asked for a zero point two oh delta Tesla call, | and the contract solved the strike on-chain: ${sayUsd(f.strike)}. Accepted.`,
-        ),
-        L("Then a reckless agent forced an at-the-money put."),
-        L(
-          `Rejected, and ${f.slash} USDG slashed: | its bond went from ${f.bondBefore} to ${f.bondAfter}.`,
-          `Rejected, and ${sayInt(f.slash)} ${U} slashed: | its bond went from ${sayInt(f.bondBefore)} to ${sayInt(f.bondAfter)}.`,
+          `rejected, ${f.slash} USDG slashed, | bond ${f.bondBefore} to ${f.bondAfter}.`,
+          `rejected, ${sayInt(f.slash)} ${U} slashed, | bond ${sayInt(f.bondBefore)} to ${sayInt(f.bondAfter)}.`,
         ),
       ],
       async prepare(page, env) {
@@ -595,9 +581,9 @@ export function scenes(f, live) {
       async run(h, env) {
         const t = (until, pause) => h.page.evaluate(([u, p]) => window.__term.type(u, p), [until, pause]);
         await h.cue(1, 0.2);
-        await t("^\\s*Verdict: None", 120);
+        await t("^\\s*Verdict: None", 70);
         await h.chunk(1, 1, -0.6);
-        await t("^\\s*Accepted", 110);
+        await t("^\\s*Accepted", 70);
         await h.page.evaluate(() => window.__term.mark("^\\s*Accepted", "hl"));
         await h.cue(2, -0.5);
         await h.page.evaluate(
@@ -611,12 +597,12 @@ export function scenes(f, live) {
             command: "pnpm --filter @strike/agent-example start -- --reckless --vault sTSLA-CSP",
           },
         );
-        await t("^\\s*A careful agent", 130);
+        await t("^\\s*A careful agent", 70);
         await h.cue(3, -0.8);
-        await t("REJECTED", 110);
+        await t("REJECTED", 70);
         await h.page.evaluate(() => window.__term.mark("REJECTED", "hlbad"));
         await h.chunk(3, 1, -0.4);
-        await t("^\\s*Agent now", 90);
+        await t("^\\s*Agent now", 60);
         await h.page.evaluate(() => window.__term.mark("^\\s*Agent now", "hlbad"));
       },
     },
@@ -624,11 +610,10 @@ export function scenes(f, live) {
       id: "explorer",
       screen: `The rejected \`proposeSeries\` transaction on the Robinhood Chain explorer ([0x3df523aa…c6a0](${EXPLORER}/tx/${REJECT_TX})): zoom on the **Success** status, then a highlight box and zoom on "Tokens transferred: AgentRegistry → EpochManager for ${f.slash} USDG".`,
       tag: "Explorer",
-      minDur: 9,
       lines: [
         L(
-          `On the explorer it says Success: a rejection is not a revert, | and ${f.slash} USDG left the agent's bond.`,
-          `On the explorer it says Success: a rejection is not a revert, | and ${sayInt(f.slash)} ${U} left the agent's bond.`,
+          `The explorer says Success: a rejection isn't a revert, | and ${f.slash} USDG left the bond.`,
+          `The explorer says Success: a rejection isn't a revert, | and ${sayInt(f.slash)} ${U} left the bond.`,
         ),
       ],
       async prepare(page) {
@@ -677,18 +662,18 @@ export function scenes(f, live) {
         sublabel: "docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md",
       },
       lines: [
-        L("On Arbitrum Sepolia, Claude planned the proposal itself."),
+        L("On Arbitrum Sepolia, Claude planned the proposal."),
         L(
-          `Through Claude Code and Strike's MCP server, | it read the vault, | and dry-ran ${f.arbCandidatesWord} candidates with risk_check.`,
-          `Through Claude Code and Strike's M C P server, | it read the vault, | and dry-ran ${sayInt(a.candidates.length)} candidates with risk check.`,
+          `Via Claude Code and Strike's MCP server, | it read the vault | and dry-ran ${f.arbCandidatesWord} candidates.`,
+          `Via Claude Code and Strike's M C P server, | it read the vault | and dry-ran ${sayInt(a.candidates.length)} candidates.`,
         ),
         L(
-          `It chose a ${a.delta} delta at ${a.premiumPct}% of fair value, | and wrote down why: | mid-band, so a small move can't push it out of the mandate.`,
-          `It chose a ${sayDelta(a.delta)} delta at ${sayInt(a.premiumPct)} percent of fair value, | and wrote down why: | mid-band, so a small move can't push it out of the mandate.`,
+          `It chose ${a.delta} delta at ${a.premiumPct}% of fair value, | and wrote why: | mid-band, safe from small moves.`,
+          `It chose ${sayDelta(a.delta)} delta at ${sayInt(a.premiumPct)} percent of fair value, | and wrote why: | mid-band, safe from small moves.`,
         ),
         L(
-          `The contract solved the strike, $${a.strike}, and accepted it.`,
-          `The contract solved the strike, ${sayUsd(a.strike)}, and accepted it.`,
+          `The contract solved $${a.strike}: accepted.`,
+          `The contract solved ${sayUsd(a.strike)}: accepted.`,
         ),
       ],
       async prepare(page) {
@@ -713,7 +698,7 @@ export function scenes(f, live) {
         await h.chunk(1, 1, -0.2);
         await t("Claude calls vault_state", 100);
         await h.chunk(1, 2, -0.3);
-        await t("Claude calls agent_stats", 260);
+        await t("Claude calls agent_stats", 180);
         await h.cue(2, -0.3);
         await t("^\\s*Claude's plan", 100);
         await mark("^\\s*Claude's plan");
@@ -729,15 +714,11 @@ export function scenes(f, live) {
       screen: `The accepted \`proposeByDelta\` transaction on Arbiscan ([0xf26315b3…b5f4](${ARBISCAN}/tx/${a.tx})): zoom on the **Success** status, then on the transaction action (a call from the agent's signer to the EpochManager).`,
       tag: "Arbiscan",
       userAgent: DESKTOP_UA,
-      minDur: 10,
       lines: [
+        L("On Arbiscan: | a successful call from the agent's signer."),
         L(
-          "On Arbiscan: | a successful call to the Epoch Manager, from the agent's signer.",
-          `On Arbiscan: | a successful call to the ${EM}, from the agent's signer.`,
-        ),
-        L(
-          `In the same run, a reckless put was rejected with a ${f.arbSlash} USDG slash, | and a buyer took all ${f.arbBought} calls.`,
-          `In the same run, a reckless put was rejected with a ${sayInt(f.arbSlash)} ${U} slash, | and a buyer took all ${sayInt(f.arbBought)} calls.`,
+          `The same run slashed a reckless put ${f.arbSlash} USDG, | and a buyer took all ${f.arbBought} calls.`,
+          `The same run slashed a reckless put ${sayInt(f.arbSlash)} ${U}, | and a buyer took all ${sayInt(f.arbBought)} calls.`,
         ),
       ],
       async prepare(page) {
@@ -790,23 +771,26 @@ export function scenes(f, live) {
         premium: a.buyPerOption,
       },
       lines: [
-        L("Here is that covered call, in 3D.", "Here is that covered call, in three D."),
-        L("Across, Tesla's price. | Front to back, days to expiry. | Up, one covered share's value."),
+        L("In 3D:", "In three D:"),
+        L("Across, Tesla's price. Back, days left. | Up, a share's value."),
         L(
-          `At expiry, it bends flat at the $${a.strike} strike: | above it, the upside goes to the buyer.`,
-          `At expiry, it bends flat at the ${sayUsd(a.strike)} strike: | above it, the upside goes to the buyer.`,
+          `At expiry it bends flat at the $${a.strike} strike: | upside goes to the buyer.`,
+          `At expiry it bends flat at the ${sayUsd(a.strike)} strike: | upside goes to the buyer.`,
         ),
         L(
-          `Below it, the depositor keeps the stock, | plus $${prem} of premium per option.`,
-          `Below it, the depositor keeps the stock, | plus ${sayUsd(prem)} of premium per option.`,
+          `Below, the depositor keeps stock plus $${prem} per option.`,
+          `Below, the depositor keeps stock plus ${sayUsd(prem)} per option.`,
         ),
       ],
       async run(h) {
         const l = h.tl.lines;
         const c2 = l[2].chunks;
+        const c1 = l[1].chunks;
         await play3d(h, [
           l[0].start,
-          ...l[1].chunks.map((c) => c.start),
+          c1[0].start,
+          c1[0].start + 1.1,
+          c1[1].start,
           c2[0].start,
           c2[0].start + 1.2,
           c2[1].start,
@@ -828,10 +812,10 @@ export function scenes(f, live) {
         ],
       },
       lines: [
-        L("The math is written in Rust, and runs on Arbitrum Stylus."),
+        L("The math is Rust, on Arbitrum Stylus."),
         L(
-          `Solving the strike takes ${f.solverSteps} Black-Scholes evaluations. | In Stylus, that costs ${f.stylusSolverX} times less gas than in Solidity, | and the whole proposal ${f.stylusTxX} times less.`,
-          `Solving the strike takes ${sayInt(f.solverSteps)} Black Scholes evaluations. | In Stylus, that costs ${sayDec(f.stylusSolverX)} times less gas than in Solidity, | and the whole proposal ${sayDec(f.stylusTxX)} times less.`,
+          `Solving a strike takes ${f.solverSteps} Black-Scholes runs: | ${f.stylusSolverX} times less gas than Solidity, | ${f.stylusTxX} times less per proposal.`,
+          `Solving a strike takes ${sayInt(f.solverSteps)} Black Scholes runs: | ${sayDec(f.stylusSolverX)} times less gas than Solidity, | ${sayDec(f.stylusTxX)} times less per proposal.`,
         ),
       ],
       async run(h) {
@@ -841,7 +825,7 @@ export function scenes(f, live) {
     },
     {
       id: "decisionlog",
-      chapter: "Decision records and identity",
+      chapter: "Decision records, identity and the multiplier trap",
       screen: `A terminal: the Claude-planned decision record (planner, target, the start of the reasoning), then its keccak256 recomputed from the published file and the DecisionLog's \`latestHash\` read from Arbitrum Sepolia at render time; both are ${live.anchorHash.slice(0, 10)}…`,
       tag: "DecisionLog",
       kind: "replay",
@@ -851,12 +835,10 @@ export function scenes(f, live) {
         sublabel: "docs/agent-log/arbitrum-sepolia/2026-09-30-sTSLA-CC.json",
       },
       lines: [
+        L("Every run leaves a decision record."),
         L(
-          "Every run leaves a decision record: | what the agent saw, what it chose and why, and what the contract said.",
-        ),
-        L(
-          "Its hash is anchored in the DecisionLog contract. | Hash the published file again, and it matches the chain.",
-          "Its hash is anchored in the Decision Log contract. | Hash the published file again, and it matches the chain.",
+          "Its hash is anchored in the DecisionLog; | rehash the file, and it matches the chain.",
+          "Its hash is anchored in the Decision Log; | rehash the file, and it matches the chain.",
         ),
       ],
       async prepare(page) {
@@ -899,13 +881,10 @@ export function scenes(f, live) {
       tag: "ERC-8004",
       lines: [
         L(
-          `On the leaderboard, the agent's public ERC-8004 identity: | ${f.identity} on Robinhood Chain testnet, ${f.arbIdentity} on Arbitrum Sepolia.`,
-          `On the leaderboard, the agent's public E R C eighty oh four identity: | ${f.identity === "114" ? "one-fourteen" : sayInt(f.identity)} on Robinhood Chain testnet, ${f.arbIdentity === "253" ? "two-fifty-three" : sayInt(f.arbIdentity)} on Arbitrum Sepolia.`,
+          `Its ERC-8004 identity: | ${f.identity} on Robinhood Chain testnet, ${f.arbIdentity} on Arbitrum Sepolia.`,
+          `Its E R C eighty oh four identity: | ${f.identity === "114" ? "one-fourteen" : sayInt(f.identity)} on Robinhood Chain testnet, ${f.arbIdentity === "253" ? "two-fifty-three" : sayInt(f.arbIdentity)} on Arbitrum Sepolia.`,
         ),
-        L(
-          "Any agent can join the same way, through the public MCP server, with no allow-list.",
-          "Any agent can join the same way, through the public M C P server, with no allow-list.",
-        ),
+        L("Anyone can join, no allow-list."),
       ],
       async prepare(page) {
         await openApp(page, "/app/agents", () =>
@@ -933,11 +912,10 @@ export function scenes(f, live) {
     },
     {
       id: "monitor",
-      chapter: "The multiplier trap, live",
       screen: `\`/app/monitor\`, live from Robinhood Chain mainnet: scroll to NVDA and zoom on its multiplier (${live.nvdaMultiplier}, read from the page at render time).`,
       tag: "Monitor",
       lines: [
-        L("This monitor reads every stock token | on Robinhood Chain mainnet, live."),
+        L("The monitor, | live on mainnet:"),
         L(
           `Nvidia's multiplier, ${mult}, is already in the price, | so Strike never applies it twice.`,
           `Nvidia's multiplier, ${sayDec(mult).replace(/^one point zero zero zero /, "one point zero zero zero, ")}, is already in the price, | so Strike never applies it twice.`,
@@ -961,19 +939,19 @@ export function scenes(f, live) {
     },
     {
       id: "backtest",
-      chapter: "Backtest: what it shows, and what it doesn't",
+      chapter: "Backtest and evidence",
       screen: `\`/app/backtest\` (TSLA): zoom on the volatility figures, then on the annual return (${f.tslaCcCagr}% against ${f.tslaHeldCagr}% held); then the assumption.`,
       tag: "Backtest",
       lines: [
         L(
-          `Over ${f.backtestWeeks} weekly epochs since 2019, | the covered call cut volatility by ${f.volCut}%.`,
-          `Over ${sayInt(f.backtestWeeks)} weekly eepoks since twenty nineteen, | the covered call cut volatility by ${f.volCut.split(" to ").map(sayInt).join(" to ")} percent.`,
+          `Over ${f.backtestWeeks} weeks since 2019, | covered calls cut volatility ${f.volCut}%,`,
+          `Over ${sayInt(f.backtestWeeks)} weeks since twenty nineteen, | covered calls cut volatility ${f.volCut.split(" to ").map(sayInt).join(" to ")} percent,`,
         ),
         L(
-          `But it lagged holding on every ticker: | Tesla returned ${f.tslaCcCagr}% a year in the vault, against ${f.tslaHeldCagr}% held.`,
-          `But it lagged holding on every ticker: | Tesla returned ${sayDec(f.tslaCcCagr)} percent a year in the vault, against ${sayDec(f.tslaHeldCagr)} percent held.`,
+          `but lagged holding everywhere: | Tesla ${f.tslaCcCagr}% a year, against ${f.tslaHeldCagr}% held.`,
+          `but lagged holding everywhere: | Tesla ${sayDec(f.tslaCcCagr)} percent a year, against ${sayDec(f.tslaHeldCagr)} percent held.`,
         ),
-        L("And it assumes buyers take the full size every week, | which no contract can guarantee."),
+        L("And it assumes full weekly sales."),
       ],
       async prepare(page) {
         await openApp(page, "/app/backtest", () =>
@@ -998,14 +976,13 @@ export function scenes(f, live) {
     },
     {
       id: "proof",
-      chapter: "Evidence: the proof page",
       screen: `\`/app/proof\`: the headline tiles (deployment, Foundry tests, coverage, internal review), then the pricer read from the chain when the page loads.`,
       tag: "Proof",
       lines: [
-        L("The proof page puts every claim next to its evidence."),
+        L("The proof page:"),
         L(
-          `${f.testsTotal} tests and proofs, | ${f.coverage}% line coverage, | ${sayInt(f.halmos)} properties proven with Halmos, | and all ${f.reviewFindings} internal-review findings fixed.`,
-          `${sayInt(f.testsTotal)} tests and proofs, | ${sayDec(f.coverage)} percent line coverage, | ${sayInt(f.halmos)} properties proven with Halmos, | and all ${sayInt(f.reviewFindings)} internal review findings fixed.`,
+          `${f.testsTotal} tests and proofs, | ${f.coverage}% line coverage, | ${sayInt(f.halmos)} Halmos proofs, | all ${f.reviewFindings} review findings fixed.`,
+          `${sayInt(f.testsTotal)} tests and proofs, | ${sayDec(f.coverage)} percent line coverage, | ${sayInt(f.halmos)} Halmos proofs, | all ${sayInt(f.reviewFindings)} review findings fixed.`,
         ),
       ],
       async prepare(page) {
@@ -1043,15 +1020,13 @@ export function scenes(f, live) {
       lines: [
         L("Who else is here?"),
         L(
-          "Stonkhouse and Archer Markets, on Robinhood Chain, are order books: | traders and writers pick the strike and set the price.",
+          "Stonkhouse and Archer Markets on Robinhood Chain are order books: | traders pick strike and price.",
         ),
         L(
-          "Ribbon, Derive and Thetanuts, on other chains, | sell options on crypto by auction, order book or RFQ.",
-          "Ribbon, Derive and Theta-nuts, on other chains, | sell options on crypto by auction, order book or R F Q.",
+          "Ribbon, Derive and Thetanuts sell crypto options | by auction, order book or RFQ.",
+          "Ribbon, Derive and Theta-nuts sell crypto options | by auction, order book or R F Q.",
         ),
-        L(
-          "Tilt Protocol, a past winner, has an AI manage tokenized-asset vaults. | It sells no options, and its sources don't describe what limits that AI on-chain.",
-        ),
+        L("Tilt's AI manages vaults, with no options; | its sources don't say what limits it on-chain."),
       ],
       async prepare(page) {
         await page.evaluate(() => window.__mx.rows(0));
@@ -1081,10 +1056,10 @@ export function scenes(f, live) {
       tag: "Competition",
       lines: [
         L(
-          "In Strike, a bonded agent proposes, the contract checks an immutable mandate, | prices every buy at the oracle, | and makes a rule-breaking agent pay the depositors.",
+          "In Strike, a bonded agent proposes, | the contract enforces mandate and price, | and rule-breakers pay.",
         ),
-        L("The stock-token traps are handled in the contract."),
-        L("For a holder: income without handing over the keys, | and every decision checkable on-chain."),
+        L("Stock-token traps are handled on-chain."),
+        L("Holders get income and keep their keys."),
       ],
       async prepare(page) {
         const png = readFileSync(join(ROOT, "docs/media/charts/competition-positioning-light.png"));
@@ -1122,7 +1097,7 @@ export function scenes(f, live) {
     // ============================================================================================ 6. challenges
     {
       id: "challenges",
-      chapter: "Challenges and solutions",
+      chapter: "Challenges, solutions and close",
       kind: "replay",
       screen:
         "A two-column card: each challenge and how Strike solves it, lit as it is said, ending with what is not done yet.",
@@ -1138,17 +1113,14 @@ export function scenes(f, live) {
         ],
       },
       lines: [
-        L("Weekend freezes: settle on the first price after expiry."),
-        L("The multiplier: never applied, tested on a mainnet fork."),
-        L("Trusting an agent: a fixed mandate, a bond, and slashing."),
+        L("Weekend freezes: settle on the first post-expiry price."),
+        L("Multiplier: never applied, fork-tested."),
+        L("Agent trust: fixed mandate, bond, slashing."),
         L(
-          `On-chain pricing: Rust on Stylus, ${f.stylusSolverX} times cheaper.`,
-          `On-chain pricing: Rust on Stylus, ${sayDec(f.stylusSolverX)} times cheaper.`,
+          `Gas: Rust on Stylus, ${f.stylusSolverX} times cheaper.`,
+          `Gas: Rust on Stylus, ${sayDec(f.stylusSolverX)} times cheaper.`,
         ),
-        L(
-          `What's not done: there is no external audit, it is testnet only, | and both epochs settle on ${f.expiryDay}.`,
-          `What's not done: there is no external audit, it is testnet only, | and both epochs settle on ${expirySaid}.`,
-        ),
+        L("Not done: no audit, and testnet only."),
       ],
       async run(h) {
         for (let i = 0; i < 5; i++) {
@@ -1160,11 +1132,10 @@ export function scenes(f, live) {
     // ============================================================================================ 7. close
     {
       id: "close",
-      chapter: "Close",
       screen: `The closing card: the line, **strike-options.vercel.app**, the repository and "Live on Robinhood Chain testnet and Arbitrum Sepolia · Unaudited", then a few seconds of silence.`,
       tag: "Strike",
       kind: "replay",
-      tail: 1.9,
+      tail: 0.8,
       replay: {
         mode: "close",
         title: "Options on Robinhood Chain and Arbitrum, run by agents the contract holds to a mandate.",
@@ -1172,20 +1143,12 @@ export function scenes(f, live) {
         repo: "github.com/Prashant-thakur77/Strike",
         badge: "Live on Robinhood Chain testnet and Arbitrum Sepolia · Unaudited",
       },
-      lines: [
-        L(
-          "Strike: options on Robinhood Chain and Arbitrum, | run by agents the contract holds to a mandate.",
-        ),
-        L(
-          "Try the playground at strike-options.vercel.app. | It is unaudited, and on testnet.",
-          "Try the playground at strike dash options dot vercel dot app. | It is unaudited, and on testnet.",
-        ),
-      ],
+      lines: [L("Strike: options on Robinhood Chain and Arbitrum, | run by agents held to a mandate.")],
       async run(h) {
         await h.page.evaluate(() => window.__close.show(2));
-        await h.cue(1, -0.3);
+        await h.at(1.6);
         await h.page.evaluate(() => window.__close.show(4));
-        await h.chunk(1, 1, -0.3);
+        await h.at(3.2);
         await h.page.evaluate(() => window.__close.show(5));
       },
     },
@@ -1238,8 +1201,10 @@ export const outputs = {
 };
 export const poster = { scene: "surface3d", at: 24 };
 export const gifScene = "flow3d";
-export const timing = { lead: 0.2, gap: 0.22, tail: 0.3 };
+export const timing = { lead: 0.08, gap: 0.1, tail: 0.15 };
 export const crf = 24;
+/** The demo reads a little faster than the pitch: every take sped up 12% with Rubber Band (formants kept). */
+export const tts = { speed: 1.12, speed_max_cps: 19.5, max_cps: 19 };
 /** The music bed (video/narration/music.py, CC0): ducked under the voice, -16 LUFS overall. */
 export const music = { seed: 7, speech_lufs: -31, gap_db: 5, fade_in: 2, fade_out: 3 };
 
@@ -1249,7 +1214,7 @@ export const scriptDoc = {
 
 The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (${total.toFixed(1)} s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by \`node video/record.mjs demo\` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
 
-The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier is read from the live monitor, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
+The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains, the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 12% faster with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier is read from the live monitor, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
 
 ## Chapters
 

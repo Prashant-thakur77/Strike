@@ -8,7 +8,8 @@ Writes one trimmed 24 kHz wav per take to <cache>/<hash>.wav and prints duration
 
 settings: voice (reference wav for Chatterbox's voice cloning; None = its built-in voice), exaggeration, cfg_weight,
 temperature, seeds, min_score, min_cands, cache, asr_model, target_cps and max_cps (characters of the tts text per
-second: a take above max_cps is slowed with Rubber Band, by at most 12%).
+second: a take above max_cps is slowed with Rubber Band, by at most 12%), and speed / speed_max_cps (an optional faster
+read for a whole video: every take is sped up by `speed` with Rubber Band, formants kept, but never past speed_max_cps).
 """
 import hashlib, json, os, re, sys, difflib, warnings, contextlib, io, subprocess
 warnings.filterwarnings("ignore")
@@ -111,6 +112,16 @@ for it in job["items"]:
                 subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", best["path"], "-af", f"rubberband=tempo={tempo:.4f}:formant=preserved",
                                 "-c:a", "pcm_f32le", slow], check=True)
             best["path"], best["dur"], best["cps"] = slow, round(best["dur"] / tempo, 3), round(best["cps"] * tempo, 1)
+        # a faster read for a whole video ("speed", e.g. 1.12): Rubber Band, formants kept, never above speed_max_cps
+        speed = float(S.get("speed", 1.0))
+        if speed > 1.0:
+            tempo = min(speed, max(1.0, S.get("speed_max_cps", 19.5) / best["cps"]))
+            if tempo > 1.005:
+                fast = best["path"].replace(".wav", f"_f{tempo:.3f}.wav")
+                if not os.path.exists(fast):
+                    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", best["path"], "-af", f"rubberband=tempo={tempo:.4f}:formant=preserved",
+                                    "-c:a", "pcm_f32le", fast], check=True)
+                best["path"], best["dur"], best["cps"] = fast, round(best["dur"] / tempo, 3), round(best["cps"] * tempo, 1)
         # silent gaps inside the take (>= 0.12 s): caption chunk boundaries snap to them
         y, sr = sf.read(best["path"], dtype="float32")
         iv = librosa.effects.split(y, top_db=32, frame_length=1024, hop_length=256)

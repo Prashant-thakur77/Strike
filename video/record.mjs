@@ -142,7 +142,8 @@ async function main() {
     log(`test wallet ${env.wallet.account.address} on ${env.wallet.rpc}`);
   }
 
-  const narr = narrate(scenes, WORK, SETTINGS);
+  // a video can override the voice settings (the demo reads a little faster than the pitch)
+  const narr = narrate(scenes, WORK, { ...SETTINGS, ...(def.tts ?? {}) });
   const tls = timeline(scenes, narr, def.timing ?? {});
   const total = tls.reduce((a, t) => a + t.dur, 0);
   const words = (s) => s.replace(/\|/g, " ").split(/\s+/).filter(Boolean).length;
