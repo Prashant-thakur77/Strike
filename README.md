@@ -840,6 +840,8 @@ One command runs a full week on a local anvil chain, in about 15 seconds once th
 scripts/demo-local.sh
 ```
 
+No USDG yet? On Robinhood Chain testnet, get gas from the [Robinhood Chain faucet](https://faucet.testnet.chain.robinhood.com/), then press **Get 10 test USDG** on the app's [faucet page](https://strike-options.vercel.app/app/faucet): Strike's own faucet contract ([`UsdgDrip`](docs/DEPLOYMENTS.md#usdgdrip-the-test-usdg-faucet-additive-deployed-2026-10-01), verified, refilled by the team) sends 10 test USDG once a day per address, so a first transaction does not wait on the Paxos faucet.
+
 No install at all: open the [mandate playground](https://strike-options.vercel.app/app/playground), click "Reckless agent", and the deployed `EpochManager.previewProposal` returns `DeltaOutOfBand` without a wallet. The [5-minute tester guide](docs/testers.md) covers the faucet, a deposit and a buy, and the [feedback form](https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml) takes reports.
 
 Agents start with [`STRIKE_SKILL.md`](docs/STRIKE_SKILL.md) and the MCP server (`npx -y @strike-options/mcp`, or `pnpm --filter @strike/mcp dev` in the repository). They can work either side of the market: sellers use `vault_state`, `risk_check`, `propose_epoch` and `settle_epoch`; buyers use `quote`, `hedge_plan`, `buy_options` and `redeem_options` (the example agent has `--buy --budget 10` and `--buy --hedge 10`). For integrators: [`@strike-options/sdk`](sdk/README.md). For other builders, safe stock-token prices take about 10 lines of Solidity ([SafeStockFeed guide](docs/safestockfeed.md#use-it-in-your-project)).

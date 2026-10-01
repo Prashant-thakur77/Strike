@@ -136,6 +136,21 @@ The first anchor is the live epoch's own log: agent #1's signer recorded keccak2
 
 From here on the weekly agent workflow anchors each record it writes to `docs/agent-log` (`--anchor`); the record's JSON carries the anchor and its transaction.
 
+### UsdgDrip, the test-USDG faucet (additive, deployed 2026-10-01)
+
+A team-funded faucet for the real testnet USDG (Paxos, `0x7E95…802F`), so a tester can make a first transaction when the Paxos faucet stalls (it did for about a day on 30 September to 1 October). `drip()` sends 10 USDG to the caller at most once per 24 hours per address (`TooSoon(next)` before that, `Empty()` when less than 10 USDG is left); `remaining()` and `nextDripAt(address)` are views; the owner (the deployer) can `refill` and `sweep`, and anyone can fund it with a plain transfer. Testnet only: the deploy script refuses chain 4663. It changes nothing in v2 or v3, and serves both, which use the same USDG ([decisions.md D38](decisions.md)). Source [`contracts/src/testnet/UsdgDrip.sol`](../contracts/src/testnet/UsdgDrip.sol), deploy script [`DeployUsdgDrip.s.sol`](../contracts/script/DeployUsdgDrip.s.sol); the address is `usdgDrip` in [`46630.json`](../contracts/deployments/46630.json). The app's [faucet page](https://strike-options.vercel.app/app/faucet) sends `drip()` from the connected wallet.
+
+| Contract | Address                                                                                                                                         | Blockscout `/api/v2/smart-contracts` says                    | Creation tx                                                                                                                         |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| UsdgDrip | [`0x1f3778BfC474419f154AD543625A711d90985632`](https://explorer.testnet.chain.robinhood.com/address/0x1f3778BfC474419f154AD543625A711d90985632) | Verified, `UsdgDrip`, solc 0.8.30, fully verified 2026-10-01 | [`0x705290d7…`](https://explorer.testnet.chain.robinhood.com/tx/0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b) |
+
+Deployed in block 127,311,607 (2026-10-01 22:18 UTC) with `forge script script/DeployUsdgDrip.s.sol --broadcast --slow --skip-simulation --verify --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api/`, which verified it in the same run. The same script funded it with 100 USDG from the deployer in block 127,311,616 ([tx `0x4a238e8a…`](https://explorer.testnet.chain.robinhood.com/tx/0x4a238e8a69c630f94df50fcea07d062519acc90d6f81a04dd60f32a3f7027629)). `owner()` returns the deployer `0x26b2…13Ff`.
+
+```bash
+curl -s https://explorer.testnet.chain.robinhood.com/api/v2/smart-contracts/0x1f3778BfC474419f154AD543625A711d90985632 | jq '{name, is_verified, is_fully_verified}'
+cast call 0x1f3778BfC474419f154AD543625A711d90985632 "remaining()(uint256)" --rpc-url https://rpc.testnet.chain.robinhood.com
+```
+
 ## v1 (superseded)
 
 Deployed before the internal review. Kept for its history; its `EpochManager.pricer()` also returns the Stylus pricer. Do not use it.

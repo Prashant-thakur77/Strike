@@ -10,7 +10,7 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 | [Design spec](design.md)                | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates |
 | [SafeStockFeed guide](safestockfeed.md) | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them               |
 | [Gas: Stylus vs Solidity](gas.md)       | Measured costs of the pricer and of real protocol transactions, including where Stylus loses      |
-| [Decisions](decisions.md)               | Every design decision with its reason (D1–D37)                                                    |
+| [Decisions](decisions.md)               | Every design decision with its reason (D1–D38)                                                    |
 
 ## Check that it is safe
 
