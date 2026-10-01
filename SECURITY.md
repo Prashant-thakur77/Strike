@@ -20,8 +20,9 @@ Include the affected contract or package, the commit or deployed address, a desc
 ## What is already known
 
 - Trust model, roles and accepted risks: [docs/audit-readiness.md](docs/audit-readiness.md).
-- Threat model (21 threats, each with its mitigation and test): [docs/threat-model.md](docs/threat-model.md).
+- Threat model (25 threats, each with its mitigation and test): [docs/threat-model.md](docs/threat-model.md).
 - Internal adversarial review of 2026-09-29, all findings fixed with regression tests: [docs/security/review-2026-09-29.md](docs/security/review-2026-09-29.md).
+- Internal adversarial review of the v3 additions, 2026-10-01: 4 Low, 3 Info, no High or Medium; three fixed on `v3-contracts`, not yet deployed: [docs/security/review-2026-10-01-v3.md](docs/security/review-2026-10-01-v3.md).
 - Static analysis triage: [docs/security/slither.md](docs/security/slither.md).
 
 ## Supported versions

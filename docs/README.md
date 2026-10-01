@@ -14,16 +14,17 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 
 ## Check that it is safe
 
-| Document                                                  | What it covers                                                            |
-| --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| [Threat model](threat-model.md)                           | 21 threats, each with its mitigation and the test that shows it           |
-| [Internal security review](security/review-2026-09-29.md) | 1 High, 3 Medium, 4 Low, 3 Info, all fixed with regression tests          |
-| [Formal verification](security/formal-verification.md)    | 9 properties proven with Halmos, 16 more written down and marked unproven |
-| [Slither triage](security/slither.md)                     | Static analysis results and why each remaining finding is accepted        |
-| [Testing](testing.md)                                     | Test suites, invariants with mutation checks, coverage, how to run each   |
-| [Audit readiness](audit-readiness.md)                     | Scope and nSLOC, roles and trust, known issues, where an auditor starts   |
-| [Risk model](risk-model.md)                               | What a depositor can lose, and when                                       |
-| [Security policy](../SECURITY.md)                         | How to report a vulnerability                                             |
+| Document                                                  | What it covers                                                                    |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [Threat model](threat-model.md)                           | 25 threats, each with its mitigation and the test that shows it                   |
+| [Internal security review](security/review-2026-09-29.md) | 1 High, 3 Medium, 4 Low, 3 Info, all fixed with regression tests                  |
+| [v3 security review](security/review-2026-10-01-v3.md)    | 4 Low, 3 Info, no High or Medium; three fixed on `v3-contracts`, not yet deployed |
+| [Formal verification](security/formal-verification.md)    | 9 properties proven with Halmos, 16 more written down and marked unproven         |
+| [Slither triage](security/slither.md)                     | Static analysis results and why each remaining finding is accepted                |
+| [Testing](testing.md)                                     | Test suites, invariants with mutation checks, coverage, how to run each           |
+| [Audit readiness](audit-readiness.md)                     | Scope and nSLOC, roles and trust, known issues, where an auditor starts           |
+| [Risk model](risk-model.md)                               | What a depositor can lose, and when                                               |
+| [Security policy](../SECURITY.md)                         | How to report a vulnerability                                                     |
 
 ## See it run
 
