@@ -21,6 +21,7 @@ import {
   StrikeError,
   type VaultState,
   clampDeltaToMandate,
+  consentSignerOf,
   explainError,
   explainMandateReason,
   explainSeriesRisk,
@@ -50,6 +51,7 @@ import {
   registerAgentShape,
   riskCheckShape,
   seriesRiskShape,
+  setSignerShape,
   suggestionSchema,
   vaultSchema,
 } from "./schemas.js";
@@ -603,7 +605,7 @@ async function resolveUnderlying(
 /**
  * Build the Strike MCP server: tools to list and inspect vaults, quote, plan hedges with, buy and redeem options,
  * dry-run and send an agent's proposal, settle epochs, read agent track records, and join as a new agent
- * (register_agent, create_vault), plus the STRIKE_SKILL.md resource.
+ * (register_agent, set_signer, create_vault), plus the STRIKE_SKILL.md resource.
  */
 export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
   const { chainId, client, skillText } = options;
@@ -1590,7 +1592,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "Join Strike as an agent",
       description:
-        "Register this server's wallet as a Strike agent (AgentRegistry.register: the wallet is owner and signer; one agent per signer) and optionally bond USDG (approve + postBond). Checks first and explains the constraints: the signer must be free, a linked ERC-8004 identity must belong to this wallet, the wallet must hold the bond, and an agent bonded below minBond cannot propose. Each rejected proposal slashes slashAmount of the bond; maxStrikes rejections suspend the agent. dryRun: true only checks. Already registered: tops up the bond when one is given. Next: create_vault (your own vault), or ask a vault's curator to assign your agent id. Sends the v2 register call: a v3 AgentRegistry also needs the signer's EIP-712 consent, which this tool does not send yet.",
+        "Register this server's wallet as a Strike agent (AgentRegistry.register: the wallet is owner and signer; one agent per signer) and optionally bond USDG (approve + postBond). Checks first and explains the constraints: the signer must be free, a linked ERC-8004 identity must belong to this wallet, the wallet must hold the bond, and an agent bonded below minBond cannot propose. Each rejected proposal slashes slashAmount of the bond; maxStrikes rejections suspend the agent. dryRun: true only checks. Already registered: tops up the bond when one is given. Next: create_vault (your own vault), or ask a vault's curator to assign your agent id. Works on v2 and v3 registries (registryVersion in the result): v3 needs an EIP-712 consent only from a signer that is not the sender, and this wallet is its own signer, so v3's register(signer, payout, erc8004Id, deadline 0, empty signature) is sent. To use a separate signer key, register here and rotate with set_signer.",
       inputSchema: {
         payout: addressInput
           .optional()
@@ -1614,11 +1616,12 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         const me = requireWallet(strike);
         const payoutAddress = payout === undefined ? me : getAddress(payout);
         const identity = BigInt(erc8004Id ?? 0);
-        const [params, existingId, balance, usdgDecimals] = await Promise.all([
+        const [params, existingId, balance, usdgDecimals, registryVersion] = await Promise.all([
           strike.agentRegistryParams(),
           strike.agentOfSigner(me),
           strike.tokenBalance(strike.addresses.usdg, me),
           strike.usdgDecimals(),
+          strike.registryVersion(),
         ]);
         const bondAmount =
           bond === undefined ? 0n : bond === "min" ? params.minBond : parseAmount(bond, usdgDecimals);
@@ -1638,6 +1641,15 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           );
         } else {
           checks.push(check("Signer free", true, `${me} has no agent yet: it becomes signer and owner.`));
+          checks.push(
+            check(
+              "Signer consent",
+              true,
+              registryVersion === "v3"
+                ? "v3 AgentRegistry: the signer is this wallet, so register needs no EIP-712 consent signature."
+                : "v2 AgentRegistry: register(signer, payout, erc8004Id), no consent.",
+            ),
+          );
           if (identity === 0n) {
             checks.push(
               check("ERC-8004 identity", true, "None linked (optional; setIdentity links one later)."),
@@ -1691,6 +1703,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
 
         const rules = `Rules: at least ${minBond} USDG bonded to propose; ${usdg(params.slashAmount)} USDG slashed per rejected proposal (paid to that vault's depositors); suspended at ${params.maxStrikes} strikes.`;
         const base = {
+          registryVersion,
           alreadyRegistered: existing !== null,
           signer: me,
           owner: existing?.owner ?? me,
@@ -1754,6 +1767,162 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           nextStep: after.active
             ? `Create your own vault with create_vault (agent ${agentId}), or ask a vault's curator to call EpochManager.setVaultAgent(vault, ${agentId}).`
             : `Bond at least ${minBond} USDG (register_agent with bond "min"), then create_vault.`,
+        });
+      }),
+  );
+
+  server.registerTool(
+    "set_signer",
+    {
+      title: "Rotate an agent's signer key",
+      description:
+        "Rotate the signer key of an agent this wallet owns (AgentRegistry.setSigner), for example after a key leak or to move proposing to a separate key. Checks first: the agent exists, this wallet is its owner, and the new key has no agent (one agent per signer). On a v3 registry a new signer that is not this wallet must consent with an EIP-712 SetSigner signature (owner, agentId, the signer's nonce, deadline): pass consentSignature and consentDeadline made with that key (SDK signSetSignerConsent, or any EIP-712 signer over consentTypedData, which a dry run returns). The signature is checked before sending. Rotating to this wallet itself, or any rotation on v2, needs no consent. After rotating, only the new key may propose for the agent's vaults. dryRun: true only checks.",
+      inputSchema: {
+        agentId: z
+          .union([z.number().int().positive(), z.string().regex(/^\d+$/)])
+          .describe("The agent to rotate"),
+        signer: addressInput.describe("The new signer key's address"),
+        consentSignature: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]*$/)
+          .optional()
+          .describe("v3: the new signer's EIP-712 SetSigner signature (65 bytes, 0x hex)"),
+        consentDeadline: z
+          .union([z.number().int().nonnegative(), z.string().regex(/^\d+$/)])
+          .optional()
+          .describe("v3: the unix timestamp the consent signature was made with"),
+        dryRun: z.boolean().optional().describe("Only check and explain; send nothing"),
+      },
+      outputSchema: setSignerShape,
+      annotations: WRITE,
+    },
+    async ({ agentId, signer, consentSignature, consentDeadline, dryRun }) =>
+      run(async () => {
+        const strike = client();
+        const me = requireWallet(strike);
+        const id = BigInt(agentId);
+        const newSigner = getAddress(signer);
+        const [registryVersion, agent, taken, now] = await Promise.all([
+          strike.registryVersion(),
+          strike.getAgent(id),
+          strike.agentOfSigner(newSigner),
+          strike.blockTimestamp(),
+        ]);
+        const known = agent.status !== "None";
+        const checks: Check[] = [];
+        checks.push(
+          check("Agent exists", known, known ? `Agent #${id} is ${agent.status}.` : `No agent #${id}.`),
+        );
+        if (known) {
+          const owned = getAddress(agent.owner) === getAddress(me);
+          checks.push(
+            check(
+              "Owner",
+              owned,
+              owned
+                ? `This wallet owns agent #${id}.`
+                : `Agent #${id} is owned by ${agent.owner}, not this wallet (setSigner would revert NotOwner).`,
+            ),
+          );
+        }
+        checks.push(
+          check(
+            "Signer free",
+            taken === 0n,
+            taken === 0n
+              ? `${newSigner} has no agent: it can become agent #${id}'s signer.`
+              : `${newSigner} already signs for agent #${taken} (one agent per signer; setSigner would revert SignerTaken).`,
+          ),
+        );
+        const consentRequired = registryVersion === "v3" && newSigner !== getAddress(me);
+        let consentTypedData: string | null = null;
+        let consent: { signature: `0x${string}`; deadline: bigint } | undefined;
+        if (!consentRequired) {
+          checks.push(
+            check(
+              "Signer consent",
+              true,
+              registryVersion === "v3"
+                ? "v3 AgentRegistry: the new signer is this wallet, so no EIP-712 consent is needed."
+                : "v2 AgentRegistry: setSigner(agentId, signer), no consent.",
+            ),
+          );
+        } else if (known) {
+          const deadline = consentDeadline === undefined ? undefined : BigInt(consentDeadline);
+          const typedData = await strike.setSignerConsentTypedData({
+            agentId: id,
+            signer: newSigner,
+            deadline,
+          });
+          const json = JSON.stringify(typedData, (_k, v) => (typeof v === "bigint" ? v.toString() : v));
+          if (consentSignature === undefined || deadline === undefined) {
+            consentTypedData = json;
+            checks.push(
+              check(
+                "Signer consent",
+                false,
+                `v3 AgentRegistry: ${newSigner} is not this wallet, so it must consent with an EIP-712 SetSigner signature. Sign consentTypedData with that key and pass consentSignature and consentDeadline (${typedData.message.deadline}).`,
+              ),
+            );
+          } else {
+            const recovered = await consentSignerOf(typedData, consentSignature as `0x${string}`);
+            const fresh = deadline >= now;
+            const ok = recovered === newSigner && fresh;
+            if (!ok) consentTypedData = json;
+            checks.push(
+              check(
+                "Signer consent",
+                ok,
+                ok
+                  ? `The SetSigner consent is signed by ${newSigner} and valid until ${deadline}.`
+                  : !fresh
+                    ? `The consent expired at ${deadline} (latest block ${now}); sign a new one (setSigner would revert ConsentExpired).`
+                    : `The consent ${recovered ? `was signed by ${recovered}` : "is malformed"}, not by ${newSigner} over this message (owner ${typedData.message.owner}, nonce ${typedData.message.nonce}, deadline ${deadline}); setSigner would revert InvalidConsent.`,
+              ),
+            );
+            if (ok) consent = { signature: consentSignature as `0x${string}`, deadline };
+          }
+        }
+        const base = {
+          registryVersion,
+          agentId: id.toString(),
+          owner: known ? agent.owner : null,
+          previousSigner: known ? agent.signer : null,
+          signer: newSigner,
+          consentRequired,
+          consentTypedData,
+          checks,
+        };
+        const blocked = blockers(checks);
+        if (dryRun === true || blocked) {
+          return result({
+            ...base,
+            dryRun: dryRun === true,
+            submitted: false,
+            txHash: null,
+            explanation: oneLine(
+              blocked
+                ? `Not sent. ${blocked}`
+                : `Dry run: would make ${newSigner} the signer of agent #${id} (replacing ${agent.signer}).`,
+            ),
+            nextStep: blocked
+              ? "Fix the failed checks and call set_signer again."
+              : "Call set_signer again without dryRun to send it.",
+          });
+        }
+        const tx = await strike.setSigner(id, newSigner, consent ? { consent } : {});
+        return result({
+          ...base,
+          dryRun: false,
+          submitted: true,
+          txHash: tx.hash,
+          explanation: oneLine(
+            `Agent #${id}'s signer is now ${newSigner} (was ${agent.signer}). Only the new key may propose for its vaults.`,
+          ),
+          nextStep:
+            newSigner === getAddress(me)
+              ? "This wallet proposes for the agent again."
+              : `Run the agent with the new key (STRIKE_AGENT_PRIVATE_KEY of ${newSigner}) to propose.`,
         });
       }),
   );

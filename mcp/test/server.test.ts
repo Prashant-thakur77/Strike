@@ -376,6 +376,7 @@ describe("Strike MCP server", () => {
       "register_agent",
       "risk_check",
       "series_risk",
+      "set_signer",
       "settle_epoch",
       "strike_info",
       "vault_state",

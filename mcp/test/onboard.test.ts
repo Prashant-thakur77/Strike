@@ -1,8 +1,16 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { type CreateVaultParams, DEFAULT_MANDATE, type StrikeClient, WAD } from "@strike/sdk";
+import {
+  type CreateVaultParams,
+  DEFAULT_MANDATE,
+  type SetSignerOptions,
+  type StrikeClient,
+  WAD,
+  setSignerConsentTypedData,
+} from "@strike/sdk";
 import { type Address, getAddress } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStrikeMcpServer } from "../src/server.js";
 
@@ -16,6 +24,8 @@ const NVDA = addr(0x52);
 const USDG = addr(0xd6);
 const IDENTITY_REGISTRY = addr(0x8004);
 const NEW_VAULT = addr(0x2002);
+const NOW = 1_791_212_400n;
+const DOMAIN = { name: "Strike AgentRegistry", version: "1", chainId: 31337, verifyingContract: addr(0xa1) };
 
 const params = {
   minBond: 50_000_000n,
@@ -62,12 +72,16 @@ interface Opts {
   allowed?: boolean;
   /** Symbols of vaults already on chain. */
   symbols?: string[];
+  /** The AgentRegistry's version (default v2). */
+  version?: "v2" | "v3";
+  /** Agents of other signer keys (for set_signer's "Signer free"). */
+  signerAgents?: Record<string, bigint>;
 }
 
 function stub(opts: Opts = {}) {
   let registered = opts.existing ?? 0n;
   let bond = opts.existingBond ?? 0n;
-  const calls = { registerAgent: vi.fn(), postBond: vi.fn(), createVault: vi.fn() };
+  const calls = { registerAgent: vi.fn(), postBond: vi.fn(), createVault: vi.fn(), setSigner: vi.fn() };
   const client = {
     viem: {
       walletClient: { account: { address: ME } },
@@ -82,7 +96,20 @@ function stub(opts: Opts = {}) {
       ...params,
       identityRegistry: opts.identityRegistry ?? params.identityRegistry,
     }),
-    agentOfSigner: async () => registered,
+    agentOfSigner: async (s: Address) => (s === ME ? registered : (opts.signerAgents?.[s] ?? 0n)),
+    registryVersion: async () => opts.version ?? "v2",
+    blockTimestamp: async () => NOW,
+    setSignerConsentTypedData: async (p: { agentId: bigint; signer: Address; deadline?: bigint }) =>
+      setSignerConsentTypedData(DOMAIN, {
+        owner: ME,
+        agentId: p.agentId,
+        nonce: 0n,
+        deadline: p.deadline ?? NOW + 3_600n,
+      }),
+    setSigner: async (id: bigint, signer: Address, o: SetSignerOptions) => {
+      calls.setSigner(id, signer, o);
+      return { hash: "0xrotate", agentId: id, signer };
+    },
     tokenBalance: async () => opts.usdgBalance ?? 1_000_000_000n,
     identityOwner: async () => opts.identityOwner ?? null,
     getAgent: async (id: bigint) =>
@@ -231,6 +258,111 @@ describe("register_agent", () => {
     expect(calls.registerAgent).not.toHaveBeenCalled();
     expect(calls.postBond).toHaveBeenCalledWith(7n, 30_000_000n);
     expect(topped).toMatchObject({ submitted: true, registerTxHash: null, bond: "50", active: true });
+  });
+});
+
+describe("register_agent on a v3 registry", () => {
+  it("registers this wallet as its own signer: no consent needed, and says so", async () => {
+    const { client, calls } = stub({ version: "v3" });
+    const c = await connect(client);
+    const dry = await call(c, "register_agent", { bond: "min", dryRun: true });
+    expect(dry.registryVersion).toBe("v3");
+    expect(checkNamed(dry, "Signer consent")).toMatchObject({ ok: true });
+    expect(checkNamed(dry, "Signer consent")?.detail).toMatch(/v3 AgentRegistry: the signer is this wallet/);
+    const out = await call(c, "register_agent", { bond: "min" });
+    expect(out).toMatchObject({ submitted: true, registryVersion: "v3", agentId: "7" });
+    expect(calls.registerAgent).toHaveBeenCalledWith({ signer: ME, payout: ME, erc8004Id: 0n });
+  });
+
+  it("v2 reports its version too", async () => {
+    const out = await call(await connect(stub().client), "register_agent", { dryRun: true });
+    expect(out.registryVersion).toBe("v2");
+    expect(checkNamed(out, "Signer consent")?.detail).toMatch(/v2 AgentRegistry/);
+  });
+});
+
+describe("set_signer", () => {
+  const newKey = privateKeyToAccount(generatePrivateKey());
+
+  it("v2: rotates without consent", async () => {
+    const { client, calls } = stub({ existing: 7n });
+    const out = await call(await connect(client), "set_signer", { agentId: 7, signer: newKey.address });
+    expect(out).toMatchObject({
+      submitted: true,
+      registryVersion: "v2",
+      consentRequired: false,
+      previousSigner: ME,
+      signer: newKey.address,
+      txHash: "0xrotate",
+    });
+    expect(calls.setSigner).toHaveBeenCalledWith(7n, newKey.address, {});
+  });
+
+  it("v3: without a consent it refuses and returns the typed data for the new key to sign", async () => {
+    const { client, calls } = stub({ existing: 7n, version: "v3" });
+    const out = await call(await connect(client), "set_signer", { agentId: "7", signer: newKey.address });
+    expect(out).toMatchObject({ submitted: false, consentRequired: true });
+    expect(checkNamed(out, "Signer consent")).toMatchObject({ ok: false, blocking: true });
+    expect(out.explanation).toMatch(/must consent with an EIP-712 SetSigner signature/);
+    const td = JSON.parse(out.consentTypedData as string);
+    expect(td).toMatchObject({
+      primaryType: "SetSigner",
+      domain: { name: "Strike AgentRegistry", version: "1" },
+      message: { owner: ME, agentId: "7", nonce: "0", deadline: (NOW + 3_600n).toString() },
+    });
+    expect(calls.setSigner).not.toHaveBeenCalled();
+  });
+
+  it("v3: checks the consent signature, then sends it", async () => {
+    const { client, calls } = stub({ existing: 7n, version: "v3" });
+    const c = await connect(client);
+    const deadline = NOW + 600n;
+    const td = setSignerConsentTypedData(DOMAIN, { owner: ME, agentId: 7n, nonce: 0n, deadline });
+    const forged = await privateKeyToAccount(generatePrivateKey()).signTypedData(td);
+    const bad = await call(c, "set_signer", {
+      agentId: 7,
+      signer: newKey.address,
+      consentSignature: forged,
+      consentDeadline: deadline.toString(),
+    });
+    expect(bad.submitted).toBe(false);
+    expect(checkNamed(bad, "Signer consent")?.detail).toMatch(/not by .*InvalidConsent/);
+    expect(bad.consentTypedData).not.toBeNull();
+
+    const signature = await newKey.signTypedData(td);
+    const late = await call(c, "set_signer", {
+      agentId: 7,
+      signer: newKey.address,
+      consentSignature: signature,
+      consentDeadline: Number(NOW - 1n),
+    });
+    expect(checkNamed(late, "Signer consent")?.detail).toMatch(/expired/);
+
+    const ok = await call(c, "set_signer", {
+      agentId: 7,
+      signer: newKey.address,
+      consentSignature: signature,
+      consentDeadline: Number(deadline),
+    });
+    expect(ok).toMatchObject({ submitted: true, consentRequired: true, consentTypedData: null });
+    expect(calls.setSigner).toHaveBeenCalledWith(7n, newKey.address, { consent: { signature, deadline } });
+  });
+
+  it("v3: rotating back to this wallet needs no consent", async () => {
+    const { client, calls } = stub({ existing: 7n, version: "v3" });
+    const out = await call(await connect(client), "set_signer", { agentId: 7, signer: ME, dryRun: true });
+    expect(out).toMatchObject({ dryRun: true, submitted: false, consentRequired: false });
+    expect(checkNamed(out, "Signer consent")?.detail).toMatch(/new signer is this wallet/);
+    expect(calls.setSigner).not.toHaveBeenCalled();
+  });
+
+  it("refuses an agent it does not own and a signer that is taken", async () => {
+    const other = addr(0xabc);
+    const c = await connect(stub({ existing: 0n, signerAgents: { [other]: 3n } }).client);
+    const out = await call(c, "set_signer", { agentId: 9, signer: other });
+    expect(out.submitted).toBe(false);
+    expect(checkNamed(out, "Agent exists")).toMatchObject({ ok: false });
+    expect(checkNamed(out, "Signer free")?.detail).toMatch(/already signs for agent #3/);
   });
 });
 

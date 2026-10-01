@@ -175,6 +175,9 @@ export const checkSchema = z.object({
 
 export const registerAgentShape = {
   dryRun: z.boolean(),
+  registryVersion: z
+    .enum(["v2", "v3"])
+    .describe("v3 registries take an EIP-712 consent from a signer that is not the sender"),
   submitted: z.boolean().describe("Whether any transaction was sent"),
   alreadyRegistered: z.boolean(),
   agentId: z.string().nullable(),
@@ -192,6 +195,29 @@ export const registerAgentShape = {
   checks: z.array(checkSchema),
   registerTxHash: z.string().nullable(),
   bondTxHash: z.string().nullable(),
+  explanation: z.string(),
+  nextStep: z.string(),
+};
+
+export const setSignerShape = {
+  dryRun: z.boolean(),
+  submitted: z.boolean().describe("Whether the setSigner transaction was sent"),
+  registryVersion: z.enum(["v2", "v3"]),
+  agentId: z.string(),
+  owner: address.nullable(),
+  previousSigner: address.nullable(),
+  signer: address.describe("The new signer key"),
+  consentRequired: z
+    .boolean()
+    .describe("v3 and the new signer is not this wallet: the new signer must sign the SetSigner consent"),
+  consentTypedData: z
+    .string()
+    .nullable()
+    .describe(
+      "When a consent is required but missing or invalid: the EIP-712 typed data (JSON, integers as strings) for the new signer key to sign",
+    ),
+  checks: z.array(checkSchema),
+  txHash: z.string().nullable(),
   explanation: z.string(),
   nextStep: z.string(),
 };
