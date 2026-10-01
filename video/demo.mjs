@@ -198,6 +198,11 @@ function claudeRun(a) {
   return out;
 }
 
+/** The positioning chart (2000×1520 png), scaled to fit above the caption bar with margins. */
+const IMG_H = 870,
+  IMG_W = Math.round((IMG_H * 2000) / 1520),
+  IMG_TOP = 30;
+
 /** The competition rows the video shows (scripts/charts/data/competition.json has all of them). */
 const COMP_ROWS = [
   "Who picks the strike",
@@ -1072,7 +1077,7 @@ export function scenes(f, live) {
       id: "position",
       kind: "page",
       screen:
-        "The positioning chart (docs/media/charts/competition-positioning-light.png: who picks the strike against how the price is set), with a slow zoom to Strike's corner.",
+        "The whole positioning chart (docs/media/charts/competition-positioning-light.png: who picks the strike against how the price is set) above the caption bar; Strike is boxed, then Stonkhouse and Archer Markets, the two others on Robinhood Chain.",
       tag: "Competition",
       lines: [
         L(
@@ -1088,28 +1093,30 @@ export function scenes(f, live) {
             ? r.fulfill({ contentType: "image/png", body: png })
             : r.fulfill({
                 contentType: "text/html",
-                body: `<!doctype html><html><body style="margin:0;background:#e9e9e7;width:1920px;height:1080px;overflow:hidden"><img id="c" src="/c.png" style="position:absolute;left:${(1920 - 1224) / 2}px;top:0;width:1224px;height:930px"></body></html>`,
+                body: `<!doctype html><html><body style="margin:0;background:#e9e9e7;width:1920px;height:1080px;overflow:hidden"><img id="c" src="/c.png" style="position:absolute;left:${(1920 - IMG_W) / 2}px;top:${IMG_TOP}px;width:${IMG_W}px;height:${IMG_H}px"></body></html>`,
               }),
         );
         await page.goto("https://video.strike.local/position");
         await page.locator("#c").evaluate((img) => img.decode());
       },
       async run(h) {
-        // Strike's point sits at about (85%, 22%) of the chart
-        const zoomTo = (fx, fy, s, ms) =>
+        // The whole chart stays in frame (no zoom): a box on Strike, then one on the two competitors on Robinhood
+        // Chain (Stonkhouse, Archer Markets); the scene ends with both boxed. Positions are fractions of the chart.
+        const box = (fx, fy, fw, fh) =>
           h.page.evaluate(
-            ([fx, fy, s, ms]) => {
+            ([fx, fy, fw, fh]) => {
               const r = window.__v.rect(document.getElementById("c"));
-              window.__v.zoomRect({ x: r.x + r.w * fx - 150, y: r.y + r.h * fy - 90, w: 300, h: 180 }, s, ms);
+              window.__v.box(
+                { x: r.x + r.w * fx, y: r.y + r.h * fy, w: r.w * fw, h: r.h * fh },
+                { pad: 8, dim: 0 },
+              );
             },
-            [fx, fy, s, ms],
+            [fx, fy, fw, fh],
           );
-        await h.at(0.6);
-        await zoomTo(0.8, 0.3, 1.5, 2600);
+        await h.at(0.8);
+        await box(0.835, 0.19, 0.105, 0.06);
         await h.cue(1, -0.2);
-        await h.unzoom(900);
-        await h.cue(2, -0.2);
-        await zoomTo(0.8, 0.3, 1.3, 2000);
+        await box(0.285, 0.69, 0.145, 0.072);
       },
     },
     // ============================================================================================ 6. challenges

@@ -271,7 +271,7 @@ Screen: The capability matrix from scripts/charts/data/competition.json (checked
 
 ## 7:01 to 7:22 · Competition
 
-Screen: The positioning chart (docs/media/charts/competition-positioning-light.png: who picks the strike against how the price is set), with a slow zoom to Strike's corner.
+Screen: The whole positioning chart (docs/media/charts/competition-positioning-light.png: who picks the strike against how the price is set) above the caption bar; Strike is boxed, then Stonkhouse and Archer Markets, the two others on Robinhood Chain.
 
 > In Strike, a bonded agent proposes, the contract checks an immutable mandate, prices every buy at the oracle, and makes a rule-breaking agent pay the depositors.
 >
