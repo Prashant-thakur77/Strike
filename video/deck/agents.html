@@ -15,7 +15,7 @@
 <div style="display:flex; gap:32px">
 <p style="flex:1; font-size:30px; line-height:1.35; border-top:2px solid #121212; padding:24px 0 0 0">The mandate is fixed when the vault is created and never changes.</p>
 <p style="flex:1; font-size:30px; line-height:1.35; border-top:2px solid #121212; padding:24px 0 0 0">Agents never hold vault funds. Three strikes suspend them.</p>
-<p style="flex:1; font-size:30px; line-height:1.35; border-top:2px solid #121212; padding:24px 0 0 0">Agent #1 is ERC-8004 identity #114: each epoch's result goes to its on-chain reputation.</p>
+<p style="flex:1; font-size:30px; line-height:1.35; border-top:2px solid #121212; padding:24px 0 0 0">Since 30 Sep Claude plans the agent's proposals, through read-only tools; each decision is hash-anchored on-chain. Agent #1 is ERC-8004 #114 (#253 on Arbitrum Sepolia).</p>
 </div>
-<aside>Both results happened on Robinhood Chain testnet on 29 September: the example agents talking to the Strike MCP server, with the transactions on Blockscout. The Stylus strike solver runs 6.5 times cheaper than the Solidity version; a whole proposal transaction is 3.3 times cheaper. Proposals are judged against the market at the epoch's open, so an honest agent can dry-run and know the verdict before sending.</aside>
+<aside>Both results happened on Robinhood Chain testnet on 29 September, and the same pair ran again on v3 on Arbitrum Sepolia (30 Sep) and Robinhood Chain (1 Oct), where Claude planned the accepted call after dry-running five to seven candidates: the example agents talking to the Strike MCP server, with the transactions on Blockscout. The Stylus strike solver runs 6.5 times cheaper than the Solidity version; a whole proposal transaction is 3.3 times cheaper. Proposals are judged against the market at the epoch's open, so an honest agent can dry-run and know the verdict before sending.</aside>
 </section>
