@@ -7,8 +7,13 @@ import { RPC, acknowledge, connectWallet, devnetUp, horizontalOverflow, installM
 
 // "Run your own agent" on /app/agents against a local devnet: a fresh anvil account (not the deployer) registers an
 // agent, bonds it and creates a vault it runs, all through the injected mock wallet, and the leaderboard shows it.
+// The devnet may run v2 (this repo's contracts) or v3 (Deploy.s.sol and Seed.s.sol from the v3-contracts branch; the
+// core addresses on 31337 are the same): v3's AgentRegistry makes a signer key other than the wallet sign an EIP-712
+// consent first, and the v3 tests cover that flow. Each test runs only on the matching devnet.
 
 const registryAbi = parseAbi([
+  "function REGISTER_TYPEHASH() view returns (bytes32)",
+  "function nonces(address) view returns (uint256)",
   "function agentOfSigner(address) view returns (uint256)",
   "function getAgent(uint256) view returns ((address owner, address signer, address payout, uint8 status, uint32 strikes, uint32 accepted, uint32 rejected, uint64 unbondAt, uint256 erc8004Id, uint256 bond, uint256 unbonding))",
 ]);
@@ -39,9 +44,24 @@ function local(key: "agentRegistry" | "usdg" | "epochManager"): Address {
 const chain = { ...foundry, rpcUrls: { default: { http: [RPC] } } };
 const pub = createPublicClient({ chain, transport: http(RPC) });
 
+/** "v3" when the devnet's AgentRegistry takes an EIP-712 signer consent (it has REGISTER_TYPEHASH), else "v2". */
+async function registryVersion(): Promise<"v2" | "v3"> {
+  try {
+    await pub.readContract({
+      address: local("agentRegistry"),
+      abi: registryAbi,
+      functionName: "REGISTER_TYPEHASH",
+    });
+    return "v3";
+  } catch {
+    return "v2";
+  }
+}
+
 /** An anvil account with no agent yet (the spec can re-run on the same devnet), funded with USDG. */
-async function freshAccount(): Promise<Address | null> {
+async function freshAccount(skip: Address[] = []): Promise<Address | null> {
   for (const account of FRESH) {
+    if (skip.includes(account)) continue;
     const id = await pub.readContract({
       address: local("agentRegistry"),
       abi: registryAbi,
@@ -88,6 +108,7 @@ test.beforeEach(async ({ page }) => {
 
 test("a new account registers an agent, bonds it and creates a vault it runs", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "one chain-mutating run is enough");
+  test.skip((await registryVersion()) !== "v2", "the devnet runs v3: the v3 tests cover registration");
   const errors: string[] = [];
   page.on("pageerror", (err) => errors.push(err.message));
   // Leave the devnet as we found it (other specs count its vaults): snapshot now, revert at the end.
@@ -208,6 +229,150 @@ async function registerAndCreate(page: Page, errors: string[]) {
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   expect(errors).toEqual([]);
 }
+
+// ------------------------------------------------------------------ v3: EIP-712 signer consent
+
+/** Run `body` on a v3 devnet at desktop size, leaving the chain as it was. */
+async function onV3(info: { project: { name: string } }, body: () => Promise<void>) {
+  test.skip(info.project.name !== "desktop", "one chain-mutating run is enough");
+  test.skip((await registryVersion()) !== "v3", "needs a v3 devnet (Deploy and Seed from v3-contracts)");
+  const snapshot = (await rpc("evm_snapshot", [])) as string;
+  try {
+    await body();
+  } finally {
+    await rpc("evm_revert", [snapshot]);
+  }
+}
+
+const readAgent = async (signer: Address) => {
+  const id = await pub.readContract({
+    address: local("agentRegistry"),
+    abi: registryAbi,
+    functionName: "agentOfSigner",
+    args: [signer],
+  });
+  const agent = await pub.readContract({
+    address: local("agentRegistry"),
+    abi: registryAbi,
+    functionName: "getAgent",
+    args: [id],
+  });
+  return { id, agent };
+};
+const nonceOf = (signer: Address) =>
+  pub.readContract({
+    address: local("agentRegistry"),
+    abi: registryAbi,
+    functionName: "nonces",
+    args: [signer],
+  });
+
+test("v3: a separate signer key signs its consent, then register, approve USDG and post bond", async ({
+  page,
+}, info) => {
+  await onV3(info, async () => {
+    const errors: string[] = [];
+    page.on("pageerror", (err) => errors.push(err.message));
+    const owner = await freshAccount();
+    const signer = owner ? await freshAccount([owner]) : null;
+    test.skip(!owner || !signer, "needs two spare anvil accounts");
+    // The signer key is a second account of the same wallet, so the wallet can sign as it.
+    await installMockWallet(page, owner!, [signer!]);
+    const { form } = await openSection(page, false);
+    await form.getByLabel("Signer").fill(signer!);
+    const checks = form.getByRole("list", { name: "Registration checks" });
+    await expect(checks.getByText(/is free/)).toBeVisible();
+    await expect(
+      checks.getByText(/needs the signer's consent: your wallet will be asked to sign it as/),
+    ).toBeVisible();
+    const steps = form.getByRole("list", { name: "Steps" });
+    await expect(steps.getByRole("listitem")).toHaveText([
+      /Sign consent/,
+      /Register/,
+      /Approve USDG/,
+      /Post bond/,
+    ]);
+    const submit = form.getByRole("button", { name: /sign consent/i });
+    await expect(submit).toHaveText("Sign consent, register, approve USDG & post bond");
+    expect(await nonceOf(signer!)).toBe(0n);
+    await submit.click();
+    await expect(form.getByText("Post bond: done.")).toBeVisible({ timeout: 60_000 });
+    await expect(steps.locator('li[data-state="done"]')).toHaveCount(4);
+
+    const { id, agent } = await readAgent(signer!);
+    expect(id).toBeGreaterThan(1n);
+    expect(agent).toMatchObject({ owner, signer, payout: owner, bond: 50_000_000n });
+    expect(await nonceOf(signer!)).toBe(1n); // the consent was used
+    await expect(form.getByText(new RegExp(`Agent ${id}\\s*is registered and bonded 50 USDG`))).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
+test("v3: the wallet as its own signer registers without a consent signature", async ({ page }, info) => {
+  await onV3(info, async () => {
+    const account = await freshAccount();
+    test.skip(account === null, "every spare anvil account already has an agent on this devnet");
+    await installMockWallet(page, account!);
+    const { form } = await openSection(page, false);
+    const checks = form.getByRole("list", { name: "Registration checks" });
+    await expect(
+      checks.getByText(/Your wallet is the signer, so this registry \(v3\) needs no consent/),
+    ).toBeVisible();
+    const steps = form.getByRole("list", { name: "Steps" });
+    await expect(steps.getByRole("listitem")).toHaveText([/Register/, /Approve USDG/, /Post bond/]);
+    const submit = form.getByRole("button", { name: /register, approve USDG & post bond/i });
+    await submit.click();
+    await expect(form.getByText("Post bond: done.")).toBeVisible({ timeout: 60_000 });
+    const { agent } = await readAgent(account!);
+    expect(agent).toMatchObject({ owner: account, signer: account, bond: 50_000_000n });
+    expect(await nonceOf(account!)).toBe(0n);
+  });
+});
+
+test("v3: a pasted consent from the wrong key is refused before sending; the right one registers", async ({
+  page,
+}, info) => {
+  await onV3(info, async () => {
+    const owner = await freshAccount();
+    const signer = owner ? await freshAccount([owner]) : null;
+    const forger = owner && signer ? await freshAccount([owner, signer]) : null;
+    test.skip(!owner || !signer || !forger, "needs three spare anvil accounts");
+    // The signer key is NOT in this wallet: its consent is pasted.
+    await installMockWallet(page, owner!);
+    const { form } = await openSection(page, false);
+    await form.getByLabel("Signer").fill(signer!);
+    await form.getByText("Signer key not in this wallet?").click();
+    await form.getByRole("button", { name: "Copy consent message" }).click();
+    const message = form.getByRole("textbox", { name: "Consent message" });
+    await expect(message).toHaveValue(/"primaryType": "Register"/);
+    const td = JSON.parse(await message.inputValue());
+    const deadline = await form.getByLabel("Consent deadline").inputValue();
+    expect(deadline).toBe(td.message.deadline);
+    const typedData = {
+      ...td,
+      domain: { ...td.domain, chainId: Number(td.domain.chainId) },
+      message: {
+        ...td.message,
+        erc8004Id: BigInt(td.message.erc8004Id),
+        nonce: BigInt(td.message.nonce),
+        deadline: BigInt(td.message.deadline),
+      },
+    };
+    // anvil signs eth_signTypedData_v4 for its unlocked dev accounts.
+    const signAs = (account: Address) =>
+      createWalletClient({ account, chain, transport: http(RPC) }).signTypedData(typedData);
+
+    await form.getByLabel("Consent signature").fill(await signAs(forger!));
+    await form.getByRole("button", { name: /sign consent/i }).click();
+    await expect(form.getByText(/Sign consent failed: .*not by the signer/)).toBeVisible();
+    expect((await readAgent(signer!)).id).toBe(0n);
+
+    await form.getByLabel("Consent signature").fill(await signAs(signer!));
+    await form.getByRole("button", { name: /sign consent/i }).click();
+    await expect(form.getByText("Post bond: done.")).toBeVisible({ timeout: 60_000 });
+    expect((await readAgent(signer!)).agent).toMatchObject({ owner, signer });
+  });
+});
 
 test("the section fits a phone and explains the steps", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "the desktop run covers the flow");

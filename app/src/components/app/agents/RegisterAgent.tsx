@@ -1,11 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { agentRegistryAbi, vaultFactoryAbi } from "@strike/sdk";
+import {
+  type SignerConsent,
+  agentRegistryAbi,
+  agentRegistryV3Abi,
+  consentSignerOf,
+  createStrikeClient,
+  vaultFactoryAbi,
+} from "@strike/sdk";
 import { AlertTriangle, ArrowUpRight, Check as CheckIcon, LoaderCircle, X } from "lucide-react";
 import { useId, useMemo, useState } from "react";
-import { type Address, erc20Abi, formatUnits } from "viem";
-import { useConnection } from "wagmi";
+import { type Address, type Hex, erc20Abi, formatUnits } from "viem";
+import { useConnection, useSignTypedData } from "wagmi";
 import { ConnectButton } from "@/components/site/ConnectButton";
 import { useVaults } from "@/hooks/queries";
 import {
@@ -58,6 +65,9 @@ export function RegisterAgent({ registry }: { registry: Registry }) {
             Your wallet becomes the agent&apos;s owner. The <strong>signer</strong> is the only key that may
             propose (one agent per signer); the <strong>payout</strong> address gets the agent&apos;s fee
             share. Linking an ERC-8004 identity is optional.
+            {ob?.registryVersion === "v3"
+              ? " On this network a signer key other than your wallet first signs its consent (EIP-712)."
+              : ""}
           </p>
         </li>
         <li>
@@ -150,11 +160,16 @@ function RegisterForm({
 }) {
   const { client, deployment, chainId } = useStrike();
   const tx = useTx();
+  const { mutateAsync: signTypedData } = useSignTypedData();
   const dec = ob.usdgDecimals;
   const [signerText, setSignerText] = useState<string | null>(null);
   const [payoutText, setPayoutText] = useState<string | null>(null);
   const [identityText, setIdentityText] = useState("");
   const [bondText, setBondText] = useState<string | null>(null);
+  const [consentSigText, setConsentSigText] = useState("");
+  const [consentDeadlineText, setConsentDeadlineText] = useState("");
+  const [consentMessage, setConsentMessage] = useState<string | null>(null);
+  const [stepsDone, setStepsDone] = useState<string[]>([]);
   const [done, setDone] = useState<{ id: bigint; bond: bigint } | null>(null);
 
   const signerValue = signerText ?? wallet;
@@ -182,22 +197,180 @@ function RegisterForm({
     balance: ob.balance ?? undefined,
     usdgDecimals: dec,
   });
+  // v3: a signer key that is not this wallet consents with an EIP-712 `Register` signature before `register`.
+  const v3 = ob.registryVersion === "v3";
+  const signerNow = addressOf(signerValue);
+  const separate = v3 && signerNow !== null && signerNow.toLowerCase() !== wallet.toLowerCase();
+  const pasted = consentSigText.trim();
+  if (v3 && signerNow) {
+    checks.push(
+      separate
+        ? pasted
+          ? {
+              id: "consent",
+              label: "Consent",
+              state:
+                /^0x[0-9a-fA-F]{130}$/.test(pasted) && /^\d+$/.test(consentDeadlineText.trim())
+                  ? "ok"
+                  : "fail",
+              detail: /^0x[0-9a-fA-F]{130}$/.test(pasted)
+                ? /^\d+$/.test(consentDeadlineText.trim())
+                  ? `The pasted consent is checked against ${shortAddr(signerNow)} before anything is sent.`
+                  : "Enter the deadline the consent was signed with (unix seconds)."
+                : "A consent signature is 65 bytes: 0x and 130 hex digits.",
+            }
+          : {
+              id: "consent",
+              label: "Consent",
+              state: "warn",
+              detail: `This registry (v3) needs the signer's consent: your wallet will be asked to sign it as ${shortAddr(signerNow)}, so that key must be one of your wallet's connected accounts. Otherwise paste a signature made with it below.`,
+            }
+        : {
+            id: "consent",
+            label: "Consent",
+            state: "ok",
+            detail: "Your wallet is the signer, so this registry (v3) needs no consent signature.",
+          },
+    );
+  }
   const needsApproval = bond !== null && bond > 0n && (ob.allowance ?? 0n) < bond;
   const canSend = !blocked(checks) && !tx.busy && !!client && !!deployment;
   const lowBalance = checks.some((c) => c.id === "balance" && c.state === "fail");
 
-  const label =
-    bond === null || bond === 0n
+  // v3's steps, in the order they run.
+  const steps: string[] = v3
+    ? [
+        ...(separate ? ["Sign consent"] : []),
+        "Register",
+        ...(bond !== null && bond > 0n && needsApproval ? ["Approve USDG"] : []),
+        ...(bond !== null && bond > 0n ? ["Post bond"] : []),
+      ]
+    : [];
+  const label = v3
+    ? stepSentence(steps)
+    : bond === null || bond === 0n
       ? "Register agent"
       : needsApproval
         ? "Approve, register & bond"
         : "Register & bond";
+
+  const strike = () =>
+    createStrikeClient({ publicClient: client!, chainId, addresses: deployment!, registryVersion: "v3" });
+
+  async function copyConsentMessage(signerAddr: Address, payoutAddr: Address, id: bigint) {
+    const deadline = consentDeadlineText.trim();
+    const td = await strike().registerConsentTypedData({
+      signer: signerAddr,
+      payout: payoutAddr,
+      erc8004Id: id,
+      owner: wallet,
+      deadline: /^\d+$/.test(deadline) ? BigInt(deadline) : undefined,
+    });
+    setConsentDeadlineText(td.message.deadline.toString());
+    const json = JSON.stringify(td, (_k, v) => (typeof v === "bigint" ? v.toString() : v), 2);
+    setConsentMessage(json);
+    try {
+      await navigator.clipboard.writeText(json);
+    } catch {
+      // no clipboard permission: the message is shown below
+    }
+  }
+
+  async function submitV3(signerAddr: Address, payoutAddr: Address, id: bigint, amount: bigint) {
+    if (!client || !deployment) return;
+    const reg = { address: deployment.agentRegistry, chainId } as const;
+    setStepsDone([]);
+    let consent: SignerConsent = { signature: "0x", deadline: 0n };
+    if (separate) {
+      const signed = await tx.sign("Sign consent", async () => {
+        if (pasted) {
+          const deadline = BigInt(consentDeadlineText.trim());
+          const td = await strike().registerConsentTypedData({
+            signer: signerAddr,
+            payout: payoutAddr,
+            erc8004Id: id,
+            owner: wallet,
+            deadline,
+          });
+          const by = await consentSignerOf(td, pasted as Hex);
+          if (by !== signerAddr) {
+            throw new Error(
+              `the pasted signature ${by ? `was made by ${shortAddr(by)}` : "is malformed"}, not by the signer ${shortAddr(signerAddr)} for this owner, payout, identity, deadline and the signer's current nonce.`,
+            );
+          }
+          if (deadline < (await client.getBlock()).timestamp)
+            throw new Error("the pasted consent has expired.");
+          return { signature: pasted as Hex, deadline };
+        }
+        const td = await strike().registerConsentTypedData({
+          signer: signerAddr,
+          payout: payoutAddr,
+          erc8004Id: id,
+          owner: wallet,
+        });
+        try {
+          const signature = await signTypedData({ account: signerAddr, ...td });
+          return { signature, deadline: td.message.deadline };
+        } catch (err) {
+          if (/not found for connector/i.test(String((err as Error)?.message ?? err))) {
+            throw new Error(
+              `your wallet does not hold the signer key ${shortAddr(signerAddr)}. Connect that account too, or paste a signature made with it.`,
+            );
+          }
+          throw err;
+        }
+      });
+      if (!signed) return;
+      consent = signed;
+      setStepsDone(["Sign consent"]);
+    }
+    const ok = await tx.exec("Register", (w) =>
+      w({
+        ...reg,
+        abi: agentRegistryV3Abi,
+        functionName: "register",
+        args: [signerAddr, payoutAddr, id, consent.deadline, consent.signature],
+      }),
+    );
+    if (!ok) return;
+    setStepsDone((d) => [...d, "Register"]);
+    const agentId = await client.readContract({
+      ...reg,
+      abi: agentRegistryAbi,
+      functionName: "agentOfSigner",
+      args: [signerAddr],
+    });
+    setDone({ id: agentId, bond: 0n });
+    onRegistered(agentId);
+    if (amount === 0n) return;
+    if (needsApproval) {
+      const approved = await tx.exec("Approve USDG", (w) =>
+        w({
+          address: deployment.usdg,
+          abi: erc20Abi,
+          functionName: "approve",
+          args: [deployment.agentRegistry, amount],
+          chainId,
+        }),
+      );
+      if (!approved) return;
+      setStepsDone((d) => [...d, "Approve USDG"]);
+    }
+    const bonded = await tx.exec("Post bond", (w) =>
+      w({ ...reg, abi: agentRegistryAbi, functionName: "postBond", args: [agentId, amount] }),
+    );
+    if (bonded) {
+      setStepsDone((d) => [...d, "Post bond"]);
+      setDone({ id: agentId, bond: amount });
+    }
+  }
 
   async function submit() {
     const signerAddr = addressOf(signerValue);
     const payoutAddr = addressOf(payoutValue);
     const id = identityOf(identityText);
     if (!client || !deployment || !signerAddr || !payoutAddr || id === null || bond === null) return;
+    if (v3) return submitV3(signerAddr, payoutAddr, id, bond);
     const reg = { address: deployment.agentRegistry, abi: agentRegistryAbi, chainId } as const;
     if (needsApproval) {
       const ok = await tx.exec("Approve USDG", (w) =>
@@ -277,6 +450,62 @@ function RegisterForm({
           </span>
         </div>
       </div>
+      {separate && signerNow ? (
+        <Fold closed summary="Signer key not in this wallet?" openSummary="Hide">
+          <div className={s.consent}>
+            <p className={s.hint}>
+              The signer key can consent anywhere: copy the consent message (EIP-712 typed data for{" "}
+              {shortAddr(signerNow)}, at its current nonce), sign it with that key (the Strike SDK&apos;s{" "}
+              <code className="mono">signRegisterConsent</code>, or any EIP-712 signer), and paste the
+              signature and its deadline here. Change the owner, payout or identity and the message changes
+              too.
+            </p>
+            <div className={s.fields}>
+              <TextField
+                label="Consent signature"
+                value={consentSigText}
+                onChange={setConsentSigText}
+                hint="65 bytes from the signer key. Empty: your wallet is asked to sign as the signer."
+              />
+              <TextField
+                label="Consent deadline"
+                value={consentDeadlineText}
+                onChange={setConsentDeadlineText}
+                placeholder="Unix seconds"
+                inputMode="numeric"
+                hint="The deadline in the signed message (copying the message fills it in)."
+              />
+            </div>
+            <div className={s.actions}>
+              <button
+                type="button"
+                className="chip"
+                disabled={
+                  !client || !deployment || !addressOf(payoutValue) || identityOf(identityText) === null
+                }
+                onClick={() =>
+                  void copyConsentMessage(
+                    signerNow,
+                    addressOf(payoutValue)!,
+                    identityOf(identityText)!,
+                  ).catch((err: unknown) => setConsentMessage(`Could not build the message: ${String(err)}`))
+                }
+              >
+                Copy consent message
+              </button>
+            </div>
+            {consentMessage ? (
+              <textarea
+                className={s.consentMessage}
+                aria-label="Consent message"
+                readOnly
+                rows={8}
+                value={consentMessage}
+              />
+            ) : null}
+          </div>
+        </Fold>
+      ) : null}
       <Checks checks={checks} label="Registration checks" />
       {lowBalance && CHAIN_META[chainId]?.testnet ? (
         <p className={s.hint}>
@@ -293,6 +522,26 @@ function RegisterForm({
         </button>
         <TxNote tx={tx} />
       </div>
+      {v3 ? (
+        <ol className={s.txSteps} aria-label="Steps">
+          {steps.map((step, i) => (
+            <li
+              key={step}
+              data-state={
+                stepsDone.includes(step)
+                  ? "done"
+                  : tx.label === step && tx.phase === "error"
+                    ? "error"
+                    : tx.label === step && tx.busy
+                      ? "active"
+                      : "todo"
+              }
+            >
+              <span className="index">{String(i + 1).padStart(2, "0")}</span> {step}
+            </li>
+          ))}
+        </ol>
+      ) : null}
       {done ? (
         <div className={s.success} role="status">
           <span className="micro micro-muted">Registered</span>
@@ -523,6 +772,12 @@ function CreateVault({ agent, registry, ob }: { agent: AgentRow; registry: Regis
 }
 
 // ------------------------------------------------------------------ bits
+
+/** "Sign consent, register, approve USDG & post bond": the steps as the submit button's text. */
+function stepSentence(steps: string[]): string {
+  const words = steps.map((x, i) => (i === 0 ? x : x === "Approve USDG" ? "approve USDG" : x.toLowerCase()));
+  return words.length <= 1 ? (words[0] ?? "") : `${words.slice(0, -1).join(", ")} & ${words.at(-1)}`;
+}
 
 function TextField({
   label,

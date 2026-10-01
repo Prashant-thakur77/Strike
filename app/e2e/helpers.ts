@@ -45,10 +45,11 @@ export async function devnetUp(): Promise<boolean> {
 }
 
 /** A minimal EIP-1193 wallet: accounts and chain answered locally, everything else forwarded to anvil. `account`
- *  must be one of anvil's unlocked dev accounts (default: #1). */
-export async function installMockWallet(page: Page, account: string = ACCOUNT) {
+ *  must be one of anvil's unlocked dev accounts (default: #1). `extra` accounts are connected too (after the
+ *  selected one), so the app can ask them for signatures (anvil signs `eth_signTypedData_v4` for its dev accounts). */
+export async function installMockWallet(page: Page, account: string = ACCOUNT, extra: string[] = []) {
   await page.addInitScript(
-    ({ rpc, account, chainId }) => {
+    ({ rpc, account, extra, chainId }) => {
       let id = 0;
       const listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
       const forward = async (method: string, params: unknown) => {
@@ -72,7 +73,7 @@ export async function installMockWallet(page: Page, account: string = ACCOUNT) {
           switch (method) {
             case "eth_requestAccounts":
             case "eth_accounts":
-              return [account];
+              return [account, ...extra];
             case "eth_chainId":
               return `0x${chainId.toString(16)}`;
             case "net_version":
@@ -102,7 +103,7 @@ export async function installMockWallet(page: Page, account: string = ACCOUNT) {
       };
       (window as unknown as { ethereum: unknown }).ethereum = provider;
     },
-    { rpc: RPC, account, chainId: LOCAL },
+    { rpc: RPC, account, extra, chainId: LOCAL },
   );
 }
 

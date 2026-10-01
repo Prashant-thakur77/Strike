@@ -1,6 +1,12 @@
 "use client";
 
-import { agentRegistryAbi, epochManagerAbi, vaultFactoryAbi } from "@strike/sdk";
+import {
+  type RegistryVersion,
+  agentRegistryAbi,
+  createStrikeClient,
+  epochManagerAbi,
+  vaultFactoryAbi,
+} from "@strike/sdk";
 import { useQuery } from "@tanstack/react-query";
 import { type Address, type PublicClient, erc20Abi, parseAbi } from "viem";
 import { useConnection } from "wagmi";
@@ -34,11 +40,14 @@ export interface OnboardingState {
   /** The connected wallet's USDG and its allowance to the AgentRegistry (null without a wallet). */
   balance: bigint | null;
   allowance: bigint | null;
+  /** "v3": a signer that is not the sending wallet must consent to `register` with an EIP-712 signature. */
+  registryVersion: RegistryVersion;
 }
 
 async function onboardingState(
   client: PublicClient,
   dep: Deployment,
+  chainId: number,
   wallet: Address | undefined,
 ): Promise<OnboardingState> {
   const r = { address: dep.agentRegistry, abi: agentRegistryAbi } as const;
@@ -53,6 +62,7 @@ async function onboardingState(
     usdgDecimals,
     maxDepositCap,
     configs,
+    registryVersion,
   ] = await Promise.all([
     client.readContract({ ...r, functionName: "minBond" }),
     client.readContract({ ...r, functionName: "slashAmount" }),
@@ -71,6 +81,8 @@ async function onboardingState(
         }),
       ),
     ),
+    // The map's version where it names one, else read from the registry (a local devnet may run v2 or v3).
+    createStrikeClient({ publicClient: client, chainId, addresses: dep }).registryVersion(),
   ]);
   const [balance, allowance] = wallet
     ? await Promise.all([
@@ -94,6 +106,7 @@ async function onboardingState(
     })),
     balance,
     allowance,
+    registryVersion,
   };
 }
 
@@ -105,7 +118,7 @@ export function useOnboarding() {
     queryKey: ["strike", chainId, "onboarding", address],
     enabled: ready && !!client && !!deployment,
     refetchInterval: 15_000,
-    queryFn: () => onboardingState(client!, deployment!, address),
+    queryFn: () => onboardingState(client!, deployment!, chainId, address),
   });
 }
 

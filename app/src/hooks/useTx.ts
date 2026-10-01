@@ -52,6 +52,23 @@ export function useTx() {
     [walletChain, chainId, switchChain, write, client, queryClient],
   );
 
+  /** A wallet step that sends no transaction (an EIP-712 signature): switch the wallet if needed, then `run`. */
+  const sign = useCallback(
+    async <T>(label: string, run: () => Promise<T>): Promise<T | null> => {
+      setState({ phase: "wallet", label });
+      try {
+        if (walletChain !== chainId) await switchChain({ chainId });
+        const out = await run();
+        setState({ phase: "done", label });
+        return out;
+      } catch (err) {
+        setState({ phase: "error", label, error: errorMessage(err) });
+        return null;
+      }
+    },
+    [walletChain, chainId, switchChain],
+  );
+
   const busy = state.phase === "wallet" || state.phase === "pending";
-  return { ...state, busy, exec, reset: () => setState({ phase: "idle" }) };
+  return { ...state, busy, exec, sign, reset: () => setState({ phase: "idle" }) };
 }
