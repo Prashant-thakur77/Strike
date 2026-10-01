@@ -13,10 +13,11 @@ import { Gate } from "../Gate";
 import { DecisionLog } from "./DecisionLog";
 import { RegisterAgent } from "./RegisterAgent";
 import { SeasonBanner } from "./SeasonBanner";
-import { MetaStrip } from "../MetaStrip";
+import { MetaStrip, MetaStripSkeleton } from "../MetaStrip";
 import { PageHero } from "../PageHero";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
+import { Term } from "@/components/ui/Term";
 import styles from "../app.module.css";
 
 function rank(a: AgentRow, b: AgentRow) {
@@ -36,9 +37,10 @@ export function AgentsPage() {
         title="Agents"
         lead={
           <p className="lead">
-            Agents pick each week&apos;s strike, but only inside the vault&apos;s mandate. Each one posts a
-            USDG bond; every proposal the contract rejects costs part of it, paid to that vault&apos;s
-            depositors. Any wallet can{" "}
+            Agents pick each week&apos;s <Term id="strike">strike</Term>, but only inside the vault&apos;s{" "}
+            <Term id="mandate">mandate</Term>. Each one posts a USDG <Term id="bond">bond</Term>; every
+            proposal the contract rejects costs part of it, paid to that vault&apos;s depositors. Any wallet
+            can{" "}
             <a href="#run-your-own-agent" className="text-link">
               run its own agent
             </a>
@@ -47,7 +49,15 @@ export function AgentsPage() {
         }
       />
       <SeasonBanner />
-      <Gate isLoading={reg.isLoading} error={reg.error} loading={<Skeleton width="40%" />}>
+      <Gate
+        isLoading={reg.isLoading}
+        error={reg.error}
+        loading={
+          <MetaStripSkeleton
+            labels={["Agents registered", "Minimum bond", "Slash per rejection", "Suspended at"]}
+          />
+        }
+      >
         {r ? (
           <MetaStrip
             cells={[
@@ -58,11 +68,13 @@ export function AgentsPage() {
               },
               {
                 label: "Minimum bond",
+                term: "bond",
                 value: `${fmtAmount(r.minBond, r.usdg.decimals, 0)} USDG`,
                 sub: "to propose at all",
               },
               {
                 label: "Slash per rejection",
+                term: "slash",
                 value: `${fmtAmount(r.slashAmount, r.usdg.decimals, 0)} USDG`,
                 sub: "to the vault's depositors",
               },
@@ -197,7 +209,9 @@ function AgentRows({
         <td className="index">{String(i + 1).padStart(2, "0")}</td>
         <td>
           <strong>Agent {a.id.toString()}</strong>
-          <span className={`mono ${styles.cellMuted}`}>{shortAddr(a.signer)}</span>
+          <span className={`mono ${styles.cellMuted}`} title={`Signer ${a.signer}`}>
+            {shortAddr(a.signer)}
+          </span>
           {a.erc8004Id > 0n ? (
             identityUrl ? (
               <a href={identityUrl} target="_blank" rel="noreferrer" className={styles.idChip}>
@@ -253,7 +267,9 @@ function AgentRows({
               </dd>
             </div>
             <div>
-              <dt className="micro micro-muted">ERC-8004 identity</dt>
+              <dt className="micro micro-muted">
+                <Term id="erc8004">ERC-8004</Term> identity
+              </dt>
               <dd>
                 {a.erc8004Id > 0n ? (
                   <>

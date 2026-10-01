@@ -24,6 +24,7 @@ import { PositionPanel } from "./PositionPanel";
 import { RiskPanel } from "./RiskPanel";
 import { SeriesPanel } from "./SeriesPanel";
 import { Timeline } from "./Timeline";
+import { Term } from "@/components/ui/Term";
 import styles from "../app.module.css";
 
 export function VaultDetail({ address }: { address: Address }) {
@@ -46,7 +47,9 @@ export function VaultDetail({ address }: { address: Address }) {
             title={v.underlying.symbol}
             lead={
               <>
-                <p className={styles.heroStrategy}>{strategyName(v)}</p>
+                <p className={styles.heroStrategy}>
+                  <Term id={v.isCall ? "coveredCall" : "cashSecuredPut"}>{strategyName(v)}</Term>
+                </p>
                 <p className="lead">
                   {v.isCall
                     ? `Deposit ${v.underlying.symbol}. Each week the vault sells covered calls on part of it and pays you the premium in USDG. If ${v.underlying.symbol} closes above the strike, that upside goes to the option buyers.`
@@ -71,12 +74,15 @@ export function VaultDetail({ address }: { address: Address }) {
                 sub: (
                   <>
                     <PerShare price={v.spot.price} multiplier={v.multiplier} />
-                    <span className={styles.metaLine}>Feed: {FEED_STATUS[v.spot.status] ?? "unknown"}</span>
+                    <span className={styles.metaLine}>
+                      Price feed: {FEED_STATUS[v.spot.status] ?? "unknown"}
+                    </span>
                   </>
                 ),
               },
               {
                 label: "Premium APY",
+                term: "premium",
                 value: !history.data ? (
                   <Skeleton />
                 ) : history.data.apy === null ? (
@@ -93,8 +99,11 @@ export function VaultDetail({ address }: { address: Address }) {
               },
               {
                 label: `Epoch ${v.currentEpoch.toString()}`,
+                term: "epoch",
                 value: <StateTag state={v.state} large />,
-                sub: v.locked ? "Vault locked" : "Vault unlocked",
+                sub: v.locked
+                  ? "Vault locked: deposits and withdrawals queue until settlement"
+                  : "Vault unlocked: deposit or withdraw now",
               },
             ]}
           />

@@ -40,6 +40,7 @@ import { Presets } from "./Presets";
 import { EpochNote, VaultPicker } from "./VaultPicker";
 import { VerdictPanel, measuresOf } from "./VerdictPanel";
 import { WhatThisProves } from "./WhatThisProves";
+import { Term } from "@/components/ui/Term";
 import styles from "./playground.module.css";
 
 const SECTIONS = [
@@ -170,8 +171,8 @@ export function PlaygroundPage() {
           <>
             <p className="lead">
               Write a proposal the way an agent would and ask the deployed contract what it would do. It
-              checks the vault&apos;s immutable mandate and answers: list the series, or reject it and slash
-              the agent.
+              checks the vault&apos;s immutable <Term id="mandate">mandate</Term> and answers: list the
+              series, or reject it and <Term id="slash">slash</Term> the agent.
             </p>
             <p className={styles.leadNote}>
               No wallet needed. Every verdict is a read-only call to{" "}
@@ -432,6 +433,7 @@ function Strip({ snap, failed }: { snap: PlaygroundSnapshot | undefined; failed:
         },
         {
           label: "Slash per rejection",
+          term: "slash",
           value: `${usdg(snap.registry.slashAmount)} USDG`,
           sub: `from the agent's bond to the vault · ${snap.registry.maxStrikes} strikes suspend`,
         },

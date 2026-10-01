@@ -27,6 +27,7 @@ import { Skeleton } from "../Skeleton";
 import appStyles from "../app.module.css";
 import { readMonitor, type MonitorSnapshot, type TokenRow } from "./reads";
 import { CheckList } from "./CheckList";
+import { Term } from "@/components/ui/Term";
 import styles from "./monitor.module.css";
 
 const REFRESH_MS = 60_000;
@@ -262,7 +263,7 @@ function TokenTable({ snap, nowMs }: { snap: MonitorSnapshot; nowMs: number }) {
       <div className={`${styles.head} micro micro-muted`} role="row">
         {HEAD.map((h) => (
           <span key={h} role="columnheader">
-            {h}
+            {h === "ERC-8056 multiplier" ? <Term id="multiplier">{h}</Term> : h}
           </span>
         ))}
       </div>

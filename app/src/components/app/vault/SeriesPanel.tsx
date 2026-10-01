@@ -10,6 +10,7 @@ import { hasMultiplier } from "@/lib/shares";
 import { PerShare } from "../PerShare";
 import { BuyPanel } from "./BuyPanel";
 import { PayoffChart } from "./PayoffChart";
+import { Term } from "@/components/ui/Term";
 import styles from "../app.module.css";
 
 const money = (n: number, frac = 2) =>
@@ -55,14 +56,18 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
         </div>
         <div className={styles.seriesStrikeWrap}>
           <p className={styles.seriesStrike}>
-            <span className="micro">{scaled ? "Strike per token" : "Strike"}</span>
+            <span className="micro">
+              <Term id="strike">{scaled ? "Strike per token" : "Strike"}</Term>
+            </span>
             {fmtWadUsd(s.strike, 2)}
           </p>
           <PerShare price={s.strike} multiplier={vault.multiplier} />
         </div>
         <dl className={styles.seriesStats}>
           <div>
-            <dt className="micro micro-muted">Expiry</dt>
+            <dt className="micro micro-muted">
+              <Term id="expiry">Expiry</Term>
+            </dt>
             <dd>{fmtNy(s.expiry)}</dd>
           </div>
           <div>
@@ -79,7 +84,9 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
             <dd>{fmtBps(s.premiumBps)} of fair value</dd>
           </div>
           <div>
-            <dt className="micro micro-muted">Premium collected</dt>
+            <dt className="micro micro-muted">
+              <Term id="premium">Premium</Term> collected
+            </dt>
             <dd>{fmtAmount(s.premium, vault.usdg.decimals)} USDG</dd>
           </div>
         </dl>
@@ -176,7 +183,9 @@ function PriceNote({
               </span>
             </li>
             <li>
-              <span className="micro micro-muted">Fair value</span>
+              <span className="micro micro-muted">
+                <Term id="fairValue">Fair value</Term>
+              </span>
               <strong className="mono">{money(model.fair)}</strong>
               <span>
                 Black-Scholes, σ {fmtBps(Number((p.sigma * 10_000n) / 10n ** 18n))}, {fmtDuration(tenor!)}{" "}

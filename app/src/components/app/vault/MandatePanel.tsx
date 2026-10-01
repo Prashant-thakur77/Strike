@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { fmtBps, fmtDelta, fmtSeconds, shortAddr } from "@/lib/format";
+import { fmtBps, fmtDelta, fmtSeconds } from "@/lib/format";
 import type { VaultSummary } from "@/lib/reads";
+import { AddressLink } from "../AddressLink";
+import { Term } from "@/components/ui/Term";
 import styles from "../app.module.css";
 
 export function MandatePanel({ vault }: { vault: VaultSummary }) {
@@ -8,11 +10,13 @@ export function MandatePanel({ vault }: { vault: VaultSummary }) {
   const cells = [
     {
       k: "Delta band",
+      term: "delta" as const,
       v: `${fmtDelta(m.minDeltaBps)} – ${fmtDelta(m.maxDeltaBps)}`,
       d: "Black-Scholes delta of the strike when proposed.",
     },
     {
       k: "Minimum price",
+      term: "fairValue" as const,
       v: `${fmtBps(m.minPremiumBps)} of fair value`,
       d: "No selling below the model price. Capped at 300%.",
     },
@@ -28,6 +32,7 @@ export function MandatePanel({ vault }: { vault: VaultSummary }) {
     },
     {
       k: "Tenor",
+      term: "tenor" as const,
       v: `${fmtSeconds(m.minTenor)} – ${fmtSeconds(m.maxTenor)}`,
       d: "Expiry must also be an NYSE close.",
     },
@@ -42,7 +47,9 @@ export function MandatePanel({ vault }: { vault: VaultSummary }) {
       <div className={styles.grid3}>
         {cells.map((c) => (
           <div key={c.k} className={styles.mCell}>
-            <span className="micro micro-muted">{c.k}</span>
+            <span className="micro micro-muted">
+              {"term" in c && c.term ? <Term id={c.term}>{c.k}</Term> : c.k}
+            </span>
             <strong className={styles.mValue}>{c.v}</strong>
             <p>{c.d}</p>
           </div>
@@ -53,8 +60,8 @@ export function MandatePanel({ vault }: { vault: VaultSummary }) {
         <Link className={styles.inlineLink} href="/app/agents">
           agent #{vault.agentId.toString()}
         </Link>{" "}
-        · curator <span className="mono">{shortAddr(vault.curator)}</span>. A rejected proposal slashes the
-        agent&apos;s bond to this vault&apos;s depositors.
+        · curator <AddressLink address={vault.curator} />. A rejected proposal slashes the agent&apos;s bond
+        to this vault&apos;s depositors.
       </p>
     </div>
   );

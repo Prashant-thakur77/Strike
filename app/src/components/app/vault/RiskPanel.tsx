@@ -13,6 +13,7 @@ import type { VaultSummary } from "@/lib/reads";
 import { Skeleton } from "../Skeleton";
 import { RiskChart, type RiskPoint, shockLabel } from "./RiskChart";
 import styles from "../app.module.css";
+import { Term } from "@/components/ui/Term";
 
 const money = (n: number, frac = 2) =>
   `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: frac, maximumFractionDigits: frac })}`;
@@ -73,7 +74,9 @@ function RiskSkeleton() {
       <div className={styles.riskGreeks}>
         {GREEKS.map((g) => (
           <div key={g.key} className={styles.riskGreek}>
-            <span className="micro micro-muted">{g.label}</span>
+            <span className="micro micro-muted">
+              <Term id={g.key}>{g.label}</Term>
+            </span>
             <span className={styles.riskValue}>
               <Skeleton width="3.5em" />
             </span>
@@ -133,7 +136,9 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
           const per = toNumber(r.greeks[g.key as keyof Greeks], 18);
           return (
             <div key={g.key} className={styles.riskGreek} data-greek={g.key}>
-              <dt className="micro micro-muted">{g.label}</dt>
+              <dt className="micro micro-muted">
+                <Term id={g.key}>{g.label}</Term>
+              </dt>
               <dd className={styles.riskValue}>
                 {signed(exp, g.frac)}
                 {g.unit ? <span className={styles.riskUnit}>{g.unit}</span> : null}
@@ -253,13 +258,16 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
       </figure>
 
       <p className={styles.riskIv}>
-        <span className="micro micro-muted">Implied volatility of the last buy</span>
+        <span className="micro micro-muted">
+          <Term id="impliedVol">Implied volatility</Term> of the last buy
+        </span>
         {iv ? (
           <span>
             <strong className="mono">{pct(iv.sigma, 2)}</strong>: the σ at which the engine&apos;s own price
             equals the <span className="mono">{money(toNumber(iv.pricePaid, 18), 4)}</span> paid per option
             (at {sym} <span className="mono">{money(toNumber(iv.spot, 18))}</span> plus the{" "}
-            {(iv.spotBufferBps / 100).toFixed(1)}% spot buffer, {fmtDuration(Number(iv.tenor))} out)
+            {(iv.spotBufferBps / 100).toFixed(1)}% <Term id="spotBuffer">spot buffer</Term>,{" "}
+            {fmtDuration(Number(iv.tenor))} out)
             {Math.abs(toNumber(iv.sigma - r.sigma, 18)) < 0.0005
               ? `, which recovers the ${pct(r.sigma, 0)} the contract priced it with.`
               : "."}

@@ -30,6 +30,7 @@ import { DeltaChart } from "./DeltaChart";
 import { EquityChart } from "./EquityChart";
 import { PremiumHistogram } from "./PremiumHistogram";
 import { StressChart } from "./StressChart";
+import { Term } from "@/components/ui/Term";
 import styles from "./backtest.module.css";
 
 const MONTH_YEAR = (iso: string) => fmtDate(iso).split(" ").slice(1).join(" ");
@@ -198,7 +199,7 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className={styles.group} role="group" aria-labelledby={id}>
       <span id={id} className="micro micro-muted">
-        {label}
+        {label === "Implied volatility" ? <Term id="impliedVol">{label}</Term> : label}
       </span>
       <div className={styles.chips}>{children}</div>
     </div>
