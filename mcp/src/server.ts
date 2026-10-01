@@ -78,8 +78,23 @@ export interface StrikeMcpOptions {
   readOnly?: boolean;
 }
 
-// A plain path (not `new URL(literal, import.meta.url)`), so bundlers do not try to pull the file in as an asset.
-const defaultSkillPath = () => resolve(dirname(fileURLToPath(import.meta.url)), "../../docs/STRIKE_SKILL.md");
+// Plain paths (not `new URL(literal, import.meta.url)`), so bundlers do not try to pull the file in as an asset.
+// The npm package (@strike-options/mcp) ships STRIKE_SKILL.md at its root; in the repository it is docs/.
+const defaultSkillPaths = () => {
+  const here = dirname(fileURLToPath(import.meta.url));
+  return [resolve(here, "../STRIKE_SKILL.md"), resolve(here, "../../docs/STRIKE_SKILL.md")];
+};
+async function readDefaultSkill(): Promise<string> {
+  let last: unknown;
+  for (const path of defaultSkillPaths()) {
+    try {
+      return await readFile(path, "utf8");
+    } catch (err) {
+      last = err;
+    }
+  }
+  throw last;
+}
 
 /** The tools {@link createStrikeMcpServer} registers with `readOnly: true`, in registration order. */
 export const READ_ONLY_TOOLS = [
@@ -631,7 +646,9 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     async (uri) => {
       let text: string;
       try {
-        text = skillText ?? (await readFile(options.skillPath ?? defaultSkillPath(), "utf8"));
+        text =
+          skillText ??
+          (options.skillPath ? await readFile(options.skillPath, "utf8") : await readDefaultSkill());
       } catch {
         text =
           "# Strike\n\nSTRIKE_SKILL.md was not found next to this server. See docs/STRIKE_SKILL.md in the repo.";
