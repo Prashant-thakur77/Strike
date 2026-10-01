@@ -22,6 +22,19 @@ export type {
   SignerConsent,
 } from "./consent.js";
 export * from "./deployments.js";
+export {
+  ANCHOR_SECTION_HEADING,
+  ANCHOR_TX_LABEL,
+  decisionRecordHash,
+  epochLogHash,
+  hashText,
+  rawGithubUrl,
+  recordAnchorOf,
+  recordIdentityOf,
+  recordMatchRank,
+  unanchoredRecordJson,
+} from "./decisionRecord.js";
+export type { DecisionRecordAnchor, RecordIdentity, SeriesTarget } from "./decisionRecord.js";
 export { createStrikeClient, resolveAddresses } from "./client.js";
 export type { StrikeAddresses, StrikeClient, StrikeClientConfig, StrikeViemClients } from "./client.js";
 export { ERROR_HINTS, StrikeError, describeError, explainError, revertErrorName } from "./errors.js";
