@@ -72,23 +72,43 @@ mirror_prices() {
     local dst; dst=$(json "$deploy" "d['stocks']['$sym']['feed'].lower()")
     case "$seen" in *" $dst "*) continue ;; esac
     seen="$seen$dst "
-    read -r _ answer _ updated _ < <(cast call "$src" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$MAINNET_RPC" | awk '{print $1}' | tr '\n' ' ')
-    read -r _ _ _ last _ < <(cast call "$dst" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$RPC_URL" | awk '{print $1}' | tr '\n' ' ')
+    read -r _ answer _ updated _ < <(cast call "$src" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$MAINNET_RPC" 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+    read -r _ _ _ last _ < <(cast call "$dst" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$RPC_URL" 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+    # A failed read (the mainnet RPC rate-limits with a Cloudflare 403 under load) skips the symbol with a message.
+    if [ -z "${updated:-}" ] || [ -z "${last:-}" ]; then
+      echo "$(date -u +%FT%TZ) $sym: feed read failed (mainnet: '${updated:-}', testnet: '${last:-}'); skipped" >&2
+      continue
+    fi
     if [ "$updated" -gt "$last" ]; then
-      send "push $sym $answer @ $updated to $dst" "$dst" "push(int256,uint64)" "$answer" "$updated"
-      [ "$DRY_RUN" = "1" ] || echo "$(date -u +%FT%TZ) $sym mirrored $answer @ $updated"
+      # Explicit branches: `set -e` is off inside `mirror_prices || ...`, so a failed send would otherwise be logged
+      # as mirrored. One feed's failure (no KEEPER_ROLE, feed paused) does not stop the others.
+      if send "push $sym $answer @ $updated to $dst" "$dst" "push(int256,uint64)" "$answer" "$updated"; then
+        [ "$DRY_RUN" = "1" ] || echo "$(date -u +%FT%TZ) $sym mirrored $answer @ $updated"
+      else
+        echo "$(date -u +%FT%TZ) $sym: push failed (is the key the feed's KEEPER_ROLE?)" >&2
+      fi
     fi
   done
   done
+}
+
+# settle_gas <manager> <vault> <round>: the gas limit for settle(): the estimate plus half again. eth_estimateGas stops
+# at the lowest gas at which the call does not revert, and settle() posts the agent's ERC-8004 feedback inside a
+# try/catch, so a bare estimate can leave that inner call short: it then runs out of gas, is caught, and the
+# settlement succeeds with `ReputationFeedback(..., posted = false)` (seen on the 2026-10-01 fork rehearsal, v2).
+settle_gas() {
+  local est; est=$(cast estimate "$1" "settle(address,uint80)" "$2" "$3" --rpc-url "$RPC_URL" 2>/dev/null) || return 1
+  echo $((est * 3 / 2))
 }
 
 # settle_expired <deployment file>
 settle_expired() {
   local deploy="$1" manager count; manager=$(json "$deploy" "d['epochManager']")
   count=$(cast call "$manager" "vaultCount()(uint256)" --rpc-url "$RPC_URL" | awk '{print $1}')
-  local now; now=$(date -u +%s)
+  # The chain's clock, not the machine's: settle() checks block.timestamp, and a fork or devnet may be warped.
+  local now; now=$(cast block latest -f timestamp --rpc-url "$RPC_URL")
   for ((i = 0; i < count; i++)); do
-    local vault state series
+    local vault state series gas
     vault=$(cast call "$manager" "allVaults(uint256)(address)" "$i" --rpc-url "$RPC_URL")
     read -r state _ series < <(cast call "$manager" "epochs(address)(uint8,uint64,uint256)" "$vault" --rpc-url "$RPC_URL" | awk '{print $1}' | tr '\n' ' ')
     [ "$state" != "2" ] && continue
@@ -114,7 +134,8 @@ settle_expired() {
     done
     if [ "$DRY_RUN" = "1" ]; then
       send "settle $vault ($(basename "$deploy")) at round $round" "$manager"
-    elif cast send "$manager" "settle(address,uint80)" "$vault" "$round" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+    elif gas=$(settle_gas "$manager" "$vault" "$round") &&
+      cast send "$manager" "settle(address,uint80)" "$vault" "$round" --gas-limit "$gas" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
       echo "$(date -u +%FT%TZ) settled $vault at round $round"
     else
       # One round is not enough after a Chainlink phase change or a corporate action at expiry: the SDK finds every
