@@ -364,7 +364,9 @@
   align-self: center;
   padding-left: clamp(0px, calc(17.4vw - 40px), 250px);
   max-width: calc(62rem + 250px);
-  font-size: var(--fs-manifesto);
+  /* Never taller than the pinned panel allows, and always some room above the bottom bar. */
+  font-size: min(var(--fs-manifesto), 8.4svh);
+  margin-bottom: clamp(32px, 7svh, 88px);
   font-weight: 770;
   line-height: 0.92;
   letter-spacing: -0.06em;
