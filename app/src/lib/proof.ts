@@ -321,8 +321,8 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Sources: README.md "Tests" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 231 TypeScript
-// = SDK 120 + MCP 51 + agents 60, 60 Telegram bot, 10 subgraph, 148 Playwright). Re-count (2026-10-01) with
+// Sources: README.md "Tests" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 259 TypeScript
+// = SDK 140 + MCP 59 + agents 60, 60 Telegram bot, 10 subgraph, 151 Playwright). Re-count (2026-10-02) with
 // `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
 // counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
 // subgraph/tests and `npx playwright test --list` in app (tests per viewport).
@@ -348,8 +348,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "231",
-    detail: "SDK 120, MCP server 51, example agents 60",
+    count: "259",
+    detail:
+      "SDK 140, MCP server 59, example agents 60; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -370,7 +371,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "148",
+    count: "151",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 32 of them are the opt-in UI audit at five widths",
     evidence: [

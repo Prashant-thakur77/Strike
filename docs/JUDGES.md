@@ -61,7 +61,7 @@ Internal security review ([review-2026-09-29.md](security/review-2026-09-29.md))
 forge test --root contracts --match-path "test/audit/*" -vv
 ```
 
-Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 231 TypeScript tests (SDK 120, MCP 51, agents 60), 60 Telegram bot tests, 10 subgraph tests, 148 Playwright tests per viewport (116 run by default; 32 are the opt-in UI audit). The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
+Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 259 TypeScript tests (SDK 140, MCP 59, agents 60; 2 more SDK tests are opt-in live checks), 60 Telegram bot tests, 10 subgraph tests, 151 Playwright tests per viewport (119 run by default; 32 are the opt-in UI audit). The [threat model](threat-model.md) lists 21 threats, each with the test that covers it.
 
 ## What each step shows
 
