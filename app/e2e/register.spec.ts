@@ -183,6 +183,9 @@ async function registerAndCreate(page: Page, errors: string[]) {
   await expect(
     form.getByText(new RegExp(`Agent ${agentId}\\s*is registered and bonded 50 USDG`)),
   ).toBeVisible();
+  // The live checks now see the signer taken by the agent just registered: no "use a fresh key" warning.
+  await expect(checks.getByText(/One agent per signer: use a fresh key/)).toHaveCount(0);
+  await expect(checks.getByText(new RegExp(`signs for agent ${agentId}, registered just now`))).toBeVisible();
 
   // The follow-up: a vault run by this agent, with a mandate that must pass the floors.
   const vault = section.getByRole("region", { name: `Create a vault run by agent ${agentId}` });
@@ -304,6 +307,7 @@ test("v3: a separate signer key signs its consent, then register, approve USDG a
     expect(agent).toMatchObject({ owner, signer, payout: owner, bond: 50_000_000n });
     expect(await nonceOf(signer!)).toBe(1n); // the consent was used
     await expect(form.getByText(new RegExp(`Agent ${id}\\s*is registered and bonded 50 USDG`))).toBeVisible();
+    await expect(form.getByText(/One agent per signer: use a fresh key/)).toHaveCount(0);
     expect(errors).toEqual([]);
   });
 });

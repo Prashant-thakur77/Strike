@@ -147,6 +147,14 @@ function Onboard({ registry, ob }: { registry: Registry; ob: OnboardingState | u
 
 // ------------------------------------------------------------------ register + bond
 
+/**
+ * Signers registered from this browser session (`chainId:registry:signer` → agent id): after a successful register the
+ * form's live check sees the signer taken by the new agent, which is expected, not a "use a fresh key" warning.
+ */
+const registeredThisSession = new Map<string, bigint>();
+const sessionKey = (chainId: number, registry: string, signer: string) =>
+  `${chainId}:${registry.toLowerCase()}:${signer.toLowerCase()}`;
+
 function RegisterForm({
   registry,
   ob,
@@ -185,6 +193,10 @@ function RegisterForm({
     wallet,
     signerText: signerValue,
     signerAgent: signer && addressOf(signerValue) === signer ? signerAgent.data : undefined,
+    registeredAs:
+      signer && deployment
+        ? registeredThisSession.get(sessionKey(chainId, deployment.agentRegistry, signer))
+        : undefined,
     payoutText: payoutValue,
     identityText,
     identityRegistry: ob.identityRegistry,
@@ -340,6 +352,7 @@ function RegisterForm({
       functionName: "agentOfSigner",
       args: [signerAddr],
     });
+    registeredThisSession.set(sessionKey(chainId, deployment.agentRegistry, signerAddr), agentId);
     setDone({ id: agentId, bond: 0n });
     onRegistered(agentId);
     if (amount === 0n) return;
@@ -389,6 +402,7 @@ function RegisterForm({
     );
     if (!ok) return;
     const agentId = await client.readContract({ ...reg, functionName: "agentOfSigner", args: [signerAddr] });
+    registeredThisSession.set(sessionKey(chainId, deployment.agentRegistry, signerAddr), agentId);
     setDone({ id: agentId, bond: 0n });
     onRegistered(agentId);
     if (bond > 0n) {

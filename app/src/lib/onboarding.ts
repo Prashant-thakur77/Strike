@@ -38,6 +38,8 @@ export interface RegistrationInput {
   signerText: string;
   /** agentOfSigner(signer); undefined while loading. */
   signerAgent: bigint | undefined;
+  /** The agent this signer was registered as from this browser session (its "already signs" is then expected). */
+  registeredAs?: bigint;
   payoutText: string;
   identityText: string;
   /** The ERC-8004 identity registry the AgentRegistry checks (null when disabled). */
@@ -63,19 +65,26 @@ export function registrationChecks(i: RegistrationInput): Check[] {
       ? { id: "signer", label: "Signer", state: "fail", detail: "Enter the signer's 0x address." }
       : i.signerAgent === undefined
         ? { id: "signer", label: "Signer", state: "pending", detail: "Checking the registry…" }
-        : i.signerAgent > 0n
+        : i.signerAgent > 0n && i.registeredAs === i.signerAgent
           ? {
               id: "signer",
               label: "Signer",
-              state: "fail",
-              detail: `${shortAddr(signer)} already signs for agent ${i.signerAgent}. One agent per signer: use a fresh key.`,
-            }
-          : {
-              id: "signer",
-              label: "Signer",
               state: "ok",
-              detail: `${shortAddr(signer)} is free. Only this key may propose for your agent.`,
-            },
+              detail: `${shortAddr(signer)} signs for agent ${i.signerAgent}, registered just now.`,
+            }
+          : i.signerAgent > 0n
+            ? {
+                id: "signer",
+                label: "Signer",
+                state: "fail",
+                detail: `${shortAddr(signer)} already signs for agent ${i.signerAgent}. One agent per signer: use a fresh key.`,
+              }
+            : {
+                id: "signer",
+                label: "Signer",
+                state: "ok",
+                detail: `${shortAddr(signer)} is free. Only this key may propose for your agent.`,
+              },
   );
 
   if (!addressOf(i.payoutText)) {
