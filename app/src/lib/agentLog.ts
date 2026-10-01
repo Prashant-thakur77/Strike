@@ -60,23 +60,56 @@ export interface LogMarket {
   marketOpen: boolean;
 }
 
+/** How a `claude` run reached Claude (absent in older records). */
+export interface LogPlanner {
+  kind: "api" | "claude-code";
+  model: string;
+  /** "Claude via API, model X" or "Claude via Claude Code CLI, model X". */
+  label: string;
+}
+
+/** A candidate the planner dry-ran before choosing (records written so far carry only the final dry run). */
+export interface LogCandidate {
+  targetDeltaBps: number | null;
+  premiumBps: number | null;
+  ok: boolean;
+  reason: string | null;
+  strike: string | null;
+  fairValue: string | null;
+  yieldBps: number | null;
+}
+
 export interface LogDecision {
   strategy: LogStrategy;
   targetDeltaBps: number | null;
   premiumBps: number | null;
   reasoning: string;
   notes: string[];
+  planner: LogPlanner | null;
+  candidates: LogCandidate[];
 }
 
 export interface LogDryRun {
   ok: boolean;
   reason: string;
+  explanation: string;
   optionType: "call" | "put" | null;
   strike: string | null;
   delta: number | null;
   size: string | null;
+  capacity: string | null;
   premiumBps: number | null;
   fairValue: string | null;
+  yieldBps: number | null;
+}
+
+/** The record's on-chain anchor (`--anchor`): its hash committed to the DecisionLog contract. */
+export interface LogAnchor {
+  contract: string;
+  recordHash: string;
+  uri: string | null;
+  epoch: number;
+  txHash: string | null;
 }
 
 export interface LogResult {
@@ -131,6 +164,7 @@ export interface LogRecord {
   transactions: LogTx[];
   result: LogResult;
   trackRecord: LogTrack | null;
+  anchor: LogAnchor | null;
 }
 
 /** A record together with where it lives on GitHub. */
@@ -177,6 +211,7 @@ const decimal = (v: unknown): string | null =>
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const HASH_RE = /^0x[0-9a-fA-F]{64}$/;
+const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /** Only http(s) links from a record ever reach an href. */
 export function safeHttpUrl(v: unknown): string | null {
@@ -211,6 +246,33 @@ function parseMarket(v: unknown): LogMarket | null {
   };
 }
 
+function parsePlanner(v: unknown): LogPlanner | null {
+  if (!isObj(v)) return null;
+  const kind = oneOf(v.kind, ["api", "claude-code"] as const);
+  const model = nonEmpty(v.model);
+  if (!kind || !model) return null;
+  return {
+    kind,
+    model,
+    label: nonEmpty(v.label) ?? `Claude via ${kind === "api" ? "API" : "Claude Code CLI"}, model ${model}`,
+  };
+}
+
+function parseCandidate(v: unknown): LogCandidate | null {
+  if (!isObj(v)) return null;
+  const ok = bool(v.ok);
+  if (ok === null) return null;
+  return {
+    targetDeltaBps: num(v.targetDeltaBps),
+    premiumBps: num(v.premiumBps),
+    ok,
+    reason: nonEmpty(v.reason),
+    strike: decimal(v.strike),
+    fairValue: decimal(v.fairValue),
+    yieldBps: num(v.yieldBps),
+  };
+}
+
 function parseDecision(v: unknown): LogDecision | null {
   if (!isObj(v)) return null;
   // Older drafts of the agent called Claude's strategy "llm".
@@ -225,6 +287,13 @@ function parseDecision(v: unknown): LogDecision | null {
     notes: Array.isArray(v.notes)
       ? v.notes.filter((n): n is string => typeof n === "string" && !!n.trim())
       : [],
+    planner: parsePlanner(v.planner),
+    candidates: Array.isArray(v.candidates)
+      ? v.candidates.flatMap((c) => {
+          const parsed = parseCandidate(c);
+          return parsed ? [parsed] : [];
+        })
+      : [],
   };
 }
 
@@ -235,12 +304,33 @@ function parseDryRun(v: unknown): LogDryRun | null {
   return {
     ok,
     reason: str(v.reason) ?? "",
+    explanation: str(v.explanation)?.trim() ?? "",
     optionType: oneOf(v.optionType, ["call", "put"] as const),
     strike: decimal(v.strike),
     delta: num(v.delta),
     size: decimal(v.size),
+    capacity: decimal(v.capacity),
     premiumBps: num(v.premiumBps),
     fairValue: decimal(v.fairValue),
+    yieldBps: num(v.yieldBps),
+  };
+}
+
+function parseAnchor(v: unknown): LogAnchor | null {
+  if (!isObj(v)) return null;
+  const contract = str(v.contract);
+  const recordHash = str(v.recordHash);
+  const epoch = num(v.epoch);
+  if (!contract || !ADDRESS_RE.test(contract) || !recordHash || !HASH_RE.test(recordHash) || epoch === null) {
+    return null;
+  }
+  const txHash = str(v.txHash);
+  return {
+    contract,
+    recordHash: recordHash.toLowerCase(),
+    uri: safeHttpUrl(v.uri),
+    epoch,
+    txHash: txHash && HASH_RE.test(txHash) ? txHash : null,
   };
 }
 
@@ -337,6 +427,7 @@ export function parseRecord(json: unknown): LogRecord | null {
     }),
     result,
     trackRecord: parseTrack(json.trackRecord),
+    anchor: parseAnchor(json.anchor),
   };
 }
 
@@ -528,6 +619,21 @@ export function actionLabel(a: LogAction): string {
 /** The strategy for people: the rule-based default, or Claude when the run used `--llm`. */
 export function strategyLabel(s: LogStrategy): string {
   return { default: "Rule-based", claude: "Claude", reckless: "Forced demo" }[s];
+}
+
+/**
+ * Who planned the run, for people: Claude with how it was reached and the model ("Claude via Claude Code CLI,
+ * model claude-opus-5"), the rule-based default with its rule, or the forced demo.
+ */
+export function plannerLabel(d: LogDecision): string {
+  switch (d.strategy) {
+    case "claude":
+      return d.planner?.label ?? "Claude";
+    case "default":
+      return `Rule-based: ${d.targetDeltaBps === null ? "the default" : fmtDeltaBps(d.targetDeltaBps)} delta at ${fmtFactor(d.premiumBps ?? 10_000)} of fair value, clamped into the mandate`;
+    case "reckless":
+      return "Forced demo: an at-the-money strike, sent to show the contract rejecting it";
+  }
 }
 
 export function kindLabel(k: VaultKind): string {

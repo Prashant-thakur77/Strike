@@ -19,7 +19,7 @@ const GROUPS: { label: string; ids: GlossaryId[] }[] = [
     ],
   },
   { label: "Risk", ids: ["greeks", "delta", "gamma", "vega", "theta", "impliedVol", "spotBuffer"] },
-  { label: "How Strike runs", ids: ["epoch", "tenor", "mandate", "agent", "bond", "slash"] },
+  { label: "How Strike runs", ids: ["epoch", "tenor", "mandate", "agent", "bond", "slash", "anchored"] },
   { label: "Tokens and standards", ids: ["stockToken", "usdg", "multiplier", "erc8004"] },
 ];
 

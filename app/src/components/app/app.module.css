@@ -2718,6 +2718,204 @@ a.idChip:hover {
   }
 }
 
+/* ================================================================ why this strike (vault page) */
+
+.why {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  min-width: 0;
+}
+
+.whyState {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.whyLead {
+  max-width: 52em;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.whyFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.whyFacts > div {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 14px 16px 16px;
+  background: var(--paper-2);
+}
+
+.whyFacts dd {
+  margin: 0;
+  min-width: 0;
+}
+
+.whyValue {
+  display: block;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.whyVerdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.whyVerdict[data-tone="good"] {
+  color: var(--gain-c);
+}
+
+.whyVerdict[data-tone="bad"] {
+  color: var(--loss-c);
+}
+
+.whyBlock {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.whyNote {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+}
+
+.whyCands {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+}
+
+.whyCand {
+  display: grid;
+  grid-template-columns: minmax(0, 11em) minmax(0, 1fr) minmax(0, auto);
+  gap: 6px 18px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 10px 14px;
+  background: var(--bg, var(--paper));
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.whyCand[data-final] {
+  font-weight: 600;
+}
+
+.whyCandTarget {
+  white-space: nowrap;
+}
+
+.whyCandSolved {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.whyCandVerdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--loss-c);
+}
+
+.whyCandVerdict[data-ok="true"] {
+  color: var(--gain-c);
+}
+
+.whyCandSent {
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.whyAnchor {
+  display: grid;
+  gap: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-size: 0.86rem;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.whyAnchorState {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-weight: 650;
+  color: var(--fg);
+}
+
+.whyAnchorState[data-status="match"] {
+  color: var(--gain-c);
+}
+
+.whyAnchorState[data-status="mismatch"] {
+  color: var(--loss-c);
+}
+
+.whyAnchorText {
+  overflow-wrap: anywhere;
+}
+
+.whyAnchorText a {
+  color: var(--fg);
+}
+
+.whyHash {
+  white-space: nowrap;
+}
+
+.whyLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 24px;
+}
+
+@media (max-width: 900px) {
+  .whyFacts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .whyCand {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+
+  .whyCandTarget,
+  .whyCandVerdict {
+    white-space: normal;
+  }
+}
+
 /* ================================================================ next step (bottom of every app page) */
 
 .nextStep {

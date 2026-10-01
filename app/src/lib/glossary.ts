@@ -111,6 +111,10 @@ export const GLOSSARY = {
     term: "Stock token",
     def: "A token on Robinhood Chain that tracks one share of a US stock, such as TSLA.",
   },
+  anchored: {
+    term: "Anchored",
+    def: "A record whose fingerprint (its keccak256 hash) the agent committed on-chain when it ran, so anyone can check the published copy was not changed afterwards.",
+  },
 } as const satisfies Record<string, GlossaryEntry>;
 
 export type GlossaryId = keyof typeof GLOSSARY;
