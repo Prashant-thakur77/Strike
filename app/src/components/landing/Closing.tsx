@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ArrowUpRight } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { Footer } from "@/components/site/Footer";
 import { CtaBar } from "@/components/ui/CtaBar";
 import { useReducedMotion } from "@/components/ui/useReducedMotion";
+import { LINKS } from "@/lib/links";
 import styles from "./landing.module.css";
 
 /** 0 before `from`, 1 after `to`, linear in between. */
@@ -111,6 +112,12 @@ export function Closing() {
               </h2>
             </div>
             <CtaBar href="/app" label="Deposit, buy options or just look around" text="Open the app" />
+            <p className={styles.closingPlan}>
+              <span>We&apos;re building Strike as a company, starting on these testnets.</span>
+              <a href={LINKS.company} className="micro text-link" target="_blank" rel="noreferrer">
+                Read the plan <ArrowUpRight size={12} aria-hidden />
+              </a>
+            </p>
           </div>
           <Footer />
         </motion.div>

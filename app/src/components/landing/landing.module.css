@@ -1243,6 +1243,16 @@
   letter-spacing: -0.075em;
 }
 
+.closingPlan {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 20px;
+  padding-bottom: 16px;
+  font-size: var(--fs-body);
+  line-height: 1.45;
+}
+
 .closing[data-static] {
   height: auto;
 }

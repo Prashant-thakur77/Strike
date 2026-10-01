@@ -3,6 +3,7 @@ export const LINKS = {
   docs: "https://github.com/Prashant-thakur77/Strike/tree/main/docs",
   judges: "https://github.com/Prashant-thakur77/Strike/blob/main/docs/JUDGES.md",
   skill: "https://github.com/Prashant-thakur77/Strike/blob/main/docs/STRIKE_SKILL.md",
+  company: "https://github.com/Prashant-thakur77/Strike#building-strike-as-a-company",
   design: "https://github.com/Prashant-thakur77/Strike/blob/main/docs/design.md",
   feedback: "https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml",
   robinhoodFaucet: "https://faucet.testnet.chain.robinhood.com/",
