@@ -414,9 +414,12 @@ def chart_epoch(t, theme):
 GLYPH_ROWS = {"On-chain agent mandate", "Slashing paid to depositors", "Oracle-anchored pricing", "Stock-token (ERC-8056) safety", "ERC-8004 agent identity", "USDG"}
 
 SHORT = {
-    "Chain": ["RH Chain testnet", "RH Chain mainnet", "RH Chain testnet", "Ethereum, Avalanche,\nSolana; Aevo rollup", "Optimism (v1);\nDerive chain", "Base; Ethereum", "RH Chain testnet"],
-    "Live status": ["Testnet, live epoch", "Mainnet since\n2026-09-25", "Testnet proof\nof concept", "Aevo launched;\nvaults not described", "v3 on testnet", "V4 on Base,\nearly testing", "Testnet; NYC\nonline 1st place"],
-    "Who picks the strike": ["Bonded AI agent,\nchecked on-chain", "Writers, from\na listed ladder", "Traders", "Off-chain algorithm,\n10 delta", "Owner lists (v1);\nusers (v3)", "Requesting trader\n(RFQ)", "No options;\nAI-managed vaults"],
+    "Chain": ["RH Chain testnet;\nArbitrum Sepolia", "RH Chain mainnet", "RH Chain testnet", "Ethereum, Avalanche,\nSolana; Aevo rollup", "Optimism (v1);\nDerive chain", "Base; Ethereum", "RH Chain testnet",
+              "RH Chain testnet", "RH Chain testnet", "RH Chain mainnet;\nBase"],
+    "Live status": ["Testnet, three\nlive epochs", "Mainnet since\n2026-09-25", "Testnet proof\nof concept", "Aevo launched;\nvaults not described", "v3 on testnet", "V4 on Base,\nearly testing", "Testnet; NYC\nonline 1st place",
+                    "Testnet; entered\nthis buildathon", "Testnet, mocks;\nentry not confirmed", "Mainnet, live;\nentry not confirmed"],
+    "Who picks the strike": ["Bonded AI agent,\nchecked on-chain", "Writers, from\na listed ladder", "Traders", "Off-chain algorithm,\n10 delta", "Owner lists (v1);\nusers (v3)", "Requesting trader\n(RFQ)", "No options;\nAI-managed vaults",
+                             "Buyers", "not described", "not described"],
 }
 
 
@@ -443,6 +446,10 @@ def cell_short(row, text):
         return "Curator stake\nfloor only"
     if row == "Stock-token (ERC-8056) safety" and text.startswith("NYSE"):
         return "NYSE-close expiry\nonly"
+    if row == "Stock-token (ERC-8056) safety" and text.startswith("Partly: closed-market"):
+        return "Partly: prices\nclosed hours"
+    if row == "Stock-token (ERC-8056) safety" and text.startswith("Partly: NYSE calendar"):
+        return "Partly: NYSE\ncalendar on-chain"
     return {
         "Order book; oracle at settlement": "Order book;\noracle settles",
         "Order book; no oracle": "Order book;\nno oracle",
@@ -450,6 +457,10 @@ def cell_short(row, text):
         "AMM model (v1); order book and RFQ (v3)": "AMM model (v1);\nbook + RFQ (v3)",
         "RFQ; oracle at expiry": "RFQ;\noracle settles",
         "RFQ engine; an oracle parses SEC and STOCK Act filings": "RFQ; oracle reads\nSEC filings",
+        "Agent budgets in TradeLogic; no bond described": "Agent budgets;\nno bond",
+        "Stylus model on realised volatility, closed-market time priced separately; settles on the first feed print at or after expiry": "Stylus model on\nrealised volatility",
+        "Venues, RFQ and auctions; a Stylus kernel re-prices margin across 39 scenarios": "Venues, RFQ,\nauctions",
+        "No: uses tUSD": "No: tUSD",
     }.get(text, text)
 
 
@@ -516,7 +527,7 @@ def chart_matrix(t, theme):
         kx += 48 + len(lab) * 7.4
     ax.text(24, 24, "Options on stock tokens, weekly option vaults and AI-run stock vaults: what each project's own docs say", color=t["ink"], fontsize=15, fontweight="bold", va="top")
     ax.text(24, 52, "\"not described\" means the cited pages do not cover it, not that the project lacks it. RH Chain = Robinhood Chain.", color=t["ink2"], fontsize=11, va="top")
-    ax.text(24, H - 16, "Sources: each project's docs and repositories, read 2026-09-30 (list under the matrix in README.md and in scripts/charts/data/competition.json)",
+    ax.text(24, H - 16, "Sources: each project's docs and repositories, read 2026-09-30 and 2026-10-01 (list under the matrix in README.md and in scripts/charts/data/competition.json)",
             color=t["muted"], fontsize=9, va="bottom")
     return save(fig, "competition-matrix", theme)
 
@@ -556,6 +567,7 @@ def chart_positioning(t, theme):
         "Thetanuts V4": (-0.22, 0.0),
         "Ribbon Theta Vaults": (-0.2, 0.0),
         "Lyra v1": (-0.2, 0.0),
+        "AfterHours": (-0.22, 0.0),
         "Strike": (-0.1, 0.0),
     }
     pos = {n: (p["x"] + offsets[n][0], p["y"] + offsets[n][1]) for n, p in pts.items()}

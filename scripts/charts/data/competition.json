@@ -8,31 +8,40 @@
     "Ribbon / Aevo",
     "Derive (Lyra)",
     "Thetanuts",
-    "Tilt Protocol"
+    "Tilt Protocol",
+    "AfterHours",
+    "Novation",
+    "CallPut"
   ],
   "rows": [
     {
       "row": "Chain",
       "cells": [
-        "Robinhood Chain testnet (46630)",
+        "Robinhood Chain testnet (46630) and Arbitrum Sepolia (421614)",
         "Robinhood Chain mainnet (4663)",
         "Robinhood Chain testnet (46630)",
         "Ethereum, Avalanche, Solana; Aevo is its own rollup",
         "Optimism (Lyra v1); Derive chain (v2)",
         "Base; Ethereum (WheelVault only)",
-        "Robinhood Chain testnet"
+        "Robinhood Chain testnet",
+        "Robinhood Chain testnet (46630)",
+        "Robinhood Chain testnet (46630)",
+        "Robinhood Chain mainnet (4663); the same code runs on Base"
       ]
     },
     {
       "row": "Live status",
       "cells": [
-        "Testnet, live epoch; unaudited",
+        "Testnet, three live epochs; unaudited",
         "Mainnet since 2026-09-25; unaudited",
         "Testnet proof of concept; unaudited",
         "Aevo launched; vault status not described",
         "v3 on testnet, mainnet \"coming soon\"",
         "V4 on Base, early testing",
-        "Testnet build; NYC online buildathon 1st place"
+        "Testnet build; NYC online buildathon 1st place",
+        "Testnet, deployed with a demo site; submitted to this buildathon",
+        "Testnet, mock USDG and mock stock tokens; \"Internally reviewed, not externally audited\"; entry not confirmed",
+        "Mainnet, live; 110 contracts source-verified; entry not confirmed"
       ]
     },
     {
@@ -44,7 +53,10 @@
         "Off-chain algorithm at 10 delta",
         "Owner lists boards (v1); users (v3)",
         "The requesting trader (RFQ)",
-        "No options; an AI management layer runs the vaults"
+        "No options; an AI management layer runs the vaults",
+        "Buyers choose strike and expiry",
+        "not described",
+        "not described"
       ]
     },
     {
@@ -56,6 +68,9 @@
         "not described",
         "Curator stake floor; curators may trade any instrument",
         "not described",
+        "not described",
+        "not described (no agent)",
+        "Agent budgets in TradeLogic; no bond described",
         "not described"
       ]
     },
@@ -63,6 +78,9 @@
       "row": "Slashing paid to depositors",
       "cells": [
         "Yes: 10 USDG per rejected proposal",
+        "not described",
+        "not described",
+        "not described",
         "not described",
         "not described",
         "not described",
@@ -80,7 +98,10 @@
         "Auctions; oracle at settlement",
         "AMM model (v1); order book and RFQ (v3)",
         "RFQ; oracle at expiry",
-        "RFQ engine; an oracle parses SEC and STOCK Act filings"
+        "RFQ engine; an oracle parses SEC and STOCK Act filings",
+        "Stylus model on realised volatility, closed-market time priced separately; settles on the first feed print at or after expiry",
+        "Venues, RFQ and auctions; a Stylus kernel re-prices margin across 39 scenarios",
+        "not described (three LP vaults underwrite)"
       ]
     },
     {
@@ -92,13 +113,19 @@
         "not described (crypto assets)",
         "not described (crypto assets)",
         "not described (crypto assets)",
+        "not described",
+        "Partly: closed-market time priced at closedVolMult × σ; ERC-8056 not described",
+        "Partly: NYSE calendar on-chain, 1.75× session multiplier over weekends; ERC-8056 not described",
         "not described"
       ]
     },
     {
       "row": "ERC-8004 agent identity",
       "cells": [
-        "Yes: identity #114",
+        "Yes: identities #114 and #253",
+        "not described",
+        "not described",
+        "not described",
         "not described",
         "not described",
         "not described",
@@ -116,7 +143,10 @@
         "not described",
         "not described (USDC)",
         "not described (USDC)",
-        "not described"
+        "not described",
+        "No: uses tUSD",
+        "Yes: cash-settled in USDG (mock USDG on testnet)",
+        "Yes: cash-settled in USDG"
       ]
     }
   ],
@@ -164,7 +194,13 @@
       "https://github.com/0xangky/bowstring-contracts",
       "https://github.com/rontoTech/tilt-protocol-openclaw",
       "https://www.tiltprotocol.com/"
-    ]
+    ],
+    "AfterHours": ["https://github.com/bchuazw/afterhours", "https://www.hackquest.io/projects/AfterHours"],
+    "Novation": [
+      "https://github.com/RaYYeR220/novation",
+      "https://github.com/RaYYeR220/novation/blob/main/JUDGES.md"
+    ],
+    "CallPut": ["https://github.com/alanxxzero/callput-robinhood-contracts", "https://callput.app"]
   },
   "positions": {
     "x_levels": [
@@ -227,6 +263,12 @@
         "x": 1,
         "y": 2,
         "note": "owner lists boards; AMM priced with a Black-Scholes model"
+      },
+      {
+        "name": "AfterHours",
+        "x": 0,
+        "y": 2,
+        "note": "buyers choose strike and expiry; a Stylus engine prices puts written by ERC-4626 vaults"
       }
     ],
     "links": [
@@ -235,6 +277,7 @@
     ]
   },
   "source_notes": {
-    "Tilt Protocol": "Cells come from its HackQuest text (via docs/research-winners.md) and were not checked against its contracts. It does not sell options, so it has no point in 'positions'."
+    "Tilt Protocol": "Cells come from its HackQuest text (via docs/research-winners.md) and were not checked against its contracts. It does not sell options, so it has no point in 'positions'.",
+    "AfterHours, Novation, CallPut": "Added on 2026-10-01 from docs/research-final-week.md, which read each project's README and HackQuest page. Novation and CallPut are not confirmed as entrants of this buildathon. Neither is on the positioning chart: who picks the strike is not described in those sources, and for CallPut neither is how the premium is set."
   }
 }

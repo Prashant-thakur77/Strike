@@ -1402,6 +1402,11 @@ z
      <use xlink:href="#m8e7d04c48b" x="346.14" y="215.1" style="fill: #6f6f69; stroke: #e9e9e7; stroke-width: 2"/>
     </g>
    </g>
+   <g id="PathCollection_9">
+    <g clip-path="url(#p76ecec30df)">
+     <use xlink:href="#m8e7d04c48b" x="215.784" y="215.1" style="fill: #6f6f69; stroke: #e9e9e7; stroke-width: 2"/>
+    </g>
+   </g>
    <g id="text_11">
     <!-- Strike -->
     <g style="fill: #121212" transform="translate(627.3 123.149219) scale(0.125 -0.125)">
@@ -1700,8 +1705,40 @@ z
      <use xlink:href="#DejaVuSans-31" transform="translate(299.126953 0)"/>
     </g>
    </g>
+   <g id="text_19">
+    <!-- AfterHours -->
+    <g style="fill: #45453f" transform="translate(226.008 217.859375) scale(0.1 -0.1)">
+     <defs>
+      <path id="DejaVuSans-48" d="M 628 4666 
+L 1259 4666 
+L 1259 2753 
+L 3553 2753 
+L 3553 4666 
+L 4184 4666 
+L 4184 0 
+L 3553 0 
+L 3553 2222 
+L 1259 2222 
+L 1259 0 
+L 628 0 
+L 628 4666 
+z
+" transform="scale(0.015625)"/>
+     </defs>
+     <use xlink:href="#DejaVuSans-41"/>
+     <use xlink:href="#DejaVuSans-66" transform="translate(64.783203 0)"/>
+     <use xlink:href="#DejaVuSans-74" transform="translate(98.238281 0)"/>
+     <use xlink:href="#DejaVuSans-65" transform="translate(137.447266 0)"/>
+     <use xlink:href="#DejaVuSans-72" transform="translate(198.970703 0)"/>
+     <use xlink:href="#DejaVuSans-48" transform="translate(240.083984 0)"/>
+     <use xlink:href="#DejaVuSans-6f" transform="translate(315.279297 0)"/>
+     <use xlink:href="#DejaVuSans-75" transform="translate(376.460938 0)"/>
+     <use xlink:href="#DejaVuSans-72" transform="translate(439.839844 0)"/>
+     <use xlink:href="#DejaVuSans-73" transform="translate(480.953125 0)"/>
+    </g>
+   </g>
   </g>
-  <g id="text_19">
+  <g id="text_20">
    <!-- Where Strike sits: who picks the strike, and how the price is set -->
    <g style="fill: #121212" transform="translate(17.28 27.237656) scale(0.15 -0.15)">
     <defs>
@@ -1876,7 +1913,7 @@ z
     <use xlink:href="#DejaVuSans-Bold-74" transform="translate(3564.085938 0)"/>
    </g>
   </g>
-  <g id="text_20">
+  <g id="text_21">
    <!-- Placed from each project's own docs. Arrows point from a team's earlier product to its later one. -->
    <g style="fill: #45453f" transform="translate(17.28 42.918281) scale(0.11 -0.11)">
     <defs>
@@ -2034,7 +2071,7 @@ z
     <use xlink:href="#DejaVuSans-2e" transform="translate(4781.091797 0)"/>
    </g>
   </g>
-  <g id="text_21">
+  <g id="text_22">
    <!-- Sources: each project's docs and repositories, listed in scripts/charts/data/competition.json and under the chart in README.md -->
    <g style="fill: #5f5f59" transform="translate(17.28 535.248281) scale(0.09 -0.09)">
     <defs>
