@@ -199,7 +199,9 @@ export function ProofPage() {
               <p className={styles.text}>
                 <strong>Stylus pricer + risk engine verified with cargo stylus verify</strong>: greeks,
                 implied volatility and scenario loss in Rust, on the same program as the pricer. The vault
-                page&apos;s Risk panel calls it live on the v2 series.
+                page&apos;s Risk panel calls it live on the v2 series. v3 ran its first epoch here on 1
+                October, with a Claude-planned call accepted and a reckless put slashed (
+                <Out href={`${V3.log}#7-live-epoch-1-october`}>log</Out>), and runs on Arbitrum Sepolia too.
               </p>
             </div>
             <dl className={styles.kv}>

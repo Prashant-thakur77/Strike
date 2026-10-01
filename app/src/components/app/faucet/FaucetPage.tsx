@@ -129,7 +129,9 @@ export function FaucetPage() {
                   ? "Robinhood's testnet faucet hands out gas and TSLA, AMZN, PLTR, NFLX and AMD tokens. Paxos runs the USDG faucet: pick Robinhood Chain testnet there."
                   : local
                     ? "On the local devnet Strike deploys mintable test tokens: 10 stock tokens per address per day."
-                    : "Paxos runs the USDG faucet: pick the network you're on there."}
+                    : chainId === 421614
+                      ? "Arbitrum Sepolia has no stock tokens, so TSLA and NVDA here are Strike's test tokens: claim them with the button next to each. Paxos runs the USDG faucet: pick Arbitrum Sepolia there."
+                      : "Paxos runs the USDG faucet: pick the network you're on there."}
               </p>
             </div>
           </Rail>

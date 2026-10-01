@@ -6,7 +6,7 @@ const STACK = [
   {
     name: "Robinhood Chain",
     tag: "Where the stock tokens live",
-    text: "ERC-8056 stock tokens and their Chainlink feeds. Testnet 46630 now, a capped vault on mainnet 4663 next.",
+    text: "ERC-8056 stock tokens and their Chainlink feeds. Testnet 46630 now (v2 and v3), a capped vault on mainnet 4663 next.",
   },
   {
     name: "USDG",
@@ -16,7 +16,7 @@ const STACK = [
   {
     name: "Arbitrum Stylus",
     tag: "The pricer",
-    text: "Black-Scholes in Rust with fixed-point math, checked bit-for-bit against a Solidity twin in CI.",
+    text: "Black-Scholes in Rust with fixed-point math, checked bit-for-bit against a Solidity twin in CI. Live on Robinhood Chain testnet and Arbitrum Sepolia.",
   },
 ];
 
