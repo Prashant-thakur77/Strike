@@ -147,13 +147,13 @@ export function backoffMs(attempt: number, baseMs: number, maxMs = 8_000): numbe
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export interface ScanOptions {
+export interface ScanOptions<T = ActivityLog> {
   /** First and last block, inclusive. */
   from: bigint;
   to: bigint;
   /** Largest range per `getLogs` call. Halved on errors, grown back after successes. */
   maxRange: bigint;
-  fetchLogs: LogFetcher;
+  fetchLogs: (fromBlock: bigint, toBlock: bigint) => Promise<T[]>;
   /** Consecutive non-range failures allowed before giving up (default 3: a page should not hang for long). */
   retries?: number;
   /** First backoff delay (default 500 ms), doubled per failure. */
@@ -166,18 +166,18 @@ export interface ScanOptions {
  * (so RPC range and result limits are found automatically) and, for errors that are not range limits, after an
  * exponential backoff. Throws once `retries` consecutive failures pile up.
  */
-export async function scanLogs(opts: ScanOptions): Promise<ActivityLog[]> {
+export async function scanLogs<T = ActivityLog>(opts: ScanOptions<T>): Promise<T[]> {
   const retries = opts.retries ?? 3;
   const baseDelay = opts.baseDelayMs ?? 500;
   const sleep = opts.sleep ?? defaultSleep;
   const max = opts.maxRange > 0n ? opts.maxRange : 1n;
-  const out: ActivityLog[] = [];
+  const out: T[] = [];
   let size = max;
   let failures = 0;
   let start = opts.from;
   while (start <= opts.to) {
     const end = start + size - 1n < opts.to ? start + size - 1n : opts.to;
-    let logs: ActivityLog[];
+    let logs: T[];
     try {
       logs = await opts.fetchLogs(start, end);
     } catch (err) {
