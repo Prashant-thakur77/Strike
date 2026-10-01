@@ -83,7 +83,7 @@ An external audit of the v3 contracts and the Stylus program, then one capped va
 
 Deliverables:
 
-- An audit by an outside firm. The grant covers part of it ($14,000 in this split), and the rest is requested from the Arbitrum Audit Program, which [audit-readiness.md](audit-readiness.md) is prepared for.
+- An audit by an outside firm. The grant covers part of it ($14,000 in this split), and the rest is requested from the [Arbitrum Security Program](https://blog.arbitrum.foundation/introducing-the-arbitrum-security-program-apply-to-secure-your-smart-contracts/), which [audit-readiness.md](audit-readiness.md) is prepared for. The Foundation opened it on 28 September 2026: about $7.8M over 12 months, AI-assisted screening before a full audit, subsidised audits from 13 firms, and projects that have not launched yet can apply. The application is a [Tally form](https://tally.so/r/3xzEzv), and the Foundation expects about one month between approval and the start of the audit, so it goes in the week after the buildathon results.
 - Every High and Medium finding fixed with a regression test, as was done for the internal review ([review-2026-09-29.md](security/review-2026-09-29.md)).
 - One TSLA covered-call vault on Robinhood Chain mainnet (4663) with a `depositCap` agreed in advance, admin and guardian roles held by a Safe multisig, and the real Chainlink feed (no `MirrorFeed`).
 - Four weekly epochs run and settled on it.

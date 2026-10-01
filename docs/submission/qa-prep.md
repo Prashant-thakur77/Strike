@@ -1,12 +1,12 @@
 # Hard questions, short answers
 
-Twenty-one questions a judge is likely to ask, each with a short answer and the file or test that backs it. Line numbers refer to `main` on 2026-09-30 (the contract sources are unchanged on 2026-10-01). What is live and what is not is also listed in the README's [What works, what does not yet, what we cut](../../README.md#what-works-what-does-not-yet-what-we-cut).
+Twenty-two questions a judge is likely to ask, each with a short answer and the file or test that backs it. Line numbers refer to `main` on 2026-09-30 (the contract sources are unchanged on 2026-10-01). What is live and what is not is also listed in the README's [What works, what does not yet, what we cut](../../README.md#what-works-what-does-not-yet-what-we-cut).
 
 ## Product and market
 
 ### 1. Why would anyone buy these options?
 
-Three kinds of buyer: a stock-token holder who wants a week of downside protection (a put), a trader who wants upside with the loss capped at the premium (a call), and an agent hedging a position (the MCP `hedge_plan` and `buy_options` tools). The price is Black-Scholes fair value at the oracle spot times the vault's premium factor (at least 90%), never below intrinsic. We have no outside buyers yet: in each of the three live epochs the buyer was one of our own wallets, which bought 4 calls each time (10.01 USDG on v2, 8.91 USDG on Arbitrum Sepolia, 7.38 USDG on Robinhood Chain v3).
+Three kinds of buyer: a stock-token holder who wants a week of downside protection (a put), a trader who wants upside with the loss capped at the premium (a call), and an agent hedging a position (the MCP `hedge_plan` and `buy_options` tools). The price is Black-Scholes fair value at the oracle spot times the vault's premium factor (at least 90%), never below intrinsic. We have no outside buyers yet: in each of the three live epochs the buyer was one of our own wallets, which bought 4 calls each time (10.01 USDG on v2, 8.91 USDG on Arbitrum Sepolia, 7.38 USDG on Robinhood Chain v3). Agents that trade are already common at Robinhood: at HOOD Summit (29–30 September) it said "over 150,000 customers have opened agentic trading accounts and now, agents use Robinhood's tools almost 30 million times a day", launched Agent Apps that sell options data to agents (Unusual Whales and SpotGamma tools), and added third-party agent support to Legend over the Trading MCP ([newsroom](https://robinhood.com/us/en/newsroom/hood-summit-2026/)). That announcement does not mention Robinhood Chain or stock tokens, and none of those agents use Strike.
 
 ### 2. Where does the liquidity come from, and what if nobody buys?
 
@@ -18,7 +18,7 @@ A fixed price set on Monday can be picked off by Wednesday if spot moves. Pricin
 
 ### 4. Is the put vault better than lending USDG?
 
-No, and we do not pitch it that way. Over 2019 to 2026 it returned −0.9% to 3.7% a year at realised volatility × 1.15 and −3.8% to 0.5% at × 1.00. The Steakhouse USDG vault on Morpho paid about 1.9%, and Robinhood Earn shows about 7% ([README](../../README.md#against-usdg-lending)). The put vault is for someone who would buy the stock below today's price anyway and wants to be paid while waiting.
+No, and we do not pitch it that way. Over 2019 to 2026 it returned −0.9% to 3.7% a year at realised volatility × 1.15 and −3.8% to 0.5% at × 1.00. The Steakhouse USDG vault on Morpho paid about 1.9%, Pendle's PT-USDG market on Robinhood Chain (expiry March 2027) showed a fixed 3.45% implied APY on 2026-10-01 ([Pendle API](https://api-v2.pendle.finance/core/v1/4663/markets/active)), and Robinhood Earn shows about 7% ([README](../../README.md#against-usdg-lending)). Only NVDA at × 1.15 (3.7%) beat Morpho and Pendle; no case reached Earn. The put vault is for someone who would buy the stock below today's price anyway and wants to be paid while waiting.
 
 ### 5. The covered call lagged buy-and-hold on every ticker. Why build it?
 
@@ -62,7 +62,7 @@ Yes, twice, both on v3. On Arbitrum Sepolia on 30 September, Claude (claude-opus
 
 ### 14. What happens over a weekend, or if the feed stops?
 
-Opening an epoch and buying need an open NYSE session and a fresh feed, so nothing sells on a frozen price (`test_buy_marketClosedAndSaleCutoff`, `testFuzz_staleness`). Settlement uses the first Chainlink round at or after expiry, so a Friday expiry with no later print settles on Monday's first print (`test_recordSettlementPrice_waitsOverWeekend`). If the feed never prints, the guardian can cancel once `expiry + settlementGrace` (7 days by default) has passed: collateral goes back to the vault and buyers get their premium back ([EpochManager.sol:535](../../contracts/src/core/EpochManager.sol#L535)).
+Opening an epoch and buying need an open NYSE session and a fresh feed, so nothing sells on a frozen price (`test_buy_marketClosedAndSaleCutoff`, `testFuzz_staleness`). Settlement uses the first Chainlink round at or after expiry, so a Friday expiry with no later print settles on Monday's first print (`test_recordSettlementPrice_waitsOverWeekend`). If the feed never prints, the guardian can cancel once `expiry + settlementGrace` (7 days by default) has passed: collateral goes back to the vault and buyers get their premium back ([EpochManager.sol:535](../../contracts/src/core/EpochManager.sol#L535)). Robinhood said at HOOD Summit that weekend equities trading is coming early next year, in 2027, pending regulatory review ([newsroom](https://robinhood.com/us/en/newsroom/hood-summit-2026/)). The contracts do not depend on the weekend gap: settlement uses the first print after expiry, whenever it comes, so a shorter gap changes nothing in them.
 
 ### 15. How do you avoid applying the ERC-8056 multiplier twice?
 
@@ -95,3 +95,7 @@ Live on Robinhood Chain testnet (46630): the 14 verified v2 contracts and the St
 ### 21. Is this legal to offer? Did AI write the code?
 
 Robinhood's stock tokens are offered only to non-US persons, and the app shows a notice that it is not for US persons ([EligibilityGate.tsx](../../app/src/components/app/EligibilityGate.tsx)). Options on tokenized stocks may be regulated derivatives in many places, and we have no legal opinion yet; that has to come before any mainnet vault that is not capped. Yes, AI assistants (Claude) wrote much of the code under the author's direction; each design decision and its reason is in [decisions.md](../decisions.md), and the claims table in the README ties each claim to a test anyone can run.
+
+### 22. Does Strike follow the advice the Foundation gives for Robinhood Chain apps?
+
+Ben Greenberg (Arbitrum DevRel, an Open House judge) ends his July article with "Keep contracts small, separate pricing from settlement, treat real-world asset details as part of the protocol surface" ([The first Robinhood Chain app you should build is not another token](https://x.com/hummusonrails/article/2075150298419490847)). Pricing is its own contract: the Stylus pricer quotes options and solves strikes, and `EpochManager` sells and settles, calling whichever pricer the admin set. Real-world asset details are checked as protocol surface: `SafeStockFeed` reads the ERC-8056 multiplier, both pause flags, scheduled corporate actions and NYSE hours before any price is used ([safestockfeed.md](../safestockfeed.md)). On size, `EpochManager` is the largest at 22,829 bytes of runtime code against the 24,576-byte limit, so it is not small; `StrikeVault` is 12,461, `AgentRegistry` 8,364, `FeeManager` 3,181 and `DecisionLog` 1,159 (`forge build --sizes` on `main`, 2026-10-02). None is upgradeable.

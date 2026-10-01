@@ -1,6 +1,6 @@
 # Audit readiness
 
-Everything an auditor needs to start on day one. Strike has not been audited; this package is prepared for the Arbitrum Audit Program.
+Everything an auditor needs to start on day one. Strike has not been audited; this package is prepared for the [Arbitrum Security Program](https://blog.arbitrum.foundation/introducing-the-arbitrum-security-program-apply-to-secure-your-smart-contracts/).
 
 ## Scope
 
