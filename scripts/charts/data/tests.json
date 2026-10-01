@@ -1,5 +1,5 @@
 {
-  "measured": "2026-09-30",
+  "measured": "2026-10-01",
   "note": "Counts for suites outside the Foundry main suite. The Foundry main suite is read from forge-tests.txt. Each entry names the command that produced its count.",
   "groups": [
     {
@@ -37,8 +37,8 @@
       "items": [
         {
           "label": "SDK",
-          "count": 109,
-          "source": "sdk: vitest run, 86 passed"
+          "count": 120,
+          "source": "sdk: vitest run, 120 passed"
         },
         {
           "label": "Telegram bot",
@@ -47,13 +47,13 @@
         },
         {
           "label": "MCP server",
-          "count": 49,
-          "source": "mcp: vitest run, 47 passed"
+          "count": 51,
+          "source": "mcp: vitest run, 51 passed"
         },
         {
           "label": "Example agents",
-          "count": 44,
-          "source": "agents/example: vitest run, 44 passed"
+          "count": 60,
+          "source": "agents/example: vitest run, 60 passed"
         },
         {
           "label": "Subgraph (matchstick)",
@@ -67,8 +67,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 106,
-          "source": "app: npx playwright test --list reports 212 runs in 15 files = 106 tests x 2 viewports (desktop 1440x900, mobile 390x844); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run"
+          "count": 148,
+          "source": "app: npx playwright test --list reports 296 runs in 17 files = 148 tests x 2 viewports (desktop 1440x900, mobile 390x844), 32 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run"
         }
       ]
     }

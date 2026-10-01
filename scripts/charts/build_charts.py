@@ -179,7 +179,7 @@ def chart_tests(t, theme):
         ax.text(-0.012, i, label, transform=ax.get_yaxis_transform(), ha="right", va="center", color=t["ink2"], fontsize=10)
         ax.text(c + xmax * 0.01, i, f"{c}", ha="left", va="center", color=t["ink"], fontsize=10)
     header(fig, t, f"{total} tests and proofs, by suite", "Every count is re-measured by a command listed in scripts/charts/data; Playwright counts one viewport (x2 runs).")
-    footer(fig, t, "Sources: forge test --summary · corepack pnpm -r test · npx playwright test --list · grep over test files · measured 2026-09-30")
+    footer(fig, t, "Sources: forge test --summary · corepack pnpm -r test · npx playwright test --list · grep over test files · measured " + json.loads((DATA / "tests.json").read_text())["measured"])
     return save(fig, "tests-by-suite", theme)
 
 

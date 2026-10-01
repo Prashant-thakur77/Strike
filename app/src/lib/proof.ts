@@ -199,7 +199,7 @@ export const VERIFICATION_NOTE: Record<Verification, string> = {
 /** A file on the `v3-contracts` branch (v3's source, tests and deployment file live there until v3 is merged). */
 export const ghV3 = (path: string) => `${REPO}/blob/v3-contracts/${path}`;
 
-// Source: contracts/deployments/46630-v3.json on v3-contracts (deployCommit 64fcb93) and
+// Source: contracts/deployments/46630-v3.json (copied from v3-contracts; deployCommit 64fcb93) and
 // docs/testnet-epochs/2026-09-30-v3.md ("1. Contracts": all 9 new contracts verified on Blockscout, is_fully_verified;
 // "2. Stylus pricer and risk engine": cargo stylus verify "Verification successful"); vector counts from
 // contracts/test/vectors/risk.json (200 greeks + 150 impliedVol + 60 scenarioLoss = 410).
@@ -207,7 +207,7 @@ export const V3 = {
   block: 126_713_718,
   sourceCommit: "448d83b",
   deployCommit: "64fcb93",
-  file: ghV3("contracts/deployments/46630-v3.json"),
+  file: gh("contracts/deployments/46630-v3.json"),
   log: gh("docs/testnet-epochs/2026-09-30-v3.md"),
   design: ghV3("docs/design.md"),
   stylus: {
@@ -321,11 +321,11 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Sources: README.md "Safety evidence" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 202 TypeScript
-// = SDK 109 + MCP 49 + agents 44, 60 Telegram bot, 10 subgraph, 106 Playwright). Re-count (2026-09-30) with
+// Sources: README.md "Tests" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 231 TypeScript
+// = SDK 120 + MCP 51 + agents 60, 60 Telegram bot, 10 subgraph, 148 Playwright). Re-count (2026-10-01) with
 // `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
 // counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
-// subgraph/tests and the `test(` calls in app/e2e.
+// subgraph/tests and `npx playwright test --list` in app (tests per viewport).
 export const TESTS: readonly TestFact[] = [
   {
     label: "Foundry",
@@ -348,8 +348,8 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "202",
-    detail: "SDK 109, MCP server 49, example agents 44",
+    count: "231",
+    detail: "SDK 120, MCP server 51, example agents 60",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -370,8 +370,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "106",
-    detail: "The app at 1440 px desktop and 390 px mobile, including this page and its links",
+    count: "148",
+    detail:
+      "The app at 1440 px desktop and 390 px mobile, including this page and its links; 32 of them are the opt-in UI audit at five widths",
     evidence: [
       { label: "app/e2e", href: ghTree("app/e2e") },
       { label: "playwright.config.ts", href: gh("app/playwright.config.ts") },
