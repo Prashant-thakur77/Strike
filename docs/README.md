@@ -52,16 +52,17 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 
 ## Project history and hackathon
 
-| Document                                                 | What it covers                                                                                     |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| [Changelog](../CHANGELOG.md)                             | Every release and deployment                                                                       |
-| [Charts](../scripts/charts/README.md)                    | How the README charts are built from data, the palette and its validation                          |
-| [Plan](PLAN.md) and [cycle plans](plans/)                | The original plan and each improvement cycle                                                       |
-| [Progress](progress.md)                                  | Status by day                                                                                      |
-| [Owner actions](req-you.md)                              | What only the owner can do (accounts, uploads, approvals), with status                             |
-| [Scorecard](review.md)                                   | Self-assessment against the judging criteria, by cycle                                             |
-| [Hackathon facts](hackathon.md), [research](research.md) | Rules, deadlines, verified chain facts, competitors                                                |
-| [Past winners](research-winners.md)                      | Past Open House and Stylus winners, what judges rewarded, and what Strike took from them           |
-| [Milestones](MILESTONES.md)                              | Milestone plan for the grant: deliverables, acceptance criteria, timeline and budget               |
-| [Submission kit](submission/)                            | Form answers, demo and pitch scripts, deck outline, posts, [hard questions](submission/qa-prep.md) |
-| [Media credits](media/CREDITS.md)                        | Footage, music and voice credits for the demo and pitch videos                                     |
+| Document                                                 | What it covers                                                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [Changelog](../CHANGELOG.md)                             | Every release and deployment                                                                                             |
+| [Charts](../scripts/charts/README.md)                    | How the README charts are built from data, the palette and its validation                                                |
+| [Plan](PLAN.md) and [cycle plans](plans/)                | The original plan and each improvement cycle                                                                             |
+| [Progress](progress.md)                                  | Status by day                                                                                                            |
+| [Owner actions](req-you.md)                              | What only the owner can do (accounts, uploads, approvals), with status                                                   |
+| [Scorecard](review.md)                                   | Self-assessment against the judging criteria, by cycle                                                                   |
+| [Hackathon facts](hackathon.md), [research](research.md) | Rules, deadlines, verified chain facts, competitors                                                                      |
+| [Past winners](research-winners.md)                      | Past Open House and Stylus winners, what judges rewarded, and what Strike took from them                                 |
+| [Final week](research-final-week.md)                     | The other entries and where they overlap, organiser and Robinhood updates since 28 September, and the ranked action list |
+| [Milestones](MILESTONES.md)                              | Milestone plan for the grant: deliverables, acceptance criteria, timeline and budget                                     |
+| [Submission kit](submission/)                            | Form answers, demo and pitch scripts, deck outline, posts, [hard questions](submission/qa-prep.md)                       |
+| [Media credits](media/CREDITS.md)                        | Footage, music and voice credits for the demo and pitch videos                                                           |

@@ -1,6 +1,6 @@
 # Past winners, and what Strike took from them
 
-Research done on 2026-09-30 from public sources (listed at the end). It covers past Arbitrum Open House winners, Stylus hackathon winners and other builds on Robinhood Chain, and asks what judges rewarded. Strike's submission closes on 2026-10-04 at 15:59 UTC, so each idea was sized to fit in four days or kept as roadmap. Where a claim comes only from a project's own HackQuest text or a search result, it is marked as unverified.
+Research done on 2026-09-30 from public sources (listed at the end). It covers past Arbitrum Open House winners, Stylus hackathon winners and other builds on Robinhood Chain, and asks what judges rewarded. The entries in this edition, the organiser updates of the last week and the final action list are in [research-final-week.md](research-final-week.md). Strike's submission closes on 2026-10-04 at 15:59 UTC, so each idea was sized to fit in four days or kept as roadmap. Where a claim comes only from a project's own HackQuest text or a search result, it is marked as unverified.
 
 ## Summary
 
