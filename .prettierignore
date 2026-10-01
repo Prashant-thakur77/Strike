@@ -20,3 +20,5 @@ contracts/deployments
 video/.out
 # Copies of the published deck's slide fragments, rendered by the pitch video as-is
 video/deck
+# Written by the video recorder (tx hashes and captions of the recorded clips)
+video/clips
