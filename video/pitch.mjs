@@ -17,6 +17,8 @@ export const outputs = {
 };
 export const poster = { scene: "cover", at: 1 };
 export const crf = 22;
+/** The music bed (video/narration/music.py, CC0): ducked under the voice, -16 LUFS overall. */
+export const music = { seed: 7, speech_lufs: -31, gap_db: 5, fade_in: 2, fade_out: 3 };
 
 const TITLES = {
   cover: "Slide 1: Strike",
@@ -79,9 +81,11 @@ export function scenes(f) {
     ]),
     slide("traction", "Traction", [
       L(
-        `It is live on testnet: two vaults, ${f.contractsVerified} contracts verified, | and a buyer agent that paid ${f.premium} USDG of premium.`,
-        `It is live on testnet: two vaults, ${sayInt(f.contractsVerified)} contracts verified, | and a buyer agent that paid ${sayDec(f.premium)} ${U} of premium.`,
+        `It is live on Robinhood Chain testnet and Arbitrum Sepolia, | with ${f.contractsVerified} contracts verified, | and a buyer agent that paid ${f.premium} USDG of premium.`,
+        `It is live on Robinhood Chain testnet and Arbitrum Sepolia, | with ${sayInt(f.contractsVerified)} contracts verified, | and a buyer agent that paid ${sayDec(f.premium)} ${U} of premium.`,
+        { seeds: [11] }, // pinned take (both takes transcribe correctly on their own)
       ),
+      L("On Arbitrum, Claude planned the accepted proposal."),
     ]),
     slide("competition", "Competition", [
       L(
@@ -162,5 +166,5 @@ export const scriptDoc = {
 
 The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (${total.toFixed(1)} s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by \`node video/record.mjs pitch\` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
 
-The voice is Chatterbox TTS with a synthetic reference voice: ${words} words in ${total.toFixed(0)} s (${wpm} words a minute). Every number is read from README.md at render time. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.`,
+The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute). Every number is read from README.md at render time. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.`,
 };

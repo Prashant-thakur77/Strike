@@ -1,0 +1,53 @@
+{
+  "license": "Pexels License (https://www.pexels.com/license/): free to use, no attribution required; credited in docs/media/CREDITS.md",
+  "clips": [
+    {
+      "name": "floor",
+      "page": "https://www.pexels.com/video/finance-nyse-wall-street-new-york-city-4319342/",
+      "use": "Millions of people own stocks",
+      "zoom": 1.45,
+      "y": 1.0
+    },
+    {
+      "name": "phone",
+      "page": "https://www.pexels.com/video/person-using-stock-market-app-7578628/",
+      "use": "they can now hold them as tokens"
+    },
+    {
+      "name": "idle",
+      "page": "https://www.pexels.com/video/analyzing-cryptocurrency-charts-on-smartphone-34953965/",
+      "use": "a token earns nothing while it sits",
+      "from": 3
+    },
+    {
+      "name": "screens",
+      "page": "https://www.pexels.com/video/a-man-in-corporate-attire-talking-on-the-phone-4993130/",
+      "use": "On Wall Street"
+    },
+    {
+      "name": "chart",
+      "page": "https://www.pexels.com/video/close-up-video-of-a-paper-7580445/",
+      "use": "someone has to pick the strike"
+    },
+    {
+      "name": "worried",
+      "page": "https://www.pexels.com/video/business-man-removing-his-eyeglasses-8425703/",
+      "use": "trust them with your shares"
+    },
+    {
+      "name": "ticker",
+      "page": "https://www.pexels.com/video/close-up-of-numbers-on-display-monitor-7578632/",
+      "use": "On-chain, it is harder still"
+    },
+    {
+      "name": "candles",
+      "page": "https://www.pexels.com/video/dynamic-stock-market-trading-screen-with-charts-38222819/",
+      "use": "prices that freeze on weekends"
+    },
+    {
+      "name": "waiting",
+      "page": "https://www.pexels.com/video/close-up-view-of-man-looking-stressed-7535068/",
+      "use": "the tokens sit idle"
+    }
+  ]
+}

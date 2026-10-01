@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // Renders the demo and pitch videos from their scene lists:
 //
-//   node video/record.mjs demo       # video/demo.mjs  -> docs/media/strike-demo.mp4 (captions only),
-//                                    #   strike-demo-narrated.mp4, strike-demo.srt, -poster.png, .gif, -narration.txt
+//   node video/record.mjs demo       # video/demo.mjs  -> docs/media/strike-demo.mp4 (narrated, with music),
+//                                    #   strike-demo-silent.mp4 (captions only), strike-demo.srt, -poster.png, .gif,
+//                                    #   -narration.txt
 //   node video/record.mjs pitch      # video/pitch.mjs -> docs/media/strike-pitch.mp4, strike-pitch.srt, -poster.png
 //
 // Options: --only a,b (re-record only these scenes; the others reuse their recordings in video/.out if the timing
@@ -11,7 +12,8 @@
 //
 // Needs: Node 22+, `pnpm install` (Playwright from app/), ffmpeg, and Python 3.10 with chatterbox-tts,
 // faster-whisper, pyloudnorm, librosa and soundfile (video/narration). The app is the live site unless APP_URL is
-// set. Numbers are read from README.md at render time (video/lib/facts.mjs).
+// set. Numbers are read from README.md and the epoch logs at render time (video/lib/facts.mjs). Scenes of kind "three"
+// are three.js pages (video/three.html) rendered on the GPU; the music bed is synthesised by video/narration/music.py.
 import { readFileSync } from "node:fs";
 import {
   ROOT,
@@ -39,7 +41,7 @@ import {
   timingHash,
   writeFileSync,
 } from "./lib/engine.mjs";
-import { readmeFacts } from "./lib/facts.mjs";
+import { arbFacts, readmeFacts } from "./lib/facts.mjs";
 
 const KIND = process.argv[2];
 if (!["demo", "pitch"].includes(KIND)) {
@@ -94,7 +96,10 @@ function epochLog() {
 const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 /** docs/submission/<kind>-script.md, written from the same scene list and timeline as the video. */
 function scriptDoc(doc, scenes, tls, total, words) {
-  const parts = [doc.head({ total, words, wpm: Math.round((words / total) * 60), mmss })];
+  const chapters = scenes
+    .map((s, i) => (s.chapter ? `${mmss(tls[i].start)} ${s.chapter}` : null))
+    .filter(Boolean);
+  const parts = [doc.head({ total, words, wpm: Math.round((words / total) * 60), mmss, chapters })];
   scenes.forEach((s, i) => {
     const tl = tls[i];
     parts.push(`## ${mmss(tl.start)} to ${mmss(tl.start + tl.dur)} · ${s.title ?? s.tag}`);
@@ -109,7 +114,18 @@ async function main() {
   const def = await import(`./${KIND}.mjs`);
   const facts = readmeFacts(ROOT);
   log("README facts", JSON.stringify(facts));
-  const browser = await chromium.launch();
+  facts.arb = arbFacts(ROOT, facts);
+  const { record: _r, reasoning: _w, ...arbLog } = facts.arb;
+  log("Arbitrum Sepolia facts", JSON.stringify(arbLog));
+  // the GPU for the three.js scenes; no automation banner for explorers behind a bot check
+  const browser = await chromium.launch({
+    args: [
+      "--use-angle=vulkan",
+      "--enable-gpu",
+      "--ignore-gpu-blocklist",
+      "--disable-blink-features=AutomationControlled",
+    ],
+  });
   const env = { EXPLORER: "https://explorer.testnet.chain.robinhood.com", epoch: epochLog(), facts };
   const live = def.probe ? await def.probe(browser) : {};
   if (Object.keys(live).length) log("live", JSON.stringify(live));
@@ -163,6 +179,16 @@ async function main() {
     const tl = tls[i];
     if (s.kind === "slide") {
       srcs.push({ image: await def.slideImage(browser, s, WORK) });
+      continue;
+    }
+    if (s.kind === "footage") {
+      // stock footage, cut on the narration: shot [name, line, chunk] starts on that caption chunk
+      srcs.push({
+        shots: s.shots.map(([name, li, k]) => ({
+          name,
+          at: li === 0 && k === 0 ? 0 : tl.lines[li].chunks[k].start - 0.1,
+        })),
+      });
       continue;
     }
     if (s.kind === "clip" && !LIVE_SIGN) {
@@ -269,7 +295,7 @@ async function main() {
     : def.outputs;
   const picture = join(WORK, "picture.mp4");
   finalVideo(joined, states, WORK, picture, def.crf ?? 23);
-  const wav = mixAudio(tls, total2, WORK);
+  const wav = mixAudio(tls, total2, WORK, def.music ?? null);
   mux(picture, wav, join(MEDIA, out.narrated));
   if (out.silent) copyFileSync(picture, join(MEDIA, out.silent));
   const s = srt(tls);
@@ -297,8 +323,13 @@ async function main() {
     const pal = join(WORK, "palette.png");
     const src = join(MEDIA, out.silent);
     const gf = "fps=10,scale=960:-1:flags=lanczos";
-    ff(["-t", "12", "-i", src, "-vf", `${gf},palettegen=max_colors=128:stats_mode=diff`, pal]);
+    // 12 s from the start of def.gifScene (the opening by default)
+    const gi = def.gifScene ? scenes.findIndex((x) => x.id === def.gifScene) : 0;
+    const gs = String(Math.max(0, gi >= 0 ? tls[gi].start + 0.5 : 0));
+    ff(["-ss", gs, "-t", "12", "-i", src, "-vf", `${gf},palettegen=max_colors=128:stats_mode=diff`, pal]);
     ff([
+      "-ss",
+      gs,
       "-t",
       "12",
       "-i",

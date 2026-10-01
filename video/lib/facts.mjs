@@ -22,6 +22,16 @@ export function readmeFacts(root) {
     /^\| Ticker \| Covered call CAGR \| Held CAGR \| Covered call volatility \| Held volatility \|/m,
   );
   if (!header) throw new Error("README.md: backtest table columns changed");
+  const tsla = md.match(/^\|\s*TSLA\s*\|\s*([\d.]+)%\s*\|\s*([\d.]+)%\s*\|/m);
+  if (!tsla) throw new Error("README.md: backtest TSLA row not found");
+  const gasRow = md.match(
+    /^\| `strikeForDelta`, 0\.20-delta call \(48 steps\)\s*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|/m,
+  );
+  if (!gasRow) throw new Error("README.md: gas row for strikeForDelta not found");
+  const gasProp = md.match(
+    /^\| `EpochManager\.proposeByDelta` \(whole transaction\)\s*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|/m,
+  );
+  if (!gasProp) throw new Error("README.md: gas row for proposeByDelta not found");
   return {
     testsTotal: evidence[1].replace(/,/g, ""),
     coverage: evidence[2],
@@ -44,7 +54,11 @@ export function readmeFacts(root) {
       /bonded with (\d+) USDG \((\d+) USDG after the live epoch's slash\)/,
       2,
     ),
-    identity: pick(md, "ERC-8004 identity", /ERC-8004 identity #(\d+)/),
+    identity: pick(
+      md,
+      "ERC-8004 identity",
+      /Agent #1 linked to ERC-8004 identity #(\d+) on the official testnet Identity Registry/,
+    ),
     feePct: pick(
       md,
       "performance fee",
@@ -52,6 +66,110 @@ export function readmeFacts(root) {
     ),
     contractsVerified: pick(md, "verified contracts", /(\d+) contracts verified on Blockscout/),
     mcpUrl: pick(md, "remote MCP", /read-only MCP endpoint at `(https:\/\/[^`]+)`/),
+    skillUrl: pick(md, "skill file", /the skill file at \[`\/skill\.md`\]\((https:\/\/[^)]+)\)/),
+    tslaCcCagr: tsla[1],
+    tslaHeldCagr: tsla[2],
+    minBond: pick(md, "minimum bond", /Bond at least `minBond` USDG \((\d+) on the current deployments\)/),
+    solverSteps: pick(md, "solver steps", /takes (\d+) Black-Scholes evaluations/),
+    gasSolverSol: gasRow[1].replace(/,/g, ""),
+    gasSolverStylus: gasRow[2].replace(/,/g, ""),
+    gasProposeSol: gasProp[1].replace(/,/g, ""),
+    gasProposeStylus: gasProp[2].replace(/,/g, ""),
+    arbIdentity: pick(md, "Arbitrum ERC-8004 identity", /Agent #1 is ERC-8004 identity #(\d+) there/),
+    arbCandidatesWord: pick(md, "Claude's candidates", /dry-ran (\w+) candidates with `risk_check`/),
+    arbTx: pick(
+      md,
+      "Arbitrum accepted tx",
+      /dry-ran \w+ candidates[^\n]*?\[tx\]\(https:\/\/sepolia\.arbiscan\.io\/tx\/(0x[0-9a-f]{64})\)/,
+    ),
+    arbSlash: pick(
+      md,
+      "Arbitrum slash",
+      /reckless at-the-money put was rejected with (\d+) USDG slashed \(\[tx\]\(https:\/\/sepolia/,
+    ),
+    arbBought: pick(md, "Arbitrum buyer", /a buyer bought all (\d+) calls \(\[tx\]\(https:\/\/sepolia/),
+    expiryDay: pick(
+      md,
+      "expiry day",
+      /The Arbitrum Sepolia and 29 September epochs expire on (Friday \d+ \w+); neither has settled yet/,
+    ),
+    reviewIssues: pick(
+      md,
+      "internal review issues",
+      /The internal review found (\d+) issues and all are fixed; that is not an audit/,
+    ),
+  };
+}
+
+const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+
+/** The Arbitrum Sepolia epoch of 30 September: the epoch log and the Claude-planned decision record. */
+export function arbFacts(root, readme) {
+  const doc = readFileSync(join(root, "docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md"), "utf8");
+  const rec = JSON.parse(
+    readFileSync(join(root, "docs/agent-log/arbitrum-sepolia/2026-09-30-sTSLA-CC.json"), "utf8"),
+  );
+  const tx = rec.transactions.find((t) => t.label === "proposeByDelta")?.hash;
+  if (!tx || tx !== readme.arbTx) throw new Error(`Arbitrum tx: record ${tx}, README ${readme.arbTx}`);
+  if (!doc.includes(`proposeByDelta\` accepted, 0.20-delta call at $${rec.result.strike}`))
+    throw new Error("Arbitrum epoch log: the accepted call's strike does not match the decision record");
+  const calls = pick(
+    doc,
+    "Claude's tool calls",
+    /Claude calls vault_state, then risk_check at ([^\n]+), then agent_stats/,
+  );
+  const candidates = calls.split(/,\s*/).map((c) => {
+    const m = c.match(/^(0\.\d+)\/(\d+)%$/);
+    if (!m) throw new Error(`Arbitrum epoch log: candidate "${c}"`);
+    return { delta: m[1], pct: m[2] };
+  });
+  if (WORDS[candidates.length] !== readme.arbCandidatesWord)
+    throw new Error(`README says ${readme.arbCandidatesWord} candidates, the log lists ${candidates.length}`);
+  const grid = pick(doc, "stress grid", /losses on the 13-shock grid \| 0 from −30% to 0%; ([^|]+?) USD \|/);
+  const ups = grid.split(/,\s*/).map((x) => {
+    const m = x.match(/^\+(\d+)% ([\d.]+)$/);
+    if (!m) throw new Error(`stress grid item "${x}"`);
+    return { shock: Number(m[1]), loss: m[2] };
+  });
+  const shocks = [-30, -25, -20, -15, -10, -5, 0].map((s) => ({ shock: s, loss: "0" })).concat(ups);
+  if (shocks.length !== 13) throw new Error(`stress grid: ${shocks.length} shocks`);
+  const buy = doc.match(/Bought (\d+) TSLA calls of series [^\n]*? for ([\d.]+) USDG, ([\d.]+) per option/);
+  if (!buy) throw new Error("Arbitrum epoch log: buyer line not found");
+  const m = rec.vault.mandate;
+  const pct = (bps) => String(bps / 100);
+  return {
+    strike: rec.result.strike,
+    spot: rec.market.spot,
+    sigmaPct: String(Math.round(rec.market.sigma * 100)),
+    delta: (rec.decision.targetDeltaBps / 1e4).toFixed(2),
+    premiumPct: pct(rec.decision.premiumBps),
+    model: rec.decision.planner.model,
+    planner: rec.decision.planner.label,
+    reasoning: rec.decision.reasoning,
+    tx,
+    candidates,
+    expiryIso: rec.result.expiryIso,
+    tenorDays: pick(doc, "tenor", /\| spot, sigma, tenor\s*\| [\d.]+, [\d.]+, [\d,]+ s \(([\d.]+) days\)/),
+    shocks,
+    worstLoss: ups.at(-1).loss,
+    bought: buy[1],
+    buyTotal: buy[2],
+    buyPerOption: buy[3],
+    spotBufferPct: pick(doc, "spot buffer", /at the oracle spot moved ([\d.]+)% against the buyer/),
+    mandate: {
+      deltaLo: (m.minDeltaBps / 1e4).toFixed(2),
+      deltaHi: (m.maxDeltaBps / 1e4).toFixed(2),
+      minPremiumPct: pct(m.minPremiumBps),
+      minYieldPct: (m.minYieldBps / 100).toFixed(2),
+      maxSoldPct: pct(m.maxShareSoldBps),
+      tenorMin: String(m.minTenor / 86400),
+      tenorMax: String(m.maxTenor / 86400),
+    },
+    maxStrikes: String(rec.trackRecord.maxStrikes),
+    anchor: rec.anchor,
+    agentId: rec.agent.agentId,
+    vault: rec.vault.address,
+    record: rec,
   };
 }
 

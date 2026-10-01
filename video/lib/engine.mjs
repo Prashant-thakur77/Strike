@@ -371,7 +371,11 @@ export async function recordScene(browser, scene, tl, work, env) {
     timezoneId: "UTC",
     bypassCSP: true,
     recordVideo: { dir, size: { width: W, height: H } },
+    ...(scene.userAgent ? { userAgent: scene.userAgent, locale: "en-US" } : {}),
   });
+  // explorers behind a bot check (Arbiscan) render for a browser that does not announce automation
+  if (scene.userAgent)
+    await ctx.addInitScript(() => Object.defineProperty(navigator, "webdriver", { get: () => undefined }));
   await ctx.addInitScript(() => {
     try {
       localStorage.setItem("strike.ack.v1", "1"); // the first-visit eligibility notice
@@ -385,15 +389,18 @@ export async function recordScene(browser, scene, tl, work, env) {
   const since = () => (Date.now() - t0) / 1000;
   const page = await ctx.newPage();
   page.on("pageerror", (e) => log(`  [${scene.id}] page error: ${e.message.slice(0, 160)}`));
-  if (scene.kind === "replay") {
-    const html = readFileSync(join(ROOT, "video/replay.html"), "utf8").replace(
+  if (scene.kind === "replay" || scene.kind === "three") {
+    // replay.html: terminal, evidence and closing cards; three.html: the three.js scenes
+    const file = scene.kind === "three" ? "video/three.html" : "video/replay.html";
+    const html = readFileSync(join(ROOT, file), "utf8").replace(
       "/*__DATA__*/ null",
-      JSON.stringify(scene.replay),
+      JSON.stringify(scene.kind === "three" ? scene.three : scene.replay),
     );
     await page.route("https://video.strike.local/**", (r) =>
       r.fulfill({ contentType: "text/html", body: html }),
     );
     await page.goto("https://video.strike.local/card");
+    await page.waitForFunction(() => window.__prepare, null, { timeout: 60_000 });
     await page.evaluate(() => window.__prepare());
   }
   if (scene.prepare) await scene.prepare(page, env);
@@ -529,6 +536,7 @@ export function ff(args) {
 const FADE = 0.18;
 /** One scene's picture, exactly tl.dur long, 30 fps, with a short fade at each end. */
 export function segment(scene, tl, src, out) {
+  if (src.shots) return footageSegment(tl, src.shots, out);
   const dur = tl.dur.toFixed(3);
   const fades = `fade=t=in:st=0:d=${FADE},fade=t=out:st=${(tl.dur - FADE).toFixed(3)}:d=${FADE}`;
   const enc = [
@@ -575,6 +583,59 @@ export function segment(scene, tl, src, out) {
   ]);
 }
 
+/** A scene cut from stock footage (video/footage.json, downloaded by video/footage.mjs): each shot from its cue, with
+ *  short cross-fades, a slow drift and a light grade so the clips sit together. */
+function footageSegment(tl, shots, out) {
+  const meta = JSON.parse(readFileSync(join(ROOT, "video/footage.json"), "utf8")).clips;
+  const XF = 0.45;
+  const offs = shots.map((s, i) => (i === 0 ? 0 : Math.max(0, s.at - XF / 2)));
+  const args = [];
+  const chains = [];
+  shots.forEach((s, i) => {
+    const file = join(ROOT, "video/.out/footage", `${s.name}.mp4`);
+    if (!existsSync(file)) throw new Error(`missing ${file}: run node video/footage.mjs`);
+    const m = meta.find((c) => c.name === s.name) ?? {};
+    const len = i + 1 < shots.length ? offs[i + 1] - offs[i] + XF : tl.dur - offs[i];
+    const z = m.zoom ?? 1.1;
+    const W2 = Math.round((W * z) / 2) * 2,
+      H2 = Math.round((H * z) / 2) * 2;
+    const yy = Math.round((H2 - H) * (m.y ?? 0.5));
+    args.push("-ss", String(m.from ?? 0.5), "-t", (len + 0.1).toFixed(3), "-i", file);
+    chains.push(
+      `[${i}:v]fps=30,scale=${W2}:${H2},crop=${W}:${H}:x='(${W2 - W})*(0.15+0.7*t/${len.toFixed(3)})':y=${yy},` +
+        `eq=saturation=0.86:contrast=1.04:brightness=-0.02,setpts=PTS-STARTPTS,trim=duration=${len.toFixed(3)}[s${i}]`,
+    );
+  });
+  let last = "s0";
+  for (let i = 1; i < shots.length; i++) {
+    chains.push(`[${last}][s${i}]xfade=transition=fade:duration=${XF}:offset=${offs[i].toFixed(3)}[x${i}]`);
+    last = `x${i}`;
+  }
+  const fades = `fade=t=in:st=0:d=0.5,fade=t=out:st=${(tl.dur - FADE).toFixed(3)}:d=${FADE}`;
+  chains.push(
+    `[${last}]tpad=stop_mode=clone:stop_duration=2,trim=duration=${tl.dur.toFixed(3)},format=yuv420p,${fades}[v]`,
+  );
+  ff([
+    ...args,
+    "-filter_complex",
+    chains.join(";"),
+    "-map",
+    "[v]",
+    "-r",
+    "30",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-crf",
+    "14",
+    "-pix_fmt",
+    "yuv420p",
+    "-an",
+    out,
+  ]);
+}
+
 export function concatList(files, out) {
   writeFileSync(out, files.map((f) => `file '${f}'`).join("\n"));
 }
@@ -618,10 +679,26 @@ export function finalVideo(joined, states, work, out, crf) {
   ]);
 }
 
-export function mixAudio(tls, total, work) {
+/** The voice track, with an optional music bed (video/narration/music.py) ducked under it; stereo, -16 LUFS. */
+export function mixAudio(tls, total, work, music = null) {
   const plan = { duration: total, clips: [] };
   for (const tl of tls)
     for (const l of tl.lines) plan.clips.push({ path: l.take.path, t: tl.start + l.start });
+  if (music) {
+    const bed = join(ROOT, "video/.out/music", `bed-${music.seed}-${Math.ceil(total)}.wav`);
+    if (!existsSync(bed)) {
+      mkdirSync(dirname(bed), { recursive: true });
+      const r = spawnSync(
+        PY,
+        [join(ROOT, "video/narration/music.py"), String(Math.ceil(total)), bed, String(music.seed)],
+        {
+          encoding: "utf8",
+        },
+      );
+      if (r.status !== 0) throw new Error(`music.py failed\n${r.stderr}`);
+    }
+    plan.music = { path: bed, ...music };
+  }
   const p = join(work, "mix-plan.json");
   writeFileSync(p, JSON.stringify(plan, null, 1));
   const wav = join(work, "narration.wav");
@@ -646,9 +723,11 @@ export function mux(video, wav, out) {
     "-c:a",
     "aac",
     "-b:a",
-    "128k",
+    "160k",
     "-ar",
     "48000",
+    "-ac",
+    "2",
     "-shortest",
     "-movflags",
     "+faststart",

@@ -1,0 +1,961 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Strike 3D scenes</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=block"
+      rel="stylesheet"
+    />
+    <script type="importmap">
+      {
+        "imports": { "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/0.170.0/three.module.min.js" }
+      }
+    </script>
+    <style>
+      /* the app's tokens (app/src/app/globals.css): paper, ink, one teal accent */
+      :root {
+        --paper: #e9e9e7;
+        --paper-2: #f1f0ed;
+        --ink: #111111;
+        --muted: #5e5e5b;
+        --accent: #0f6e78;
+        --accent-bright: #178f9d;
+        --loss: #b3261e;
+        --sans: "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, monospace;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: var(--paper);
+        color: var(--ink);
+        font-family: var(--sans);
+      }
+      canvas {
+        position: absolute;
+        inset: 0;
+      }
+      #labels {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .lab {
+        position: absolute;
+        left: 0;
+        top: 0;
+        white-space: nowrap;
+        font: 600 19px/1.15 var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink);
+        transform-origin: 0 0;
+        will-change: transform, opacity;
+      }
+      .lab .box {
+        display: inline-block;
+        background: rgba(241, 240, 237, 0.92);
+        border-left: 3px solid var(--accent-bright);
+        padding: 7px 11px 6px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+      }
+      .lab.big .box {
+        font-size: 24px;
+        padding: 9px 14px 8px;
+      }
+      .lab.plain .box {
+        background: none;
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+        color: var(--muted);
+        font-size: 17px;
+      }
+      .lab.tick .box {
+        background: none;
+        border: 0;
+        box-shadow: none;
+        padding: 0;
+        color: var(--muted);
+        font: 600 17px/1 var(--mono);
+        letter-spacing: 0.02em;
+      }
+      .lab.ok .box {
+        border-left-color: var(--accent-bright);
+        color: var(--accent);
+      }
+      .lab.bad .box {
+        border-left-color: var(--loss);
+        color: var(--loss);
+      }
+      .lab.platform .box {
+        background: var(--ink);
+        color: var(--paper-2);
+        border-left-color: var(--accent-bright);
+        font-size: 20px;
+      }
+      #head {
+        position: absolute;
+        left: 90px;
+        top: 70px;
+        max-width: 1100px;
+      }
+      #kicker {
+        font: 600 18px/1 var(--mono);
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 18px;
+      }
+      #title {
+        font: 800 60px/1 var(--sans);
+        letter-spacing: -0.035em;
+        margin: 0;
+      }
+      #sub {
+        margin: 16px 0 0;
+        font: 500 22px/1.35 var(--sans);
+        color: var(--muted);
+        max-width: 900px;
+      }
+      #src {
+        position: absolute;
+        right: 90px;
+        top: 76px;
+        font: 600 15px/1.4 var(--mono);
+        color: var(--muted);
+        text-align: right;
+        letter-spacing: 0.03em;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="labels"></div>
+    <div id="head">
+      <p id="kicker"></p>
+      <h1 id="title"></h1>
+      <p id="sub"></p>
+    </div>
+    <div id="src"></div>
+    <script type="module">
+      // Filled in by video/lib/engine.mjs: { mode: "flow" | "surface" | "gas" | "stress", ... }. Every frame is a pure
+      // function of the scene time t (seconds on the recorder's clock) and the narration cues, so a re-render draws
+      // the same pictures at the same moments. window.__3d.play(cues, now) starts the clock; __3d.at(t) freezes it.
+      import * as THREE from "three";
+      const DATA = /*__DATA__*/ null;
+      const W = 1920,
+        H = 1080,
+        BAR = 150;
+      const C = {
+        paper: 0xe9e9e7,
+        paper2: 0xf1f0ed,
+        white: 0xfbfbfa,
+        ink: 0x111111,
+        muted: 0x5e5e5b,
+        accent: 0x0f6e78,
+        teal: 0x178f9d,
+        mint: 0x75d0cb,
+        call: 0x96c7d9,
+        loss: 0xb3261e,
+        agent: 0xb3b0ff,
+      };
+
+      // ------------------------------------------------------------------ renderer, camera, lights
+      const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1);
+      renderer.setSize(W, H);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.setClearColor(C.paper, 1);
+      document.body.prepend(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.Fog(C.paper, 60, 140);
+      const camera = new THREE.PerspectiveCamera(34, W / H, 0.1, 400);
+      // keep the picture centred in the 930 px above the caption bar
+      camera.setViewOffset(W, H + BAR, 0, BAR, W, H);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d6d0, 1.6));
+      const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+      sun.position.set(-14, 30, 18);
+      sun.castShadow = true;
+      sun.shadow.mapSize.set(2048, 2048);
+      Object.assign(sun.shadow.camera, { left: -40, right: 40, top: 30, bottom: -30, near: 1, far: 120 });
+      sun.shadow.bias = -0.0005;
+      scene.add(sun);
+
+      // ------------------------------------------------------------------ helpers
+      const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+      const ease = (x) => {
+        x = clamp(x);
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+      };
+      const lerp = (a, b, k) => a + (b - a) * k;
+      const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+      let seed = 7;
+      const rnd = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+      const mat = (color, o = {}) =>
+        new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0.02, transparent: true, ...o });
+      function edges(mesh, color = C.ink, opacity = 0.55) {
+        const e = new THREE.LineSegments(
+          new THREE.EdgesGeometry(mesh.geometry, 20),
+          new THREE.LineBasicMaterial({ color, transparent: true, opacity }),
+        );
+        mesh.add(e);
+        return e;
+      }
+      function add(geo, color, pos, o = {}) {
+        const m = new THREE.Mesh(geo, mat(color, o));
+        m.position.copy(pos);
+        m.castShadow = true;
+        m.receiveShadow = true;
+        scene.add(m);
+        return m;
+      }
+      function setOpacity(obj, a) {
+        obj.visible = a > 0.002;
+        obj.traverse((o) => {
+          if (o.material) {
+            if (o.material.userData.base === undefined) o.material.userData.base = o.material.opacity;
+            o.material.opacity = o.material.userData.base * a;
+          }
+        });
+      }
+      // labels: HTML boxes at projected 3D points
+      const labelsEl = document.getElementById("labels");
+      const labels = [];
+      function label(text, pos, cls = "", dx = 14, dy = -14) {
+        const el = document.createElement("div");
+        el.className = `lab ${cls}`;
+        el.innerHTML = `<span class="box">${text}</span>`;
+        labelsEl.appendChild(el);
+        const l = { el, pos: pos.clone(), a: 0, dx, dy, anchor: cls.includes("tick") ? "c" : "l" };
+        labels.push(l);
+        return l;
+      }
+      const tmp = new THREE.Vector3();
+      function placeLabels() {
+        for (const l of labels) {
+          tmp.copy(l.pos).project(camera);
+          const x = (tmp.x * 0.5 + 0.5) * W,
+            y = (-tmp.y * 0.5 + 0.5) * H;
+          const behind = tmp.z > 1;
+          const w = l.anchor === "c" ? l.el.offsetWidth / 2 : 0;
+          l.el.style.transform = `translate(${(x + l.dx - w).toFixed(1)}px, ${(y + l.dy - l.el.offsetHeight / 2).toFixed(1)}px)`;
+          l.el.style.opacity = behind ? 0 : l.a.toFixed(3);
+        }
+      }
+      function head(kicker, title, sub = "", src = "") {
+        document.getElementById("kicker").textContent = kicker;
+        document.getElementById("title").textContent = title;
+        document.getElementById("sub").textContent = sub;
+        document.getElementById("src").innerHTML = src;
+      }
+      const money = (x, d = 2) =>
+        "$" + Number(x).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+      const thousands = (x) => Number(x).toLocaleString("en-US");
+
+      // time and cues
+      let cues = [];
+      const cue = (i, dt = 0) => (cues[i] ?? 1e9) + dt;
+      const after = (t, i, dur = 1, dt = 0) => ease((t - cue(i, dt)) / dur);
+      function arc(a, b, k, h) {
+        const p = a.clone().lerp(b, k);
+        p.y += Math.sin(Math.PI * k) * h;
+        return p;
+      }
+      function lookCam(pos, target) {
+        camera.position.copy(pos);
+        camera.lookAt(target);
+      }
+
+      // ------------------------------------------------------------------ mode: flow (how one week works)
+      function buildFlow() {
+        head(
+          "Architecture · one epoch = one week",
+          "Agents propose. The contract decides.",
+          "",
+          "Same contracts on Robinhood Chain testnet and Arbitrum Sepolia",
+        );
+        const slab = (pos, w, d) => {
+          const m = add(new THREE.BoxGeometry(w, 0.5, d), C.paper2, pos);
+          m.castShadow = false;
+          edges(m, C.teal, 0.8);
+          return m;
+        };
+        const A = slab(v3(0, -0.25, 0), 28, 16);
+        const B = slab(v3(33, -0.25, -4), 28, 16);
+        const pA = label("Robinhood Chain testnet", v3(-13.6, 0.1, 7.7), "platform", 0, 0);
+        const pB = label("Arbitrum Sepolia", v3(19.4, 0.1, 3.7), "platform", 0, 0);
+
+        // the parts of one deployment, offset by o; each part: meshes + labels, and a spotlight key
+        function deployment(o, withLabels) {
+          const P = {};
+          const part = (key, meshes, labs = []) => (P[key] = { meshes, labs });
+          const vault = add(new THREE.BoxGeometry(3.4, 2.4, 3.4), C.white, v3(-7, 1.2, 0.5).add(o));
+          edges(vault);
+          const lock = add(
+            new THREE.TorusGeometry(1.0, 0.16, 12, 40, Math.PI),
+            C.teal,
+            v3(-7, 2.75, 0.5).add(o),
+          );
+          lock.rotation.y = Math.PI / 4;
+          const deps = [];
+          seed = 11;
+          for (let i = 0; i < 7; i++)
+            deps.push(
+              add(
+                new THREE.SphereGeometry(0.45, 24, 16),
+                C.muted,
+                v3(-11.5 + rnd() * 3, 0.45, 4.2 + rnd() * 2.4).add(o),
+              ),
+            );
+          const em = add(new THREE.BoxGeometry(3, 4.2, 3), C.ink, v3(2, 2.1, 0).add(o));
+          edges(em, C.teal, 0.9);
+          const gate = add(new THREE.TorusGeometry(2.6, 0.12, 12, 64), C.teal, v3(2, 2.1, 0).add(o));
+          gate.rotation.y = Math.PI / 2;
+          const stylus = add(new THREE.CylinderGeometry(1.5, 1.5, 1.4, 6), C.teal, v3(7.5, 0.7, -4.4).add(o));
+          edges(stylus, C.ink, 0.6);
+          const oracle = add(
+            new THREE.CylinderGeometry(0.7, 0.9, 3.2, 20),
+            C.white,
+            v3(-1.4, 1.6, 4.4).add(o),
+          );
+          edges(oracle, C.ink, 0.5);
+          const oracleTop = add(new THREE.SphereGeometry(0.55, 24, 16), C.teal, v3(-1.4, 3.5, 4.4).add(o));
+          const agent = add(new THREE.OctahedronGeometry(1.25), C.agent, v3(-3, 1.6, -5.4).add(o));
+          edges(agent, C.ink, 0.6);
+          const badge = add(new THREE.TorusGeometry(0.55, 0.12, 12, 32), C.accent, v3(-3, 3.5, -5.4).add(o));
+          const mcp = add(new THREE.BoxGeometry(2.6, 1.6, 0.25), C.white, v3(-7.4, 1.2, -5.6).add(o));
+          edges(mcp, C.teal, 0.9);
+          const bond = [];
+          for (let i = 0; i < 6; i++)
+            bond.push(
+              add(
+                new THREE.CylinderGeometry(0.55, 0.55, 0.16, 32),
+                C.teal,
+                v3(-0.4, 0.1 + i * 0.19, -6.4).add(o),
+              ),
+            );
+          const log = [];
+          for (let i = 0; i < 4; i++) {
+            const s = add(
+              new THREE.BoxGeometry(2.2, 0.3, 1.5),
+              i % 2 ? C.white : C.paper2,
+              v3(11, 0.15 + i * 0.32, -5.2).add(o),
+            );
+            edges(s, C.ink, 0.45);
+            log.push(s);
+          }
+          const buyers = [];
+          for (let i = 0; i < 5; i++)
+            buyers.push(
+              add(
+                new THREE.SphereGeometry(0.45, 24, 16),
+                C.call,
+                v3(9.8 + rnd() * 2.6, 0.45, 2.6 + rnd() * 2.4).add(o),
+              ),
+            );
+          const L_ = (t, p, cls, dx, dy) => (withLabels ? [label(t, p.add(o), cls, dx, dy)] : []);
+          part(
+            "vault",
+            [vault, lock, ...deps],
+            [...L_("Vault · stock tokens", v3(-5.3, 1.2, 0.5)), ...L_("Depositors", v3(-11, 1.2, 6.4))],
+          );
+          part("mandate", [], L_("Mandate · fixed at creation", v3(-7, 3.9, 0.5), "ok", -170, -30));
+          part("agent", [agent], L_("Agent · bonded", v3(-3, 2.9, -5.4)));
+          part("mcp", [mcp], L_("MCP tools · vault_state · risk_check", v3(-7.4, 2.2, -5.6), "", -260, -24));
+          part("bond", bond, L_("Bond · USDG", v3(-0.4, 1.4, -6.4), "plain", 10, -10));
+          part("em", [em, gate], L_("EpochManager", v3(2, 4.6, 0), "big"));
+          part(
+            "oracle",
+            [oracle, oracleTop],
+            L_("StockOracle · SafeStockFeed", v3(-1.4, 3.9, 4.4), "", -120, -30),
+          );
+          part("stylus", [stylus], L_("Stylus · Rust pricer + risk engine", v3(9.0, 1.4, -4.4)));
+          part("buyers", buyers, L_("Buyers", v3(11, 1.3, 4.6)));
+          part("log", log, L_("DecisionLog", v3(11, 1.7, -5.2), "", 10, -14));
+          part("id", [badge], L_("ERC-8004 identity", v3(-3, 4.1, -5.4), "ok", 14, -20));
+          P._lock = lock;
+          P._gate = gate;
+          P._agent = agent;
+          P._bond = bond;
+          P._deps = deps;
+          P._buyers = buyers;
+          P._vaultPos = v3(-7, 2.6, 0.5).add(o);
+          return P;
+        }
+        const PA = deployment(v3(0, 0, 0), true);
+        const PB = deployment(v3(33, 0, -4), false);
+        // moving things
+        const packet = add(new THREE.BoxGeometry(1.6, 0.12, 1.1), C.white, v3(0, 0, 0));
+        edges(packet, C.ink, 0.8);
+        const lPacket = label(
+          `Δ ${DATA.delta} · Fri · ${DATA.size} · ${DATA.premiumPct}%`,
+          v3(0, 0, 0),
+          "",
+          18,
+          -26,
+        );
+        const bad = add(new THREE.BoxGeometry(1.6, 0.12, 1.1), C.loss, v3(0, 0, 0));
+        const tokens = [];
+        for (let i = 0; i < 5; i++)
+          tokens.push(add(new THREE.CylinderGeometry(0.32, 0.32, 0.5, 24), C.ink, v3(0, 0, 0)));
+        const opts = [];
+        for (let i = 0; i < 4; i++) opts.push(add(new THREE.OctahedronGeometry(0.42), C.call, v3(0, 0, 0)));
+        const usdg = [];
+        for (let i = 0; i < 4; i++)
+          usdg.push(add(new THREE.CylinderGeometry(0.42, 0.42, 0.14, 32), C.teal, v3(0, 0, 0)));
+        const beam = (a, b) => {
+          const m = add(
+            new THREE.CylinderGeometry(0.08, 0.08, a.distanceTo(b), 12),
+            C.teal,
+            a.clone().lerp(b, 0.5),
+            { emissive: C.teal },
+          );
+          m.quaternion.setFromUnitVectors(v3(0, 1, 0), b.clone().sub(a).normalize());
+          return m;
+        };
+        const beamStylus = beam(v3(2, 1.6, 0), v3(7.5, 0.9, -4.4));
+        const beamOracle = beam(v3(-1.4, 3.0, 4.4), v3(2, 3.0, 0));
+        const beamMcp = beam(v3(-6.1, 1.2, -5.6), v3(-7, 1.8, -1.3));
+        const beamLog = beam(v3(3.5, 2.5, -1), v3(11, 1.2, -5.2));
+        const lCheck = label("Mandate check ✓", v3(3.6, 2.4, 1.6), "ok big");
+        const lReject = label("✗ Rejected · bond slashed", v3(3.6, 2.4, 1.6), "bad big");
+        const lSettle = label("Fri 16:00 ET · settle", v3(-8.8, 2.2, 2.3), "ok big", -330, 0);
+        const lDry = label("Dry run first", v3(-7.4, 2.2, -5.6), "plain", -260, 18);
+
+        // spotlight: which parts each narration line is about (all of them on the first and last lines)
+        const ALL = [
+          "vault",
+          "mandate",
+          "agent",
+          "mcp",
+          "bond",
+          "em",
+          "oracle",
+          "stylus",
+          "buyers",
+          "log",
+          "id",
+        ];
+        const SPOT = [
+          ALL,
+          ["vault", "mandate"],
+          ["agent", "mcp", "vault"],
+          ["agent", "em", "vault"],
+          ["em", "oracle"],
+          ["em", "stylus"],
+          ["em", "buyers", "vault"],
+          ["em", "agent", "bond", "vault"],
+          ["log", "id", "agent"],
+          ["vault", "buyers"],
+          ALL,
+        ];
+        // when each part first appears
+        const APPEAR = {
+          vault: 1,
+          mandate: 1,
+          agent: 2,
+          mcp: 2,
+          bond: 2,
+          em: 0,
+          oracle: 4,
+          stylus: 5,
+          buyers: 6,
+          log: 8,
+          id: 8,
+        };
+        const cueIndex = (t) => {
+          let c = -1;
+          for (let i = 0; i < cues.length; i++) if (t >= cue(i) - 0.15) c = i;
+          return c;
+        };
+        const level = (key, t) => {
+          const c = cueIndex(t);
+          if (c < 0) return 1;
+          const now = SPOT[c] ?? ALL;
+          const prev = c > 0 ? (SPOT[c - 1] ?? ALL) : ALL;
+          const k = ease((t - cue(c, -0.15)) / 0.5);
+          return lerp(prev.includes(key) ? 1 : 0, now.includes(key) ? 1 : 0, k);
+        };
+
+        return (t) => {
+          const out = after(t, 10, 3.2, -0.2);
+          const ang = -0.3 + t * 0.004;
+          const camA = v3(Math.sin(ang) * 31, 18, Math.cos(ang) * 31 + 2);
+          const camB = v3(7, 42, 55);
+          lookCam(camA.clone().lerp(camB, out), v3(0.5, 0.6, -0.5).lerp(v3(16.5, 0, -2), out));
+          const bIn = after(t, 10, 1.6, 0.4);
+          setOpacity(B, bIn);
+          for (const k of ALL) PB[k].meshes.forEach((m) => setOpacity(m, bIn));
+          pA.a = after(t, 0, 0.8, 0.2);
+          pB.a = bIn;
+          // parts of A: appear, then follow the spotlight
+          for (const k of ALL) {
+            const app = after(t, APPEAR[k], 0.8, k === "em" ? 0.3 : -0.3);
+            const sp = 0.16 + 0.84 * level(k, t);
+            PA[k].meshes.forEach((m) => setOpacity(m, app * sp));
+            PA[k].labs.forEach((l) => (l.a = app * (0.1 + 0.9 * level(k, t)) * (1 - out * 0.85)));
+          }
+          // deposits into the vault (line 1)
+          tokens.forEach((tok, i) => {
+            const k = after(t, 1, 1.2, 0.3 + i * 0.18);
+            tok.position.copy(
+              arc(PA._deps[i].position.clone().setY(0.6), v3(-7 + (i - 2) * 0.5, 2.5, 0.5), k, 2.2),
+            );
+            setOpacity(tok, k > 0 && k < 1 ? 1 : 0);
+          });
+          // MCP reads and the dry run (line 2)
+          setOpacity(
+            beamMcp,
+            after(t, 2, 0.5, 0.6) * (1 - after(t, 3, 0.4, -0.2)) * (0.6 + 0.4 * Math.sin(t * 6)),
+          );
+          lDry.a = after(t, 2, 0.5, 1.6) * (1 - after(t, 3, 0.4, -0.2));
+          // the proposal opens the epoch and travels to the EpochManager (line 3)
+          const lockK = after(t, 3, 0.8, 0.3);
+          PA._lock.position.y = 2.75 + (1 - lockK) * 0.8;
+          setOpacity(PA._lock, lockK * (0.16 + 0.84 * level("vault", t)));
+          const pk = after(t, 3, 1.6, 0.8);
+          packet.position.copy(arc(PA._agent.position, v3(2, 2.2, 0), pk, 3));
+          packet.rotation.y = pk * Math.PI;
+          const accept = after(t, 6, 0.6, -0.2);
+          setOpacity(packet, pk > 0 ? 1 - accept : 0);
+          lPacket.pos.copy(packet.position);
+          lPacket.a = (pk > 0 ? 1 : 0) * (1 - accept);
+          // the check at oracle prices (line 4), the strike solved in Stylus (line 5)
+          const chk = after(t, 4, 0.5, 0);
+          PA._gate.rotation.x = chk * Math.PI * 2 + (t > cue(4) ? (t - cue(4)) * 0.6 : 0);
+          PA._gate.material.emissive = new THREE.Color(C.teal);
+          PA._gate.material.emissiveIntensity = 0.6 * chk * (1 - after(t, 7, 0.4, 0));
+          setOpacity(
+            beamOracle,
+            after(t, 4, 0.5, 0.8) * (1 - after(t, 5, 0.4, -0.1)) * (0.6 + 0.4 * Math.sin(t * 6)),
+          );
+          setOpacity(
+            beamStylus,
+            after(t, 5, 0.5, 0) * (1 - after(t, 6, 0.4, -0.1)) * (0.6 + 0.4 * Math.sin(t * 6)),
+          );
+          lCheck.a = after(t, 5, 0.5, 1.2) * (1 - after(t, 7, 0.4, -0.3));
+          // accepted: options to buyers, USDG to the vault (line 6)
+          opts.forEach((o, i) => {
+            const k = after(t, 6, 1.3, 0.3 + i * 0.2);
+            o.position.copy(arc(v3(2, 2.5, 0), PA._buyers[i].position.clone().setY(1.2), k, 2.6));
+            o.rotation.y = t * 1.5;
+            setOpacity(o, k > 0 ? 1 - after(t, 7, 0.4, -0.2) : 0);
+          });
+          usdg.forEach((u, i) => {
+            const k = after(t, 6, 1.5, 1.6 + i * 0.2);
+            u.position.copy(arc(PA._buyers[i].position.clone().setY(1), v3(-7, 2.6 + i * 0.16, 0.5), k, 3.2));
+            setOpacity(u, k > 0 && k < 1 ? 1 : 0);
+          });
+          // rejected: a red proposal bounces off, two bond coins go to the vault (line 7)
+          const rk = after(t, 7, 1.2, 0.2);
+          const rb = after(t, 7, 0.8, 1.4);
+          bad.position.copy(
+            rk < 1
+              ? arc(PA._agent.position, v3(2, 2.2, 0), rk, 3)
+              : arc(v3(2, 2.2, 0), v3(0, 0.1, -2.5), rb, 1.5),
+          );
+          setOpacity(bad, rk > 0 ? 1 - after(t, 8, 0.4, -0.3) : 0);
+          lReject.a = after(t, 7, 0.4, 1.3) * (1 - after(t, 8, 0.4, -0.3));
+          PA._bond.forEach((c, i) => {
+            const base = v3(-0.4, 0.1 + i * 0.19, -6.4);
+            if (i < 4) return c.position.copy(base);
+            const k = after(t, 7, 1.4, 2.0 + (i - 4) * 0.3);
+            c.position.copy(arc(base, v3(-7, 2.5, 0.5), k, 3));
+            if (k >= 1) setOpacity(c, 0);
+          });
+          // decision record into the DecisionLog (line 8)
+          setOpacity(
+            beamLog,
+            after(t, 8, 0.5, 0.2) * (1 - after(t, 9, 0.4, -0.2)) * (0.6 + 0.4 * Math.sin(t * 6)),
+          );
+          // settle: premium to depositors (line 9)
+          lSettle.a = after(t, 9, 0.5, 0) * (1 - after(t, 10, 0.4, 0));
+          usdg.forEach((u, i) => {
+            const k = after(t, 9, 1.3, 0.8 + i * 0.25);
+            if (k <= 0) return;
+            u.position.copy(arc(v3(-7, 2.6, 0.5), PA._deps[i].position.clone().setY(1.0), k, 2.5));
+            setOpacity(u, k < 1 ? 1 : 0);
+          });
+          PA._agent.rotation.y = t * 0.5;
+          PB._agent.rotation.y = t * 0.5;
+        };
+      }
+
+      // ------------------------------------------------------------------ mode: surface (covered call in 3D)
+      function ncdf(x) {
+        // Abramowitz-Stegun 7.1.26
+        const s = x < 0 ? -1 : 1;
+        const z = Math.abs(x) / Math.SQRT2;
+        const k = 1 / (1 + 0.3275911 * z);
+        const e =
+          1 -
+          ((((1.061405429 * k - 1.453152027) * k + 1.421413741) * k - 0.284496736) * k + 0.254829592) *
+            k *
+            Math.exp(-z * z);
+        return 0.5 * (1 + s * e);
+      }
+      function bsCall(S, K, tauYears, sigma) {
+        if (tauYears <= 1e-9) return Math.max(S - K, 0);
+        const v = sigma * Math.sqrt(tauYears);
+        const d1 = (Math.log(S / K) + 0.5 * v * v) / v;
+        return S * ncdf(d1) - K * ncdf(d1 - v);
+      }
+      function buildSurface() {
+        const K = Number(DATA.strike),
+          spot = Number(DATA.spot),
+          sigma = Number(DATA.sigmaPct) / 100,
+          T = Number(DATA.tenorDays),
+          p = Number(DATA.premium);
+        head(
+          "The Claude-planned series · Arbitrum Sepolia",
+          "A covered call, in three dimensions",
+          "",
+          `TSLA call · strike ${money(K)} · spot ${money(spot)} at the open<br>σ ${DATA.sigmaPct}% · ${T} days · ${money(p, 6)} paid per option<br>docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md`,
+        );
+        const Smin = Math.floor((spot * 0.86) / 10) * 10,
+          Smax = Math.ceil((K * 1.14) / 10) * 10;
+        const unit = 10; // USD per scene unit, on both price axes
+        const Vmin = Smin - 10;
+        const X = (S) => (S - (Smin + Smax) / 2) / unit;
+        const Y = (V) => (V - Vmin) / 13; // a little flatter than the price axis
+        const depth = 9;
+        const Z = (tau) => -((tau / T) * depth) + depth / 2; // expiry at the front
+        const NX = 140,
+          NZ = 60;
+        const geo = new THREE.BufferGeometry();
+        const pos = [],
+          col = [],
+          idx = [];
+        const cLo = new THREE.Color(0xdfe7e6),
+          cHi = new THREE.Color(C.teal);
+        for (let j = 0; j <= NZ; j++) {
+          const tau = T * (j / NZ);
+          for (let i = 0; i <= NX; i++) {
+            const S = Smin + ((Smax - Smin) * i) / NX;
+            const V = S + p - bsCall(S, K, tau / 365, sigma);
+            pos.push(X(S), Y(V), Z(tau));
+            const c = cLo.clone().lerp(cHi, clamp((V - Smin) / (K + p - Smin)) ** 1.6);
+            col.push(c.r, c.g, c.b);
+          }
+        }
+        for (let j = 0; j < NZ; j++)
+          for (let i = 0; i < NX; i++) {
+            const a = j * (NX + 1) + i;
+            idx.push(a, a + 1, a + NX + 1, a + 1, a + NX + 2, a + NX + 1);
+          }
+        geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+        geo.setIndex(idx);
+        geo.computeVertexNormals();
+        const surf = new THREE.Mesh(
+          geo,
+          new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            side: THREE.DoubleSide,
+            roughness: 0.55,
+            transparent: true,
+          }),
+        );
+        surf.castShadow = true;
+        surf.receiveShadow = true;
+        scene.add(surf);
+        // grid lines on the surface: a line every $10 of price and every quarter of the tenor
+        const gl = [];
+        for (let S = Smin; S <= Smax + 1e-6; S += 10) {
+          const pts = [];
+          for (let j = 0; j <= 40; j++) {
+            const tau = (T * j) / 40;
+            pts.push(v3(X(S), Y(S + p - bsCall(S, K, tau / 365, sigma)) + 0.02, Z(tau)));
+          }
+          gl.push(
+            new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints(pts),
+              new THREE.LineBasicMaterial({ color: C.ink, transparent: true, opacity: 0.22 }),
+            ),
+          );
+        }
+        for (let q = 1; q <= 4; q++) {
+          const tau = (T * q) / 4,
+            pts = [];
+          for (let i = 0; i <= 80; i++) {
+            const S = Smin + ((Smax - Smin) * i) / 80;
+            pts.push(v3(X(S), Y(S + p - bsCall(S, K, tau / 365, sigma)) + 0.02, Z(tau)));
+          }
+          gl.push(
+            new THREE.Line(
+              new THREE.BufferGeometry().setFromPoints(pts),
+              new THREE.LineBasicMaterial({ color: C.ink, transparent: true, opacity: 0.22 }),
+            ),
+          );
+        }
+        gl.forEach((l) => scene.add(l));
+        // floor and axes
+        const floor = add(
+          new THREE.BoxGeometry(X(Smax) - X(Smin) + 2, 0.2, depth + 2),
+          C.paper2,
+          v3(0, -0.1, 0),
+        );
+        floor.castShadow = false;
+        edges(floor, C.teal, 0.6);
+        const axis = (a, b) => {
+          const c = new THREE.LineCurve3(a, b);
+          return add(new THREE.TubeGeometry(c, 2, 0.045, 8), C.ink, v3(0, 0, 0));
+        };
+        const x0 = X(Smin),
+          x1 = X(Smax),
+          zF = Z(0),
+          zB = Z(T);
+        axis(v3(x0, 0, zF + 0.6), v3(x1, 0, zF + 0.6));
+        axis(v3(x0 - 0.6, 0, zF), v3(x0 - 0.6, 0, zB));
+        axis(v3(x0, 0, zB - 0.6), v3(x0, Y(K + p + 10), zB - 0.6));
+        const ticks = [];
+        for (let S = Smin + 10; S <= Smax - 10; S += 20)
+          ticks.push(label(`$${S}`, v3(X(S), 0, zF + 1.4), "tick", 0, 8));
+        for (let V = Math.ceil(Vmin / 20) * 20 + 20; V <= K + p + 5; V += 20)
+          ticks.push(label(`$${V}`, v3(x0, Y(V), zB - 0.6), "tick", -40, 0));
+        ticks.push(label(`${T} days`, v3(x0 - 0.6, 0, zB), "tick", -60, 10));
+        ticks.push(label("expiry", v3(x0 - 0.6, 0, zF), "tick", -50, 10));
+        const axX = label("TSLA price", v3(X(Smax) - 1, 0, zF + 2.5), "", 0, 10);
+        const axZ = label("Days to expiry", v3(x0 - 1.6, 0, 0), "", -230, 0);
+        const axY = label("Value per covered share (USD)", v3(x0, Y(K + p + 10), zB - 0.6), "", 12, -6);
+        // expiry edge: a thick teal line where the surface meets the front
+        const edgePts = [];
+        for (let i = 0; i <= 160; i++) {
+          const S = Smin + ((Smax - Smin) * i) / 160;
+          edgePts.push(v3(X(S), Y(Math.min(S, K) + p) + 0.04, zF));
+        }
+        const edge = add(
+          new THREE.TubeGeometry(new THREE.CatmullRomCurve3(edgePts, false, "catmullrom", 0), 200, 0.09, 8),
+          C.accent,
+          v3(0, 0, 0),
+          { emissive: C.teal, emissiveIntensity: 0.4 },
+        );
+        // the stock alone at expiry, for comparison
+        const sTop = Math.min(Smax, K + p + 12);
+        const stockPts = [v3(X(Smin), Y(Smin), zF + 0.02), v3(X(sTop), Y(sTop), zF + 0.02)];
+        const stock = add(
+          new THREE.TubeGeometry(new THREE.LineCurve3(...stockPts), 2, 0.05, 8),
+          C.muted,
+          v3(0, 0, 0),
+          { opacity: 0.8 },
+        );
+        const lStock = label("Stock alone", v3(X(sTop), Y(sTop), zF), "plain", 12, -4);
+        // the strike plane
+        const ph = Y(K + p + 10);
+        const plane = add(new THREE.PlaneGeometry(depth + 1, ph), C.teal, v3(X(K), ph / 2, 0), {
+          opacity: 0.16,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+        });
+        plane.rotation.y = Math.PI / 2;
+        plane.castShadow = false;
+        const planeEdge = new THREE.LineSegments(
+          new THREE.EdgesGeometry(plane.geometry),
+          new THREE.LineBasicMaterial({ color: C.teal, transparent: true, opacity: 0.9 }),
+        );
+        plane.add(planeEdge);
+        const lK = label(`Strike ${money(K)}`, v3(X(K), ph, zF), "big ok", 12, -10);
+        const lCap = label(
+          "Above it, the upside goes to the buyer",
+          v3(X(Smax - 6), Y(K + p), zF),
+          "",
+          -120,
+          46,
+        );
+        const lPrem = label(
+          `+${money(p)} premium per option`,
+          v3(X(Smin + 25), Y(Smin + 25 + p) + 0.2, zF),
+          "ok",
+          -40,
+          -46,
+        );
+
+        return (t) => {
+          const ang = -0.5 + t * 0.009;
+          const r = 33;
+          const cam = v3(Math.sin(ang) * r, 12 + 1.2 * Math.sin(t * 0.05), Math.cos(ang) * r);
+          lookCam(cam, v3(0.6, 2.6, 0));
+          // the surface fills in from the back (2.1 days out) to expiry during the first line
+          const grow = after(t, 0, 2.8, 0.2);
+          surf.geometry.setDrawRange(0, Math.floor(grow * NZ) * NX * 6 + 6);
+          gl.forEach((l) => setOpacity(l, grow));
+          // axes, one by one with line 1
+          axX.a = after(t, 1, 0.5, -0.1);
+          axZ.a = after(t, 2, 0.5, -0.1);
+          axY.a = after(t, 3, 0.5, -0.1);
+          ticks.forEach((l) => (l.a = after(t, 1, 0.6, 0)));
+          // expiry edge, then the strike plane, then who gets the upside (line 2)
+          setOpacity(edge, after(t, 4, 0.8, 0.2));
+          setOpacity(plane, after(t, 5, 0.8, -0.2));
+          lK.a = after(t, 5, 0.6, 0);
+          lCap.a = after(t, 6, 0.6, -0.1);
+          // the stock alone and the premium (line 3)
+          const k3 = after(t, 7, 0.8, 0);
+          setOpacity(stock, k3);
+          lStock.a = k3;
+          lPrem.a = after(t, 7, 0.6, 1.0);
+        };
+      }
+
+      // ------------------------------------------------------------------ mode: gas (Solidity vs Stylus)
+      function buildGas() {
+        head(
+          "Arbitrum Stylus · Rust",
+          "Gas: Solidity against Stylus",
+          "",
+          "README.md · Gas (Arbitrum Nitro dev node, L2 execution gas)",
+        );
+        const pairs = DATA.pairs; // [{name, sol, sty}]
+        const max = Math.max(...pairs.flatMap((p) => [p.sol, p.sty]));
+        const hmax = 7;
+        const floor = add(new THREE.BoxGeometry(20, 0.3, 10), C.paper2, v3(0, -0.15, 0));
+        floor.castShadow = false;
+        edges(floor, C.teal, 0.6);
+        const bars = [];
+        pairs.forEach((p, i) => {
+          const x = -4.5 + i * 9;
+          [
+            [p.sol, C.muted, -1.6, "Solidity"],
+            [p.sty, C.teal, 1.6, "Stylus"],
+          ].forEach(([g, color, dx, who]) => {
+            const h = (g / max) * hmax;
+            const m = add(new THREE.BoxGeometry(2.4, 1, 2.4), color, v3(x + dx, 0, 0));
+            edges(m, C.ink, 0.5);
+            const l = label(
+              `${who}<br>${thousands(g)} gas`,
+              v3(x + dx, h, 0),
+              who === "Stylus" ? "ok" : "",
+              -70,
+              -50,
+            );
+            bars.push({ m, h, l, i });
+          });
+          p.lab = label(p.name, v3(x, 0, 3.4), "big", -120, 22);
+        });
+        return (t) => {
+          const ang = -0.3 + t * 0.01;
+          lookCam(v3(Math.sin(ang) * 31, 11, Math.cos(ang) * 31), v3(0, 2.6, 0));
+          bars.forEach((b) => {
+            const k = after(t, b.i === 0 ? 1 : 3, 1.3, b.i === 0 ? 0.8 : -0.3);
+            const h = Math.max(0.02, b.h * k);
+            b.m.scale.y = h;
+            b.m.position.y = h / 2;
+            b.l.pos.y = h;
+            b.l.a = after(t, b.i === 0 ? 2 : 3, 0.5, b.i === 0 ? -0.2 : 0.8);
+          });
+          pairs.forEach((p, i) => (p.lab.a = after(t, i === 0 ? 1 : 3, 0.5, i === 0 ? 0.3 : -0.3)));
+        };
+      }
+
+      // ------------------------------------------------------------------ mode: stress (risk engine grid)
+      function buildStress() {
+        head(
+          "Stylus risk engine · RiskLens.seriesRisk",
+          "Thirteen TSLA moves, one series",
+          "",
+          `${DATA.size} calls at ${money(DATA.strike)} · spot ${money(DATA.spot)} · σ ${DATA.sigmaPct}%<br>Arbitrum Sepolia, read after the buy<br>docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md`,
+        );
+        const shocks = DATA.shocks;
+        const max = Math.max(...shocks.map((s) => Number(s.loss)));
+        const hmax = 6.5;
+        const floor = add(new THREE.BoxGeometry(27, 0.3, 7), C.paper2, v3(0, -0.15, 0));
+        floor.castShadow = false;
+        edges(floor, C.teal, 0.6);
+        const bars = shocks.map((s, i) => {
+          const x = -12 + i * 2;
+          const loss = Number(s.loss);
+          const m = add(
+            new THREE.BoxGeometry(1.5, 1, 1.5),
+            loss > 0 ? C.loss : C.teal,
+            v3(x, 0, 0),
+            loss > 0 ? {} : { opacity: 0.85 },
+          );
+          edges(m, C.ink, 0.45);
+          const tick = label(
+            `${s.shock > 0 ? "+" : s.shock < 0 ? "−" : ""}${Math.abs(s.shock)}%`,
+            v3(x, 0, 1.4),
+            "tick",
+            0,
+            16,
+          );
+          const val = loss > 0 ? label(money(loss), v3(x, 0, 0), "plain", -34, -22) : null;
+          return { m, h: Math.max(0.12, (loss / max) * hmax), loss, i, tick, val };
+        });
+        const lZero = label(
+          "TSLA down or flat: the calls expire worthless, the vault pays nothing",
+          v3(-6, 0.4, -1.4),
+          "ok",
+          -280,
+          -50,
+        );
+        const lWorst = label(
+          `+${shocks.at(-1).shock}%: the calls pay out ${money(shocks.at(-1).loss)}`,
+          v3(12, (Number(shocks.at(-1).loss) / max) * hmax, 0),
+          "bad big",
+          -560,
+          40,
+        );
+        const axis = label("TSLA move by expiry", v3(0, 0, 3.0), "", -120, 26);
+        return (t) => {
+          const ang = 0.16 - t * 0.007;
+          lookCam(v3(Math.sin(ang) * 33, 11, Math.cos(ang) * 33), v3(0.5, 2.4, 0));
+          bars.forEach((b) => {
+            const k = after(t, 0, 0.7, 0.4 + b.i * 0.12);
+            const h = Math.max(0.02, b.h * k);
+            b.m.scale.y = h;
+            b.m.position.y = h / 2;
+            b.tick.a = after(t, 0, 0.5, 0.2);
+            if (b.val) {
+              b.val.pos.y = h;
+              b.val.a = after(t, 0, 0.5, 2.2 + (b.i - 7) * 0.15);
+            }
+          });
+          axis.a = after(t, 0, 0.5, 0.4);
+          lZero.a = after(t, 1, 0.5, -0.1) * (1 - after(t, 2, 0.4, -0.2));
+          lWorst.a = after(t, 2, 0.5, -0.1);
+        };
+      }
+
+      // ------------------------------------------------------------------ clock
+      const frame = { flow: buildFlow, surface: buildSurface, gas: buildGas, stress: buildStress }[
+        DATA.mode
+      ]();
+      let t0 = null,
+        frozen = 0;
+      function tick() {
+        const t = t0 === null ? frozen : (performance.now() - t0) / 1000;
+        frame(t);
+        renderer.render(scene, camera);
+        placeLabels();
+        requestAnimationFrame(tick);
+      }
+      window.__3d = {
+        /** Start the clock at scene time `now`, with the narration's line starts as cues. */
+        play(c, now = 0) {
+          cues = c;
+          t0 = performance.now() - now * 1000;
+        },
+        /** Freeze at time t (stills for checking). */
+        at(t, c) {
+          if (c) cues = c;
+          t0 = null;
+          frozen = t;
+        },
+      };
+      window.__prepare = async () => {
+        await document.fonts.ready;
+        frame(0);
+        renderer.render(scene, camera);
+        placeLabels();
+        requestAnimationFrame(tick);
+        window.__ready = true;
+      };
+    </script>
+  </body>
+</html>
