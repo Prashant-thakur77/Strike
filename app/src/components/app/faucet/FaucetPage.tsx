@@ -33,7 +33,8 @@ export function FaucetPage() {
       ? { href: LINKS.arbSepoliaFaucet, text: "Arbitrum Sepolia faucet" }
       : { href: LINKS.robinhoodFaucet, text: "Robinhood Chain faucet" };
   const b = balances.data;
-  const vaultSymbols = new Set((useVaults().data ?? []).map((v) => v.summary.underlying.symbol));
+  const vaults = useVaults();
+  const vaultSymbols = new Set((vaults.data ?? []).map((v) => v.summary.underlying.symbol));
   const stocks: { symbol: string; full: FaucetToken | null }[] = b
     ? b.stocks.map((t) => ({ symbol: t.symbol, full: t }))
     : Object.keys(deployment?.stocks ?? {}).map((symbol) => ({ symbol, full: null }));
@@ -107,7 +108,9 @@ export function FaucetPage() {
                       what={
                         vaultSymbols.has(t.symbol)
                           ? `Stock token for the ${t.symbol} covered-call vault`
-                          : "Stock token · no Strike vault for it yet"
+                          : vaults.data
+                            ? "Stock token · no Strike vault for it yet"
+                            : "Stock token"
                       }
                       balance={full ? fmtAmount(full.balance, full.decimals) : null}
                       connected={isConnected}

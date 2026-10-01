@@ -536,6 +536,8 @@ svg {
 
 .input-row:focus-within {
   border-color: var(--fg);
+  /* A 2px underline while typing: the input itself draws no outline. */
+  box-shadow: 0 1px 0 var(--fg);
 }
 
 .input-row input {
@@ -588,6 +590,18 @@ svg {
   background: var(--fg);
   color: var(--bg);
   border-color: var(--fg);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:not([aria-pressed="true"]):not(:disabled):hover {
+    border-color: var(--fg);
+    background: var(--ghost);
+  }
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 /* ------------------------------------------------------------------ motion */

@@ -665,7 +665,7 @@
 
 .rule {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 13rem);
+  grid-template-columns: 44px minmax(0, 1fr) minmax(0, 15rem);
   gap: 6px 18px;
   align-items: baseline;
   padding: 16px 0 18px;
@@ -752,7 +752,8 @@
   font-family: var(--font-mono);
   font-size: 0.78rem;
   color: var(--fg-muted);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  text-wrap: balance;
 }
 
 @media (max-width: 720px) {

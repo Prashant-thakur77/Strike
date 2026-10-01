@@ -98,6 +98,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Room for descenders (the "pp" in "Open the app") inside the clip, without moving the line. */
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
 }
 
 .ctaCircle {

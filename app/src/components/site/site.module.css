@@ -185,6 +185,16 @@
   font-size: var(--fs-nav);
 }
 
+.menuBtn {
+  transition: opacity 0.22s var(--ease-ui);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .menuBtn:hover {
+    opacity: 0.6;
+  }
+}
+
 .menuToggle {
   display: none;
 }

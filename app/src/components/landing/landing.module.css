@@ -813,6 +813,7 @@
 
 .ruleList li {
   display: grid;
+  align-content: start;
   gap: 4px;
   padding: 16px 0;
   border-bottom: 1px solid var(--rule);

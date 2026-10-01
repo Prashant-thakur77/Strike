@@ -26,9 +26,12 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  max-width: 100%;
   border-bottom: 1px solid var(--rule-strong);
   transition: border-color 0.2s var(--ease-ui);
-  overflow-wrap: anywhere;
+  /* Paths break only when they can't fit on a line of their own (not "math.r / s" next to a sibling). */
+  overflow-wrap: break-word;
+  min-width: 0;
 }
 
 .link:hover,

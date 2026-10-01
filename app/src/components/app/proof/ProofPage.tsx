@@ -215,7 +215,9 @@ export function ProofPage() {
               <dt>Verified</dt>
               <dd>
                 <code className="mono">cargo stylus verify</code>: Verification successful, metadata hash{" "}
-                <span className="mono">{V3.stylus.metadataHash.slice(0, 16)}…</span>
+                <span className="mono" style={{ overflowWrap: "anywhere" }}>
+                  {V3.stylus.metadataHash}
+                </span>
               </dd>
               <dt>Rust = Solidity</dt>
               <dd>

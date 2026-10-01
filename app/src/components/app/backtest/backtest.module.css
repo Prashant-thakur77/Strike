@@ -514,6 +514,8 @@
   max-height: 440px;
   overflow-y: auto;
   border-top: 1px solid var(--rule-strong);
+  /* A closing rule, so a table scrolled inside its box doesn't run straight into the caption. */
+  border-bottom: 1px solid var(--rule-strong);
 }
 
 .table {

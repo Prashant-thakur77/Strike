@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
+import { Footer } from "@/components/site/Footer";
 import { SiteNav } from "@/components/site/SiteNav";
 
 export const metadata: Metadata = { title: "Page not found" };
@@ -27,6 +28,9 @@ export default function NotFound() {
           Back home <ArrowRight aria-hidden />
         </Link>
       </main>
+      <div className="theme-paper">
+        <Footer />
+      </div>
     </>
   );
 }

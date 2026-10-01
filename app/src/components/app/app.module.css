@@ -1250,7 +1250,8 @@ a.idChip:hover {
   letter-spacing: -0.015em;
 }
 
-.factLinks {
+.factLinks,
+.agentFacts dd.factLinks {
   display: flex !important;
   flex-wrap: wrap;
   /* Rows of small links sit 20px apart, so their 44px hit areas (globals.css) don't overlap. */
@@ -2418,6 +2419,24 @@ a.idChip:hover {
 
 .fold[open] > .foldSummary {
   margin-bottom: 20px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .foldSummary {
+    transition:
+      border-color 0.22s var(--ease-ui),
+      background 0.22s var(--ease-ui);
+  }
+  .foldSummary:hover {
+    border-color: var(--fg);
+    background: var(--ghost);
+  }
+  .logWhyToggle {
+    transition: opacity 0.22s var(--ease-ui);
+  }
+  .logWhyToggle:hover {
+    opacity: 0.65;
+  }
 }
 
 .fold[open] > .foldSummary svg {

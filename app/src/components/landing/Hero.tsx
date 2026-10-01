@@ -34,7 +34,12 @@ export function Hero() {
         </Link>
       </div>
       <div className={styles.heroMeta}>
-        <span className="micro">Robinhood Chain · USDG · Arbitrum Stylus</span>
+        {/* Each name keeps its separator, so a wrapped line never starts with "·". */}
+        <span className="micro">
+          <span style={{ whiteSpace: "nowrap" }}>Robinhood Chain ·</span>{" "}
+          <span style={{ whiteSpace: "nowrap" }}>USDG ·</span>{" "}
+          <span style={{ whiteSpace: "nowrap" }}>Arbitrum Stylus</span>
+        </span>
         <a href="#problem" className={`micro ${styles.scrollCue}`}>
           Scroll to explore <ArrowDown aria-hidden />
         </a>
