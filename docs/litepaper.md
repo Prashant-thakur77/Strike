@@ -4,6 +4,8 @@
 
 Strike is unaudited software. The descriptions below are taken from the repository's specification ([design.md](design.md)), its contracts and its tests. Where this paper states a protocol fact, the linked file is its source. Backtest figures come from [backtest.md](backtest.md) and can be reproduced with `python3 research/backtest.py`.
 
+**Status (1 October 2026).** Strike runs on two testnets. The v2 contracts that this paper describes run on Robinhood Chain testnet (chain 46630) and are what the app, SDK and MCP server read by default. v3 adds a fee high-water mark, EIP-712 signer consent and a Stylus risk engine; it runs next to v2 on Robinhood Chain testnet and on Arbitrum Sepolia (chain 421614), where the stock tokens are test tokens with a faucet. Three agent-run epochs are live, one per deployment. Each has an accepted proposal, an out-of-mandate proposal rejected with 10 USDG slashed, and a buyer. In both v3 epochs the accepted proposal was planned by Claude, using only Strike's read-only tools. None of the three has settled yet; all expire on Friday 2 October at 20:00 UTC. Addresses and transactions are in [DEPLOYMENTS.md](DEPLOYMENTS.md).
+
 ## Abstract
 
 Robinhood Chain issues ERC-20 stock tokens with Chainlink price feeds. Holding one earns only the stock's return. The chain's first options venues are recent, and neither delegates strike selection to a bounded agent (§1). Strike is a set of contracts that sells weekly, European, cash-settled options against deposited collateral. A covered-call vault holds stock tokens and a cash-secured-put vault holds USDG. Premium is paid in USDG. Options are priced on-chain with a fixed-point Black-Scholes model, anchored to the oracle price at the moment of each purchase, and settled on the first oracle print at or after the Friday close. The strike is chosen by a registered software agent. The agent can propose only options that satisfy an immutable per-vault mandate, which caps delta, size, tenor and discount to fair value. A proposal that breaks the mandate does not execute, and the agent's USDG bond is slashed to the vault's depositors. This paper describes:
@@ -178,7 +180,7 @@ With $s = 10$ USDG, this deters only attacks with a tiny $qG$. Against a real by
 
 $$\mathbb{E}[\text{agentFee}] = a f\big(\mathbb{E}[\Pi] + \mathbb{E}[\max(-\Pi,0)]\big),$$
 
-and the agent earns something even when the strategy loses on average, as long as $\Pi$ varies. The backtest shows this. The fee took 7.6–8.8% of gross premium in all 16 base configurations, including TSLA calls priced at trailing realised volatility, where buyers received 1.85× the premium collected. The fee is charged weekly, with no high-water mark. Ribbon's Theta Vaults charged theirs the same way ([§7](#7-related-work)).
+and the agent earns something even when the strategy loses on average, as long as $\Pi$ varies. The backtest shows this. The fee took 7.6–8.8% of gross premium in all 16 base configurations, including TSLA calls priced at trailing realised volatility, where buyers received 1.85× the premium collected. In v2 the fee is charged weekly, with no high-water mark. Ribbon's Theta Vaults charged theirs the same way ([§7](#7-related-work)). v3's `FeeManager` charges only on net premium above the vault's high-water mark.
 
 The incentive is convex, so a fee-maximising agent prefers the riskier end of the band: higher delta, maximum size. The mandate's $\delta_{\max}$ and $s_{\max}$ are the binding limits on that, and curators should set them expecting agents to sit at the edge.
 
@@ -239,7 +241,7 @@ These figures were measured on a local Arbitrum Nitro dev node through a probe c
 | `strikeForDelta`, 0.20-delta call, 7 days                          |    1,546,443 |    235,880 |
 | `EpochManager.proposeByDelta` (full transaction, L2 execution gas) |    1,878,918 |    577,041 |
 
-A Stylus call has a fixed entry cost of about 35–40k gas, so for a single quote the EVM's native 256-bit arithmetic wins. When a call does real work (48 Black-Scholes evaluations to solve a strike), WASM is 6.5× cheaper. Strike therefore uses the Stylus pricer where it wins: solving strikes on-chain inside `proposeByDelta` ([decisions.md D22](decisions.md)). The deployed testnet pricer was built reproducibly, and `cargo stylus verify` matches it to this source.
+A Stylus call has a fixed entry cost of about 35–40k gas, so for a single quote the EVM's native 256-bit arithmetic wins. When a call does real work (48 Black-Scholes evaluations to solve a strike), WASM is 6.5× cheaper. Strike therefore uses the Stylus pricer where it wins: solving strikes on-chain inside `proposeByDelta` ([decisions.md D22](decisions.md)). The deployed testnet programs were built reproducibly, and `cargo stylus verify` matches each to its source: the v2 pricer on Robinhood Chain testnet, and the v3 pricer and risk engine, one program with the same project hash on Robinhood Chain testnet and Arbitrum Sepolia.
 
 ## 5. Safety
 
@@ -340,7 +342,7 @@ These results match what the literature expects of option selling. Its return is
 
 - **Demand.** The backtest assumes every option sells at the model price. Strike has no market maker and no auction. If buyers do not come at the oracle-anchored price, unsold size earns nothing. Measuring real fill rates on testnet and mainnet is the most important open question.
 - **Volatility input.** One keeper-set volatility per underlying ignores skew and earnings events. A volatility surface, or quotes from an RFQ, would price out-of-the-money puts more accurately. The deploy script's 20% floor, applied to SPY, binds in 70% of simulated weeks at VRP 1.15, so it prices above SPY's recent realised volatility in those weeks.
-- **Fee design.** A weekly fee on positive profit and loss, with no high-water mark, pays the agent in losing periods. A multi-epoch high-water mark, or a clawback from the bond, would align the agent more closely with depositors.
+- **Fee design.** A weekly fee on positive profit and loss, with no high-water mark, pays the agent in losing periods. v3 adds a multi-epoch high-water mark. A clawback from the bond would align the agent with depositors further.
 - **Bond sizing.** A 10 USDG slash is small next to the capital an agent steers. The bond could scale with vault TVL.
 - **Scope.** There is one series per epoch, no spreads and no early exercise. Spreads (v1.1) would reduce the collateral put vaults need.
 - **Premium compounding.** Premium is paid as claimable USDG, and reinvesting it takes a manual claim and deposit. An auto-compounding option would make the covered call behave like the reinvested variant in the backtest.

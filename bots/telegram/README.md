@@ -9,7 +9,8 @@ The bot holds no keys and sends no transactions. It only needs a Telegram bot to
 ## What it sends
 
 Alerts are plain text: vault symbol, strike in USD, expiry in UTC, sizes and premiums in human units, the
-mandate reason name for rejections, and a Blockscout link. These are real alerts from Robinhood Chain testnet
+mandate reason name for rejections, and an explorer link (Blockscout on Robinhood Chain testnet, Arbiscan on
+Arbitrum Sepolia). These are real alerts from Robinhood Chain testnet
 (46630):
 
 ```
@@ -68,15 +69,30 @@ addressed to another bot (`/status@OtherBot`) are ignored.
 
 Copy `.env.example` to `.env` in this directory (the bot loads it on start; real environment variables win).
 
-| Variable                | Default                    | Meaning                                                                  |
-| ----------------------- | -------------------------- | ------------------------------------------------------------------------ |
-| `TELEGRAM_BOT_TOKEN`    | none                       | BotFather token. Required to run the bot, not for the dry run.           |
-| `STRIKE_CHAIN_ID`       | `46630`                    | 46630 is Robinhood Chain testnet, 4663 mainnet (once Strike is deployed) |
-| `STRIKE_RPC_URL`        | the chain's public RPC     | Your own RPC endpoint                                                    |
-| `DATA_DIR`              | `./data`                   | Where `state-<chainId>.json` (subscribers, log cursor) is kept           |
-| `POLL_INTERVAL_SECONDS` | `15`                       | How often to check for new logs                                          |
-| `LOG_BLOCK_RANGE`       | `50000`                    | Largest `getLogs` range; halved automatically when the RPC refuses       |
-| `TELEGRAM_API_URL`      | `https://api.telegram.org` | A self-hosted Bot API server (or a mock in tests)                        |
+| Variable                | Default                    | Meaning                                                            |
+| ----------------------- | -------------------------- | ------------------------------------------------------------------ |
+| `TELEGRAM_BOT_TOKEN`    | none                       | BotFather token. Required to run the bot, not for the dry run.     |
+| `STRIKE_CHAIN_ID`       | `46630`                    | A chain in the SDK's deployment map (see [Chains](#chains))        |
+| `STRIKE_RPC_URL`        | the chain's public RPC     | Your own RPC endpoint                                              |
+| `DATA_DIR`              | `./data`                   | Where `state-<chainId>.json` (subscribers, log cursor) is kept     |
+| `POLL_INTERVAL_SECONDS` | `15`                       | How often to check for new logs                                    |
+| `LOG_BLOCK_RANGE`       | `50000`                    | Largest `getLogs` range; halved automatically when the RPC refuses |
+| `TELEGRAM_API_URL`      | `https://api.telegram.org` | A self-hosted Bot API server (or a mock in tests)                  |
+
+## Chains
+
+The bot reads whichever deployment the SDK resolves for `STRIKE_CHAIN_ID`:
+
+| Chain                       | `STRIKE_CHAIN_ID` | Deployment                                                                                                                                                                                                                             |
+| --------------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Robinhood Chain testnet     | `46630` (default) | v2, the SDK's `46630` entry                                                                                                                                                                                                            |
+| Robinhood Chain testnet, v3 | `46630`           | v3, through the SDK's address overrides (`STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, … and `STRIKE_DEPLOY_BLOCK=126713718`; the list is in [the v3 epoch log](../../docs/testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)) |
+| Arbitrum Sepolia            | `421614`          | v3, the SDK's `421614` entry                                                                                                                                                                                                           |
+| Local devnet                | `31337`           | `scripts/demo-local.sh`                                                                                                                                                                                                                |
+| Robinhood Chain mainnet     | `4663`            | Once Strike is deployed there                                                                                                                                                                                                          |
+
+v3 emits the same seven events as v2. The state file is named by chain id only, so run v2 and v3 on Robinhood Chain
+testnet with separate `DATA_DIR`s. The tests and the sample alerts above use Robinhood Chain testnet v2.
 
 ## Run it locally
 

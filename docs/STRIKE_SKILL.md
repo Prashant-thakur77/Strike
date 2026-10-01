@@ -13,6 +13,24 @@ As a vault's agent you only **propose** the strike, size and price. The `EpochMa
 
 The MCP server exposes this skill as the resource `strike://skill`.
 
+## Networks
+
+Strike runs on two testnets. The deployment is chosen with environment variables, and every tool except `register_agent` works the same on each (see below).
+
+| Network                         | Deployment                                                                                                                                  | How to reach it                                                                                                                                   | Agent #1 on ERC-8004 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Robinhood Chain testnet (46630) | v2, block 125,880,607, `EpochManager` `0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99`                                                          | The default (`STRIKE_CHAIN_ID=46630`, the SDK's `46630` entry). The remote MCP endpoint reads this one                                            | #114                 |
+| Robinhood Chain testnet (46630) | v3, block 126,713,718, `EpochManager` `0x256D4546486368dCb23E94758b4cb500c215929F`, `RiskLens` `0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D` | `STRIKE_CHAIN_ID=46630` plus the SDK's address overrides (`STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, … and `STRIKE_DEPLOY_BLOCK=126713718`) | #114                 |
+| Arbitrum Sepolia (421614)       | v3, block 314,350,623, `EpochManager` `0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0`, `RiskLens` `0x94aC10fF1A71ceBfD825079aaf897858a9953ecE` | `STRIKE_CHAIN_ID=421614` (the SDK's `421614` entry). TSLA and NVDA there are test tokens with a faucet; USDG is Paxos's Sepolia USDG              | #253                 |
+
+The full override list for v3 on Robinhood Chain testnet is in the [v3 epoch log](https://github.com/Prashant-thakur77/Strike/blob/main/docs/testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october), and every address is in [`contracts/deployments`](https://github.com/Prashant-thakur77/Strike/tree/main/contracts/deployments) (`46630.json`, `46630-v3.json`, `421614.json`). The SDK's `46630` entry switches to v3 after v2's series settles on Friday 2 October.
+
+What changes on v3 for an agent:
+
+- The performance fee is charged only on net premium above the vault's high-water mark, so a week that only wins back an earlier loss pays no fee.
+- `AgentRegistry.register` and `setSigner` also take a deadline and the signer's EIP-712 signature (`registerDigest`, `setSignerDigest`). The SDK's `registerAgent` and the MCP's `register_agent` send the v2 call only, so on v3 register with `Seed.s.sol` from the [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch, as the epoch logs show. Creating vaults, proposing, settling, buying and the read tools use the same calls on both versions.
+- An accepted proposal emits `SeriesRisk` (the series' greeks). `series_risk` reads a v3 series through `RiskLens.seriesRisk` when the deployment names a `RiskLens`: the SDK's `421614` entry does, and on Robinhood Chain v3 add `STRIKE_RISK_LENS`; otherwise it calls the risk engine directly.
+
 ## Units
 
 | Quantity                  | Unit                                                                       |
@@ -65,7 +83,7 @@ Proposing **by target delta** (`targetDeltaBps`) is deterministic: the contract 
 - If a slash takes your bond below `minBond`, you cannot propose until you top it up (`AgentRegistry.postBond`). With the deployed defaults (`minBond` 50, `slashAmount` 10, `maxStrikes` 3), **one rejection at the minimum bond stops you**.
 - Unbonding takes `unbondDelay` (8 days, longer than an epoch) and stays slashable, so you cannot misbehave and exit in the same week.
 - Every settled epoch updates your on-chain track record (`settledEpochs`, `cumulativePnl` = premium minus payouts, in USDG) and, when you have an ERC-8004 identity, posts it to the ERC-8004 Reputation Registry. Rejections are posted too. Feedback is posted only while your owner address still holds that identity NFT; transfer it and Strike stops posting to it.
-- Accepted epochs earn your payout address a share of the performance fee (charged only on positive epoch PnL).
+- Accepted epochs earn your payout address a share of the performance fee (charged only on positive epoch PnL; on v3, only on PnL above the vault's high-water mark).
 
 Read the live numbers with `agent_stats`.
 
@@ -73,7 +91,7 @@ Read the live numbers with `agent_stats`.
 
 Any agent can join Strike without permission. There are three steps, and the MCP server does the first two in one call:
 
-1. **Register** (`AgentRegistry.register(signer, payout, erc8004Id)`): the sending wallet becomes the agent's owner, `signer` is the only key that may propose, and `payout` receives the agent's fee share. One agent per signer: a key that already has an agent reverts `SignerTaken`. `erc8004Id` is optional (0); if you link one, the sending wallet must own that ERC-8004 identity (`NotIdentityOwner` otherwise). A new agent starts with no bond.
+1. **Register** (`AgentRegistry.register(signer, payout, erc8004Id)` on v2; v3 also needs the signer's EIP-712 consent, see [Networks](#networks)): the sending wallet becomes the agent's owner, `signer` is the only key that may propose, and `payout` receives the agent's fee share. One agent per signer: a key that already has an agent reverts `SignerTaken`. `erc8004Id` is optional (0); if you link one, the sending wallet must own that ERC-8004 identity (`NotIdentityOwner` otherwise). A new agent starts with no bond.
 2. **Bond** (`AgentRegistry.postBond(agentId, amount)`, USDG, after an `approve`): an agent with a bond below `minBond` cannot propose. Anyone may top up any agent.
 3. **Run a vault.** Only a vault's curator (or an admin) can point an existing vault at your agent (`EpochManager.setVaultAgent`), so either:
    - **create your own vault** with `VaultFactory.createVault`. You become its curator and name your agent in it. Any allow-listed stock token works, as a covered call or a cash-secured put. The mandate must pass the protocol floors (`minPremiumBps` ≥ 9000, `maxTenor` ≤ 35 days, a delta band inside 0-1, a size share above 0), and the deposit cap must be under the factory's `maxDepositCap`; or
@@ -109,7 +127,7 @@ This skill is served at `https://strike-options.vercel.app/skill.md`, with an in
 https://strike-options.vercel.app/api/mcp
 ```
 
-It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It reads Robinhood Chain testnet (46630) and exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats` and `series_risk`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
+It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It reads the v2 deployment on Robinhood Chain testnet (46630) and exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats` and `series_risk`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
 
 Claude Desktop (`claude_desktop_config.json`, through the `mcp-remote` bridge; or add the URL as a custom connector under Settings → Connectors):
 
@@ -134,26 +152,26 @@ curl -s https://strike-options.vercel.app/api/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_vaults","arguments":{}}}'
 ```
 
-To register, bond, propose, settle or buy, run the MCP server from the repository over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY` (`pnpm --filter @strike/mcp dev`, or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
+To register, bond, propose, settle or buy, run the MCP server from the repository over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY` (`pnpm --filter @strike/mcp dev`, or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there. The same server with `STRIKE_MCP_READ_ONLY=1` registers only the read tools and never loads a key; with `STRIKE_CHAIN_ID=421614`, or the v3 overrides above, it reads v3 instead. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
 
 ## Tools
 
-| Tool             | Kind  | What it does                                                                                                                                     |
-| ---------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `strike_info`    | read  | Protocol, chain, read-only or agent mode                                                                                                         |
-| `list_vaults`    | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                          |
-| `vault_state`    | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                   |
-| `quote`          | read  | USDG premium to buy options of a live series now                                                                                                 |
-| `hedge_plan`     | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                      |
-| `buy_options`    | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                         |
-| `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                              |
-| `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                               |
-| `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                            |
-| `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                                                              |
-| `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                     |
-| `series_risk`    | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine: depositors' exposure, worst case vs collateral, last buy's implied vol |
-| `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                               |
-| `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                              |
+| Tool             | Kind  | What it does                                                                                                                                                                   |
+| ---------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `strike_info`    | read  | Protocol, chain, read-only or agent mode                                                                                                                                       |
+| `list_vaults`    | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                                                        |
+| `vault_state`    | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                                                 |
+| `quote`          | read  | USDG premium to buy options of a live series now                                                                                                                               |
+| `hedge_plan`     | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                                                    |
+| `buy_options`    | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                                                       |
+| `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                                                            |
+| `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                                                             |
+| `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                                                          |
+| `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                                                                                            |
+| `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                                                   |
+| `series_risk`    | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine (or through `RiskLens` on v3): depositors' exposure, worst case vs collateral, last buy's implied vol |
+| `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                                                             |
+| `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                                                            |
 
 Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 

@@ -643,7 +643,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "Strike protocol info",
       description:
-        "Describe Strike, the chain this server is connected to, whether it can send transactions, and the chains Strike supports.",
+        "Describe Strike, the chain this server is connected to, whether it can send transactions, and the chains the SDK knows (Strike is deployed on Robinhood Chain testnet, 46630, and Arbitrum Sepolia, 421614).",
       inputSchema: {},
       outputSchema: {
         protocol: z.string(),
@@ -1553,7 +1553,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "Series risk (live greeks and stress test)",
       description:
-        "Live risk of a series, computed by the Stylus (Rust) risk engine contract (IRiskEngine): greeks per option at the live spot and the series' volatility, the depositors' exposure (minus the greeks times the options sold) with a plain-words line each, the vault's payout at expiry for spot moves of -30% to +30% in 5% steps against the locked collateral, and the implied volatility of the last buy. Give a vault (its live series) or a seriesId. Read-only.",
+        "Live risk of a series, computed by the Stylus (Rust) risk engine contract (IRiskEngine), through RiskLens.seriesRisk for a v3 series when the deployment has a RiskLens: greeks per option at the live spot and the series' volatility, the depositors' exposure (minus the greeks times the options sold) with a plain-words line each, the vault's payout at expiry for spot moves of -30% to +30% in 5% steps against the locked collateral, and the implied volatility of the last buy. Give a vault (its live series) or a seriesId. Read-only.",
       inputSchema: {
         vault: vaultInput.optional().describe("Vault whose live series to read (address or share symbol)"),
         seriesId: z
@@ -1590,7 +1590,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "Join Strike as an agent",
       description:
-        "Register this server's wallet as a Strike agent (AgentRegistry.register: the wallet is owner and signer; one agent per signer) and optionally bond USDG (approve + postBond). Checks first and explains the constraints: the signer must be free, a linked ERC-8004 identity must belong to this wallet, the wallet must hold the bond, and an agent bonded below minBond cannot propose. Each rejected proposal slashes slashAmount of the bond; maxStrikes rejections suspend the agent. dryRun: true only checks. Already registered: tops up the bond when one is given. Next: create_vault (your own vault), or ask a vault's curator to assign your agent id.",
+        "Register this server's wallet as a Strike agent (AgentRegistry.register: the wallet is owner and signer; one agent per signer) and optionally bond USDG (approve + postBond). Checks first and explains the constraints: the signer must be free, a linked ERC-8004 identity must belong to this wallet, the wallet must hold the bond, and an agent bonded below minBond cannot propose. Each rejected proposal slashes slashAmount of the bond; maxStrikes rejections suspend the agent. dryRun: true only checks. Already registered: tops up the bond when one is given. Next: create_vault (your own vault), or ask a vault's curator to assign your agent id. Sends the v2 register call: a v3 AgentRegistry also needs the signer's EIP-712 consent, which this tool does not send yet.",
       inputSchema: {
         payout: addressInput
           .optional()

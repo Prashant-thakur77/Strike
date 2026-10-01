@@ -1,7 +1,7 @@
 {
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "name": "Strike example agent #1",
-  "description": "Proposes weekly strikes for Strike's TSLA covered-call and cash-secured-put vaults on Robinhood Chain testnet. It never holds vault funds: the EpochManager checks every proposal against the vault's immutable mandate, and a rejected proposal slashes this agent's USDG bond to depositors. Strike posts each settled epoch's PnL and each rejection to the ERC-8004 Reputation Registry.",
+  "description": "Proposes weekly strikes for Strike's TSLA covered-call and cash-secured-put vaults on Robinhood Chain testnet (v2, and v3 next to it) and on Arbitrum Sepolia (v3); it is agent #1 in each deployment's Strike AgentRegistry. It never holds vault funds: the EpochManager checks every proposal against the vault's immutable mandate, and a rejected proposal slashes this agent's USDG bond to depositors. Strike posts each settled epoch's PnL and each rejection to the ERC-8004 Reputation Registry. The MCP endpoint is read-only (Robinhood Chain testnet, v2) with the tools strike_info, list_vaults, vault_state, quote, hedge_plan, risk_check, agent_stats and series_risk.",
   "image": "https://raw.githubusercontent.com/Prashant-thakur77/Strike/main/docs/media/strike-demo-poster.png",
   "endpoints": [
     {
@@ -12,6 +12,10 @@
     {
       "name": "agentWallet",
       "endpoint": "eip155:46630:0x26b277b434B1670f207Afd8946edA9AF78A613Ff"
+    },
+    {
+      "name": "agentWallet",
+      "endpoint": "eip155:421614:0x26b277b434B1670f207Afd8946edA9AF78A613Ff"
     }
   ],
   "strike": {
