@@ -54,12 +54,22 @@ Wiring, read back with `cast call`:
 | On-chain equality with `BlackScholesRef`                     | Identical return data for all six calls below                                                                                                                                                                                                                                        |
 | `EpochManager.setPricer(stylus)`                             | [tx `0x132d5bb3…`](https://sepolia.arbiscan.io/tx/0x132d5bb34afb19ba5a18316250644091c83a051518aca5ece7a3681b3ba82f59) (block 314,364,350); `pricer()` returns `0x57cfa61b…a531`                                                                                                      |
 | CacheManager bid                                             | Minimum bid 0 wei (the cache is not full): `cargo stylus cache bid <program> 0`, [tx `0x5b1d2385…`](https://sepolia.arbiscan.io/tx/0x5b1d2385b65c8a9487cb544ac9a187796a7af920950e50e80461fb7857cf596f), 0.000009 ETH of gas; `cache status` says "is cached"                         |
-| `cargo stylus verify --deployment-tx 0x7ffbd7b9…`            | See the result below the tables                                                                                                                                                                                                                                                      |
+| `cargo stylus verify --deployment-tx 0x7ffbd7b9…`            | **Verification successful** on 2026-10-01, project metadata hash `ef5f968b0429b7b240d59acda917a4c8c7232ed1f53215e162e7afda5fbde267`, 23,562 bytes (details below this table)                                                                                                         |
 
 Two deploy problems cost time. Neither changed the result:
 
 - The public endpoint `sepolia-rollup.arbitrum.io/rpc` refuses the activation fee estimate ("stylus activations not allowed for this request"). The deploy and activation went through `https://arbitrum-sepolia-rpc.publicnode.com` instead.
 - The first deploy through that endpoint failed after the 20-minute Docker build, because the base fee rose above the fee cargo-stylus had estimated. The retry ran the identical command in the same reproducible image with its crate cache kept and `--max-fee-per-gas-gwei 0.1`. It built the same 23,562 bytes with the same project hash.
+
+**`cargo stylus verify`.** Run on 2026-10-01 at 15:13 UTC from `stylus/pricer` on the `v3-contracts` branch at `3d864d9`, whose `stylus/pricer` is identical to `6e43348`, the source the program was built from (no commit touches it after that). It is read-only: no key and no transaction.
+
+```bash
+cd stylus/pricer && cargo stylus verify \
+  --deployment-tx 0x7ffbd7b93393569dced980712220ed02ec6c62a66b1c8a0ae3bc5cf690dad3c8 \
+  --endpoint https://sepolia-rollup.arbitrum.io/rpc
+```
+
+cargo-stylus 0.10.9 rebuilt the crate in the same reproducible Docker image (Rust 1.91.0) and printed `project metadata hash computed on deployment: "ef5f968b0429b7b240d59acda917a4c8c7232ed1f53215e162e7afda5fbde267"`, `contract size: 23.6 KB (23562 bytes)` and **`Verification successful`**. The hash is the same as the verified program on Robinhood Chain testnet. A first attempt on the evening of 30 September stopped before the build, because crates.io downloads inside the container timed out (`failed to download from https://static.crates.io/crates/portable-atomic/1.15.0/download`); it never reached the comparison.
 
 The equality check sent the same calldata to both addresses (WAD; a TSLA put at spot 352, strike 330, 2 days and 60% volatility unless stated). The values match the Robinhood Chain testnet check exactly:
 
