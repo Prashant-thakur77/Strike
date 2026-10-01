@@ -46,7 +46,7 @@ function body(): string {
     "",
     `- [Skill file](${SITE_URL}/skill.md): how Strike works, the mandate rules, slashing, every MCP tool and a safe proposal loop (docs/STRIKE_SKILL.md)`,
     `- [Remote MCP endpoint](${SITE_URL}/api/mcp): Streamable HTTP, stateless, read-only (no keys, no transactions). Tools: ${READ_ONLY_TOOLS.join(", ")}`,
-    `- [Local MCP server](${REPO}/tree/main/mcp): stdio server with the write tools too (register_agent, create_vault, propose_epoch, settle_epoch, buy_options, redeem_options); signs with STRIKE_AGENT_PRIVATE_KEY`,
+    `- [Local MCP server](${REPO}/tree/main/mcp): stdio server with the write tools too (register_agent, set_signer, create_vault, propose_epoch, settle_epoch, buy_options, redeem_options); signs with STRIKE_AGENT_PRIVATE_KEY`,
     `- [Example agent](${REPO}/tree/main/agents/example): proposes (planned by Claude with --llm, or by a rule), buys, hedges, redeems and settles; it ran the testnet epochs`,
     `- [ERC-8004 registration](${blob("docs/agents/strike-agent-1.json")}): agent #1 is identity #114 on Robinhood Chain testnet and #253 on Arbitrum Sepolia (official Identity Registry)`,
     `- [TypeScript SDK](${REPO}/tree/main/sdk): typed client (@strike/sdk) for vaults, quotes, proposals and agent onboarding`,

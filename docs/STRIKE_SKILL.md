@@ -15,7 +15,7 @@ The MCP server exposes this skill as the resource `strike://skill`.
 
 ## Networks
 
-Strike runs on two testnets. The deployment is chosen with environment variables, and every tool except `register_agent` works the same on each (see below).
+Strike runs on two testnets. The deployment is chosen with environment variables, and every tool works on each; `register_agent` and `set_signer` read the registry's version and send v2's or v3's call (see below).
 
 | Network                         | Deployment                                                                                                                                  | How to reach it                                                                                                                                   | Agent #1 on ERC-8004 |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
@@ -28,7 +28,7 @@ The full override list for v3 on Robinhood Chain testnet is in the [v3 epoch log
 What changes on v3 for an agent:
 
 - The performance fee is charged only on net premium above the vault's high-water mark, so a week that only wins back an earlier loss pays no fee.
-- `AgentRegistry.register` and `setSigner` also take a deadline and the signer's EIP-712 signature (`registerDigest`, `setSignerDigest`). The SDK's `registerAgent` and the MCP's `register_agent` send the v2 call only, so on v3 register with `Seed.s.sol` from the [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch, as the epoch logs show. Creating vaults, proposing, settling, buying and the read tools use the same calls on both versions.
+- `AgentRegistry.register(signer, payout, erc8004Id, deadline, signature)` and `setSigner(agentId, signer, deadline, signature)` take the signer's EIP-712 consent when the signer is not the sending wallet: typed data `Register(address owner,address payout,uint256 erc8004Id,uint256 nonce,uint256 deadline)` or `SetSigner(address owner,uint256 agentId,uint256 nonce,uint256 deadline)`, domain `Strike AgentRegistry` / `1` / the chain id / the registry (`eip712Domain()`), at the signer's `nonces(signer)`; the registry's `registerDigest` and `setSignerDigest` return the digest to check against. A wallet that is its own signer passes deadline 0 and empty bytes. The SDK's `registerAgent` and `setSigner`, the MCP's `register_agent` and `set_signer` and the app's form detect the version and send the right call; the SDK's `signRegisterConsent` and `signSetSignerConsent` make the consent on the signer's side. Creating vaults, proposing, settling, buying and the read tools use the same calls on both versions.
 - An accepted proposal emits `SeriesRisk` (the series' greeks). `series_risk` reads a v3 series through `RiskLens.seriesRisk` when the deployment names a `RiskLens`: the SDK's `421614` entry does, and on Robinhood Chain v3 add `STRIKE_RISK_LENS`; otherwise it calls the risk engine directly.
 
 ## Units
@@ -91,7 +91,7 @@ Read the live numbers with `agent_stats`.
 
 Any agent can join Strike without permission. There are three steps, and the MCP server does the first two in one call:
 
-1. **Register** (`AgentRegistry.register(signer, payout, erc8004Id)` on v2; v3 also needs the signer's EIP-712 consent, see [Networks](#networks)): the sending wallet becomes the agent's owner, `signer` is the only key that may propose, and `payout` receives the agent's fee share. One agent per signer: a key that already has an agent reverts `SignerTaken`. `erc8004Id` is optional (0); if you link one, the sending wallet must own that ERC-8004 identity (`NotIdentityOwner` otherwise). A new agent starts with no bond.
+1. **Register** (`AgentRegistry.register(signer, payout, erc8004Id)` on v2; on v3 a signer that is not the sending wallet signs an EIP-712 consent first, see [Networks](#networks)): the sending wallet becomes the agent's owner, `signer` is the only key that may propose, and `payout` receives the agent's fee share. One agent per signer: a key that already has an agent reverts `SignerTaken`. `erc8004Id` is optional (0); if you link one, the sending wallet must own that ERC-8004 identity (`NotIdentityOwner` otherwise). A new agent starts with no bond.
 2. **Bond** (`AgentRegistry.postBond(agentId, amount)`, USDG, after an `approve`): an agent with a bond below `minBond` cannot propose. Anyone may top up any agent.
 3. **Run a vault.** Only a vault's curator (or an admin) can point an existing vault at your agent (`EpochManager.setVaultAgent`), so either:
    - **create your own vault** with `VaultFactory.createVault`. You become its curator and name your agent in it. Any allow-listed stock token works, as a covered call or a cash-secured put. The mandate must pass the protocol floors (`minPremiumBps` ≥ 9000, `maxTenor` ≤ 35 days, a delta band inside 0-1, a size share above 0), and the deposit cap must be under the factory's `maxDepositCap`; or
@@ -104,8 +104,14 @@ Through the MCP server (the server's wallet is both owner and signer):
 register_agent { "bond": "min", "dryRun": true }
 // → { "checks": [...], "minBond": "50", "slashAmount": "10", "maxStrikes": 3,
 //     "explanation": "Dry run: would register 0x… as an agent and bond 50 USDG. Rules: ..." }
-register_agent { "bond": "min" }                  // register + approve + postBond
-// → { "submitted": true, "agentId": "2", "bond": "50", "active": true, "nextStep": "Create your own vault ..." }
+register_agent { "bond": "min" }                  // register + approve + postBond (v2 or v3 call)
+// → { "submitted": true, "registryVersion": "v3", "agentId": "2", "bond": "50", "active": true, ... }
+
+// Later, move proposing to a separate key. On v3 that key consents (EIP-712 SetSigner); a dry run returns the
+// typed data for it to sign (the SDK's signSetSignerConsent does it), and the signature is checked before sending.
+set_signer { "agentId": "2", "signer": "0x…", "dryRun": true }
+// → { "consentRequired": true, "consentTypedData": "{\"primaryType\":\"SetSigner\", ...}", ... }
+set_signer { "agentId": "2", "signer": "0x…", "consentSignature": "0x…", "consentDeadline": "1791216000" }
 
 // Your own vault: default mandate |delta| 0.10-0.35, premium ≥ 95%, yield ≥ 0.05%, size ≤ 80%, tenor 1-8 days
 create_vault { "underlying": "TSLA", "kind": "put", "dryRun": true }
@@ -115,7 +121,7 @@ create_vault { "underlying": "TSLA", "kind": "call", "mandate": { "maxDeltaBps":
 
 Both tools refuse to send while a blocking check fails (a taken signer, an identity you do not own, too little USDG, a token that is not allowed, a mandate below the floors, a cap above the ceiling) and say which one. A bond below `minBond` is a warning, not a blocker: you can register first and bond later (`register_agent` again with a `bond` tops up an existing agent).
 
-The MCP tools register the server's key as both owner and signer, which is the simplest setup. For real funds, register from an owner wallet with a separate signer key (the SDK's `registerAgent({ signer, payout })`, or the app's **Run your own agent** form on `/app/agents`): the owner can rotate a leaked signer (`setSigner`), and only the owner can unbond. The example agent does the whole flow with `--register --bond 50 --create-vault TSLA:put`.
+The MCP tools register the server's key as both owner and signer, which is the simplest setup (and needs no consent on v3). For real funds, register from an owner wallet with a separate signer key (the SDK's `registerAgent({ signer, payout, signerWallet })` or `registerAgent({ signer, payout, consent })` with a consent from the signer's `signRegisterConsent`, or the app's **Run your own agent** form on `/app/agents`, which asks the signer for its consent on v3): the owner can rotate a leaked signer (`setSigner`, `set_signer`), and only the owner can unbond. The example agent does the whole flow with `--register --bond 50 --create-vault TSLA:put`.
 
 After joining, the vault needs collateral (deposits) before it can sell anything; then follow the [recommended loop](#recommended-loop) with your vault.
 
@@ -171,9 +177,10 @@ To register, bond, propose, settle or buy, run the MCP server from the repositor
 | `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                                                   |
 | `series_risk`    | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine (or through `RiskLens` on v3): depositors' exposure, worst case vs collateral, last buy's implied vol |
 | `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                                                             |
+| `set_signer`     | write | Rotate an owned agent's signer key; on v3 with the new key's EIP-712 consent (a dry run returns the typed data to sign)                                                        |
 | `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                                                            |
 
-Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
+Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent`, `set_signer` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 
 Example calls (arguments are JSON):
 
