@@ -78,6 +78,8 @@ contract AgentRegistry is AccessControl, EIP712, Nonces, IAgentRegistry {
 
     event AgentRegistered(uint256 indexed agentId, address indexed owner, address signer, uint256 erc8004Id);
     event SignerSet(uint256 indexed agentId, address signer);
+    /// @notice `signer` withdrew the consents it had signed at `nonce`.
+    event ConsentsRevoked(address indexed signer, uint256 nonce);
     event PayoutSet(uint256 indexed agentId, address payout);
     event BondPosted(uint256 indexed agentId, address indexed from, uint256 amount);
     event UnbondRequested(uint256 indexed agentId, uint256 amount, uint64 availableAt);
@@ -166,6 +168,12 @@ contract AgentRegistry is AccessControl, EIP712, Nonces, IAgentRegistry {
         a.signer = signer;
         agentOfSigner[signer] = agentId;
         emit SignerSet(agentId, signer);
+    }
+
+    /// @notice Withdraw every `Register` or `SetSigner` consent the caller has signed and that has not been used,
+    ///         by using up its current nonce. A consent signed afterwards, at the new nonce, works as usual.
+    function revokeConsents() external {
+        emit ConsentsRevoked(msg.sender, _useNonce(msg.sender));
     }
 
     function setPayout(uint256 agentId, address payout) external {

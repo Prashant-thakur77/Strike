@@ -19,7 +19,8 @@ contract RiskLens {
     EpochManager public immutable manager;
 
     /// @notice Risk of one series. Greeks are per option (WAD) and describe the option holder's side; the vault is
-    ///         short, so its exposure is minus the greeks times the options sold.
+    ///         short, so its exposure is minus the greeks times the options sold. A settled or cancelled series has
+    ///         no exposure left (its payout is fixed in `escrow`, or refunded): every loss is 0.
     struct SeriesRisk {
         uint256 spot; // WAD per raw token, the price the risk is computed at
         uint256 sigma; // annualised volatility, WAD
@@ -86,6 +87,11 @@ contract RiskLens {
         IRiskEngine engine = manager.pricer();
         (uint8 tokenDecimals,,,,,,) = manager.underlyings(s.underlying);
         (r.spot, r.sigma, r.sold, r.collateral, r.shocks) = (spot, sigma, s.sold, s.collateral, shocks);
+        // Settled: the payout is fixed. Cancelled: premium refunded, collateral released. Nothing more can be lost.
+        if (s.settled || s.cancelled) {
+            r.losses = new uint256[](shocks.length);
+            return r;
+        }
         r.tenor = s.expiry > block.timestamp ? s.expiry - block.timestamp : 0;
         if (r.tenor != 0) {
             (r.delta, r.gamma, r.vega, r.theta) = engine.greeks(spot, s.strike, r.tenor, sigma, s.isCall);

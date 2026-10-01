@@ -30,6 +30,15 @@ On branch `v3-contracts`. The live deployment keeps the v2 contracts; these chan
 - Gas ([gas.md](docs/gas.md)): `impliedVol` costs 2.4–3.8× less in Stylus than in Solidity; `scenarioLoss` is cheaper in Stylus from about 38 shocks. `scripts/stylus-gas.sh` measures the new calls and checks that both pricers return the same values; `scripts/stylus-e2e.sh` also measures `RiskLens.seriesRisk` (147k gas with the Solidity pricer, 183k with Stylus); `proposeByDelta` with the Stylus pricer costs 0.63M L2 gas against 1.89M.
 - Tests (475 Foundry tests, from 432): fee carry-forward unit, fuzz and full-epoch tests, a fee high-water-mark invariant, signer-consent tests (valid, missing, wrong signer, replay, expired, bound to owner, payout, identity and agent), active-agent tests, one test per mandate reason code. Three new Halmos properties (carry-forward bookkeeping, `chargeFee` matches `computeFee`, the mandate reason is the first broken rule).
 
+### Fixed
+
+Findings of the internal review of v3 ([docs/security/review-2026-10-01-v3.md](https://github.com/Prashant-thakur77/Strike/blob/main/docs/security/review-2026-10-01-v3.md) on `main`): 4 Low, 3 Info, no High or Medium. The deployed v3 keeps the old behaviour until the next deployment.
+
+- `AgentRegistry.revokeConsents()` (event `ConsentsRevoked(signer, nonce)`): a signer uses up its current nonce and so withdraws every `Register` or `SetSigner` consent it signed and has not used. Before, a consent could not be withdrawn before its deadline, and the only remedy (self-registration) bound the key to a throwaway agent for good (L-01).
+- `EpochManager.openEpoch` reverts `AgentNotActive(agentId)` unless the vault's agent is active, for the signer and for the keeper, so an epoch nobody can propose in is never opened and the vault is not locked for `proposalTimeout` by a suspended, retired or under-bonded agent's key (L-03). `EpochManager` is 23,713 bytes, 863 under the limit.
+- `RiskLens.seriesRisk` and `seriesRiskAt` report zero exposure (every loss, the worst case and the greeks are 0; `sold` and `collateral` are still returned) for a settled or cancelled series, instead of pricing it as if it were open (L-04).
+- Tests: 21 audit regression tests in `contracts/test/audit/AuditV3*.t.sol` (`test_AUDIT3_*`; one runs only with `PRICER_CLI`): the consent's binding to the chain id and the registry, signature malleability, distinct type hashes, nonces; the fee carry under dilution and exit, its bookkeeping over random epochs, slash compensation and abort; the active-agent rule at `openEpoch`; a pricer without the risk engine; `greeks` succeeding wherever `quote` does; the risk engine at the corners of its domain against the Rust twin; implied-volatility termination for any price; overflow on both sides; `DecisionLog` with v3 signer rotation. `DecisionLog.sol` is copied from `main` byte for byte so that its test runs here. 526 Foundry tests pass, 535 with the 9 FFI tests under `PRICER_CLI`; 28 Rust tests.
+
 ## [0.8.0] - 2026-09-30
 
 ### Added

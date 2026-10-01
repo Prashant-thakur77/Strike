@@ -342,9 +342,11 @@ contract EpochManager is AccessControl, Pausable, ReentrancyGuardTransient {
     // ------------------------------------------------------------------ lifecycle
 
     /// @notice Start an epoch: checks the feed and locks the vault (deposits and redemptions queue from here on).
+    ///         The vault's agent must be active, since nobody else could propose in the epoch.
     function openEpoch(address vault) external whenNotPaused nonReentrant {
         VaultConfig storage v = _vault(vault);
         if (msg.sender != agents.signerOf(v.agentId) && !hasRole(KEEPER_ROLE, msg.sender)) revert NotAgent(msg.sender);
+        if (!agents.isActive(v.agentId)) revert AgentNotActive(v.agentId);
         VaultEpoch storage ep = epochs[vault];
         _expectState(ep, EpochState.Idle);
         _requireMarketOpen();
