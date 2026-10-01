@@ -13,3 +13,4 @@ export { testStockTokenAbi } from "./testStockToken.js";
 export { decisionLogAbi } from "./decisionLog.js";
 export { riskEngineAbi } from "./riskEngine.js";
 export { riskLensAbi } from "./riskLens.js";
+export { agentRegistryV3Abi } from "./agentRegistryV3.js";

@@ -16,7 +16,7 @@ import {
   toHex,
 } from "viem";
 
-/** A function's canned result, or a function of its decoded arguments. */
+/** A function's canned result, or a (possibly async) function of its decoded arguments. */
 export type FakeResult = unknown | ((args: readonly unknown[]) => unknown);
 
 /** Throw from a fake function to revert with a contract custom error the caller's ABI can decode. */
@@ -141,13 +141,21 @@ export function fakeChain(
         case "eth_call": {
           const [{ to, data }] = params as [{ to: Address; data: Hex }];
           const contract = contractAt(to);
-          const { functionName, args } = decodeFunctionData({ abi: contract.abi, data });
+          let decoded: { functionName: string; args?: readonly unknown[] };
+          try {
+            decoded = decodeFunctionData({ abi: contract.abi, data });
+          } catch {
+            // A function the contract does not have: a Solidity contract without a fallback reverts with no data.
+            calls.push(`unknown:${data.slice(0, 10)}`);
+            throw Object.assign(new Error("execution reverted"), { code: 3, data: "0x" });
+          }
+          const { functionName, args } = decoded;
           calls.push(functionName);
           if (!(functionName in contract.fns)) throw new Error(`unmocked ${functionName} on ${to}`);
           const fn = contract.fns[functionName];
           let result: unknown;
           try {
-            result = typeof fn === "function" ? fn(args ?? []) : fn;
+            result = typeof fn === "function" ? await fn(args ?? []) : fn;
           } catch (err) {
             if (!(err instanceof FakeRevert)) throw err;
             const data = encodeErrorResult({

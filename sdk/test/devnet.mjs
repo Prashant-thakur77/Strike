@@ -22,11 +22,29 @@ function has(cmd) {
 }
 
 /** Why the devnet cannot start here (null when it can). Set STRIKE_DEVNET=0 to skip on purpose. */
-export function devnetUnavailableReason() {
+export function devnetUnavailableReason(dir = contractsDir) {
   if (process.env.STRIKE_DEVNET === "0") return "STRIKE_DEVNET=0";
   if (!has("anvil") || !has("forge")) return "anvil and forge are not on PATH (install Foundry)";
-  if (!existsSync(join(contractsDir, "lib/forge-std/src")))
-    return "contracts/lib submodules are not initialised";
+  if (!existsSync(join(dir, "lib/forge-std/src"))) return `${dir}/lib submodules are not initialised`;
+  return null;
+}
+
+/**
+ * The `contracts/` directory of a checkout of the `v3-contracts` branch: STRIKE_V3_CONTRACTS, else a git worktree of
+ * this repository on that branch (`git worktree add <dir> v3-contracts`). Null when there is none.
+ */
+export function v3ContractsDir() {
+  const fromEnv = process.env.STRIKE_V3_CONTRACTS;
+  if (fromEnv) return existsSync(join(fromEnv, "script/Deploy.s.sol")) ? fromEnv : null;
+  const list = spawnSync("git", ["worktree", "list", "--porcelain"], { cwd: contractsDir, encoding: "utf8" });
+  if (list.status !== 0) return null;
+  for (const block of list.stdout.split("\n\n")) {
+    const dir = block.match(/^worktree (.+)$/m)?.[1];
+    if (dir && /^branch refs\/heads\/v3-contracts$/m.test(block)) {
+      const contracts = join(dir, "contracts");
+      return existsSync(join(contracts, "script/Deploy.s.sol")) ? contracts : null;
+    }
+  }
   return null;
 }
 
@@ -75,9 +93,11 @@ function run(cmd, args, opts) {
 
 /**
  * Start anvil on a free port and deploy Strike with `script/Deploy.s.sol` and `script/Seed.s.sol`. Addresses on
- * 31337 are deterministic. Call `stop()` when done.
+ * 31337 are deterministic. Call `stop()` when done. `contractsDir` deploys another checkout (for example v3 from
+ * {@link v3ContractsDir}); its deployment files are written to that checkout's gitignored `deployments/31337*.json`.
  */
-export async function startDevnet() {
+export async function startDevnet(opts = {}) {
+  const dir = opts.contractsDir ?? contractsDir;
   const port = await freePort();
   const rpcUrl = `http://127.0.0.1:${port}`;
   const anvil = spawn(
@@ -100,12 +120,12 @@ export async function startDevnet() {
         "forge",
         ["script", script, "--rpc-url", rpcUrl, "--broadcast", "--silent", "--skip", "test"],
         {
-          cwd: contractsDir,
+          cwd: dir,
           env,
         },
       );
     }
-    const read = (f) => JSON.parse(readFileSync(join(contractsDir, "deployments", f), "utf8"));
+    const read = (f) => JSON.parse(readFileSync(join(dir, "deployments", f), "utf8"));
     return { rpcUrl, port, deployment: read("31337.json"), vaults: read("31337-vaults.json"), stop };
   } catch (err) {
     stop();

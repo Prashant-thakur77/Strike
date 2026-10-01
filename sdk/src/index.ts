@@ -2,6 +2,25 @@ export const STRIKE_SDK_VERSION = "0.1.0";
 
 export * from "./abi/index.js";
 export * from "./chains.js";
+export {
+  AGENT_REGISTRY_EIP712,
+  DEFAULT_CONSENT_TTL,
+  REGISTER_CONSENT_TYPES,
+  SET_SIGNER_CONSENT_TYPES,
+  consentSignerOf,
+  defaultAgentRegistryDomain,
+  registerConsentTypedData,
+  setSignerConsentTypedData,
+} from "./consent.js";
+export type {
+  AgentRegistryDomain,
+  RegisterConsentMessage,
+  RegisterConsentTypedData,
+  RegistryVersion,
+  SetSignerConsentMessage,
+  SetSignerConsentTypedData,
+  SignerConsent,
+} from "./consent.js";
 export * from "./deployments.js";
 export { createStrikeClient, resolveAddresses } from "./client.js";
 export type { StrikeAddresses, StrikeClient, StrikeClientConfig, StrikeViemClients } from "./client.js";

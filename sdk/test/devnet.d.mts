@@ -37,7 +37,10 @@ export interface Devnet {
 }
 
 /** Why the devnet cannot start here (null when it can). Set STRIKE_DEVNET=0 to skip on purpose. */
-export declare function devnetUnavailableReason(): string | null;
+export declare function devnetUnavailableReason(contractsDir?: string): string | null;
 
-/** Start anvil on a free port and deploy Strike with the Foundry Deploy and Seed scripts. */
-export declare function startDevnet(): Promise<Devnet>;
+/** `contracts/` of a `v3-contracts` checkout: STRIKE_V3_CONTRACTS, else a git worktree on that branch; null if none. */
+export declare function v3ContractsDir(): string | null;
+
+/** Start anvil on a free port and deploy Strike (from `contractsDir`, default this repo's) with Deploy and Seed. */
+export declare function startDevnet(opts?: { contractsDir?: string }): Promise<Devnet>;

@@ -35,21 +35,24 @@ for (const name of contracts) {
   );
   exports.push(`export { ${camel(name)}Abi } from "./${camel(name)}.js";`);
 }
-// v3 risk engine ABIs, from the `v3-contracts` branch (deployed next to v2; main does not build them). Regenerate with
-// STRIKE_V3_OUT=<the v3 worktree's forge out dir>; without it the committed files are kept. `IRiskEngine` declares no
-// errors, so the pricer's `PricerInputOutOfRange(uint8)` is added for viem to decode reverts.
+// v3 ABIs, from the `v3-contracts` branch (deployed next to v2; main does not build them): the risk engine and RiskLens,
+// and v3's AgentRegistry (EIP-712 signer consent on `register` and `setSigner`), exported as `agentRegistryV3Abi` next
+// to v2's `agentRegistryAbi`. Regenerate with STRIKE_V3_OUT=<the v3 worktree's forge out dir>; without it the committed
+// files are kept. `IRiskEngine` declares no errors, so the pricer's `PricerInputOutOfRange(uint8)` is added to the two
+// risk ABIs for viem to decode reverts.
 const v3Out = process.env.STRIKE_V3_OUT;
 const pricerError = JSON.parse(
   readFileSync(join(out, "BlackScholesRef.sol", "BlackScholesRef.json"), "utf8"),
 ).abi.filter((x) => x.type === "error" && x.name === "PricerInputOutOfRange");
-for (const [name, exportName] of [
-  ["IRiskEngine", "riskEngine"],
-  ["RiskLens", "riskLens"],
+for (const [name, exportName, pricerErrors] of [
+  ["IRiskEngine", "riskEngine", true],
+  ["RiskLens", "riskLens", true],
+  ["AgentRegistry", "agentRegistryV3", false],
 ]) {
   const file = join(abiDir, `${exportName}.ts`);
   if (v3Out) {
     let abi = JSON.parse(readFileSync(join(v3Out, `${name}.sol`, `${name}.json`), "utf8")).abi;
-    if (!abi.some((x) => x.type === "error" && x.name === "PricerInputOutOfRange"))
+    if (pricerErrors && !abi.some((x) => x.type === "error" && x.name === "PricerInputOutOfRange"))
       abi = [...abi, ...pricerError];
     writeFileSync(
       file,

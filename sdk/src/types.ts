@@ -1,4 +1,5 @@
-import type { Address, Hex, TransactionReceipt } from "viem";
+import type { Address, Hex, TransactionReceipt, WalletClient } from "viem";
+import type { SignerConsent } from "./consent.js";
 import type { AgentStatus, EpochState, FeedStatus, MandateReason } from "./names.js";
 
 /** A vault's immutable limits (`MandateGuard.Mandate`). Bps are of 1 (1000 = 0.10 delta, 9500 = 95%). */
@@ -275,6 +276,31 @@ export interface RegisterAgentParams {
   payout: Address;
   /** ERC-8004 identity to link (0 or omitted: none). The sending wallet must own it on the identity registry. */
   erc8004Id?: bigint;
+  /**
+   * v3 only, when the signer is not the sending wallet: the signer's EIP-712 `Register` consent (from its
+   * `signRegisterConsent`). Checked before sending: it must recover to `signer` and be unexpired.
+   */
+  consent?: SignerConsent;
+  /** v3 only, instead of `consent`: a wallet holding the signer key, asked to sign the consent. */
+  signerWallet?: WalletClient;
+  /** v3 only, with `signerWallet`: last timestamp the consent is valid (default: one hour after the latest block). */
+  deadline?: bigint;
+}
+
+/** Options of `setSigner` (v3 only; v2 takes no consent). */
+export interface SetSignerOptions {
+  /** The new signer's EIP-712 `SetSigner` consent (from its `signSetSignerConsent`). */
+  consent?: SignerConsent;
+  /** Instead of `consent`: a wallet holding the new signer key, asked to sign the consent. */
+  signerWallet?: WalletClient;
+  /** With `signerWallet`: last timestamp the consent is valid (default: one hour after the latest block). */
+  deadline?: bigint;
+}
+
+/** Outcome of `setSigner`, from the `SignerSet` event. */
+export interface SetSignerResult extends TxResult {
+  agentId: bigint;
+  signer: Address;
 }
 
 /** Outcome of `registerAgent`, from the `AgentRegistered` event. */

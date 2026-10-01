@@ -7,12 +7,17 @@ import {
   type Hex,
   type PublicClient,
   type WalletClient,
+  BaseError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
   erc20Abi,
   getAddress,
+  hashTypedData,
   parseEventLogs,
 } from "viem";
 import {
   agentRegistryAbi,
+  agentRegistryV3Abi,
   blackScholesRefAbi,
   epochManagerAbi,
   feeManagerAbi,
@@ -23,6 +28,18 @@ import {
   strikeVaultAbi,
   vaultFactoryAbi,
 } from "./abi/index.js";
+import {
+  type AgentRegistryDomain,
+  DEFAULT_CONSENT_TTL,
+  type RegisterConsentTypedData,
+  type RegistryVersion,
+  type SetSignerConsentTypedData,
+  type SignerConsent,
+  consentSignerOf,
+  defaultAgentRegistryDomain,
+  registerConsentTypedData,
+  setSignerConsentTypedData,
+} from "./consent.js";
 import { deployments, getDeployment } from "./deployments.js";
 import { StrikeError } from "./errors.js";
 import { mandateProblems } from "./mandate.js";
@@ -51,6 +68,8 @@ import type {
   RegisterAgentParams,
   RegisterAgentResult,
   SeriesState,
+  SetSignerOptions,
+  SetSignerResult,
   SettleResult,
   TxResult,
   VaultState,
@@ -110,6 +129,11 @@ export interface StrikeClientConfig {
   riskEngine?: Address;
   /** RiskLens (v3) for `seriesRisk`; by default the deployment map's `riskLens`, when it has one. */
   riskLens?: Address;
+  /**
+   * The AgentRegistry's version. By default the deployment map's `version` when the registry is the map's own, else
+   * read from the chain (a v3 registry answers `REGISTER_TYPEHASH()`).
+   */
+  registryVersion?: RegistryVersion;
 }
 
 /** The viem clients a Strike client uses. */
@@ -489,6 +513,211 @@ export function createStrikeClient(config: StrikeClientConfig) {
     return { minBond, slashAmount, maxStrikes, unbondDelay, identityRegistry, reputationRegistry };
   }
 
+  // ------------------------------------------------------------------ registry version and signer consent (v3)
+
+  let registryVersionCache: Promise<RegistryVersion> | undefined;
+  let registryDomainCache: Promise<AgentRegistryDomain> | undefined;
+
+  /** "v3" when the registry takes an EIP-712 signer consent on `register` and `setSigner`, else "v2". */
+  function registryVersion(): Promise<RegistryVersion> {
+    registryVersionCache ??= (async (): Promise<RegistryVersion> => {
+      if (config.registryVersion) return config.registryVersion;
+      const mappedVersion = mapped?.version;
+      if (
+        mapped &&
+        (mappedVersion === "v2" || mappedVersion === "v3") &&
+        getAddress(mapped.agentRegistry) === addresses.agentRegistry
+      ) {
+        return mappedVersion;
+      }
+      try {
+        await publicClient.readContract({
+          address: addresses.agentRegistry,
+          abi: agentRegistryV3Abi,
+          functionName: "REGISTER_TYPEHASH",
+        });
+        return "v3";
+      } catch (err) {
+        // A v2 registry has no such function: the call reverts or returns no data. Anything else is a real error.
+        const missing =
+          err instanceof BaseError &&
+          err.walk(
+            (e) => e instanceof ContractFunctionRevertedError || e instanceof ContractFunctionZeroDataError,
+          );
+        if (missing) return "v2";
+        throw err;
+      }
+    })();
+    registryVersionCache.catch(() => (registryVersionCache = undefined));
+    return registryVersionCache;
+  }
+
+  /** The registry's EIP-712 domain: `eip712Domain()` (EIP-5267), else the constructor's name and version. */
+  function registryDomain(): Promise<AgentRegistryDomain> {
+    registryDomainCache ??= (async () => {
+      try {
+        const [, name, version, domainChainId, verifyingContract] = await publicClient.readContract({
+          address: addresses.agentRegistry,
+          abi: agentRegistryV3Abi,
+          functionName: "eip712Domain",
+        });
+        return {
+          name,
+          version,
+          chainId: Number(domainChainId),
+          verifyingContract: getAddress(verifyingContract),
+        };
+      } catch {
+        return defaultAgentRegistryDomain(chainId, addresses.agentRegistry);
+      }
+    })();
+    return registryDomainCache;
+  }
+
+  async function signerNonce(signer: Address): Promise<bigint> {
+    return publicClient.readContract({
+      address: addresses.agentRegistry,
+      abi: agentRegistryV3Abi,
+      functionName: "nonces",
+      args: [signer],
+    });
+  }
+
+  async function consentDeadline(deadline: bigint | undefined): Promise<bigint> {
+    return deadline ?? (await blockTimestamp()) + DEFAULT_CONSENT_TTL;
+  }
+
+  async function requireV3(what: string): Promise<void> {
+    if ((await registryVersion()) !== "v3") {
+      throw new StrikeError(`${what}: this AgentRegistry is v2, which takes no signer consent`);
+    }
+  }
+
+  /**
+   * The `Register` typed data `signer` signs so that `owner` can register it, at the signer's current nonce. Checked
+   * against the registry's own `registerDigest`, so a wallet is never asked to sign a message the contract would
+   * not accept.
+   */
+  async function registerConsentData(p: {
+    signer: Address;
+    owner: Address;
+    payout: Address;
+    erc8004Id?: bigint;
+    deadline?: bigint;
+  }): Promise<RegisterConsentTypedData> {
+    await requireV3("register consent");
+    const signer = getAddress(p.signer);
+    const owner = getAddress(p.owner);
+    const payout = getAddress(p.payout);
+    const erc8004Id = p.erc8004Id ?? 0n;
+    const [domain, nonce, deadline] = await Promise.all([
+      registryDomain(),
+      signerNonce(signer),
+      consentDeadline(p.deadline),
+    ]);
+    const typedData = registerConsentTypedData(domain, { owner, payout, erc8004Id, nonce, deadline });
+    const onChain = await publicClient.readContract({
+      address: addresses.agentRegistry,
+      abi: agentRegistryV3Abi,
+      functionName: "registerDigest",
+      args: [signer, owner, payout, erc8004Id, deadline],
+    });
+    if (hashTypedData(typedData) !== onChain) {
+      throw new StrikeError(
+        `the Register typed data does not match the registry's registerDigest (domain ${domain.name} / ${domain.version} on chain ${domain.chainId})`,
+      );
+    }
+    return typedData;
+  }
+
+  /** The `SetSigner` typed data `signer` signs to become agent `agentId`'s signer (checked against `setSignerDigest`). */
+  async function setSignerConsentData(p: {
+    agentId: bigint;
+    signer: Address;
+    deadline?: bigint;
+  }): Promise<SetSignerConsentTypedData> {
+    await requireV3("setSigner consent");
+    const signer = getAddress(p.signer);
+    const [domain, nonce, deadline, agent] = await Promise.all([
+      registryDomain(),
+      signerNonce(signer),
+      consentDeadline(p.deadline),
+      publicClient.readContract({
+        address: addresses.agentRegistry,
+        abi: agentRegistryV3Abi,
+        functionName: "getAgent",
+        args: [p.agentId],
+      }),
+    ]);
+    if (agent.status === 0) throw new StrikeError(`agent #${p.agentId} is not registered`);
+    const typedData = setSignerConsentTypedData(domain, {
+      owner: agent.owner,
+      agentId: p.agentId,
+      nonce,
+      deadline,
+    });
+    const onChain = await publicClient.readContract({
+      address: addresses.agentRegistry,
+      abi: agentRegistryV3Abi,
+      functionName: "setSignerDigest",
+      args: [signer, p.agentId, deadline],
+    });
+    if (hashTypedData(typedData) !== onChain) {
+      throw new StrikeError(
+        `the SetSigner typed data does not match the registry's setSignerDigest (domain ${domain.name} / ${domain.version} on chain ${domain.chainId})`,
+      );
+    }
+    return typedData;
+  }
+
+  /** Sign `typedData` with `wallet`'s account (by default this client's wallet), which must be `signer`. */
+  async function signConsent(
+    typedData: RegisterConsentTypedData | SetSignerConsentTypedData,
+    signer: Address,
+    wallet: WalletClient | undefined,
+  ): Promise<SignerConsent> {
+    const w = wallet ?? requireAccount().wallet;
+    if (!w.account) throw new StrikeError("the signer's walletClient has no account");
+    if (getAddress(w.account.address) !== getAddress(signer)) {
+      throw new StrikeError(`the consent must be signed by the signer ${signer}, not ${w.account.address}`);
+    }
+    const signature = await w.signTypedData({ ...typedData, account: w.account } as never);
+    return { signature, deadline: typedData.message.deadline };
+  }
+
+  /**
+   * The consent to send with a v3 `register` or `setSigner`: none when the signer is the sending wallet; else the
+   * given signature (checked here: it must recover to the signer, unexpired) or one made by `signerWallet`.
+   */
+  async function consentFor(
+    signer: Address,
+    sender: Address,
+    build: (deadline?: bigint) => Promise<RegisterConsentTypedData | SetSignerConsentTypedData>,
+    opts: { consent?: SignerConsent; signerWallet?: WalletClient; deadline?: bigint },
+  ): Promise<SignerConsent> {
+    if (signer === sender) return { signature: "0x", deadline: 0n };
+    if (opts.consent) {
+      const typedData = await build(opts.consent.deadline);
+      const now = await blockTimestamp();
+      if (opts.consent.deadline < now) {
+        throw new StrikeError(
+          `the signer's consent expired at ${opts.consent.deadline} (latest block ${now}); ask the signer to sign again`,
+        );
+      }
+      const recovered = await consentSignerOf(typedData, opts.consent.signature);
+      if (recovered !== signer) {
+        throw new StrikeError(
+          `the consent signature ${recovered ? `was made by ${recovered}` : "is malformed"}, not by the signer ${signer} for this ${typedData.primaryType} message (owner ${typedData.message.owner}, nonce ${typedData.message.nonce}, deadline ${typedData.message.deadline}, chain ${typedData.domain.chainId}); the registry would revert InvalidConsent`,
+        );
+      }
+      return opts.consent;
+    }
+    if (opts.signerWallet) return signConsent(await build(opts.deadline), signer, opts.signerWallet);
+    throw new StrikeError(
+      `this AgentRegistry is v3: the signer ${signer} is not the sending wallet ${sender}, so it must consent with an EIP-712 signature. Pass consent (from the signer's signRegisterConsent / signSetSignerConsent) or signerWallet`,
+    );
+  }
+
   function decodeProposal(tx: TxResult, vault: Address): ProposeResult {
     const logs = parseEventLogs({ abi: epochManagerAbi, logs: tx.receipt.logs }).filter(
       (l) => getAddress(l.address) === em,
@@ -796,6 +1025,67 @@ export function createStrikeClient(config: StrikeClientConfig) {
      * The same read as `registryParams`.
      */
     agentRegistryParams: registryParams,
+
+    /**
+     * The AgentRegistry's version: "v3" takes the signer's EIP-712 consent on `register` and `setSigner`, "v2" does
+     * not. `registerAgent` and `setSigner` pick the right call on their own.
+     */
+    registryVersion,
+
+    /** The AgentRegistry's EIP-712 domain (v3), from `eip712Domain()`. */
+    agentRegistryDomain: registryDomain,
+
+    /** The signer's next EIP-712 consent nonce on a v3 AgentRegistry (`nonces(signer)`). */
+    consentNonce: (signer: Address) => signerNonce(getAddress(signer)),
+
+    /**
+     * v3: the EIP-712 `Register` typed data `signer` signs to consent to `register` by `owner` (default: this wallet),
+     * at its current nonce, valid until `deadline` (default: one hour after the latest block). Checked against the
+     * registry's `registerDigest`. Sign it with any EIP-712 wallet (wagmi `signTypedData`, `eth_signTypedData_v4`).
+     */
+    async registerConsentTypedData(p: {
+      signer: Address;
+      payout: Address;
+      erc8004Id?: bigint;
+      owner?: Address;
+      deadline?: bigint;
+    }): Promise<RegisterConsentTypedData> {
+      return registerConsentData({ ...p, owner: await accountOr(p.owner) });
+    },
+
+    /**
+     * v3, run by the signer: sign the `Register` consent that lets `owner` register this client's wallet (or
+     * `signerWallet`) as an agent's signer. Hand the result to the owner's `registerAgent({ consent })`.
+     */
+    async signRegisterConsent(
+      p: { owner: Address; payout: Address; erc8004Id?: bigint; deadline?: bigint },
+      signerWallet?: WalletClient,
+    ): Promise<SignerConsent> {
+      const w = signerWallet ?? requireAccount().wallet;
+      if (!w.account) throw new StrikeError("the signer's walletClient has no account");
+      const signer = getAddress(w.account.address);
+      return signConsent(await registerConsentData({ ...p, signer }), signer, w);
+    },
+
+    /** v3: the EIP-712 `SetSigner` typed data `signer` signs to become agent `agentId`'s signer. */
+    async setSignerConsentTypedData(p: {
+      agentId: bigint;
+      signer: Address;
+      deadline?: bigint;
+    }): Promise<SetSignerConsentTypedData> {
+      return setSignerConsentData(p);
+    },
+
+    /** v3, run by the new signer: sign the `SetSigner` consent for agent `agentId`. */
+    async signSetSignerConsent(
+      p: { agentId: bigint; deadline?: bigint },
+      signerWallet?: WalletClient,
+    ): Promise<SignerConsent> {
+      const w = signerWallet ?? requireAccount().wallet;
+      if (!w.account) throw new StrikeError("the signer's walletClient has no account");
+      const signer = getAddress(w.account.address);
+      return signConsent(await setSignerConsentData({ ...p, signer }), signer, w);
+    },
 
     /**
      * Holder of an ERC-8004 identity on the registry the AgentRegistry checks (`ownerOf`). Null when the registry is
@@ -1254,20 +1544,80 @@ export function createStrikeClient(config: StrikeClientConfig) {
      * The agent starts unbonded: it cannot propose until `postBond` brings its bond to `minBond`.
      */
     async registerAgent(p: RegisterAgentParams): Promise<RegisterAgentResult> {
-      const tx = await execute({
-        address: addresses.agentRegistry,
-        abi: agentRegistryAbi,
-        functionName: "register",
-        args: [getAddress(p.signer), getAddress(p.payout), p.erc8004Id ?? 0n],
-      });
+      const { account } = requireAccount();
+      const signer = getAddress(p.signer);
+      const payout = getAddress(p.payout);
+      const erc8004Id = p.erc8004Id ?? 0n;
+      const tx =
+        (await registryVersion()) === "v3"
+          ? await (async () => {
+              const owner = getAddress(account.address);
+              const consent = await consentFor(
+                signer,
+                owner,
+                (deadline) => registerConsentData({ signer, owner, payout, erc8004Id, deadline }),
+                p,
+              );
+              return execute({
+                address: addresses.agentRegistry,
+                abi: agentRegistryV3Abi,
+                functionName: "register",
+                args: [signer, payout, erc8004Id, consent.deadline, consent.signature],
+              });
+            })()
+          : await execute({
+              address: addresses.agentRegistry,
+              abi: agentRegistryAbi,
+              functionName: "register",
+              args: [signer, payout, erc8004Id],
+            });
       const ev = parseEventLogs({
         abi: agentRegistryAbi,
         logs: tx.receipt.logs,
         eventName: "AgentRegistered",
       }).find((l) => getAddress(l.address) === addresses.agentRegistry);
       if (!ev) throw new StrikeError(`transaction ${tx.hash} emitted no AgentRegistered event`);
-      const { agentId, owner, signer, erc8004Id } = ev.args;
-      return { ...tx, agentId, owner, signer, erc8004Id };
+      const a = ev.args;
+      return { ...tx, agentId: a.agentId, owner: a.owner, signer: a.signer, erc8004Id: a.erc8004Id };
+    },
+
+    /**
+     * Rotate an agent's signer key (`AgentRegistry.setSigner`; only the agent's owner). The new key must be free (one
+     * agent per signer). On a v3 registry a new signer that is not the sending wallet consents with an EIP-712
+     * `SetSigner` signature: pass `consent` (from its `signSetSignerConsent`) or `signerWallet`.
+     */
+    async setSigner(agentId: bigint, signer: Address, opts: SetSignerOptions = {}): Promise<SetSignerResult> {
+      const { account } = requireAccount();
+      const newSigner = getAddress(signer);
+      const tx =
+        (await registryVersion()) === "v3"
+          ? await (async () => {
+              const consent = await consentFor(
+                newSigner,
+                getAddress(account.address),
+                (deadline) => setSignerConsentData({ agentId, signer: newSigner, deadline }),
+                opts,
+              );
+              return execute({
+                address: addresses.agentRegistry,
+                abi: agentRegistryV3Abi,
+                functionName: "setSigner",
+                args: [agentId, newSigner, consent.deadline, consent.signature],
+              });
+            })()
+          : await execute({
+              address: addresses.agentRegistry,
+              abi: agentRegistryAbi,
+              functionName: "setSigner",
+              args: [agentId, newSigner],
+            });
+      const ev = parseEventLogs({
+        abi: agentRegistryAbi,
+        logs: tx.receipt.logs,
+        eventName: "SignerSet",
+      }).find((l) => getAddress(l.address) === addresses.agentRegistry);
+      if (!ev) throw new StrikeError(`transaction ${tx.hash} emitted no SignerSet event`);
+      return { ...tx, agentId: ev.args.agentId, signer: ev.args.signer };
     },
 
     /**

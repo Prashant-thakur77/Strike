@@ -38,6 +38,9 @@ export const ERROR_HINTS: Record<string, string> = {
   EnforcedPause: "The protocol is paused by the guardian.",
   SignerTaken: "That signer key already belongs to an agent (one agent per signer); use a fresh key.",
   NotIdentityOwner: "The sending wallet does not own that ERC-8004 identity on the identity registry.",
+  InvalidConsent:
+    "v3: the signer's EIP-712 consent does not verify. It must be signed by the signer key over this owner, payout, identity (or agent id), the signer's current nonce and the deadline, on this chain and registry.",
+  ConsentExpired: "v3: the signer's EIP-712 consent is past its deadline; sign a new one.",
   UnknownAgent: "No agent is registered under that id.",
   NotOwner: "Only the agent's owner (the wallet that registered it) can do that.",
   InvalidMandate:
