@@ -22,6 +22,7 @@ const contracts = [
   "MirrorFeed",
   "TestStockToken",
   "DecisionLog",
+  "UsdgDrip",
 ];
 
 const camel = (name) => name[0].toLowerCase() + name.slice(1);

@@ -92,7 +92,8 @@ function run(cmd, args, opts) {
 }
 
 /**
- * Start anvil on a free port and deploy Strike with `script/Deploy.s.sol` and `script/Seed.s.sol`. Addresses on
+ * Start anvil on a free port and deploy Strike with `script/Deploy.s.sol` and `script/Seed.s.sol`, then the test-USDG
+ * faucet with `script/DeployUsdgDrip.s.sol` (funded with 100 USDG, `usdgDrip` in 31337.json). Addresses on
  * 31337 are deterministic. Call `stop()` when done. `contractsDir` deploys another checkout (for example v3 from
  * {@link v3ContractsDir}); its deployment files are written to that checkout's gitignored `deployments/31337*.json`.
  */
@@ -115,7 +116,11 @@ export async function startDevnet(opts = {}) {
   try {
     await waitForRpc(rpcUrl);
     const env = { ...process.env, PRIVATE_KEY: ANVIL_KEYS[0] };
-    for (const script of ["script/Deploy.s.sol", "script/Seed.s.sol"]) {
+    // The test-USDG faucet (UsdgDrip) where the checkout has it (main; the v3-contracts branch does not).
+    const scripts = ["script/Deploy.s.sol", "script/Seed.s.sol", "script/DeployUsdgDrip.s.sol"].filter((s) =>
+      existsSync(join(dir, s)),
+    );
+    for (const script of scripts) {
       await run(
         "forge",
         ["script", script, "--rpc-url", rpcUrl, "--broadcast", "--silent", "--skip", "test"],

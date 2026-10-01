@@ -22,6 +22,7 @@ export const generatedDeployments = {
       }
     },
     "usdg": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+    "usdgDrip": "0x95401dc811bb5740090279Ba06cfA8fcF6113778",
     "vaultFactory": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
     "vaultImplementation": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
     "vaults": {
@@ -79,6 +80,10 @@ export const generatedDeployments = {
     "decisionLogNote": "Additive (not part of v2): anchors agents' decision records; only AgentRegistry.signerOf(agentId) may record",
     "riskEngine": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
     "riskEngineNote": "Additive (v3's Stylus pricer and risk engine, IRiskEngine; deployed with v3 in 46630-v3.json on branch v3-contracts, verified with cargo stylus verify). Pure math, no state: the SDK's seriesRisk, the MCP tool series_risk and the app's Risk panel call it on v2 series",
+    "usdgDrip": "0x1f3778BfC474419f154AD543625A711d90985632",
+    "usdgDripTx": "0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b",
+    "usdgDripFundTx": "0x4a238e8a69c630f94df50fcea07d062519acc90d6f81a04dd60f32a3f7027629",
+    "usdgDripNote": "Additive (testnet only, not part of v2): the team-funded test-USDG faucet, 10 USDG per address per 24 h (UsdgDrip, D38); serves v2 and v3, which use the same USDG",
     "vaults": {
       "TSLA_cash_secured_put": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
       "TSLA_covered_call": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",

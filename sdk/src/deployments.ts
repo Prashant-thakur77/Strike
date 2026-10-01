@@ -19,6 +19,8 @@ export interface StrikeDeployment {
   riskEngine?: Address;
   /** RiskLens (v3 only): reads a series' greeks and stress test through the EpochManager's pricer. */
   riskLens?: Address;
+  /** UsdgDrip (testnets only): the team's test-USDG faucet, 10 USDG per address per 24 h; absent elsewhere. */
+  usdgDrip?: Address;
   /** The Stylus (Rust/WASM) program of this deployment, when it has one. */
   stylusPricer?: Address;
   /** Protocol version of this deployment's contracts ("v2", "v3"). */
@@ -84,6 +86,7 @@ export const DEPLOYMENT_ENV = {
   decisionLog: "STRIKE_DECISION_LOG",
   riskEngine: "STRIKE_RISK_ENGINE",
   riskLens: "STRIKE_RISK_LENS",
+  usdgDrip: "STRIKE_USDG_DRIP",
 } as const satisfies Partial<Record<keyof StrikeDeployment, string>>;
 
 type Env = Record<string, string | undefined>;
