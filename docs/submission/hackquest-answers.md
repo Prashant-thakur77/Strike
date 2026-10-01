@@ -92,11 +92,13 @@ All of Strike's own code, from the first commit on 2026-09-28. Git history shows
 Sep 28: contracts, Stylus pricer, agents, SDK, MCP, app. Sep 29: testnet deploy, review fixes, live epoch with an on-chain slash, ERC-8004 #114. Sep 30: Halmos proofs, remote MCP, v3 with a Rust risk engine on 2 chains, Claude-planned epoch on Arbitrum Sepolia. Oct 1: same on Robinhood Chain v3.
 ```
 
-## Fundraising status (11 characters)
+## Fundraising status (291 characters)
 
 ```text
-Not raised.
+Not raised yet. We are seeking a milestone grant and a pre-seed round to build Strike as a company on Robinhood Chain and Arbitrum: an external audit first, then a capped mainnet vault. For the chains it means weekly income on stock tokens, USDG demand and bonded agents with public records.
 ```
+
+The plan behind it, how Strike makes money, the four funded milestones ($30,000 in all) and what Robinhood Chain, Arbitrum and Paxos get are in the README's [Building Strike as a company](../../README.md#building-strike-as-a-company).
 
 ## Sponsor technologies used (41 characters)
 

@@ -2,6 +2,8 @@
 
 Strike is weekly options vaults for Robinhood Chain stock tokens, paid in USDG. An AI agent proposes each week's strike. The contract checks the proposal against the vault's immutable mandate, and if it breaks the rules, the agent's bond is slashed to depositors. v2 and v3 are live on Robinhood Chain testnet (46630) and v3 on Arbitrum Sepolia (421614). It is unaudited.
 
+We are building Strike as a company on Robinhood Chain and Arbitrum, and these testnets are where it starts: the next steps are an external audit and a capped mainnet vault, and we keep the testnet vaults running every week after the buildathon either way. The plan, the business model and what funding buys are in the README's [Building Strike as a company](../README.md#building-strike-as-a-company).
+
 There are two paths. The first needs a browser. The second needs a clone and about 15 minutes.
 
 Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: v2 runs its first epoch on Robinhood Chain testnet, and v3 runs next to it with its own epoch from 1 October ([log](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october), [vault page](https://strike-options.vercel.app/app/vault/0x478E7BC3C3aB07fdd104e4765F178977adEe6285?chain=46630)); v3 also runs on Arbitrum Sepolia ([log](testnet-epochs/2026-09-30-arbitrum-sepolia.md)); Claude planned the accepted proposal in both v3 epochs; all three epochs settle on Friday 2026-10-02; testnet prices come from a keeper-filled `MirrorFeed`; and there is no external audit.
