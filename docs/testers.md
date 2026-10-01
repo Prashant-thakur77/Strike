@@ -4,7 +4,7 @@ Strike runs on two testnets: Robinhood Chain testnet (chain 46630) and Arbitrum 
 
 ## 1. Try without a wallet: `/app/playground` (1 minute)
 
-Open the app at https://strike-options.vercel.app. The landing page and the vaults page start with a four-step "New here? Start here" strip (see a vault, try the playground, watch an agent's record, check the proof), and every app page opens with one sentence on what it is for and ends with a "Next:" link to the next page. Words with a dotted underline are glossary terms: hover, focus or tap one for a one-sentence definition. All 26 terms are listed at [`/app/glossary`](https://strike-options.vercel.app/app/glossary).
+Open the app at https://strike-options.vercel.app. The landing page and the vaults page start with a four-step "New here? Start here" strip (see a vault, try the playground, watch an agent's record, check the proof), and every app page opens with one sentence on what it is for and ends with a "Next:" link to the next page. Words with a dotted underline are glossary terms: hover, focus or tap one for a one-sentence definition. All 27 terms are listed at [`/app/glossary`](https://strike-options.vercel.app/app/glossary).
 
 To run the app locally instead:
 
