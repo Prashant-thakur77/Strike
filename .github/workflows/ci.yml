@@ -116,7 +116,9 @@ jobs:
           version: v1.7.1
       - name: Fork tests at the latest block
         working-directory: contracts
-        run: forge test --match-path "test/fork/*" -vv
+        # The public mainnet RPC sometimes answers CI with a Cloudflare 403; retry once after a pause. A real
+        # failure fails twice.
+        run: forge test --match-path "test/fork/*" -vv || (sleep 60 && forge test --match-path "test/fork/*" -vv)
 
   slither:
     name: Slither (fail on High)
