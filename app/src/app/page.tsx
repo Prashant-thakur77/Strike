@@ -9,6 +9,7 @@ import { Numbers } from "@/components/landing/Numbers";
 import { Safety } from "@/components/landing/Safety";
 import { TryIt } from "@/components/landing/TryIt";
 import { SiteNav } from "@/components/site/SiteNav";
+import { StartHere } from "@/components/ui/StartHere";
 
 export default function Landing() {
   return (
@@ -16,6 +17,12 @@ export default function Landing() {
       <SiteNav />
       <main id="main">
         <Hero />
+        <section
+          className="theme-paper gutter"
+          style={{ paddingTop: "clamp(24px, 3vw, 40px)", paddingBottom: "clamp(40px, 5vw, 72px)" }}
+        >
+          <StartHere />
+        </section>
         <Manifesto />
         <Numbers />
         <HowItWorks />

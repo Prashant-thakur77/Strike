@@ -3,7 +3,18 @@ import { ArrowUp, ArrowUpRight } from "lucide-react";
 import { LINKS } from "@/lib/links";
 import styles from "./site.module.css";
 
-/** Micro row on a hairline (the no-wallet pages, then project links), plus the eligibility and risk notice. */
+const PAGES = [
+  ["/app", "Vaults"],
+  ["/app/playground", "Playground"],
+  ["/app/backtest", "Backtest"],
+  ["/app/agents", "Agents"],
+  ["/app/monitor", "Monitor"],
+  ["/app/proof", "Proof"],
+  ["/app/faucet", "Faucet"],
+  ["/app/glossary", "Glossary"],
+] as const;
+
+/** Micro row on a hairline (every page, then project links), plus the eligibility and risk notice. */
 export function Footer() {
   return (
     <footer className={styles.footer}>
@@ -11,16 +22,12 @@ export function Footer() {
       <div className={styles.footRow}>
         <span className="micro">Strike · weekly options vaults</span>
         <div className={styles.footNavs}>
-          <nav aria-label="Try without a wallet" className={styles.footLinks}>
-            <Link className="micro" href="/app/playground">
-              Playground
-            </Link>
-            <Link className="micro" href="/app/backtest">
-              Backtest
-            </Link>
-            <Link className="micro" href="/app/proof">
-              Proof
-            </Link>
+          <nav aria-label="Pages" className={styles.footLinks}>
+            {PAGES.map(([href, label]) => (
+              <Link key={href} className="micro" href={href}>
+                {label}
+              </Link>
+            ))}
           </nav>
           <nav aria-label="Project links" className={styles.footLinks}>
             <a className="micro" href={LINKS.github} target="_blank" rel="noreferrer">
@@ -28,6 +35,9 @@ export function Footer() {
             </a>
             <a className="micro" href={LINKS.docs} target="_blank" rel="noreferrer">
               Docs <ArrowUpRight aria-hidden />
+            </a>
+            <a className="micro" href={LINKS.judges} target="_blank" rel="noreferrer">
+              Judges&apos; tour <ArrowUpRight aria-hidden />
             </a>
             <a className="micro" href={LINKS.skill} target="_blank" rel="noreferrer">
               SKILL.md <ArrowUpRight aria-hidden />

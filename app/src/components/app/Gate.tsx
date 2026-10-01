@@ -43,7 +43,13 @@ export function Gate({ isLoading, error, loading, children }: GateProps) {
         <span className="micro micro-muted">{meta.label}</span>
         <h2 className={`display-h2 ${styles.emptyTitle}`}>Couldn&apos;t read this from the chain.</h2>
         <p className="body">{errorMessage(error)}</p>
+        <p className="body">
+          Public test-network RPCs are often busy for a moment. Try again, or switch networks from the menu.
+        </p>
         <div className={styles.emptyActions}>
+          <button type="button" className="pill pill-small" onClick={() => window.location.reload()}>
+            Try again
+          </button>
           <Link href="/app" className="pill pill-small pill-ghost">
             All vaults
           </Link>

@@ -6,12 +6,14 @@ import { useMarket, useVaults } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { fmtAmount, fmtDay, fmtNy, fmtPct, fmtUsd, fmtWadUsd, toNumber } from "@/lib/format";
 import type { VaultHistory, VaultSummary } from "@/lib/reads";
+import { StartHere } from "@/components/ui/StartHere";
 import { Gate } from "./Gate";
 import { MetaStrip } from "./MetaStrip";
 import { PageHero } from "./PageHero";
 import { PerShare } from "./PerShare";
 import { Skeleton } from "./Skeleton";
 import { StateTag } from "./StateTag";
+import { Term } from "@/components/ui/Term";
 import styles from "./app.module.css";
 
 export function strategyName(v: Pick<VaultSummary, "isCall">) {
@@ -51,11 +53,15 @@ export function VaultsPage() {
         title="Vaults"
         lead={
           <p className="lead">
-            Put a stock token in a covered-call vault, or USDG in a cash-secured-put vault. Each week the
-            vault sells one option series and pays the premium to depositors in USDG.
+            Put a <Term id="stockToken">stock token</Term> in a <Term id="coveredCall">covered-call</Term>{" "}
+            vault, or USDG in a <Term id="cashSecuredPut">cash-secured-put</Term> vault. Each week the vault
+            sells one option <Term id="series">series</Term> and pays the <Term id="premium">premium</Term> to
+            depositors in <Term id="usdg">USDG</Term>.
           </p>
         }
-      />
+      >
+        <StartHere firstHref="#vault-list" className={styles.heroStart} />
+      </PageHero>
       <Gate isLoading={vaults.isLoading} error={vaults.error} loading={<ListSkeleton />}>
         <MetaStrip
           cells={[
@@ -66,11 +72,13 @@ export function VaultsPage() {
             },
             {
               label: "Live series",
+              term: "series",
               value: String(live),
               sub: onSale === live ? "options on sale now" : `${onSale} with options left to buy`,
             },
             {
               label: "Premium to depositors",
+              term: "premium",
               value: fmtUsd(premium),
               sub:
                 escrowed > 0
@@ -84,7 +92,7 @@ export function VaultsPage() {
             },
           ]}
         />
-        <section className={`gutter ${styles.list}`} aria-label="Vaults">
+        <section id="vault-list" className={`gutter ${styles.list}`} aria-label="Vaults">
           <div className={`${styles.listHead} micro micro-muted`} aria-hidden>
             <span />
             <span>Vault</span>
@@ -147,14 +155,22 @@ function VaultRow({
       <span className={styles.rowCell} data-label="Live series">
         {s ? (
           <>
-            <span className="mono">
+            <span className={`mono ${styles.rowStrike}`}>
               {fmtWadUsd(s.strike)} {s.isCall ? "call" : "put"}
             </span>
             <PerShare price={s.strike} multiplier={vault.multiplier} />
             <span className={styles.rowSub}>{fmtNy(s.expiry)}</span>
           </>
+        ) : vault.state === 1 ? (
+          <>
+            <span>Awaiting proposal</span>
+            <span className={styles.rowSub}>the agent picks this week&apos;s strike</span>
+          </>
         ) : (
-          <span className={styles.rowSub}>{vault.state === 1 ? "Awaiting proposal" : "None"}</span>
+          <>
+            <span>None this week</span>
+            <span className={styles.rowSub}>a series is listed when an epoch opens (Mondays)</span>
+          </>
         )}
       </span>
       <span className={`${styles.rowCell} ${styles.right}`} data-label="Premium APY">

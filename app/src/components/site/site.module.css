@@ -452,6 +452,20 @@
   letter-spacing: -0.065em;
 }
 
+.menuLink[aria-current="page"] {
+  color: var(--mint);
+}
+
+.menuLink[aria-current="page"]::after {
+  content: "You are here";
+  margin-left: auto;
+  align-self: center;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
 .menu[data-open="true"] .menuLink {
   animation: link-in 0.9s var(--ease-out) both;
   animation-delay: calc(0.12s + var(--i) * 0.07s);
@@ -508,9 +522,15 @@
 
 .footRow {
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: 1fr auto;
   align-items: center;
-  gap: 24px;
+  gap: 0 24px;
+}
+
+/* Page and project links get their own full-width row under the name and "Back to top". */
+.footNavs {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 
 .footNavs {
@@ -563,18 +583,8 @@
   color: var(--fg-muted);
 }
 
+/* Below desktop the two link groups wrap onto their own rows: no divider at the start of a line. */
 @media (max-width: 1180px) {
-  .footRow {
-    grid-template-columns: 1fr auto;
-    row-gap: 0;
-  }
-  .footNavs {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-}
-
-@media (max-width: 640px) {
   .footNavs {
     display: grid;
   }
@@ -582,6 +592,9 @@
     padding-left: 0;
     border-left: 0;
   }
+}
+
+@media (max-width: 640px) {
   .footLinks {
     column-gap: 20px;
   }

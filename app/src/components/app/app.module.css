@@ -36,6 +36,17 @@
   color: var(--fg-muted);
 }
 
+/* The page's purpose in one sentence, above its longer lead: ink, so it reads first. */
+.heroPurpose {
+  max-width: 30em;
+  font-size: var(--fs-lead);
+  font-weight: 560;
+  line-height: 1.32;
+  letter-spacing: -0.012em;
+  color: var(--fg);
+  text-wrap: pretty;
+}
+
 .heroStrategy {
   font-size: clamp(1.6rem, 2.4vw, 2.7rem);
   font-weight: 560;
@@ -2703,6 +2714,111 @@ a.idChip:hover {
 
 @media (max-width: 420px) {
   .riskGreeks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ================================================================ next step (bottom of every app page) */
+
+.nextStep {
+  padding-top: clamp(56px, 7vw, 104px);
+}
+
+.nextLink {
+  display: grid;
+  gap: 8px;
+  padding: 22px 0 24px;
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 1px solid var(--rule);
+}
+
+.nextLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(1.7rem, 3.2vw, 3rem);
+  font-weight: 720;
+  line-height: 1.02;
+  letter-spacing: -0.045em;
+}
+
+.nextLabel svg {
+  flex: none;
+  width: 0.7em;
+  height: 0.7em;
+  transition: transform 0.3s var(--ease-out);
+}
+
+.nextWhy {
+  font-size: var(--fs-body);
+  color: var(--fg-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nextLink:hover .nextLabel svg {
+    transform: translateX(6px);
+  }
+  .nextLink:hover .nextLabel {
+    color: var(--accent);
+  }
+}
+
+.heroStart {
+  margin-top: clamp(40px, 5vw, 72px);
+}
+.list {
+  scroll-margin-top: calc(var(--banner-h) + var(--app-nav-h) + 16px);
+}
+
+/* ================================================================ glossary */
+
+.glossary {
+  display: grid;
+  gap: clamp(40px, 5vw, 72px);
+  padding-top: clamp(40px, 5vw, 72px);
+}
+
+.glossaryGroup {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 16px 32px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.glossaryList {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 32px;
+}
+
+.glossaryItem {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--rule);
+  scroll-margin-top: calc(var(--banner-h) + var(--app-nav-h) + 16px);
+}
+
+.glossaryItem dt {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.glossaryItem dd {
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .glossaryGroup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .glossaryList {
     grid-template-columns: minmax(0, 1fr);
   }
 }

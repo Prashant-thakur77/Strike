@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, type ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { LINKS } from "@/lib/links";
@@ -19,13 +20,49 @@ interface MobileMenuProps {
   children?: ReactNode;
 }
 
+function isCurrent(pathname: string, href: string) {
+  if (href.startsWith("#") || href.startsWith("/#")) return false;
+  if (href === "/app") return pathname === "/app" || pathname.startsWith("/app/vault");
+  return href !== "/" && pathname.startsWith(href);
+}
+
 /** Full-screen ink overlay with display-size links. Escape or any link closes it. */
 export function MobileMenu({ open, onClose, items, children }: MobileMenuProps) {
   const first = useRef<HTMLAnchorElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const pathname = usePathname() ?? "";
+
+  // Navigating (a link, or back/forward) closes the menu.
+  const shownAt = useRef(pathname);
+  useEffect(() => {
+    if (open && pathname !== shownAt.current) onClose();
+    shownAt.current = pathname;
+  }, [pathname, open, onClose]);
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const opener = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      // A modal dialog: Tab cycles inside the menu until it closes.
+      if (e.key !== "Tab" || !panel.current) return;
+      const focusable = [
+        ...panel.current.querySelectorAll<HTMLElement>("a[href], button:not([disabled]), select, input"),
+      ].filter((el) => el.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const firstEl = focusable[0];
+      const lastEl = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === firstEl) {
+        e.preventDefault();
+        lastEl.focus();
+      } else if (!e.shiftKey && document.activeElement === lastEl) {
+        e.preventDefault();
+        firstEl.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -33,11 +70,14 @@ export function MobileMenu({ open, onClose, items, children }: MobileMenuProps) 
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      // Back to the Menu button that opened it.
+      if (opener && document.contains(opener)) opener.focus();
     };
   }, [open, onClose]);
 
   return (
     <div
+      ref={panel}
       id="mobile-menu"
       className={`theme-ink ${styles.menu}`}
       data-open={open}
@@ -62,6 +102,7 @@ export function MobileMenu({ open, onClose, items, children }: MobileMenuProps) 
             href={item.href}
             onClick={onClose}
             className={styles.menuLink}
+            aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
             style={{ ["--i" as string]: i }}
           >
             <span className="index">{String(i + 1).padStart(2, "0")}</span>
