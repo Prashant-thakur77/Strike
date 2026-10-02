@@ -1,7 +1,9 @@
 name: Testnet keeper
 
 # Mirrors mainnet Chainlink stock prices into the testnet MirrorFeeds and settles expired epochs.
-# Needs the repository secret KEEPER_PRIVATE_KEY (a key with KEEPER_ROLE on the MirrorFeeds).
+# Needs the repository secret KEEPER_PRIVATE_KEY (a key with KEEPER_ROLE on the MirrorFeeds). Optional secret
+# ALCHEMY_API_KEY: cast reads and sends through Alchemy (testnet and the mainnet feeds), the public RPCs if it is unset
+# or Alchemy does not answer (scripts/rpc.sh).
 on:
   schedule:
     - cron: "*/10 * * * *"
@@ -41,4 +43,5 @@ jobs:
           CHAIN_ID: ${{ matrix.chain }}
           RPC_URL: ${{ matrix.rpc }}
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: scripts/keeper.sh --once

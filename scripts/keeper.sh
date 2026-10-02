@@ -10,11 +10,16 @@
 #
 # Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com PRIVATE_KEY=0x... scripts/keeper.sh [--once] [--dry-run]
 #   --dry-run  read only: print what would be pushed or settled and send nothing (PRIVATE_KEY not needed).
+# RPC_URL and MAINNET_RPC default to the public RPCs. With ALCHEMY_API_KEY set, cast reads and sends through Alchemy
+# instead (scripts/rpc.sh: checked once, the public RPC if Alchemy does not answer); a loopback RPC_URL (a fork) is
+# always used as given.
 # Needs Foundry (cast) and python3.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/rpc.sh
+. "$ROOT/scripts/rpc.sh"
 CHAIN_ID="${CHAIN_ID:-46630}"
-RPC_URL="${RPC_URL:-https://rpc.testnet.chain.robinhood.com}"
+RPC_URL="${RPC_URL:-$(rpc_public_url "$CHAIN_ID" || echo https://rpc.testnet.chain.robinhood.com)}"
 MAINNET_RPC="${MAINNET_RPC:-https://rpc.mainnet.chain.robinhood.com}"
 ONCE=0
 DRY_RUN="${DRY_RUN:-0}"
@@ -40,6 +45,12 @@ deploy_files() {
 DEPLOYS=$(deploy_files)
 [ -n "$DEPLOYS" ] || { echo "no deployment file for chain $CHAIN_ID" >&2; exit 1; }
 
+# What cast uses: Alchemy when ALCHEMY_API_KEY is set (the key is in these URLs: print them only through rpc_label).
+# The SDK settle path below still gets RPC_URL as STRIKE_RPC_URL and adds Alchemy itself, with the key in a header.
+CAST_RPC=$(rpc_url_for "$CHAIN_ID" "$RPC_URL")
+CAST_MAINNET_RPC=$(rpc_url_for 4663 "$MAINNET_RPC")
+echo "RPC: $(rpc_label "$CAST_RPC"); mainnet feeds: $(rpc_label "$CAST_MAINNET_RPC")"
+
 # Robinhood Chain mainnet Chainlink feeds (docs.chain.link, see docs/research.md). NFLX has none.
 declare -A MAINNET_FEED=(
   [TSLA]=0x4A1166a659A55625345e9515b32adECea5547C38
@@ -60,7 +71,7 @@ send() {
     echo "$(date -u +%FT%TZ) dry run: would $what"
     return 0
   fi
-  cast send "$@" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null
+  cast send "$@" --rpc-url "$CAST_RPC" --private-key "$PRIVATE_KEY" >/dev/null
 }
 
 mirror_prices() {
@@ -72,8 +83,8 @@ mirror_prices() {
     local dst; dst=$(json "$deploy" "d['stocks']['$sym']['feed'].lower()")
     case "$seen" in *" $dst "*) continue ;; esac
     seen="$seen$dst "
-    read -r _ answer _ updated _ < <(cast call "$src" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$MAINNET_RPC" 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
-    read -r _ _ _ last _ < <(cast call "$dst" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$RPC_URL" 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+    read -r _ answer _ updated _ < <(cast call "$src" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$CAST_MAINNET_RPC" 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
+    read -r _ _ _ last _ < <(cast call "$dst" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$CAST_RPC" 2>/dev/null | awk '{print $1}' | tr '\n' ' ')
     # A failed read (the mainnet RPC rate-limits with a Cloudflare 403 under load) skips the symbol with a message.
     if [ -z "${updated:-}" ] || [ -z "${last:-}" ]; then
       echo "$(date -u +%FT%TZ) $sym: feed read failed (mainnet: '${updated:-}', testnet: '${last:-}'); skipped" >&2
@@ -97,45 +108,45 @@ mirror_prices() {
 # try/catch, so a bare estimate can leave that inner call short: it then runs out of gas, is caught, and the
 # settlement succeeds with `ReputationFeedback(..., posted = false)` (seen on the 2026-10-01 fork rehearsal, v2).
 settle_gas() {
-  local est; est=$(cast estimate "$1" "settle(address,uint80)" "$2" "$3" --rpc-url "$RPC_URL" 2>/dev/null) || return 1
+  local est; est=$(cast estimate "$1" "settle(address,uint80)" "$2" "$3" --rpc-url "$CAST_RPC" 2>/dev/null) || return 1
   echo $((est * 3 / 2))
 }
 
 # settle_expired <deployment file>
 settle_expired() {
   local deploy="$1" manager count; manager=$(json "$deploy" "d['epochManager']")
-  count=$(cast call "$manager" "vaultCount()(uint256)" --rpc-url "$RPC_URL" | awk '{print $1}')
+  count=$(cast call "$manager" "vaultCount()(uint256)" --rpc-url "$CAST_RPC" | awk '{print $1}')
   # The chain's clock, not the machine's: settle() checks block.timestamp, and a fork or devnet may be warped.
-  local now; now=$(cast block latest -f timestamp --rpc-url "$RPC_URL")
+  local now; now=$(cast block latest -f timestamp --rpc-url "$CAST_RPC")
   for ((i = 0; i < count; i++)); do
     local vault state series gas
-    vault=$(cast call "$manager" "allVaults(uint256)(address)" "$i" --rpc-url "$RPC_URL")
-    read -r state _ series < <(cast call "$manager" "epochs(address)(uint8,uint64,uint256)" "$vault" --rpc-url "$RPC_URL" | awk '{print $1}' | tr '\n' ' ')
+    vault=$(cast call "$manager" "allVaults(uint256)(address)" "$i" --rpc-url "$CAST_RPC")
+    read -r state _ series < <(cast call "$manager" "epochs(address)(uint8,uint64,uint256)" "$vault" --rpc-url "$CAST_RPC" | awk '{print $1}' | tr '\n' ' ')
     [ "$state" != "2" ] && continue
     local expiry underlying sym feed
-    expiry=$(cast call "$manager" "getSeries(uint256)((address,address,uint256,uint64,uint16,bool,bool,bool,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))" "$series" --rpc-url "$RPC_URL" | python3 -c "import sys; print(sys.stdin.read().strip('()').split(', ')[3].split()[0])")
+    expiry=$(cast call "$manager" "getSeries(uint256)((address,address,uint256,uint64,uint16,bool,bool,bool,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256))" "$series" --rpc-url "$CAST_RPC" | python3 -c "import sys; print(sys.stdin.read().strip('()').split(', ')[3].split()[0])")
     if [ "$now" -lt "$expiry" ]; then
       [ "$DRY_RUN" = "1" ] && echo "$(date -u +%FT%TZ) dry run: $vault ($(basename "$deploy")) selling, expires $(date -u -d "@$expiry" +%FT%TZ)"
       continue
     fi
-    underlying=$(cast call "$vault" "underlying()(address)" --rpc-url "$RPC_URL")
+    underlying=$(cast call "$vault" "underlying()(address)" --rpc-url "$CAST_RPC")
     sym=$(json "$deploy" "[k for k,v in d['stocks'].items() if v['token'].lower()=='$underlying'.lower()][0]")
     feed=$(json "$deploy" "d['stocks']['$sym']['feed']")
     # Walk back from the latest round to the first one at or after expiry.
     local round prev at
-    round=$(cast call "$feed" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$RPC_URL" | head -1 | awk '{print $1}')
-    at=$(cast call "$feed" "getRoundData(uint80)(uint80,int256,uint256,uint256,uint80)" "$round" --rpc-url "$RPC_URL" | sed -n 4p | awk '{print $1}')
+    round=$(cast call "$feed" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$CAST_RPC" | head -1 | awk '{print $1}')
+    at=$(cast call "$feed" "getRoundData(uint80)(uint80,int256,uint256,uint256,uint80)" "$round" --rpc-url "$CAST_RPC" | sed -n 4p | awk '{print $1}')
     [ "$at" -lt "$expiry" ] && { echo "$(date -u +%FT%TZ) $sym: no print after expiry yet"; continue; }
     while true; do
       prev=$(python3 -c "print($round - 1)")
-      at=$(cast call "$feed" "getRoundData(uint80)(uint80,int256,uint256,uint256,uint80)" "$prev" --rpc-url "$RPC_URL" 2>/dev/null | sed -n 4p | awk '{print $1}') || break
+      at=$(cast call "$feed" "getRoundData(uint80)(uint80,int256,uint256,uint256,uint80)" "$prev" --rpc-url "$CAST_RPC" 2>/dev/null | sed -n 4p | awk '{print $1}') || break
       [ -z "$at" ] || [ "$at" -lt "$expiry" ] && break
       round=$prev
     done
     if [ "$DRY_RUN" = "1" ]; then
       send "settle $vault ($(basename "$deploy")) at round $round" "$manager"
     elif gas=$(settle_gas "$manager" "$vault" "$round") &&
-      cast send "$manager" "settle(address,uint80)" "$vault" "$round" --gas-limit "$gas" --rpc-url "$RPC_URL" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
+      cast send "$manager" "settle(address,uint80)" "$vault" "$round" --gas-limit "$gas" --rpc-url "$CAST_RPC" --private-key "$PRIVATE_KEY" >/dev/null 2>&1; then
       echo "$(date -u +%FT%TZ) settled $vault at round $round"
     else
       # One round is not enough after a Chainlink phase change or a corporate action at expiry: the SDK finds every

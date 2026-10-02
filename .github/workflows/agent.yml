@@ -19,7 +19,8 @@ name: Weekly agent
 # those deployments are skipped with a warning); optionally one Claude credential, secret ANTHROPIC_API_KEY (the
 # Claude API, billed per token) or CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`: the Claude Code CLI on a
 # Pro/Max subscription, counted against its usage limits; the API key wins when both are set); optionally
-# AGENT2_PRIVATE_KEY (agent #2's signer).
+# AGENT2_PRIVATE_KEY (agent #2's signer); optionally ALCHEMY_API_KEY (the keeper, the agents and the market check read
+# and send through Alchemy first, the public RPCs as fallback).
 on:
   schedule:
     # 15:00 UTC is 11:00 New York in summer (EDT) and 10:00 in winter (EST): inside the 09:30-16:00 session all year,
@@ -89,6 +90,8 @@ jobs:
       - name: NYSE session check (propose only; uses the SDK's marketOpen())
         id: market
         if: steps.mode.outputs.mode == 'propose'
+        env:
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: pnpm --silent --filter @strike/agent-example market-open
 
       - name: Gate
@@ -161,6 +164,7 @@ jobs:
       - name: Refresh prices (keeper, once; also settles the expired series of every deployment on the chain)
         env:
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: scripts/keeper.sh --once
 
       - name: Run agent 1 on each deployment and vault
@@ -171,6 +175,7 @@ jobs:
           AGENT_SIGNER_KEY: ${{ secrets.AGENT_SIGNER_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
           # Signs each deployment with the key whose address is its -vaults.json agentSigner; --anchor sends each
           # record's keccak256 hash and GitHub URL to that deployment's DecisionLog.
@@ -238,6 +243,7 @@ jobs:
         env:
           MODE: ${{ needs.plan.outputs.mode }}
           STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.AGENT2_PRIVATE_KEY }}
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
           # --anchor: into the v2 DecisionLog, which accepts AgentRegistry.signerOf(2), this key.
           flags=(--vault "$VAULT" --log "$GITHUB_WORKSPACE/$LOG_DIR" --anchor)

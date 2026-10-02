@@ -126,9 +126,23 @@ jobs:
           version: v1.7.1
       - name: Fork tests at the latest block
         working-directory: contracts
+        env:
+          # Optional repository secret: fork Alchemy's Robinhood Chain mainnet endpoint instead of the public RPC.
+          # Pull requests from forks get no secrets and use the public RPC.
+          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+        # Alchemy first when the secret is set (GitHub masks the key in the log); if that run fails, the public RPC.
         # The public mainnet RPC sometimes answers CI with a Cloudflare 403; retry once after a pause. A real
-        # failure fails twice.
-        run: forge test --match-path "test/fork/*" -vv || (sleep 60 && forge test --match-path "test/fork/*" -vv)
+        # failure fails every time.
+        run: |
+          if [ -n "$ALCHEMY_API_KEY" ]; then
+            echo "RPC: Alchemy (robinhood-mainnet)"
+            if ROBINHOOD_RPC_URL="https://robinhood-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY" forge test --match-path "test/fork/*" -vv; then
+              exit 0
+            fi
+            echo "::warning::Fork tests failed on Alchemy; trying the public RPC"
+          fi
+          echo "RPC: $ROBINHOOD_RPC_URL"
+          forge test --match-path "test/fork/*" -vv || (sleep 60 && forge test --match-path "test/fork/*" -vv)
 
   slither:
     name: Slither (fail on High)

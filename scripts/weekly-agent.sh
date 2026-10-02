@@ -15,14 +15,19 @@
 # deployment's record of a vault symbol gets the agent's `-2` suffix (v3 on 46630).
 #
 # Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com scripts/weekly-agent.sh propose|settle [--dry-run]
+#   RPC_URL defaults to the chain's public RPC. With ALCHEMY_API_KEY set, the agent reads and sends through Alchemy
+#   first (the SDK's rpcEndpointsFor: the key in a header, RPC_URL as the fallback); a loopback RPC_URL is used alone.
 #   --dry-run  read only, no key needed: propose runs the agent with --dry-run (no --anchor, records to a temporary
 #              folder), settle runs --status; both print the signer, overrides, record folder and anchor URL.
 # Exits 3 when at least one vault's run stopped (its decision record says why), after trying every vault.
 # Needs Foundry (cast), jq, python3 and the workspace's pnpm install.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# shellcheck source=scripts/rpc.sh
+. "$ROOT/scripts/rpc.sh"
 CHAIN_ID="${CHAIN_ID:?CHAIN_ID is required}"
-RPC_URL="${RPC_URL:?RPC_URL is required}"
+RPC_URL="${RPC_URL:-$(rpc_public_url "$CHAIN_ID" || true)}"
+[ -n "$RPC_URL" ] || { echo "RPC_URL is required for chain $CHAIN_ID" >&2; exit 2; }
 MODE="${1:-}"
 DRY_RUN=0
 [ "${2:-}" = "--dry-run" ] && DRY_RUN=1
@@ -89,6 +94,14 @@ elif [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]; then
   echo "CLAUDE_CODE_OAUTH_TOKEN is set: Claude plans each epoch through the Claude Code CLI (--llm)."
 else
   echo "No Claude credential: the default rule plans each epoch (0.20 delta at fair value)."
+fi
+
+# The agent (Node) builds its endpoints from ALCHEMY_API_KEY and STRIKE_RPC_URL itself; say which, without the key.
+network=$(rpc_alchemy_network "$CHAIN_ID" || true)
+if [ -n "${ALCHEMY_API_KEY:-}" ] && [ -n "$network" ] && ! rpc_is_local "$RPC_URL"; then
+  echo "RPC: Alchemy ($network), falling back to $(rpc_label "$RPC_URL")"
+else
+  echo "RPC: $(rpc_label "$RPC_URL")"
 fi
 
 LOG_PATH="$ROOT/$LOG_DIR"
