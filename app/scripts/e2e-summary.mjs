@@ -34,6 +34,7 @@ function runs(suites, path = null) {
           project: t.projectName,
           status: t.status, // expected, unexpected, flaky, skipped
           reason: t.status === "skipped" ? (skip?.description ?? "skipped (no reason given)") : null,
+          error: (t.results ?? []).map((r) => r.error?.message).find(Boolean) ?? null,
         });
       }
     }
@@ -59,7 +60,16 @@ lines.push(
 );
 if (failed.length) {
   lines.push("**Failed**", "");
-  for (const r of failed) lines.push(`- ${where(r)} [${r.project}] ${cell(r.title)}`);
+  for (const r of failed) {
+    lines.push(`- ${where(r)} [${r.project}] ${cell(r.title)}`);
+    // The first lines of the error, without the terminal colour codes.
+    const error = (r.error ?? "")
+      .replace(/\u001b\[[0-9;]*m/g, "")
+      .split("\n")
+      .slice(0, 6)
+      .join("\n");
+    if (error) lines.push("", "  ```", ...error.split("\n").map((l) => `  ${l}`), "  ```");
+  }
   lines.push("");
 }
 if (skipped.length) {

@@ -338,7 +338,8 @@ jobs:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-v2.json
           PROJECT: ${{ matrix.project }}
         # Some specs read the public testnets (and skip when an RPC is unreachable); one retry absorbs a slow answer.
-        run: pnpm exec playwright test --project "$PROJECT" --forbid-only --retries=1 --trace=retain-on-failure --reporter=list,json
+        # The github reporter turns each failure into an annotation on the run page.
+        run: pnpm exec playwright test --project "$PROJECT" --forbid-only --retries=1 --trace=retain-on-failure --reporter=list,json,github
       # register.spec.ts runs its three v3 tests (desktop only) against v3's AgentRegistry (EIP-712 signer consent).
       # The core addresses on 31337 are the same in v3, so the same app build reads it.
       - name: Switch to a v3 devnet (Deploy and Seed from the v3-contracts branch)
@@ -359,7 +360,7 @@ jobs:
         working-directory: app
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-v3.json
-        run: pnpm exec playwright test e2e/register.spec.ts --project desktop --forbid-only --retries=1 --trace=retain-on-failure --reporter=list,json
+        run: pnpm exec playwright test e2e/register.spec.ts --project desktop --forbid-only --retries=1 --trace=retain-on-failure --reporter=list,json,github
       - name: Summary (results, and why each skipped test skipped)
         if: ${{ !cancelled() }}
         working-directory: app
