@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { getStrikeChain } from "@strike/sdk";
+import { getStrikeChain, strikeExplorerUrl } from "@strike/sdk";
 import type { MandateView } from "./types.js";
 
 // The agent's decision record: what it saw, what it decided and why, what it sent and what happened. `--log <dir>`
@@ -159,13 +159,9 @@ export interface DecisionRecord {
   anchor?: RecordAnchor;
 }
 
-/** The chain's block explorer base URL, or null (local devnet, unknown chain). */
+/** The chain's block explorer base URL from strike.config.json, or null (local devnet, unknown chain). */
 export function explorerUrl(chainId: number): string | null {
-  try {
-    return getStrikeChain(chainId).blockExplorers?.default.url ?? null;
-  } catch {
-    return null;
-  }
+  return strikeExplorerUrl(chainId);
 }
 
 /** A transaction's block explorer link, e.g. https://explorer.testnet.chain.robinhood.com/tx/0x... on 46630. */

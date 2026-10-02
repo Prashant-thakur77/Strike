@@ -6,6 +6,7 @@ import {
   formatWad,
   getDeployment,
   getStrikeChain,
+  loadStrikeConfig,
   rpcEndpointsFor,
   transportFromEndpoints,
   wadToNumber,
@@ -16,11 +17,11 @@ import { type Address, createPublicClient, getAddress } from "viem";
 // last settlement of a vault. Same STRIKE_CHAIN_ID / STRIKE_RPC_URL / ALCHEMY_API_KEY rules as the MCP server.
 
 /**
- * A read-only Strike client for STRIKE_CHAIN_ID (default 46630) over the SDK's endpoints: Alchemy when
- * ALCHEMY_API_KEY is set (key in a header), then STRIKE_RPC_URL, then the chain's public RPC.
+ * A read-only Strike client for STRIKE_CHAIN_ID (default: strike.config.json's defaultChainId, 46630) over the SDK's
+ * endpoints: Alchemy when ALCHEMY_API_KEY is set (key in a header), then STRIKE_RPC_URL, then the chain's public RPC.
  */
 export function readClient(env: NodeJS.ProcessEnv = process.env): StrikeClient {
-  const chainId = Number(env.STRIKE_CHAIN_ID ?? 46630);
+  const chainId = Number(env.STRIKE_CHAIN_ID ?? loadStrikeConfig().defaultChainId);
   const base = getStrikeChain(chainId);
   const endpoints = rpcEndpointsFor(chainId, env);
   const chain = { ...base, rpcUrls: { default: { http: [endpoints[0]!.url] } } };
