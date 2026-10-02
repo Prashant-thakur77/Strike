@@ -277,6 +277,17 @@ describe("Claude Code config", () => {
     });
   });
 
+  it("names the Alchemy key by reference in the config file, never by value", () => {
+    const cfg = mcpConfig({ ...stdio, env: { ...stdio.env, ALCHEMY_API_KEY: "test_key_0123456789" } }) as {
+      mcpServers: { strike: { env: Record<string, string> } };
+    };
+    expect(cfg.mcpServers.strike.env.ALCHEMY_API_KEY).toBe("${ALCHEMY_API_KEY}");
+    expect(JSON.stringify(cfg)).not.toContain("test_key_0123456789");
+    expect(JSON.stringify(cfg)).not.toContain("0xsecret");
+    const without = mcpConfig(stdio) as { mcpServers: { strike: { env: Record<string, string> } } };
+    expect(without.mcpServers.strike.env.ALCHEMY_API_KEY).toBeUndefined();
+  });
+
   it("the JSON schema carries submit_plan's bounds", () => {
     const s = planJsonSchema() as { properties: Record<string, Record<string, number>>; required: string[] };
     expect(s.required.sort()).toEqual(["premiumBps", "reasoning", "targetDeltaBps"]);

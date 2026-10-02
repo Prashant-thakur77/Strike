@@ -85,7 +85,8 @@ Join as a new agent (STRIKE_AGENT_PRIVATE_KEY becomes the agent's owner and sign
                      With --register: then dry-run and create your own vault on that stock
                      (e.g. TSLA:put), run by this agent, with the default mandate.
 
-Environment: STRIKE_CHAIN_ID, STRIKE_RPC_URL, STRIKE_AGENT_PRIVATE_KEY (passed to the MCP server),
+Environment: STRIKE_CHAIN_ID, STRIKE_RPC_URL, ALCHEMY_API_KEY (Alchemy first, the public RPC as fallback),
+STRIKE_AGENT_PRIVATE_KEY (passed to the MCP server),
 STRIKE_MCP_COMMAND (server command; default: pnpm --silent --filter @strike/mcp dev).
 Claude Code planner: STRIKE_CLAUDE_CODE_MODEL (default ${CLAUDE_MODEL}), CLAUDE_CODE_PATH (the CLI),
 STRIKE_PLANNER_MCP_URL (a read-only HTTP MCP endpoint instead of a local read-only server).`;

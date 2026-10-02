@@ -1,3 +1,4 @@
+import { describeRpc } from "@strike/sdk";
 import { AlertBuilder, viemLogFetcher } from "./logs.js";
 import { runBot } from "./bot.js";
 import { clientFromConfig, configFromEnv, loadDotEnv } from "./config.js";
@@ -24,7 +25,7 @@ async function main(): Promise<void> {
   const api = createTelegramApi({ token: config.token, baseUrl: config.telegramApiUrl });
   const me = await api.getMe();
   log(
-    `@${me.username ?? me.id} on chain ${config.chainId}; ${store.subscribers.length} subscriber(s); cursor ${store.cursor ?? `deploy block ${config.startBlock}`}; state ${store.path}`,
+    `@${me.username ?? me.id} on chain ${config.chainId} via ${describeRpc(config.rpcEndpoints)}; ${store.subscribers.length} subscriber(s); cursor ${store.cursor ?? `deploy block ${config.startBlock}`}; state ${store.path}`,
   );
 
   const controller = new AbortController();

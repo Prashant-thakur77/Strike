@@ -76,6 +76,7 @@ Copy `.env.example` to `.env` in this directory (the bot loads it on start; real
 | `TELEGRAM_BOT_TOKEN`    | none                       | BotFather token. Required to run the bot, not for the dry run.     |
 | `STRIKE_CHAIN_ID`       | `46630`                    | A chain in the SDK's deployment map (see [Chains](#chains))        |
 | `STRIKE_RPC_URL`        | the chain's public RPC     | Your own RPC endpoint                                              |
+| `ALCHEMY_API_KEY`       | unset                      | Read through Alchemy first, with the public RPC as fallback        |
 | `DATA_DIR`              | `./data`                   | Where `state-<chainId>.json` (subscribers, log cursor) is kept     |
 | `POLL_INTERVAL_SECONDS` | `15`                       | How often to check for new logs                                    |
 | `LOG_BLOCK_RANGE`       | `50000`                    | Largest `getLogs` range; halved automatically when the RPC refuses |

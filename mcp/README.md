@@ -18,6 +18,7 @@ It speaks MCP over stdio. With no configuration it reads Strike v2 on Robinhood 
 | -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
 | `STRIKE_CHAIN_ID`          | `46630`                       | `46630` (Robinhood Chain testnet, v2) or `421614` (Arbitrum Sepolia, v3)                       |
 | `STRIKE_RPC_URL`           | the chain's public RPC        | Your own RPC endpoint                                                                          |
+| `ALCHEMY_API_KEY`          | unset                         | Read and send through Alchemy (key sent in a header), with the public RPC as fallback          |
 | `STRIKE_MCP_READ_ONLY`     | unset                         | `1`: register only the read tools and never load a key                                         |
 | `STRIKE_AGENT_PRIVATE_KEY` | unset                         | The agent signer's key (0x + 64 hex). Without it the write tools are listed but refuse to send |
 | `STRIKE_SKILL_PATH`        | the bundled `STRIKE_SKILL.md` | Another file for the `strike://skill` resource                                                 |

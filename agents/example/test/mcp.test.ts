@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type StrikeMcp, ToolError, connectStrikeMcp } from "../src/mcp.js";
+import { type StrikeMcp, ToolError, connectStrikeMcp, strikeMcpCommand } from "../src/mcp.js";
 
 // Spawns the real Strike MCP server over stdio (read-only, no chain needed for these calls).
 describe("connectStrikeMcp", () => {
@@ -34,5 +34,18 @@ describe("connectStrikeMcp", () => {
   it("serves the skill resource", async () => {
     const res = await mcp.client.readResource({ uri: "strike://skill" });
     expect(JSON.stringify(res.contents)).toMatch(/Strike skill for AI agents/);
+  });
+});
+
+describe("strikeMcpCommand", () => {
+  it("passes STRIKE_* and ALCHEMY_API_KEY to the server, nothing else", () => {
+    const { env } = strikeMcpCommand({
+      STRIKE_CHAIN_ID: "46630",
+      ALCHEMY_API_KEY: "test_key_0123456789",
+      STRIKE_MCP_COMMAND: "node mcp/dist/index.js",
+      ANTHROPIC_API_KEY: "sk-test",
+      HOME: "/home/x",
+    });
+    expect(env).toEqual({ STRIKE_CHAIN_ID: "46630", ALCHEMY_API_KEY: "test_key_0123456789" });
   });
 });

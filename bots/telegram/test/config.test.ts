@@ -35,6 +35,16 @@ describe("configFromEnv", () => {
     expect(c.telegramApiUrl).toBe("http://localhost:8081");
   });
 
+  it("reads through Alchemy first when ALCHEMY_API_KEY is set, the key in a header only", () => {
+    const c = configFromEnv({
+      ALCHEMY_API_KEY: "test_key_0123456789",
+      STRIKE_RPC_URL: "https://rpc.example",
+    });
+    expect(c.rpcEndpoints.map((e) => e.provider)).toEqual(["alchemy", "custom", "public"]);
+    expect(c.rpcUrl).toBe("https://robinhood-testnet.g.alchemy.com/v2");
+    expect(c.rpcEndpoints[0]?.headers).toEqual({ Authorization: "Bearer test_key_0123456789" });
+  });
+
   it("rejects bad values without echoing a token", () => {
     expect(() => configFromEnv({ STRIKE_CHAIN_ID: "abc" })).toThrow(/STRIKE_CHAIN_ID/);
     expect(() => configFromEnv({ LOG_BLOCK_RANGE: "0" })).toThrow(/LOG_BLOCK_RANGE/);

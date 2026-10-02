@@ -1,6 +1,13 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { type StrikeClient, createStrikeClient, getStrikeChain } from "@strike/sdk";
-import { createPublicClient, custom, http } from "viem";
+import {
+  type RpcEndpoint,
+  type StrikeClient,
+  createStrikeClient,
+  getStrikeChain,
+  rpcEndpointsFor,
+  transportFromEndpoints,
+} from "@strike/sdk";
+import { createPublicClient, custom } from "viem";
 import { createStrikeMcpServer } from "./server.js";
 
 // The read-only Strike MCP server over Streamable HTTP, for serverless hosts (the app serves it at /api/mcp).
@@ -11,8 +18,13 @@ import { createStrikeMcpServer } from "./server.js";
 export interface ReadOnlyMcpOptions {
   /** Chain to read (default 46630, Robinhood Chain testnet). */
   chainId?: number;
-  /** RPC URL (default: the chain's public RPC). */
+  /** RPC URL (default: the chain's public RPC). Ignored when `rpcEndpoints` is set. */
   rpcUrl?: string;
+  /**
+   * RPC endpoints, best first, from the SDK's `rpcEndpointsFor` (Alchemy with its key in a header, then the public
+   * RPC): reads fall back down the list.
+   */
+  rpcEndpoints?: readonly RpcEndpoint[];
   /** STRIKE_SKILL.md's text for the strike://skill resource. */
   skillText?: string;
   /** How long identical RPC reads are shared between requests, in ms (default 10 000). */
@@ -35,8 +47,10 @@ const MAX_ENTRIES = 1_000;
  * A viem transport that shares identical read calls for `ttlMs` (and coalesces concurrent ones), so bursts of
  * MCP calls from many agents cost the public RPC one request per distinct read instead of one per caller.
  */
-export function cachedReadTransport(rpcUrl: string, ttlMs: number) {
-  const upstream = http(rpcUrl, { retryCount: 1, timeout: 20_000 })({ retryCount: 0 });
+export function cachedReadTransport(rpc: string | readonly RpcEndpoint[], ttlMs: number) {
+  const endpoints: readonly RpcEndpoint[] =
+    typeof rpc === "string" ? [{ provider: "custom", url: rpc }] : rpc;
+  const upstream = transportFromEndpoints(endpoints, { retryCount: 1, timeout: 20_000 })({ retryCount: 0 });
   const cache = new Map<string, { expires: number; value: Promise<unknown> }>();
   return custom(
     {
@@ -66,15 +80,27 @@ export function cachedReadTransport(rpcUrl: string, ttlMs: number) {
 // One read client per chain and RPC per server instance: warm serverless invocations reuse it and its cache.
 const clients = new Map<string, StrikeClient>();
 
-/** A read-only Strike client (no wallet) over the caching transport. */
-export function readOnlyClient(chainId: number, rpcUrl?: string, cacheTtlMs = 10_000): StrikeClient {
-  const url = rpcUrl || getStrikeChain(chainId).rpcUrls.default.http[0];
-  if (!url) throw new Error(`no RPC URL for chain ${chainId}`);
-  const key = `${chainId}:${url}:${cacheTtlMs}`;
+/**
+ * A read-only Strike client (no wallet) over the caching transport. `rpc` is a URL or the SDK's endpoints (default:
+ * the chain's public RPC).
+ */
+export function readOnlyClient(
+  chainId: number,
+  rpc?: string | readonly RpcEndpoint[],
+  cacheTtlMs = 10_000,
+): StrikeClient {
+  const endpoints: readonly RpcEndpoint[] =
+    typeof rpc === "string" && rpc
+      ? [{ provider: "custom", url: rpc }]
+      : Array.isArray(rpc) && rpc.length
+        ? rpc
+        : rpcEndpointsFor(chainId, {});
+  // The cache key names the endpoints by provider and URL only: the key in a header never becomes a map key.
+  const key = `${chainId}:${endpoints.map((e) => `${e.provider}@${e.url}`).join(",")}:${cacheTtlMs}`;
   let client = clients.get(key);
   if (!client) {
-    const chain = { ...getStrikeChain(chainId), rpcUrls: { default: { http: [url] } } };
-    const publicClient = createPublicClient({ chain, transport: cachedReadTransport(url, cacheTtlMs) });
+    const chain = { ...getStrikeChain(chainId), rpcUrls: { default: { http: [endpoints[0]!.url] } } };
+    const publicClient = createPublicClient({ chain, transport: cachedReadTransport(endpoints, cacheTtlMs) });
     client = createStrikeClient({ publicClient, chainId });
     clients.set(key, client);
   }
@@ -104,7 +130,7 @@ export async function handleReadOnlyMcpRequest(
     chainId,
     readOnly: true,
     skillText: options.skillText,
-    client: () => readOnlyClient(chainId, options.rpcUrl, options.cacheTtlMs),
+    client: () => readOnlyClient(chainId, options.rpcEndpoints ?? options.rpcUrl, options.cacheTtlMs),
   });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

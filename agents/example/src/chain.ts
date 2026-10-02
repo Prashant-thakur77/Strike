@@ -6,21 +6,25 @@ import {
   formatWad,
   getDeployment,
   getStrikeChain,
+  rpcEndpointsFor,
+  transportFromEndpoints,
   wadToNumber,
 } from "@strike/sdk";
-import { type Address, createPublicClient, getAddress, http } from "viem";
+import { type Address, createPublicClient, getAddress } from "viem";
 
 // Direct, read-only chain reads the MCP tools do not expose: the epoch's opening snapshot, the NYSE session and the
-// last settlement of a vault. Same STRIKE_CHAIN_ID / STRIKE_RPC_URL defaults as the MCP server.
+// last settlement of a vault. Same STRIKE_CHAIN_ID / STRIKE_RPC_URL / ALCHEMY_API_KEY rules as the MCP server.
 
-/** A read-only Strike client for STRIKE_CHAIN_ID (default 46630) and STRIKE_RPC_URL (default: the chain's RPC). */
+/**
+ * A read-only Strike client for STRIKE_CHAIN_ID (default 46630) over the SDK's endpoints: Alchemy when
+ * ALCHEMY_API_KEY is set (key in a header), then STRIKE_RPC_URL, then the chain's public RPC.
+ */
 export function readClient(env: NodeJS.ProcessEnv = process.env): StrikeClient {
   const chainId = Number(env.STRIKE_CHAIN_ID ?? 46630);
   const base = getStrikeChain(chainId);
-  const rpcUrl = env.STRIKE_RPC_URL || base.rpcUrls.default.http[0];
-  if (!rpcUrl) throw new Error(`no RPC URL for chain ${chainId}: set STRIKE_RPC_URL`);
-  const chain = { ...base, rpcUrls: { default: { http: [rpcUrl] } } };
-  const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+  const endpoints = rpcEndpointsFor(chainId, env);
+  const chain = { ...base, rpcUrls: { default: { http: [endpoints[0]!.url] } } };
+  const publicClient = createPublicClient({ chain, transport: transportFromEndpoints(endpoints) });
   return createStrikeClient({ publicClient, chainId });
 }
 

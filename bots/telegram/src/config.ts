@@ -1,7 +1,15 @@
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
-import { type StrikeClient, createStrikeClient, getDeployment, getStrikeChain } from "@strike/sdk";
-import { createPublicClient, http } from "viem";
+import {
+  type RpcEndpoint,
+  type StrikeClient,
+  createStrikeClient,
+  getDeployment,
+  getStrikeChain,
+  rpcEndpointsFor,
+  transportFromEndpoints,
+} from "@strike/sdk";
+import { createPublicClient } from "viem";
 
 /** Bot configuration from the environment. */
 export interface BotConfig {
@@ -11,8 +19,10 @@ export interface BotConfig {
   telegramApiUrl: string;
   /** STRIKE_CHAIN_ID (default 46630, Robinhood Chain testnet). */
   chainId: number;
-  /** STRIKE_RPC_URL (default: the chain's public RPC). */
+  /** The first RPC endpoint's URL, for display. Never carries an API key (Alchemy's goes in a header). */
   rpcUrl: string;
+  /** The SDK's `rpcEndpointsFor`: Alchemy when ALCHEMY_API_KEY is set, then STRIKE_RPC_URL, then the public RPC. */
+  rpcEndpoints: RpcEndpoint[];
   /** DATA_DIR (default ./data): where the state file lives. */
   dataDir: string;
   /** POLL_INTERVAL_SECONDS (default 15): how often to look for new logs. */
@@ -51,8 +61,7 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): nu
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
   const chainId = positiveInt(env, "STRIKE_CHAIN_ID", 46630);
   const chain = getStrikeChain(chainId);
-  const rpcUrl = env.STRIKE_RPC_URL?.trim() || chain.rpcUrls.default.http[0];
-  if (!rpcUrl) throw new Error(`no RPC URL for chain ${chainId}: set STRIKE_RPC_URL`);
+  const rpcEndpoints = rpcEndpointsFor(chainId, env);
   const token = env.TELEGRAM_BOT_TOKEN?.trim() || undefined;
   if (token && !/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) {
     throw new Error("TELEGRAM_BOT_TOKEN does not look like a BotFather token (<digits>:<secret>)");
@@ -61,7 +70,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
     token,
     telegramApiUrl: (env.TELEGRAM_API_URL?.trim() || "https://api.telegram.org").replace(/\/+$/, ""),
     chainId,
-    rpcUrl,
+    rpcUrl: rpcEndpoints[0]!.url,
+    rpcEndpoints,
     dataDir: resolve(env.DATA_DIR?.trim() || "data"),
     pollIntervalMs: positiveInt(env, "POLL_INTERVAL_SECONDS", 15) * 1000,
     logBlockRange: BigInt(positiveInt(env, "LOG_BLOCK_RANGE", 50_000)),
@@ -73,7 +83,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
 /** A read-only Strike client for the configuration. */
 export function clientFromConfig(config: BotConfig): StrikeClient {
   const chain = { ...getStrikeChain(config.chainId), rpcUrls: { default: { http: [config.rpcUrl] } } };
-  const publicClient = createPublicClient({ chain, transport: http(config.rpcUrl, { retryCount: 3 }) });
+  const transport = transportFromEndpoints(config.rpcEndpoints, { retryCount: 3 });
+  const publicClient = createPublicClient({ chain, transport });
   return createStrikeClient({ publicClient, chainId: config.chainId });
 }
 

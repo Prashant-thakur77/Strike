@@ -36,7 +36,7 @@ export interface StrikeMcpCommand {
 /**
  * The command that starts the Strike MCP server. It defaults to the workspace's `pnpm --filter @strike/mcp dev`;
  * override it with STRIKE_MCP_COMMAND (for example `node mcp/dist/index.js`). STRIKE_* variables (chain, RPC, agent
- * key) are passed through to the server; `extraEnv` is added on top.
+ * key) and ALCHEMY_API_KEY (the server then reads through Alchemy) are passed through; `extraEnv` is added on top.
  */
 export function strikeMcpCommand(
   processEnv: NodeJS.ProcessEnv = process.env,
@@ -48,7 +48,8 @@ export function strikeMcpCommand(
     : ["pnpm", "--silent", "--filter", "@strike/mcp", "dev"];
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(processEnv)) {
-    if (key.startsWith("STRIKE_") && value !== undefined && key !== "STRIKE_MCP_COMMAND") env[key] = value;
+    if (value === undefined || key === "STRIKE_MCP_COMMAND") continue;
+    if (key.startsWith("STRIKE_") || key === "ALCHEMY_API_KEY") env[key] = value;
   }
   return { command: cmd, args, env: { ...env, ...extraEnv }, cwd: repoRoot };
 }

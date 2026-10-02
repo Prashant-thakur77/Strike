@@ -51,6 +51,21 @@ export type {
   SeriesTarget,
 } from "./decisionRecord.js";
 export { createStrikeClient, resolveAddresses } from "./client.js";
+export {
+  ALCHEMY_NETWORKS,
+  alchemyApiKey,
+  alchemyEndpoint,
+  describeRpc,
+  describeRpcEndpoint,
+  isLocalRpcUrl,
+  publicRpcUrl,
+  redactRpcUrl,
+  rpcEndpointsFor,
+  rpcTransportFor,
+  rpcUrlFor,
+  transportFromEndpoints,
+} from "./rpc.js";
+export type { RpcEndpoint, RpcProvider } from "./rpc.js";
 export type { StrikeAddresses, StrikeClient, StrikeClientConfig, StrikeViemClients } from "./client.js";
 export { ERROR_HINTS, StrikeError, describeError, explainError, revertErrorName } from "./errors.js";
 export {

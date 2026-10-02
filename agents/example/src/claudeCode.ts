@@ -72,6 +72,9 @@ export function mcpConfig(mcp: PlannerMcp): Record<string, unknown> {
   for (const [key, value] of Object.entries(mcp.env)) {
     if (key !== "STRIKE_AGENT_PRIVATE_KEY") env[key] = value;
   }
+  // The config is a file on disk: it names the Alchemy key by reference (Claude Code expands ${VAR} from its own
+  // environment, which has it) instead of holding it. Unexpanded, the SDK ignores it and reads the public RPC.
+  if (env.ALCHEMY_API_KEY) env.ALCHEMY_API_KEY = "${ALCHEMY_API_KEY}";
   env.STRIKE_MCP_READ_ONLY = "1";
   return {
     mcpServers: {

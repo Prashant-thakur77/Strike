@@ -1,11 +1,17 @@
-import { decisionLogAbi, getDeployment, getStrikeChain, strikeVaultAbi } from "@strike/sdk";
+import {
+  decisionLogAbi,
+  getDeployment,
+  getStrikeChain,
+  rpcEndpointsFor,
+  strikeVaultAbi,
+  transportFromEndpoints,
+} from "@strike/sdk";
 import {
   type Address,
   type Hex,
   createPublicClient,
   createWalletClient,
   getAddress,
-  http,
   keccak256,
   toBytes,
 } from "viem";
@@ -87,7 +93,10 @@ export function decisionLogAddress(chainId: number, env: NodeJS.ProcessEnv = pro
   return getAddress(deployed);
 }
 
-/** A sender signing with STRIKE_AGENT_PRIVATE_KEY (the agent's signer) on STRIKE_CHAIN_ID / STRIKE_RPC_URL. */
+/**
+ * A sender signing with STRIKE_AGENT_PRIVATE_KEY (the agent's signer) on STRIKE_CHAIN_ID, over the SDK's endpoints
+ * (Alchemy when ALCHEMY_API_KEY is set, then STRIKE_RPC_URL, then the public RPC).
+ */
 export function chainAnchorSender(
   chainId: number,
   contract: Address,
@@ -96,12 +105,12 @@ export function chainAnchorSender(
   const key = env.STRIKE_AGENT_PRIVATE_KEY;
   if (!key) throw new Error("--anchor needs STRIKE_AGENT_PRIVATE_KEY (the agent's signer key)");
   const base = getStrikeChain(chainId);
-  const rpcUrl = env.STRIKE_RPC_URL || base.rpcUrls.default.http[0];
-  if (!rpcUrl) throw new Error(`no RPC URL for chain ${chainId}: set STRIKE_RPC_URL`);
-  const chain = { ...base, rpcUrls: { default: { http: [rpcUrl] } } };
+  const endpoints = rpcEndpointsFor(chainId, env);
+  const chain = { ...base, rpcUrls: { default: { http: [endpoints[0]!.url] } } };
   const account = privateKeyToAccount((key.startsWith("0x") ? key : `0x${key}`) as Hex);
-  const wallet = createWalletClient({ account, chain, transport: http(rpcUrl) });
-  const client = createPublicClient({ chain, transport: http(rpcUrl) });
+  const transport = transportFromEndpoints(endpoints);
+  const wallet = createWalletClient({ account, chain, transport });
+  const client = createPublicClient({ chain, transport });
   return async (req) => {
     const { request } = await client.simulateContract({
       account,
