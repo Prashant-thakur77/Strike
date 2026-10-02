@@ -197,6 +197,17 @@ function printAudit(sdk, audit, chain) {
       `Oracle check: the StockOracle of each deployment (${byOracle.join(", ")}) reads the audited MirrorFeed for all ${oracles.length} listed token(s).`,
     );
   }
+  const managers = audit.managerOracles ?? [];
+  for (const m of managers.filter((x) => !x.same)) {
+    console.log(
+      `MISMATCH: the ${m.version ?? "?"} EpochManager ${m.epochManager} reads StockOracle ${m.oracle ?? "(unreadable)"}, not the deployment's ${m.expected}.`,
+    );
+  }
+  if (managers.length && managers.every((x) => x.same)) {
+    console.log(
+      `EpochManager check: each deployment's EpochManager reads its recorded StockOracle (${managers.map((m) => m.version ?? "?").join(", ")}).`,
+    );
+  }
   for (const o of swapped) {
     console.log(
       `MISMATCH: the ${o.version ?? "?"} StockOracle ${o.stockOracle} reads ${o.symbol} from ${o.feed ?? "(unreadable)"}, not the audited MirrorFeed ${o.expected}.`,
@@ -231,7 +242,12 @@ function printSettlement(sdk, a, chain) {
   console.log(
     `Settlement audit: vault ${a.vault} (${a.version ?? "?"}, EpochManager ${a.epochManager}) on ${CHAIN_NAMES[chain]} (${chain})`,
   );
-  console.log(`Testnet time ${utc(a.testnetTime)} UTC, mainnet time ${utc(a.mainnetTime)} UTC.\n`);
+  console.log(`Testnet time ${utc(a.testnetTime)} UTC, mainnet time ${utc(a.mainnetTime)} UTC.`);
+  console.log(
+    a.stockOracle === a.expectedStockOracle
+      ? `The EpochManager settles through StockOracle ${a.stockOracle}, the deployment's.\n`
+      : `MISMATCH: the EpochManager settles through StockOracle ${a.stockOracle}, not the deployment's ${a.expectedStockOracle}.\n`,
+  );
   if (!a.series.length) console.log("The vault has sold no series yet.");
   for (const s of a.series) {
     console.log(
@@ -258,11 +274,15 @@ function printSettlement(sdk, a, chain) {
     console.log(`  ${s.status === "mismatch" ? "FAIL" : "Result"}: ${s.message}\n`);
   }
   const bad = a.series.filter((s) => s.status === "mismatch").length;
-  console.log(
-    bad
-      ? `${bad} series settled (or about to settle) at a round that does not match Robinhood Chain mainnet Chainlink`
-      : `No settlement round of this vault fails the check against Robinhood Chain mainnet Chainlink`,
-  );
+  if (a.stockOracle !== a.expectedStockOracle) {
+    console.log("The EpochManager does not settle through the deployment's StockOracle: the check fails");
+  } else {
+    console.log(
+      bad
+        ? `${bad} series settled (or about to settle) at a round that does not match Robinhood Chain mainnet Chainlink`
+        : `No settlement round of this vault fails the check against Robinhood Chain mainnet Chainlink`,
+    );
+  }
   return a.ok ? 0 : 1;
 }
 

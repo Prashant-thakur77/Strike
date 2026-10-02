@@ -377,6 +377,8 @@ describe("auditMirror", () => {
       [d.stocks.TSLA!.token.toLowerCase()]: d.stocks.TSLA!.feed,
       [d.stocks.NVDA!.token.toLowerCase()]: d.stocks.NVDA!.feed,
     };
+    let managerReads: Address = d.stockOracle;
+    const manager: FakeContract = { abi: epochManagerAbi as Abi, fns: { oracle: () => managerReads } };
     const oracle: FakeContract = {
       abi: stockOracleAbi as Abi,
       fns: {
@@ -394,6 +396,7 @@ describe("auditMirror", () => {
           [d.stocks.TSLA!.feed]: tsla.contract,
           [d.stocks.NVDA!.feed]: nvda.contract,
           [d.stockOracle]: oracle,
+          [d.epochManager]: manager,
         }),
         { timestamp: mainnet[5]!.at + 600n, logs: [...tsla.logs, ...nvda.logs] },
       );
@@ -412,6 +415,7 @@ describe("auditMirror", () => {
     const good = await run();
     expect(good.ok).toBe(true);
     expect(good.summary.matched).toBe(12);
+    expect(good.managerOracles.map((o) => o.same)).toEqual([true]);
     expect(good.oracleFeeds.map((o) => [o.symbol, o.same])).toEqual([
       ["NVDA", true],
       ["TSLA", true],
@@ -426,6 +430,22 @@ describe("auditMirror", () => {
       same: false,
       feed: addr(0xbad),
     });
+
+    // The admin swaps the EpochManager's oracle instead (setOracle): caught by the manager check.
+    reads[d.stocks.TSLA!.token.toLowerCase()] = d.stocks.TSLA!.feed;
+    managerReads = addr(0x0bad);
+    const swappedOracle = await run();
+    expect(swappedOracle.oracleFeeds.every((o) => o.same)).toBe(true);
+    expect(swappedOracle.ok).toBe(false);
+    expect(swappedOracle.managerOracles).toEqual([
+      {
+        version: d.version ?? null,
+        epochManager: d.epochManager,
+        oracle: addr(0x0bad),
+        expected: d.stockOracle,
+        same: false,
+      },
+    ]);
   });
 
   it("covers every MirrorFeed of the chain's deployments once", () => {
@@ -511,6 +531,8 @@ function settlementChains(opts: {
   now: bigint;
   settled?: { round: bigint; price: bigint };
   sold?: bigint;
+  /** What EpochManager.oracle() returns (default the deployment's StockOracle). */
+  oracle?: Address;
 }) {
   const t = testnetFeed(opts.testnet, V2.stocks.TSLA!.feed);
   const series = {
@@ -539,6 +561,7 @@ function settlementChains(opts: {
       fns: {
         epochs: [opts.settled ? 0 : 2, EXPIRY - 4n * 86_400n, opts.settled ? 0n : SERIES, 0n, 0n],
         getSeries: () => series,
+        oracle: () => opts.oracle ?? V2.stockOracle,
       },
     },
     [V2.stockOracle]: {
@@ -589,6 +612,8 @@ function settlementChains(opts: {
       transactionHash: keccak256(toHex("settle-tx")),
     });
   }
+  // A swapped-in oracle: the same feed config, but none of the real oracle's SettlementPriceRecorded logs.
+  if (opts.oracle) contracts[opts.oracle] = contracts[V2.stockOracle]!;
   const testnetChain = fakeChain(withMulticall(contracts), { timestamp: opts.now, logs });
   const mainnetChain = fakeChain(withMulticall({ [MAINNET_TSLA]: mainnetProxy(opts.mainnet) }), {
     timestamp: opts.now,
@@ -700,6 +725,22 @@ describe("auditSettlement", () => {
     expect(s.sameAsMainnetSettlement).toBe(false);
     expect(s.skippedMainnetRounds).toBe(1);
     expect(s.message).toMatch(/Not the first mainnet print after expiry: mainnet printed 1 earlier round/);
+  });
+
+  it("fails when the EpochManager reads another oracle than the deployment's (setOracle)", async () => {
+    const testnet = mirrorOf(aroundExpiry.slice(0, 6));
+    const price = testnet[3]!.answer * WAD_PER_8;
+    const c = settlementChains({
+      testnet,
+      mainnet: aroundExpiry,
+      now: EXPIRY + 7200n,
+      settled: { round: 4n, price },
+      oracle: addr(0x0bad),
+    });
+    const a = await auditSettlement({ chainId: 46630, vault: VAULT, ...c, ...fast });
+    expect(a.ok).toBe(false);
+    expect(a.stockOracle).toBe(addr(0x0bad));
+    expect(a.expectedStockOracle).toBe(V2.stockOracle);
   });
 
   it("a series with no options sold settles without a price", async () => {

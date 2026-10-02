@@ -132,6 +132,7 @@ export {
 export type {
   CheckedStatus,
   MainnetRound,
+  ManagerOracleCheck,
   MirrorAudit,
   MirrorAuditOptions,
   MirrorClientOptions,

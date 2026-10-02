@@ -230,8 +230,23 @@ export interface MirrorAudit {
    * the deployment record names and this audit checks. Empty when the audit was given its own `feeds`.
    */
   oracleFeeds: OracleFeedCheck[];
-  /** Every checked round matched, and every oracle reads the feed that was audited. */
+  /**
+   * Which StockOracle each deployment's EpochManager reads (`oracle()`), against the one the deployment record names
+   * (an admin's `setOracle` to another contract would show here). Empty when the audit was given its own `feeds`.
+   */
+  managerOracles: ManagerOracleCheck[];
+  /** Every checked round matched, and every EpochManager and oracle reads what was audited. */
   ok: boolean;
+}
+
+/** One deployment: the StockOracle its EpochManager reads, against the one the deployment record names. */
+export interface ManagerOracleCheck {
+  version: string | null;
+  epochManager: Address;
+  /** `EpochManager.oracle()`; null when it could not be read. */
+  oracle: Address | null;
+  expected: Address;
+  same: boolean;
 }
 
 /** One token of one deployment: the feed its StockOracle reads, against the one the deployment record names. */
@@ -870,6 +885,32 @@ async function checkOracleFeeds(ctx: Ctx, chainId: number, symbol?: string): Pro
   return out;
 }
 
+/** The StockOracle each deployment's EpochManager reads (`oracle()`), against the deployment record's. */
+async function checkManagerOracles(ctx: Ctx, chainId: number): Promise<ManagerOracleCheck[]> {
+  const t = ctx.testnet;
+  const out: ManagerOracleCheck[] = [];
+  for (const d of deploymentsFor(chainId)) {
+    let oracle: Address | null = null;
+    try {
+      oracle = getAddress(
+        (await read(t, () =>
+          t.client.readContract({ address: d.epochManager, abi: epochManagerAbi, functionName: "oracle" }),
+        )) as Address,
+      );
+    } catch {
+      oracle = null;
+    }
+    out.push({
+      version: d.version ?? null,
+      epochManager: getAddress(d.epochManager),
+      oracle,
+      expected: getAddress(d.stockOracle),
+      same: oracle !== null && oracle === getAddress(d.stockOracle),
+    });
+  }
+  return out;
+}
+
 /** Run `fn` over `items`, at most `n` at a time, keeping order. */
 async function mapLimit<T, U>(items: readonly T[], n: number, fn: (x: T) => Promise<U>): Promise<U[]> {
   const out: U[] = new Array(items.length);
@@ -901,6 +942,7 @@ export async function auditMirror(opts: MirrorAuditOptions): Promise<MirrorAudit
   }
   const ctx = await contextFor(opts);
   const oracleFeeds = opts.feeds ? [] : await checkOracleFeeds(ctx, opts.chainId, opts.symbol);
+  const managerOracles = opts.feeds ? [] : await checkManagerOracles(ctx, opts.chainId);
   // Two feeds at a time: the mainnet public RPC rate-limits bursts.
   const feeds = await mapLimit(targets, 2, (target) => auditFeed(ctx, target, opts));
   if (ctx.mainnetHead.time === 0n) ctx.mainnetHead = await headOf(ctx.mainnet);
@@ -934,6 +976,7 @@ export async function auditMirror(opts: MirrorAuditOptions): Promise<MirrorAudit
     testnetTime: ctx.testnetHead.time,
     feeds,
     oracleFeeds,
+    managerOracles,
     summary: {
       rounds,
       matched: counts.match,
@@ -943,7 +986,8 @@ export async function auditMirror(opts: MirrorAuditOptions): Promise<MirrorAudit
       seeds,
       largestGap,
     },
-    ok: rounds - counts.match === 0 && oracleFeeds.every((o) => o.same),
+    ok:
+      rounds - counts.match === 0 && oracleFeeds.every((o) => o.same) && managerOracles.every((o) => o.same),
   };
 }
 
@@ -999,11 +1043,15 @@ export interface SettlementAudit {
   chainId: number;
   vault: Address;
   epochManager: Address;
+  /** The StockOracle the EpochManager reads (`oracle()`), which settlement records the price through. */
+  stockOracle: Address;
+  /** The deployment record's StockOracle; settlement fails the audit when the two differ (an admin `setOracle`). */
+  expectedStockOracle: Address;
   version: string | null;
   testnetTime: bigint;
   mainnetTime: bigint;
   series: SeriesSettlementCheck[];
-  /** No series settled (or about to settle) at a round that fails the check. */
+  /** The EpochManager reads the recorded StockOracle and no series settled (or is about to) at a failing round. */
   ok: boolean;
 }
 
@@ -1044,7 +1092,7 @@ export async function auditSettlement(opts: SettlementAuditOptions): Promise<Set
     throw new StrikeError(`${vault} belongs to EpochManager ${manager}, not a known Strike deployment`);
   const fromBlock = dep.block !== undefined ? BigInt(dep.block) : 0n;
 
-  const [proposed, epochState] = await Promise.all([
+  const [proposed, epochState, managerOracle] = await Promise.all([
     read(t, () =>
       t.client.getContractEvents({
         address: dep.epochManager,
@@ -1063,7 +1111,12 @@ export async function auditSettlement(opts: SettlementAuditOptions): Promise<Set
         args: [vault],
       }),
     ),
+    read(t, () =>
+      t.client.readContract({ address: dep.epochManager, abi: epochManagerAbi, functionName: "oracle" }),
+    ),
   ]);
+  // Settlement records the price through the oracle the EpochManager reads, so that is the one checked.
+  const stockOracle = getAddress(managerOracle as Address);
   const seriesIds = new Map<bigint, bigint | null>();
   for (const l of proposed) {
     const a = l.args as { seriesId?: bigint; epoch?: bigint };
@@ -1082,7 +1135,7 @@ export async function auditSettlement(opts: SettlementAuditOptions): Promise<Set
         args: [seriesId],
       }),
     );
-    series.push(await checkSeries(ctx, dep, seriesId, epoch, s, fromBlock));
+    series.push(await checkSeries(ctx, dep, stockOracle, seriesId, epoch, s, fromBlock));
   }
   series.sort((a, b) => (a.expiry < b.expiry ? -1 : a.expiry > b.expiry ? 1 : 0));
   if (ctx.mainnetHead.time === 0n) ctx.mainnetHead = await headOf(ctx.mainnet);
@@ -1090,11 +1143,13 @@ export async function auditSettlement(opts: SettlementAuditOptions): Promise<Set
     chainId: opts.chainId,
     vault,
     epochManager: dep.epochManager,
+    stockOracle,
+    expectedStockOracle: getAddress(dep.stockOracle),
     version: dep.version ?? null,
     testnetTime: ctx.testnetHead.time,
     mainnetTime: ctx.mainnetHead.time,
     series,
-    ok: series.every((x) => x.status !== "mismatch"),
+    ok: stockOracle === getAddress(dep.stockOracle) && series.every((x) => x.status !== "mismatch"),
   };
 }
 
@@ -1110,6 +1165,7 @@ type SeriesTuple = {
 async function checkSeries(
   ctx: Ctx,
   dep: StrikeDeployment,
+  stockOracle: Address,
   seriesId: bigint,
   epoch: bigint | null,
   raw: unknown,
@@ -1124,7 +1180,7 @@ async function checkSeries(
     )?.[0] ?? "?";
   const cfg = (await read(t, () =>
     t.client.readContract({
-      address: dep.stockOracle,
+      address: stockOracle,
       abi: stockOracleAbi,
       functionName: "feedConfig",
       args: [underlying],
@@ -1163,7 +1219,7 @@ async function checkSeries(
   if (s.settled) {
     const logs = await read(t, () =>
       t.client.getContractEvents({
-        address: dep.stockOracle,
+        address: stockOracle,
         abi: stockOracleAbi,
         eventName: "SettlementPriceRecorded",
         args: { token: underlying, expiry: s.expiry },
