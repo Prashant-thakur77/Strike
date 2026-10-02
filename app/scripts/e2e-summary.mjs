@@ -66,7 +66,7 @@ if (failed.length) {
     const error = (r.error ?? "")
       .replace(/\u001b\[[0-9;]*m/g, "")
       .split("\n")
-      .slice(0, 6)
+      .slice(0, 12)
       .join("\n");
     if (error) lines.push("", "  ```", ...error.split("\n").map((l) => `  ${l}`), "  ```");
   }
