@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "action": "propose",
+  "date": "2026-10-02",
+  "chainTimeIso": "2026-10-02T18:15:13.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "2",
+    "signer": "0x4501c16dc4f29394560F9B2aB935667cA058B79b"
+  },
+  "vault": {
+    "address": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+    "symbol": "sTSLA-CSP-A2",
+    "name": "Strike TSLA Cash-Secured Put (agent 2)",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "150",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 2500,
+      "minPremiumBps": 10000,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 5000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.25, premium >= 100% of fair value, yield >= 0.05% of collateral, size <= 50% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "372.6112",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-02T18:15:33.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": true
+  },
+  "decision": {
+    "strategy": "default",
+    "targetDeltaBps": 1500,
+    "premiumBps": 10800,
+    "reasoning": "Profile \"conservative\": target 0.15 delta, further out of the money than the default 0.20, so the option is exercised less often and the premium is smaller. Price at 108% of Black-Scholes fair value, and offer at most 50% of the vault's capacity, so a bad week costs depositors less.",
+    "notes": [],
+    "planner": {
+      "kind": "rule",
+      "model": "conservative",
+      "label": "rule: conservative"
+    }
+  },
+  "dryRun": {
+    "ok": true,
+    "reason": "None",
+    "explanation": "Inside the mandate: the contract would accept this proposal.",
+    "optionType": "put",
+    "strike": "342.91",
+    "delta": 0.15,
+    "targetDeltaBps": 1500,
+    "expiryIso": "2026-10-09T20:00:00.000Z",
+    "size": "0.218716281239975503",
+    "capacity": "0.437432562479951007",
+    "premiumBps": 10800,
+    "fairValue": "2.5118",
+    "yieldBps": 79.11
+  },
+  "transactions": [
+    {
+      "label": "openEpoch",
+      "hash": "0xe2c1b64fe45c400ab9a5d2b9ab432ff60cfc6c75326fb664ec42c958a6dd7358",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xe2c1b64fe45c400ab9a5d2b9ab432ff60cfc6c75326fb664ec42c958a6dd7358"
+    },
+    {
+      "label": "proposeByDelta",
+      "hash": "0xc6ea97681982cb914c880ba42db89e55a59aaa0abeecaed3c36641b3cd0726ab",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xc6ea97681982cb914c880ba42db89e55a59aaa0abeecaed3c36641b3cd0726ab"
+    },
+    {
+      "label": "DecisionLog.record",
+      "hash": "0x475d3da845e64d59672c82d6b36b1b65455d632113bcd4b8f3cd42ae092bc965",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x475d3da845e64d59672c82d6b36b1b65455d632113bcd4b8f3cd42ae092bc965"
+    }
+  ],
+  "result": {
+    "status": "accepted",
+    "summary": "Accepted: series 12862255515472220993253420564159278654481462349686562273029701427322264592953 is on sale (strike $342.91, |delta| 0.15, expiry 2026-10-09T20:00:00.000Z).",
+    "seriesId": "12862255515472220993253420564159278654481462349686562273029701427322264592953",
+    "strike": "342.91",
+    "expiryIso": "2026-10-09T20:00:00.000Z",
+    "size": "0.218716281239975503"
+  },
+  "trackRecord": {
+    "agentId": "2",
+    "status": "Active",
+    "active": true,
+    "accepted": 1,
+    "rejected": 0,
+    "strikes": 0,
+    "maxStrikes": 3,
+    "bond": "60",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+    "recordHash": "0xca241d979e461e0b76336fdbe759aad54ac337d80df4d942280724bf0ce2a18c",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-02-sTSLA-CSP-A2.json",
+    "epoch": 1,
+    "txHash": "0x475d3da845e64d59672c82d6b36b1b65455d632113bcd4b8f3cd42ae092bc965"
+  }
+}
