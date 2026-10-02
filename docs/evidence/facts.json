@@ -89,7 +89,7 @@
     }
   },
   "measured": {
-    "commit": "880378c",
+    "commit": "3d5529f",
     "date": "2026-10-02"
   },
   "tests": {
@@ -153,11 +153,11 @@
       "tests": 84
     },
     "playwright": {
-      "byDefault": 184,
+      "byDefault": 220,
       "command": "npx playwright test --list --reporter=json (in app)",
-      "files": 25,
-      "runs": 432,
-      "tests": 216,
+      "files": 27,
+      "runs": 504,
+      "tests": 252,
       "uiAudit": 32
     },
     "rust": {
@@ -186,7 +186,7 @@
   "totals": {
     "about": "typescript = SDK + MCP + example agents + indexer (the proof page's TypeScript card); pnpm = typescript + the Telegram bot (corepack pnpm -r test); testsAndProofs = Foundry main suite + fork + differential + Halmos proofs + Rust + pnpm + subgraph + Playwright per viewport",
     "pnpm": 542,
-    "testsAndProofs": 1331,
+    "testsAndProofs": 1367,
     "typescript": 480
   }
 }
