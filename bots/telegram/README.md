@@ -1,5 +1,7 @@
 # @strike/telegram-bot
 
+Live: [@strike_options_bot](https://t.me/strike_options_bot). Send `/subscribe` for alerts, or `/vaults`, `/quote sTSLA-CC`, `/agent 1`, `/status`.
+
 A small, read-only Telegram bot for Strike. It watches the EpochManager's logs and posts a short alert to every
 subscribed chat when an epoch opens, a series is proposed, a proposal is rejected (with the slash), options are
 bought, or an epoch settles, aborts or is cancelled. It also answers a few lookup commands.
