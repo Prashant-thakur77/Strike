@@ -1,6 +1,7 @@
 import {
   agentRegistryAbi,
   epochManagerAbi,
+  marketCalendarAbi,
   optionTokenAbi,
   stockOracleAbi,
   strikeVaultAbi,
@@ -9,6 +10,7 @@ import {
 import { erc20Abi, parseAbi, type Address, type PublicClient } from "viem";
 import { deploymentOfManager, deploymentVersion, fromBlock, type Deployment } from "./deployment";
 import { toNumber, usdValue } from "./format";
+import { LOOKAHEAD_DAYS, dayOf, sessionChange, type CalendarDay, type SessionChange } from "./marketHours";
 import { UNIT_MULTIPLIER } from "./shares";
 
 export interface TokenInfo {
@@ -344,13 +346,59 @@ export async function vaultSummary(
   };
 }
 
-export async function marketStatus(client: PublicClient, dep: Deployment) {
-  const [open, saleCutoff, block] = await Promise.all([
+export interface MarketStatus extends SessionChange {
+  /** `StockOracle.isMarketOpen()` at the latest block: what `openEpoch` and `buy` check. */
+  open: boolean;
+  saleCutoff: number;
+  /** The latest block's timestamp. */
+  now: number;
+  /** The MarketCalendar the oracle reads (`StockOracle.calendar()`), whose sessions these are. */
+  calendar: Address;
+}
+
+/** Calendar answers per (chain, calendar, day): a day's session never changes unless an admin edits holidays. */
+const calendarDays = new Map<string, CalendarDay>();
+
+async function calendarDay(client: PublicClient, calendar: Address, day: number): Promise<CalendarDay> {
+  const key = `${client.chain?.id}:${calendar.toLowerCase()}:${day}`;
+  const hit = calendarDays.get(key);
+  if (hit) return hit;
+  const c = { address: calendar, abi: marketCalendarAbi } as const;
+  const [trading, [open, close]] = await Promise.all([
+    client.readContract({ ...c, functionName: "isTradingDay", args: [BigInt(day)] }),
+    client.readContract({ ...c, functionName: "sessionOf", args: [BigInt(day)] }),
+  ]);
+  const d = { day, trading, open: Number(open), close: Number(close) };
+  calendarDays.set(key, d);
+  return d;
+}
+
+/**
+ * Whether the NYSE session is open (the oracle's own check), and when that changes: the current session's close, or
+ * the next session's open, from the MarketCalendar's `isTradingDay` and `sessionOf` a week at a time (up to 14 days,
+ * as `nextSessionClose` looks). Nothing here is a hard-coded schedule: holidays and early closes come from the chain.
+ */
+export async function marketStatus(
+  client: PublicClient,
+  dep: Pick<Deployment, "stockOracle" | "epochManager">,
+): Promise<MarketStatus> {
+  const [open, saleCutoff, block, calendar] = await Promise.all([
     client.readContract({ address: dep.stockOracle, abi: stockOracleAbi, functionName: "isMarketOpen" }),
     client.readContract({ address: dep.epochManager, abi: epochManagerAbi, functionName: "saleCutoff" }),
     client.getBlock(),
+    client.readContract({ address: dep.stockOracle, abi: stockOracleAbi, functionName: "calendar" }),
   ]);
-  return { open, saleCutoff: Number(saleCutoff), now: Number(block.timestamp) };
+  const now = Number(block.timestamp);
+  const today = dayOf(now);
+  let change: SessionChange = { closesAt: null, opensAt: null, nextClose: null };
+  for (let start = 0; start < LOOKAHEAD_DAYS; start += 7) {
+    const days = await Promise.all(
+      Array.from({ length: 7 }, (_, i) => calendarDay(client, calendar, today + start + i)),
+    );
+    change = sessionChange(now, open, days);
+    if (change.closesAt !== null || change.opensAt !== null) break;
+  }
+  return { open, saleCutoff: Number(saleCutoff), now, calendar, ...change };
 }
 
 // ------------------------------------------------------------------ history (events)

@@ -8,6 +8,7 @@ import { formatUnits } from "viem";
 import { errorMessage } from "@/hooks/useTx";
 import { useDebounced } from "@/hooks/useDebounced";
 import { fmtWadUsd } from "@/lib/format";
+import { marketStatus, type MarketStatus } from "@/lib/reads";
 import {
   PLAYGROUND_CHAIN_ID,
   PRESETS,
@@ -16,6 +17,7 @@ import {
   formToInput,
   mandateRules,
   nyTime,
+  playgroundClient,
   readPlayground,
   runPreview,
   sizeText,
@@ -28,6 +30,7 @@ import {
   type VaultKey,
 } from "@/lib/playground";
 import { AmountField } from "../AmountField";
+import { MarketSub } from "../market/MarketHours";
 import { MetaStrip } from "../MetaStrip";
 import { PageHero } from "../PageHero";
 import { Fold } from "../Fold";
@@ -78,6 +81,18 @@ export function PlaygroundPage() {
     retry: 1,
   });
   const snap = snapQ.data;
+  // NYSE hours from the same deployment's MarketCalendar (the playground always reads Robinhood Chain testnet).
+  const marketQ = useQuery({
+    queryKey: ["playground-market", PLAYGROUND_CHAIN_ID],
+    queryFn: () => {
+      const s = playgroundClient();
+      return marketStatus(s.viem.publicClient, s.addresses);
+    },
+    refetchInterval: REFRESH_MS,
+    refetchIntervalInBackground: false,
+    retry: 1,
+  });
+  const market = marketQ.data;
 
   const [form, setForm] = useState<ProposalForm>(EMPTY_FORM);
   const [preset, setPreset] = useState<PresetId | null>(null);
@@ -182,7 +197,7 @@ export function PlaygroundPage() {
         }
       />
 
-      <Strip snap={snap} failed={snapQ.isError} />
+      <Strip snap={snap} failed={snapQ.isError} market={market} />
 
       <PageIndex items={SECTIONS} />
 
@@ -213,7 +228,7 @@ export function PlaygroundPage() {
           <div className={styles.bench}>
             <form className={styles.form} onSubmit={(e) => e.preventDefault()} aria-label="Proposal">
               <VaultPicker value={form.vault} snap={snap} onChange={pickVault} />
-              {liveCtx && snap ? <EpochNote ctx={liveCtx} snap={snap} /> : null}
+              {liveCtx && snap ? <EpochNote ctx={liveCtx} snap={snap} market={market} /> : null}
 
               <div className={styles.fieldset} role="group" aria-labelledby="pg-mode">
                 <span id="pg-mode" className="micro micro-muted">
@@ -399,7 +414,15 @@ function ExpiryPicker({
   );
 }
 
-function Strip({ snap, failed }: { snap: PlaygroundSnapshot | undefined; failed: boolean }) {
+function Strip({
+  snap,
+  failed,
+  market,
+}: {
+  snap: PlaygroundSnapshot | undefined;
+  failed: boolean;
+  market: MarketStatus | undefined;
+}) {
   if (!snap) {
     if (failed) return null;
     return (
@@ -421,7 +444,7 @@ function Strip({ snap, failed }: { snap: PlaygroundSnapshot | undefined; failed:
         {
           label: "NYSE",
           value: snap.marketOpen ? "Open" : "Closed",
-          sub: `block time ${nyTime(snap.blockTimestamp)}`,
+          sub: market ? <MarketSub market={market} /> : `block time ${nyTime(snap.blockTimestamp)}`,
         },
         {
           label: `${call.vault.underlyingSymbol} spot`,

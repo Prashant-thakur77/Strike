@@ -1,0 +1,86 @@
+/* NYSE session line on the buy and open surfaces (vault page, playground, vault list). */
+
+.market {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px 18px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.market[data-open="false"] {
+  border-color: var(--accent-text, var(--accent));
+  background: var(--surface);
+}
+
+.market[data-compact] {
+  padding: 10px 14px;
+}
+
+.dot {
+  position: relative;
+  width: 9px;
+  height: 9px;
+  margin-top: 0.42em;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+}
+
+.market[data-open="true"] .dot {
+  background: var(--gain-c);
+  border-color: var(--gain-c);
+}
+
+.market[data-open="false"] .dot {
+  border-color: var(--accent-text, var(--accent));
+}
+
+.body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.head {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stripSub {
+  display: grid;
+  gap: 2px;
+}

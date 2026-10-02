@@ -8,6 +8,7 @@ import { buyPrice } from "@/lib/payoff";
 import type { Series, VaultSummary } from "@/lib/reads";
 import { hasMultiplier } from "@/lib/shares";
 import { PerShare } from "../PerShare";
+import { MarketHours } from "../market/MarketHours";
 import { BuyPanel } from "./BuyPanel";
 import { PayoffChart } from "./PayoffChart";
 import { Term } from "@/components/ui/Term";
@@ -27,8 +28,9 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
         <p className="body">
           {vault.state === 1
             ? "The epoch is open and the vault is locked. The agent has a day to make a proposal the mandate accepts; if it doesn't, anyone can abort the epoch and the vault unlocks."
-            : "The vault is between epochs. The next one opens during US market hours, once the price feed is fresh."}
+            : "The vault is between epochs. The next one opens during US market hours, once the price feed is fresh: openEpoch reverts with MarketClosed outside a session."}
         </p>
+        {vault.state === 0 ? <MarketHours action="open" /> : null}
       </div>
     );
   }
@@ -145,6 +147,7 @@ function PriceNote({
   now: number | undefined;
   children: (quotePerOption: number | null) => ReactNode;
 }) {
+  const market = useMarket().data;
   const dec = vault.underlying.decimals;
   const one = 10n ** BigInt(dec);
   const quote = useQuoteBuy(series.id, one);
@@ -172,7 +175,7 @@ function PriceNote({
   return (
     <>
       {model && p ? (
-        <section className={styles.priceNote} aria-label="How the buy price is set">
+        <section className={styles.priceNote} aria-label="How the buy price is set" data-testid="price-note">
           <h3 className="micro">How the buy price is set</h3>
           <ol className={styles.priceSteps}>
             <li>
@@ -203,9 +206,23 @@ function PriceNote({
             </li>
             <li>
               <span className="micro micro-muted">Live quote</span>
-              <strong className="mono">{live !== null ? money(live, 4) : quote.isError ? "—" : "…"}</strong>
+              <strong className="mono">
+                {live !== null ? money(live, 4) : quote.isError ? "None" : "…"}
+              </strong>
               <span>
-                <code className="mono">quoteBuy</code> for one option
+                {quote.isError ? (
+                  <>
+                    <code className="mono">quoteBuy</code> reverts while the feed is unsafe; the step before
+                    is the model at the last print
+                  </>
+                ) : (
+                  <>
+                    <code className="mono">quoteBuy</code> for one option
+                    {now !== undefined && market?.open === false
+                      ? ", read-only while the market is closed"
+                      : ""}
+                  </>
+                )}
               </span>
             </li>
           </ol>

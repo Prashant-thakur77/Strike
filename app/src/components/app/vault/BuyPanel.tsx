@@ -15,6 +15,8 @@ import { fmtMultiplier, hasMultiplier, perSharePrice } from "@/lib/shares";
 import { ConnectButton } from "@/components/site/ConnectButton";
 import { AmountField } from "../AmountField";
 import { TxNote } from "../TxNote";
+import { MarketHoursView } from "../market/MarketHours";
+import { noQuoteReason } from "./quoteGap";
 import { ProtectPlanner, UpsidePlanner } from "./HedgePlanner";
 import styles from "../app.module.css";
 
@@ -47,10 +49,12 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
   const blocked = !market
     ? null
     : !market.open
-      ? "The US market is closed. Options sell during NYSE hours only."
+      ? "The US market is closed: buy reverts with MarketClosed until the session above. The quote is a read-only view and works now."
       : !saleOpen
         ? "Sales have closed for this series (they stop an hour before expiry)."
         : null;
+  // quoteBuy needs a safe live price (SafeStockFeed), not an open market: say why when it reverts.
+  const noQuote = quote.isError ? noQuoteReason(vault, market?.now, quote.error) : null;
   const overSize = amount !== null && amount > remaining;
   const noFunds = !!pos && maxPremium !== undefined && pos.usdgBalance < maxPremium;
   const needsApproval = !!pos && maxPremium !== undefined && pos.usdgAllowance < maxPremium;
@@ -123,7 +127,7 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
   };
 
   return (
-    <div className={styles.buy}>
+    <div className={styles.buy} data-testid="buy-panel">
       <div className={styles.buyHead}>
         <h3 className="micro">Buy options</h3>
         <div className={styles.tabs} role="tablist" aria-label="How to size the buy">
@@ -142,6 +146,7 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
           ))}
         </div>
       </div>
+      {market ? <MarketHoursView action="buy" market={market} chainId={chainId} compact /> : null}
       {mode === "hedge" ? (
         series.isCall ? (
           <UpsidePlanner {...planner} slip={slip} slippage={slippage} />
@@ -165,9 +170,17 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
           />
           <dl className={styles.quote}>
             <div>
-              <dt className="micro micro-muted">You pay</dt>
-              <dd className="mono">
-                {premium !== undefined ? `${fmtAmount(premium, usdgDec)} USDG` : quote.isFetching ? "…" : "—"}
+              <dt className="micro micro-muted">
+                {market && !market.open ? "Quote now (read-only)" : "You pay"}
+              </dt>
+              <dd className="mono" data-testid="buy-quote">
+                {premium !== undefined
+                  ? `${fmtAmount(premium, usdgDec)} USDG`
+                  : noQuote
+                    ? "No quote"
+                    : quote.isFetching
+                      ? "…"
+                      : "—"}
               </dd>
             </div>
             <div>
@@ -191,6 +204,11 @@ export function BuyPanel({ vault, series }: { vault: VaultSummary; series: Serie
             ) : null}
           </dl>
           {slippage}
+          {noQuote ? (
+            <p className={styles.hint} data-testid="no-quote">
+              {noQuote}
+            </p>
+          ) : null}
           {blocked || overSize || noFunds ? (
             <p className={styles.hint}>
               {blocked ??

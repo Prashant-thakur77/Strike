@@ -2,7 +2,9 @@
 
 import { Check } from "lucide-react";
 import { fmtWadUsd } from "@/lib/format";
+import type { MarketStatus } from "@/lib/reads";
 import {
+  PLAYGROUND_CHAIN_ID,
   PLAYGROUND_VAULTS,
   explorerAddress,
   fmtTokens,
@@ -12,6 +14,7 @@ import {
   type VaultKey,
 } from "@/lib/playground";
 import { StateTag } from "../StateTag";
+import { MarketHoursView } from "../market/MarketHours";
 import { Skeleton } from "../Skeleton";
 import styles from "./playground.module.css";
 
@@ -73,7 +76,15 @@ export function VaultPicker({ value, snap, onChange }: VaultPickerProps) {
 }
 
 /** Which spot the contract judges against for this vault right now, and what its epoch state means for a real proposal. */
-export function EpochNote({ ctx, snap }: { ctx: VaultContext; snap: PlaygroundSnapshot }) {
+export function EpochNote({
+  ctx,
+  snap,
+  market,
+}: {
+  ctx: VaultContext;
+  snap: PlaygroundSnapshot;
+  market?: MarketStatus;
+}) {
   const { epoch } = ctx;
   const sigma = (w: bigint) => `${(Number(w) / 1e16).toFixed(0)}%`;
   const open = epoch.state === "Open";
@@ -112,9 +123,13 @@ export function EpochNote({ ctx, snap }: { ctx: VaultContext; snap: PlaygroundSn
       )}
       {!snap.marketOpen ? (
         <p>
-          <strong>NYSE is closed.</strong> The preview ignores market hours, but an Idle vault can only open
-          an epoch in regular hours (<code>MarketClosed</code>), and off-hours the feed can go stale.
+          <strong>NYSE is closed.</strong> The preview ignores market hours and works now, but an Idle vault
+          can only open an epoch in regular hours (<code>MarketClosed</code>), and off-hours the feed can go
+          stale.
         </p>
+      ) : null}
+      {market ? (
+        <MarketHoursView action="open" market={market} chainId={PLAYGROUND_CHAIN_ID} compact />
       ) : null}
     </div>
   );

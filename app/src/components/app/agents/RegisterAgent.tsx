@@ -45,6 +45,7 @@ import type { AgentRow, Registry } from "@/lib/reads";
 import { AmountField } from "../AmountField";
 import { Fold } from "../Fold";
 import { TxNote } from "../TxNote";
+import { MarketHours } from "../market/MarketHours";
 import s from "./register.module.css";
 
 const days = (seconds: number) =>
@@ -777,6 +778,7 @@ function CreateVault({ agent, registry, ob }: { agent: AgentRow; registry: Regis
                 NYSE hours (<code className="mono">risk_check</code>, then{" "}
                 <code className="mono">propose_epoch</code>).
               </p>
+              <MarketHours action="open" compact />
             </div>
           ) : null}
         </form>

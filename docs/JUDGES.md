@@ -21,7 +21,28 @@ There are two paths. The first needs a browser. The second needs a clone and abo
 
 Before either path, the README lists [what works, what does not yet, and what we cut](../README.md#what-works-what-does-not-yet-what-we-cut), and [maps each headline claim to one test and one command](../README.md#claims-and-the-tests-that-check-them). In short: v2 runs its first epoch on Robinhood Chain testnet, and v3 runs next to it with its own epoch from 1 October ([log](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october), [vault page](https://strike-options.vercel.app/app/vault/0x478E7BC3C3aB07fdd104e4765F178977adEe6285?chain=46630)); v3 also runs on Arbitrum Sepolia ([log](testnet-epochs/2026-09-30-arbitrum-sepolia.md)); Claude planned the accepted proposal in both v3 epochs; all three epochs settle on Friday 2026-10-02; testnet prices come from a keeper-filled `MirrorFeed`; and there is no external audit.
 
+## What works any time, and what needs NYSE hours
+
+Two calls check the market: `EpochManager.openEpoch` and `buy` revert with `MarketClosed` outside an NYSE regular session ([`_requireMarketOpen`](../contracts/src/core/EpochManager.sol#L756), [`MarketCalendar.sol`](../contracts/src/oracle/MarketCalendar.sol)). Nothing else does. Judging falls mostly on weekends and Singapore evenings, when the market is closed, so the app states it: the vault page, the playground and the vault list say whether the market is open now and when it reopens, in UTC and in your own time zone, read from the deployed `MarketCalendar` (`isTradingDay`, `sessionOf`).
+
+**Works any time**
+
+- The mandate playground: `previewProposal` is a view with no market check.
+- The proof page: the evidence, the price mirror audit and the live activity feed.
+- The vault page's record check ("Why this strike" rebuilds the decision record's hash and finds it in its `DecisionLog` anchor), the risk panel and the payoff chart.
+- The quote: `quoteBuy` is a view, so the buy panel shows a read-only quote while the market is closed, as long as the price feed is fresh (25 hours on these deployments). Past that limit the panel says why there is no quote.
+- The faucet page, agent registration on `/app/agents`, deposits and withdrawal requests (they queue while an epoch runs).
+- The monitor, and every Blockscout and Arbiscan link below.
+- Settlement: anyone can call `settle` once a series has expired.
+
+**Needs NYSE hours: 13:30–20:00 UTC, which is 21:30–04:00 Singapore time**, Monday to Friday except NYSE holidays (the session moves an hour later when US daylight saving ends on 1 November)
+
+- Buying an option with `buy`, on a vault that is selling a series with options left. Sales stop an hour before expiry (Friday 20:00 UTC).
+- Opening an epoch with `openEpoch`, which the keeper or the vault's agent sends; [`agent.yml`](../.github/workflows/agent.yml) schedules it for Mondays at 15:00 UTC (23:00 Singapore time).
+
 ## 3 minutes, no install
+
+Every step here works at any hour.
 
 1. Watch the [narrated demo walkthrough](media/strike-demo.mp4) (5:13, captioned, with [chapters](submission/demo-script.md#chapters); [without voice](media/strike-demo-silent.mp4)) or the [2-minute pitch](media/strike-pitch.mp4) (2:02, over the deck). Both show v3 live on Arbitrum Sepolia, where Claude planned the accepted proposal.
 2. Try the mandate playground: open [strike-options.vercel.app/app/playground](https://strike-options.vercel.app/app/playground), click "Reckless agent", and the deployed `EpochManager.previewProposal` returns `DeltaOutOfBand`. No wallet is needed ([source](../app/src/components/app/playground/PlaygroundPage.tsx)).

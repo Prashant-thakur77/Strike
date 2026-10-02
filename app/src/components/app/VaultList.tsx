@@ -24,6 +24,7 @@ import { PerShare } from "./PerShare";
 import { Skeleton } from "./Skeleton";
 import { StateTag } from "./StateTag";
 import { Term } from "@/components/ui/Term";
+import { MarketSub } from "./market/MarketHours";
 import styles from "./app.module.css";
 
 export function strategyName(v: Pick<VaultSummary, "isCall">) {
@@ -125,7 +126,7 @@ export function VaultsPage() {
             {
               label: "US market",
               value: market.data ? (market.data.open ? "Open" : "Closed") : "—",
-              sub: market.data ? fmtNy(market.data.now) : "NYSE hours",
+              sub: market.data ? <MarketSub market={market.data} /> : "NYSE hours",
             },
           ]}
         />
