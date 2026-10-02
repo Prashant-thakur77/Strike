@@ -471,3 +471,45 @@ jobs:
       - name: Stop the stack
         if: always()
         run: docker compose down -v
+
+  devnet-ts:
+    name: SDK and MCP tests on anvil devnets (v2 and v3)
+    runs-on: ubuntu-latest
+    # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
+    timeout-minutes: 20
+    # The js job has no Foundry and no v3 checkout, so these suites skip there (describe.skipIf). Each test file
+    # starts its own anvil and deploys with sdk/test/devnet.mjs: this checkout for v2, v3-contracts for v3.
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Check out the v3-contracts branch beside it
+        run: |
+          git fetch --no-tags --depth=1 origin +refs/heads/v3-contracts:refs/remotes/origin/v3-contracts
+          git worktree add --detach "$RUNNER_TEMP/v3" origin/v3-contracts
+          git -C "$RUNNER_TEMP/v3" submodule update --init --recursive --depth 1
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: SDK and MCP devnet suites (fails if any test skips)
+        env:
+          STRIKE_V3_CONTRACTS: ${{ runner.temp }}/v3/contracts
+        run: |
+          for pkg in sdk mcp; do
+            pnpm --filter "@strike/$pkg" exec vitest run test/e2e.devnet.test.ts test/e2e.v3.devnet.test.ts \
+              --reporter=default --reporter=json --outputFile="$RUNNER_TEMP/$pkg-devnet.json"
+            node -e "
+              const r = require(process.argv[1]);
+              const skipped = r.numPendingTests + r.numTodoTests;
+              const line = process.argv[2] + ': ' + r.numPassedTests + ' passed, ' + skipped + ' skipped, ' + r.numFailedTests + ' failed';
+              console.log(line);
+              require('node:fs').appendFileSync(process.env.GITHUB_STEP_SUMMARY, '- ' + line + '\n');
+              process.exit(r.numTotalTests > 0 && r.numPassedTests === r.numTotalTests ? 0 : 1);
+            " "$RUNNER_TEMP/$pkg-devnet.json" "$pkg"
+          done
