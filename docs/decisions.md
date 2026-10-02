@@ -1,114 +1,168 @@
 # Decisions
 
-Each entry: the decision, why, and what it affects. Newest last.
+Each entry: the decision, why, the alternative that was rejected, and what it affects. Newest last.
 
 ## D1 · Fresh `strike` folder (2026-09-28)
 
 The Strike repo lives in `~/projects/strike`. The folder we started in held another project's unlicensed code; nothing from it is copied. **Why:** a clean, original codebase with its own history. **Affects:** everything.
 
+**Rejected:** building in the folder we started in, which held another project's unlicensed code.
+
 ## D2 · MIT license (2026-09-28)
 
 **Why:** auditors and integrators can read and reuse `SafeStockFeed`, `MarketCalendar` and the SDK freely, which is the point of ecosystem tooling.
+
+**Rejected:** a licence that restricts reuse, which would stop other protocols from adopting `SafeStockFeed` and the SDK.
 
 ## D3 · Node 22 LTS, TypeScript 5.9 (2026-09-28)
 
 **Why:** Node 22 is the LTS installed locally and in CI; TypeScript 7 (native port) is too new for Next.js tooling. **Affects:** `.nvmrc`, all JS packages.
 
+**Rejected:** TypeScript 7, the native port, which is too new for the Next.js tooling.
+
 ## D4 · OpenZeppelin 5.7 plus the upgradeable package (2026-09-28)
 
 Vaults are EIP-1167 clones, which need initializers instead of constructors, so vaults use `ERC4626Upgradeable`. No proxies are upgradeable: clones are immutable. **Affects:** `StrikeVault`, `VaultFactory`.
+
+**Rejected:** OpenZeppelin's plain `ERC4626`, whose constructor cannot run in a clone, and upgradeable proxies, which would let an admin change a vault's code.
 
 ## D5 · One integer pricing algorithm in two languages (2026-09-28)
 
 `BlackScholesLib.sol` and `stylus/pricer/src/math.rs` run the same WAD integer steps in the same order (atanh-series `ln`, range-reduced Taylor `exp`, Hart/West normal CDF, Newton `sqrt`). **Why:** the differential test can then demand exact equality instead of a loose tolerance, and accuracy is tested once in Rust against closed-form Black-Scholes (< 1e-9 of spot). Zero interest rate and a 365-day year: weekly tenors on a stablecoin make the rate term negligible. **Affects:** pricer, differential suite.
 
+**Rejected:** two independent implementations compared within a tolerance, which would let small divergences between the Rust and Solidity pricers pass.
+
 ## D6 · No floating point in the Stylus build (2026-09-28)
 
 `ruint::root` uses `f64` internally and Stylus activation rejected it (`ConvertIntOp(F64, I32)`). Replaced with an integer Newton square root. **Affects:** `math.rs`.
+
+**Rejected:** `ruint::root`, which uses `f64` internally and failed Stylus activation.
 
 ## D7 · Strikes and prices per raw token (2026-09-28)
 
 The Chainlink stock feed already includes `uiMultiplier`, so strikes are stored in the feed's unit (per raw token). A split changes neither, so open series need no strike adjustment; sales and settlement pause during the corporate-action window instead. **Why:** removes a whole class of double-multiplier bugs. **Affects:** `SafeStockFeed`, `EpochManager`, app display.
 
+**Rejected:** strikes in display units (multiplied by `uiMultiplier`), which would need every open series adjusted on a split and invites applying the multiplier twice.
+
 ## D8 · Series id includes the vault (2026-09-28)
 
 `id = keccak256(vault, underlying, strike, expiry, isCall)`. **Why:** each vault's settlement escrow is isolated; two vaults selling the same strike cannot drain each other's payouts. Deviates from the plan's id (which omitted the vault).
+
+**Rejected:** the plan's series id without the vault, under which two vaults selling the same strike would share one settlement escrow.
 
 ## D9 · Oracle-anchored premium at buy time (2026-09-28)
 
 The agent proposes `premiumBps` (price as a percentage of fair value); each buy pays fair value _at that moment_ × `premiumBps`. **Why:** a fixed premium set on Monday can be arbitraged by Wednesday if spot moves. **Affects:** `EpochManager.buy`, mandate `minPremiumBps`.
 
+**Rejected:** a fixed USDG premium set at proposal time, which a spot move makes stale, and an order book or auction ([README, cut](../README.md#cut-and-why)).
+
 ## D10 · Premium escrowed until settlement; fee on positive epoch PnL (2026-09-28)
 
 Premiums sit in the manager during the epoch. At settlement the performance fee is charged on `premium − payout value` only when positive, and the proposing agent gets a share of it. **Why:** fees reward agents for net outcomes, not for selling risky strikes; escrow blocks deposit-just-before-settlement games.
+
+**Rejected:** paying premium to depositors at each sale, which invites depositing just before settlement, and a fee on gross premium, which rewards selling risky strikes.
 
 ## D11 · Premium paid in USDG through a per-share accumulator, in both vault types (2026-09-28)
 
 **Why:** one code path; call-vault holders get USDG income without a swap; put vault accounting keeps collateral and income separate.
 
+**Rejected:** paying call-vault premium in the stock token, which needs a swap and a second accounting path.
+
 ## D12 · Rejected proposals do not revert (2026-09-28)
 
 `proposeSeries` returns `accepted = false`, emits `ProposalRejected(reason)`, slashes the bond to depositors and adds a strike. **Why:** a revert would undo the slash. Agents dry-run with `previewProposal` (the MCP `risk_check` tool) first. Non-mandate failures (market closed, stale feed, unauthorised caller) still revert and never slash.
+
+**Rejected:** reverting on a mandate breach, which would undo the slash along with the proposal.
 
 ## D13 · Mandate is immutable per vault (2026-09-28)
 
 **Why:** depositors can trust the exact limits they deposited under; a new mandate means a new vault.
 
+**Rejected:** a mandate the curator can edit after deposits, which would change the limits depositors agreed to ([README, cut](../README.md#cut-and-why)).
+
 ## D14 · Settlement price = first round at or after expiry, via a verified hint (2026-09-28)
 
 The caller passes a round id; the contract checks that round is at or after expiry and the previous round is before it. **Why:** nobody can pick a favourable later print; retries are idempotent. Extended by D30 for aggregator phase changes and corporate actions.
+
+**Rejected:** the latest price at the time `settle` is called, which would let the caller wait for a favourable print.
 
 ## D15 · Guardian pause never blocks settlement or idle withdrawals (2026-09-28)
 
 Pause stops new epochs, proposals and buys. If the feed dies after expiry, the guardian can cancel after a grace period: collateral returns to the vault and buyers get their premium back. **Why:** funds can always leave; a paused protocol cannot trap depositors.
 
+**Rejected:** a single pause that also stops settlement and withdrawals, which could trap depositors' funds.
+
 ## D16 · MarketCalendar contract (2026-09-28)
 
 DST-aware NYSE open/close computed on-chain; holidays kept as an admin list (seeded 2026–2027). **Why:** computing Good Friday on-chain is complex; an explicit list is auditable and easy to extend.
+
+**Rejected:** computing the holiday calendar on-chain (Good Friday needs the date of Easter), which is complex and harder to audit than a list.
 
 ## D17 · Subgraph build scripts renamed until Phase 4 (2026-09-28)
 
 `graph build` needs a manifest with deployed addresses; scripts are `graph:*` so `pnpm -r build` stays green until then.
 
+**Rejected:** keeping the default `build` script, which fails `pnpm -r build` until the contracts are deployed.
+
 ## D18 · App visual style (2026-09-28)
 
 The app's layout, color and motion language follows a reference site the owner chose; screenshots stay in a gitignored `.design-ref/` folder. Strike uses its own copy, logo and imagery.
+
+**Rejected:** reusing the reference site's copy, logo or images.
 
 ## D19 · Price checks live in a separate StockOracle contract (2026-09-28)
 
 `SafeStockFeed` is a library; `StockOracle` applies it per registered token, holds the NYSE calendar and records settlement prices once per (token, expiry). **Why:** keeps `EpochManager` under the 24 KB limit (19–21 KB) and gives other Robinhood Chain protocols a deployed, reusable safe-price contract.
 
+**Rejected:** the price checks inside `EpochManager`, which would push it past the 24 KB contract size limit.
+
 ## D20 · Real stock-token behaviour, not the spec, decides the interface (2026-09-28)
 
 Function names follow the live tokens on chain 4663 (`uiMultiplier`, `newUIMultiplier`, `effectiveAt`, `paused`, `oraclePaused`). `oraclePaused()` is missing on testnet tokens, so pause checks use `staticcall` and treat a missing function as "not paused". Mainnet feeds have a 24 h heartbeat and 0.5% deviation, so `maxPriceAge` is 25 h per feed rather than 15 min.
+
+**Rejected:** following the ERC-8056 text where the live tokens differ, calling `oraclePaused()` directly (it reverts on the testnet tokens), and a 15-minute `maxPriceAge`, far shorter than the feeds' 24-hour heartbeat.
 
 ## D21 · Testnets get MirrorFeeds (2026-09-28)
 
 Robinhood testnet has stock tokens but no Chainlink feeds; Arbitrum Sepolia has neither. A keeper-updated `MirrorFeed` copies mainnet Chainlink rounds, with full round history so settlement works exactly as on mainnet. Arbitrum Sepolia also gets `TestStockToken`s with a rate-limited faucet. Both are in `src/testnet/` and labelled testnet-only.
 
+**Rejected:** a price the admin sets by hand without round history, which would need different settlement code on the testnets than on mainnet.
+
 ## D22 · Stylus is used where it wins: on-chain strike solving (2026-09-28)
 
 Measured on a Nitro dev node: a single `quote` costs 1.1–1.6× more in Stylus (fixed entry cost), `strikeForDelta` (48 evaluations) costs 6.5× less. `EpochManager.proposeByDelta` uses it so an agent's intended delta survives spot moves between signing and inclusion. The table is published as measured, including the case Stylus loses.
+
+**Rejected:** Stylus for everything ([README, cut](../README.md#cut-and-why)): a single `quote` costs 1.1 to 1.6 times more gas in Stylus than in Solidity.
 
 ## D23 · CI pins Foundry v1.7.1 (2026-09-28)
 
 The latest Foundry formats nested struct literals differently from 1.7.1, which broke `forge fmt --check` in CI. Pinned, and the one affected call rewritten to format identically in both.
 
+**Rejected:** tracking the latest Foundry release in CI, which formats nested struct literals differently and broke `forge fmt --check`.
+
 ## D24 · A fresh testnet deployer key was generated locally (2026-09-28)
 
 `contracts/.env` (gitignored, mode 600) holds a new testnet-only key; the owner only has to fund its address. It must never hold mainnet funds: mainnet deploys use the owner's own key or a Safe.
+
+**Rejected:** deploying from a key that also holds mainnet funds.
 
 ## D25 · Deploy scripts skip Foundry's simulation on Arbitrum (2026-09-28)
 
 A full rehearsal on an Arbitrum Nitro dev node showed `forge script` broadcasts failing with "intrinsic gas too low": Foundry's local gas estimate omits Arbitrum's L1 data component. All deploy scripts now pass `--skip-simulation --slow`, so each transaction uses the node's `eth_estimateGas`. The same rehearsal fixed Stylus address parsing (the deployment line, not the activation line, which is absent when the WASM is already activated).
 
+**Rejected:** Foundry's default local simulation, whose gas estimate omits Arbitrum's L1 data component and fails with "intrinsic gas too low".
+
 ## D26 · The app is built with webpack (2026-09-28)
 
 The SDK is consumed from source through its `strike-source` export condition, and its ESM imports use `.js` specifiers for `.ts` files. Turbopack supports neither, so `app` builds with `next build --webpack`. `app/vercel.json` pins the install and build commands.
 
+**Rejected:** Turbopack, which supports neither the SDK's `strike-source` export condition nor `.js` specifiers for `.ts` files.
+
 ## D27 · Every review finding is fixed before the live epoch; testnet redeployed as v2 (2026-09-29)
 
 The internal review (docs/security/review-2026-09-29.md) found 1 High, 3 Medium and 4 Low issues, each with a failing test. All are fixed in the contracts and the tests now run as regression tests. Nothing is upgradeable, so Robinhood testnet got a fresh v2 deployment. It reuses the verified Stylus pricer, which is stateless and unchanged. The v1 agent bond (100 USDG) is unbonding (8 days). v2 bonds 60 USDG, which keeps the agent above the 50 USDG minimum after one 10 USDG slash and leaves 40 USDG for the live epoch's put collateral and buyer budget.
+
+**Rejected:** running the live epoch on v1 and fixing the findings later; v1 cannot be patched in place because nothing is upgradeable.
 
 ## D28 · Proposals are judged against the market at open, not at inclusion (2026-09-29)
 
@@ -118,13 +172,19 @@ The review showed a keeper sigma update or a new print between an agent's dry ru
 
 Chainlink stock feeds print on a 0.5% move, so the market can be up to 0.5% from the last print with no new round. Buys therefore price fair value at spot moved 50 bps against the buyer (`setSpotBuffer`, per token, capped at 200 bps). They also never charge less than intrinsic value, since a mandate may allow premiumBps down to 90%. Both only ever raise the premium.
 
+**Rejected:** pricing at the last print with no buffer, which can be up to 0.5% from the market with no new round, and no intrinsic floor: a mandate may allow 90% of fair value, which for an in-the-money option can be below intrinsic value.
+
 ## D30 · Hard settlement cases get a hinted recorder, not a new settle signature (2026-09-29)
 
 An aggregator phase change or a corporate action near expiry needs more than one round of proof. `StockOracle.recordSettlementPriceWithHints` takes them. `EpochManager.settle(vault, roundId)` keeps its signature and reads the recorded price, so the keeper, the MCP tools and the app do not change in the common case. The SDK finds the hints (`findSettlementHints`) and records the price first only when needed.
 
+**Rejected:** a new `settle` signature that takes the hints, which would change the keeper, the MCP tools and the app for a rare case.
+
 ## D31 · Weekly performance fee without a high-water mark (2026-09-29)
 
 The backtest showed the weekly fee takes about 8% of gross premium even over stretches where buyers were paid more than the premium collected. A per-vault loss carry-forward needs the vault in the fee call, which is an `EpochManager` change. It is on the roadmap for the next version and stated as a known issue in audit-readiness.md, rather than being rushed into v2.
+
+**Rejected:** adding the loss carry-forward to v2 before the live epoch, which needs an `EpochManager` change and a redeployment.
 
 ## D32 · SafeStockFeed ships from `contracts/src` through one remapping, not a package copy (2026-09-30)
 
@@ -134,9 +194,13 @@ Other builders get `SafeStockFeed` with `forge install Prashant-thakur77/Strike`
 
 Third-party agents can register, bond and create vaults through the SDK, MCP, the example agent and the app, without a contract change (the live epoch keeps its v2 history). Building it exposed four contract limits: a signer can be registered without its consent (griefing only), `createVault` accepts any agent id, `InvalidMandate` has no reason, and nothing indexes agents by owner. The tooling covers each (fresh-key advice, checks and warnings before sending, the rules re-checked off-chain, a scan). The next contract version adds an EIP-712 signer consent, an active-agent check in `createVault`, a reason code and an owner index. Listed as known issues in audit-readiness.md.
 
+**Rejected:** holding agent onboarding until a contract version fixes the four limits, which meant a new deployment and leaving the live epoch's v2 history behind.
+
 ## D34 · v3 fixes live on a branch until the testnet run ends (2026-09-30)
 
 D31 and D33 are implemented on `v3-contracts` (fee high-water mark, EIP-712 signer consent, active-agent check, `InvalidMandate(reason)`), with 475 tests and new invariants and formal properties. `main` stays byte-for-byte on the deployed v2 source, so the verified Blockscout code, the SDK ABIs and the live epoch history all agree. v3 ships as a new deployment once the testnet run is over; the interface changes the SDK, MCP and app need are listed in the branch's CHANGELOG.
+
+**Rejected:** merging v3 into `main` before the testnet run ends, which would leave `main`'s source, the SDK ABIs and the verified v2 code out of step.
 
 ## D35 · Decision records are anchored by a separate DecisionLog contract, not by v2 (2026-09-30)
 
@@ -146,9 +210,13 @@ The weekly agent publishes a decision record per vault in `docs/agent-log`, but 
 
 v3 (the `v3-contracts` branch: fee high-water mark, EIP-712 signer consent, active-agent check, `InvalidMandate(reason)`, the Stylus risk engine with `SeriesRisk` and `RiskLens`) is deployed on Robinhood Chain testnet as a second, independent set of contracts, with its own AgentRegistry, EpochManager, vaults and DecisionLog. This changes D34's order (v3 after the testnet run): an epoch opened on Wednesday expires on the same Friday as v2's, so both versions settle in the same week and v3 runs live instead of as branch code. v2 is not touched: its covered-call series settles on Friday 2026-10-02 at 20:00 UTC as planned. After that settlement `main` merges `v3-contracts` and the SDK, MCP, app and subgraph switch to `46630-v3.json`; v2 stays readable as an archived version and its source stays at tag `v0.8.0`, which the verified Blockscout code matches. v3 reuses v2's `MarketCalendar` (identical source) and its five `MirrorFeed`s, so one keeper serves both. Agent #1 on v3 signs with its own key, registered through the new consent path. **Why:** the v3 changes are the main contract work since v2, and only a live deployment shows them working. **Affects:** `contracts/deployments/46630-v3.json` (branch), DEPLOYMENTS.md, `docs/testnet-epochs/2026-09-30-v3.md`, the cycle 9 plan (9.4 after Friday).
 
+**Rejected:** D34's order, v3 only after the testnet run, and replacing v2, whose live epoch had not settled.
+
 ## D37 · v3 also runs on Arbitrum Sepolia, with test stock tokens (2026-09-30)
 
 The same v3 contracts (`v3-contracts`, contract source unchanged since `6e43348`) are deployed on Arbitrum Sepolia (chain 421614) as a second live network next to Robinhood Chain testnet, from the 421614 configuration that `Deploy.s.sol` already had: the real Sepolia USDG (Paxos, `0xFFC95faa…1892`), and TSLA and NVDA as `TestStockToken`s with a faucet, because Robinhood's stock tokens do not exist on Arbitrum Sepolia. Their `MirrorFeed`s copy the Robinhood Chain mainnet Chainlink rounds, like the Robinhood testnet feeds; a new `SEED_<SYMBOL>`/`SEED_AT_<SYMBOL>` option seeds each feed with the mainnet round current at deploy time, so the keeper continues from a real price instead of the placeholder. The Stylus pricer and risk engine is deployed, activated and verified on 421614 the same way, and the EpochManager is switched to it after the on-chain equality check. Agent #1 is registered with EIP-712 signer consent and linked to its own ERC-8004 identity on the official Identity Registry, which has the same address on both chains; the registration file lists both identities. The deployment is `contracts/deployments/421614.json` (the chain has no older version, so no `-v3` suffix), which is also the SDK's `421614` entry, so the example agent and the MCP server target it with `STRIKE_CHAIN_ID=421614`. **Why:** Arbitrum Sepolia is where Stylus and the Arbitrum tooling (CacheManager, Arbiscan, Blockscout) are standard, so the Stylus risk engine and the agent loop can be checked on a second, independent chain; the stock tokens are the only testnet stand-in. **Affects:** `contracts/deployments/421614.json` (branch and `main`), `sdk/src/deployments.generated.ts`, DEPLOYMENTS.md, `docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md`, `docs/agents/strike-agent-1.json`.
+
+**Rejected:** Robinhood Chain testnet as the only network, which would leave the v3 contracts and the Stylus risk engine shown on one chain.
 
 ## D38 · A team-funded test-USDG faucet on Robinhood Chain testnet (2026-10-01)
 
@@ -157,6 +225,8 @@ Testers need USDG for a first transaction (a put deposit, an option buy, an agen
 ## D39 · Alchemy behind a server-side, read-only proxy, with the public RPCs as fallback (2026-10-02)
 
 The public RPCs (`rpc.testnet.chain.robinhood.com`, `sepolia-rollup.arbitrum.io/rpc`, `rpc.mainnet.chain.robinhood.com`) rate-limited us this week: Cloudflare 403s in the CI fork tests and empty keeper reads. Alchemy serves all three chains (`robinhood-testnet`, `arb-sepolia`, `robinhood-mainnet`). The app does not get the key as a `NEXT_PUBLIC_` variable: that would put it in every visitor's bundle, where anyone could copy it and spend its quota on any method. Instead `POST /api/rpc/<chainId>` keeps it on the server and forwards only 15 read methods (no `eth_sendRawTransaction`: wallets send their own transactions), batches of up to 100 calls and bodies up to 256 kB. It reuses a call for 30 s per instance only when the call is pinned to a block (never at `latest`, so a read right after a transaction never sees the state before it), and sends no CORS headers, so other sites' pages cannot use it as a free RPC. Each call falls back to the public RPC when Alchemy is down, rate-limits or refuses it: the free tier caps `eth_getLogs` at 10 blocks, so the app's long log scans land on the public RPC there. A revert is the chain's answer and goes straight back. Browsers use the proxy only when the build saw the key (`NEXT_PUBLIC_STRIKE_RPC_PROXY`, a flag, never the key). Without a key they keep reading the public RPC directly, so visitors are not all funnelled through Vercel's IPs into the same rate limit. Everywhere else (SDK, MCP server, example agent, Telegram bot) the SDK's `rpcEndpointsFor` sends the key in an `Authorization: Bearer` header, not in the URL, because viem prints request URLs in its error messages, and those reach logs, MCP tool answers and the decision records committed to this repository. A loopback `STRIKE_RPC_URL` (a fork rehearsal) is never swapped for a live provider, so a rehearsal cannot send to a real chain. Shell scripts need a URL for `cast`, so `scripts/rpc.sh` builds one and checks it with `eth_chainId` first; GitHub masks the key in CI logs. The proxy is still an open read endpoint on our quota: its limits bound what abuse can cost, and Alchemy's method and contract allowlists or a per-IP rate limit are the next step if it is abused. **Why:** reliable reads without shipping the key to browsers or into the repository, and nothing breaks without a key. **Affects:** `app/src/app/api/rpc/[chainId]/route.ts`, `app/src/lib/rpc/`, `sdk/src/rpc.ts`, `scripts/rpc.sh`, the MCP server, the example agent, the Telegram bot, the keeper and weekly agent, `ci.yml`, `keeper.yml`, `agent.yml`, `/app/proof`.
+
+**Rejected:** the key in a `NEXT_PUBLIC_` variable, which ships it in every visitor's bundle, and the key in the RPC URL, which viem prints in its error messages.
 
 ## D40 · A price mirror audit makes the testnet prices checkable (2026-10-02)
 
