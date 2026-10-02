@@ -10,13 +10,14 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { chainConfig } from "./config.mjs";
 import { ROOT, log, sleep } from "./engine.mjs";
 
 const require = createRequire(join(ROOT, "app", "package.json"));
 const viem = require("viem");
 const { privateKeyToAccount } = require("viem/accounts");
 
-export const TESTNET_RPC = "https://rpc.testnet.chain.robinhood.com";
+export const TESTNET_RPC = chainConfig(46630).rpc.public;
 const DEP = JSON.parse(readFileSync(join(ROOT, "contracts/deployments/46630.json"), "utf8"));
 const NAMES = {
   [DEP.usdg.toLowerCase()]: "USDG",

@@ -9,6 +9,7 @@ import {
   type VaultState,
 } from "@strike/sdk";
 import { getAddress, type Address, type Hex, type PublicClient } from "viem";
+import { chainExplorer } from "./config";
 
 // Live EpochManager activity on Robinhood Chain testnet (v2), read straight from contract logs.
 // The scan and wording follow bots/telegram/src/logs.ts and format.ts (same events, same range back-off), copied
@@ -16,7 +17,7 @@ import { getAddress, type Address, type Hex, type PublicClient } from "viem";
 
 /** Chain the activity feed reads: Robinhood Chain testnet. */
 export const ACTIVITY_CHAIN_ID = 46630;
-export const ACTIVITY_EXPLORER = "https://explorer.testnet.chain.robinhood.com";
+export const ACTIVITY_EXPLORER = chainExplorer(ACTIVITY_CHAIN_ID);
 
 const deployment = deployments[String(ACTIVITY_CHAIN_ID)];
 if (!deployment) throw new Error(`No Strike deployment for chain ${ACTIVITY_CHAIN_ID}`);

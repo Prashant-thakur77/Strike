@@ -1,0 +1,1318 @@
+{
+  "exports": [
+    "AGENT_REGISTRY_EIP712",
+    "AGENT_STATUSES",
+    "ALCHEMY_NETWORKS",
+    "ANCHOR_SECTION_HEADING",
+    "ANCHOR_TX_LABEL",
+    "BPS",
+    "DEFAULT_CONSENT_TTL",
+    "DEFAULT_MANDATE",
+    "DEFAULT_SHOCKS",
+    "DEPLOYMENT_ENV",
+    "EPOCH_STATES",
+    "ERROR_HINTS",
+    "FEED_STATUSES",
+    "FEED_STATUS_DESCRIPTIONS",
+    "MANDATE_REASONS",
+    "MANDATE_REASON_DESCRIPTIONS",
+    "MAX_PREMIUM_BPS",
+    "MAX_TENOR_CAP",
+    "MIN_PREMIUM_FLOOR_BPS",
+    "PRICER_INPUT_ERRORS",
+    "REGISTER_CONSENT_TYPES",
+    "RPC_COOLDOWN_MS",
+    "SECONDS_PER_YEAR",
+    "SET_SIGNER_CONSENT_TYPES",
+    "STRIKE_SDK_VERSION",
+    "StrikeError",
+    "USDG_DECIMALS",
+    "WAD",
+    "agentRegistryAbi",
+    "agentRegistryV3Abi",
+    "agentStatusName",
+    "alchemyApiKey",
+    "alchemyEndpoint",
+    "blackScholes",
+    "blackScholesRefAbi",
+    "bpsToFraction",
+    "checkAnchorReceipt",
+    "clampDeltaToMandate",
+    "consentSignerOf",
+    "createStrikeClient",
+    "decisionLogAbi",
+    "decisionRecordHash",
+    "decisionRecordedEvents",
+    "defaultAgentRegistryDomain",
+    "deploymentForEpochManager",
+    "deployments",
+    "deploymentsFor",
+    "describeError",
+    "describeRpc",
+    "describeRpcEndpoint",
+    "epochLogHash",
+    "epochManagerAbi",
+    "epochStateName",
+    "explainError",
+    "explainMandateReason",
+    "explainSeriesRisk",
+    "feeManagerAbi",
+    "feedStatusName",
+    "findSettlementHints",
+    "findSettlementRound",
+    "floorToCent",
+    "formatAmount",
+    "formatUsdg",
+    "formatWad",
+    "fractionToBps",
+    "getDeployment",
+    "getStrikeChain",
+    "hashText",
+    "isLocalRpcUrl",
+    "isValidMandate",
+    "mandateProblems",
+    "mandateReasonCode",
+    "mandateReasonName",
+    "marketCalendarAbi",
+    "maxProposalSize",
+    "mirrorFeedAbi",
+    "normCdf",
+    "numberToWad",
+    "optionTokenAbi",
+    "parseAmount",
+    "parseUsdg",
+    "parseWad",
+    "publicRpcUrl",
+    "rawGithubUrl",
+    "recordAnchorOf",
+    "recordIdentityOf",
+    "recordMatchRank",
+    "redactRpcUrl",
+    "registerConsentTypedData",
+    "resolveAddresses",
+    "revertErrorName",
+    "riskEngineAbi",
+    "riskEngineError",
+    "riskLensAbi",
+    "roundStrikeToCent",
+    "rpcEndpointsFor",
+    "rpcTransportFor",
+    "rpcUrlFor",
+    "secondaryDeployments",
+    "setSignerConsentTypedData",
+    "settlementPayout",
+    "shockedSpot",
+    "stockOracleAbi",
+    "strikeChainIds",
+    "strikeChains",
+    "strikeForDelta",
+    "strikeLocalChain",
+    "strikeVaultAbi",
+    "suggestProposal",
+    "tenorYears",
+    "testStockTokenAbi",
+    "transportFromEndpoints",
+    "unanchoredRecordJson",
+    "usdgDripAbi",
+    "vaultCapacity",
+    "vaultExposure",
+    "vaultFactoryAbi",
+    "verifyAnchorTx",
+    "verifyDecisionAnchor",
+    "wadToNumber"
+  ],
+  "strikeChains": {
+    "robinhood": {
+      "id": 4663,
+      "name": "Robinhood Chain",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "blockTime": 100,
+      "rpcUrls": {
+        "default": {
+          "http": ["https://rpc.mainnet.chain.robinhood.com", "https://rpc.ordofi.network"],
+          "webSocket": ["wss://rpc.ordofi.network"]
+        }
+      },
+      "blockExplorers": {
+        "default": {
+          "name": "Blockscout",
+          "url": "https://robinhoodchain.blockscout.com",
+          "apiUrl": "https://robinhoodchain.blockscout.com/api"
+        }
+      },
+      "contracts": {
+        "multicall3": {
+          "address": "0xca11bde05977b3631167028862be2a173976ca11"
+        }
+      },
+      "extend": "[function]"
+    },
+    "robinhoodTestnet": {
+      "id": 46630,
+      "name": "Robinhood Chain Testnet",
+      "nativeCurrency": {
+        "name": "Sepolia Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpcUrls": {
+        "default": {
+          "http": ["https://rpc.testnet.chain.robinhood.com"]
+        }
+      },
+      "blockExplorers": {
+        "default": {
+          "name": "Blockscout",
+          "url": "https://explorer.testnet.chain.robinhood.com",
+          "apiUrl": "https://explorer.testnet.chain.robinhood.com/api"
+        }
+      },
+      "contracts": {
+        "multicall3": {
+          "address": "0xca11bde05977b3631167028862be2a173976ca11"
+        }
+      },
+      "testnet": true,
+      "extend": "[function]"
+    },
+    "arbitrum": {
+      "id": 42161,
+      "name": "Arbitrum One",
+      "nativeCurrency": {
+        "name": "Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "blockTime": 250,
+      "rpcUrls": {
+        "default": {
+          "http": ["https://arb1.arbitrum.io/rpc"]
+        }
+      },
+      "blockExplorers": {
+        "default": {
+          "name": "Arbiscan",
+          "url": "https://arbiscan.io",
+          "apiUrl": "https://api.arbiscan.io/api"
+        }
+      },
+      "contracts": {
+        "multicall3": {
+          "address": "0xca11bde05977b3631167028862be2a173976ca11",
+          "blockCreated": 7654707
+        }
+      },
+      "extend": "[function]"
+    },
+    "arbitrumSepolia": {
+      "id": 421614,
+      "name": "Arbitrum Sepolia",
+      "blockTime": 250,
+      "nativeCurrency": {
+        "name": "Arbitrum Sepolia Ether",
+        "symbol": "ETH",
+        "decimals": 18
+      },
+      "rpcUrls": {
+        "default": {
+          "http": ["https://sepolia-rollup.arbitrum.io/rpc"]
+        }
+      },
+      "blockExplorers": {
+        "default": {
+          "name": "Arbiscan",
+          "url": "https://sepolia.arbiscan.io",
+          "apiUrl": "https://api-sepolia.arbiscan.io/api"
+        }
+      },
+      "contracts": {
+        "multicall3": {
+          "address": "0xca11bde05977b3631167028862be2a173976ca11",
+          "blockCreated": 81930
+        }
+      },
+      "testnet": true,
+      "extend": "[function]"
+    }
+  },
+  "strikeChainIds": [4663, 46630, 42161, 421614],
+  "strikeLocalChain": {
+    "id": 31337,
+    "name": "Anvil",
+    "nativeCurrency": {
+      "decimals": 18,
+      "name": "Ether",
+      "symbol": "ETH"
+    },
+    "rpcUrls": {
+      "default": {
+        "http": ["http://127.0.0.1:8545"],
+        "webSocket": ["ws://127.0.0.1:8545"]
+      }
+    },
+    "extend": "[function]"
+  },
+  "getStrikeChain": {
+    "1": {
+      "error": "Strike is not deployed on chain 1"
+    },
+    "4663": {
+      "ok": {
+        "id": 4663,
+        "name": "Robinhood Chain",
+        "nativeCurrency": {
+          "name": "Ether",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockTime": 100,
+        "rpcUrls": {
+          "default": {
+            "http": ["https://rpc.mainnet.chain.robinhood.com", "https://rpc.ordofi.network"],
+            "webSocket": ["wss://rpc.ordofi.network"]
+          }
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Blockscout",
+            "url": "https://robinhoodchain.blockscout.com",
+            "apiUrl": "https://robinhoodchain.blockscout.com/api"
+          }
+        },
+        "contracts": {
+          "multicall3": {
+            "address": "0xca11bde05977b3631167028862be2a173976ca11"
+          }
+        },
+        "extend": "[function]"
+      }
+    },
+    "31337": {
+      "ok": {
+        "id": 31337,
+        "name": "Anvil",
+        "nativeCurrency": {
+          "decimals": 18,
+          "name": "Ether",
+          "symbol": "ETH"
+        },
+        "rpcUrls": {
+          "default": {
+            "http": ["http://127.0.0.1:8545"],
+            "webSocket": ["ws://127.0.0.1:8545"]
+          }
+        },
+        "extend": "[function]"
+      }
+    },
+    "42161": {
+      "ok": {
+        "id": 42161,
+        "name": "Arbitrum One",
+        "nativeCurrency": {
+          "name": "Ether",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "blockTime": 250,
+        "rpcUrls": {
+          "default": {
+            "http": ["https://arb1.arbitrum.io/rpc"]
+          }
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Arbiscan",
+            "url": "https://arbiscan.io",
+            "apiUrl": "https://api.arbiscan.io/api"
+          }
+        },
+        "contracts": {
+          "multicall3": {
+            "address": "0xca11bde05977b3631167028862be2a173976ca11",
+            "blockCreated": 7654707
+          }
+        },
+        "extend": "[function]"
+      }
+    },
+    "46630": {
+      "ok": {
+        "id": 46630,
+        "name": "Robinhood Chain Testnet",
+        "nativeCurrency": {
+          "name": "Sepolia Ether",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "rpcUrls": {
+          "default": {
+            "http": ["https://rpc.testnet.chain.robinhood.com"]
+          }
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Blockscout",
+            "url": "https://explorer.testnet.chain.robinhood.com",
+            "apiUrl": "https://explorer.testnet.chain.robinhood.com/api"
+          }
+        },
+        "contracts": {
+          "multicall3": {
+            "address": "0xca11bde05977b3631167028862be2a173976ca11"
+          }
+        },
+        "testnet": true,
+        "extend": "[function]"
+      }
+    },
+    "412346": {
+      "error": "Strike is not deployed on chain 412346"
+    },
+    "421614": {
+      "ok": {
+        "id": 421614,
+        "name": "Arbitrum Sepolia",
+        "blockTime": 250,
+        "nativeCurrency": {
+          "name": "Arbitrum Sepolia Ether",
+          "symbol": "ETH",
+          "decimals": 18
+        },
+        "rpcUrls": {
+          "default": {
+            "http": ["https://sepolia-rollup.arbitrum.io/rpc"]
+          }
+        },
+        "blockExplorers": {
+          "default": {
+            "name": "Arbiscan",
+            "url": "https://sepolia.arbiscan.io",
+            "apiUrl": "https://api-sepolia.arbiscan.io/api"
+          }
+        },
+        "contracts": {
+          "multicall3": {
+            "address": "0xca11bde05977b3631167028862be2a173976ca11",
+            "blockCreated": 81930
+          }
+        },
+        "testnet": true,
+        "extend": "[function]"
+      }
+    }
+  },
+  "ALCHEMY_NETWORKS": {
+    "4663": "robinhood-mainnet",
+    "42161": "arb-mainnet",
+    "46630": "robinhood-testnet",
+    "421614": "arb-sepolia"
+  },
+  "alchemyEndpoint": {
+    "1": {
+      "ok": null
+    },
+    "4663": {
+      "ok": "https://robinhood-mainnet.g.alchemy.com/v2"
+    },
+    "31337": {
+      "ok": null
+    },
+    "42161": {
+      "ok": "https://arb-mainnet.g.alchemy.com/v2"
+    },
+    "46630": {
+      "ok": "https://robinhood-testnet.g.alchemy.com/v2"
+    },
+    "412346": {
+      "ok": null
+    },
+    "421614": {
+      "ok": "https://arb-sepolia.g.alchemy.com/v2"
+    }
+  },
+  "publicRpcUrl": {
+    "1": {
+      "ok": null
+    },
+    "4663": {
+      "ok": "https://rpc.mainnet.chain.robinhood.com"
+    },
+    "31337": {
+      "ok": "http://127.0.0.1:8545"
+    },
+    "42161": {
+      "ok": "https://arb1.arbitrum.io/rpc"
+    },
+    "46630": {
+      "ok": "https://rpc.testnet.chain.robinhood.com"
+    },
+    "412346": {
+      "ok": null
+    },
+    "421614": {
+      "ok": "https://sepolia-rollup.arbitrum.io/rpc"
+    }
+  },
+  "rpcEndpointsFor": {
+    "1": {
+      "none": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      },
+      "alchemy": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          }
+        ]
+      },
+      "badKey": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      }
+    },
+    "4663": {
+      "none": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://rpc.mainnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "alchemy": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-mainnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.mainnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.mainnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-mainnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.mainnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.mainnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "badKey": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://rpc.mainnet.chain.robinhood.com"
+          }
+        ]
+      }
+    },
+    "31337": {
+      "none": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemy": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "badKey": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      }
+    },
+    "42161": {
+      "none": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://arb1.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "alchemy": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://arb-mainnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://arb1.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://arb1.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://arb-mainnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://arb1.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://arb1.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "badKey": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://arb1.arbitrum.io/rpc"
+          }
+        ]
+      }
+    },
+    "46630": {
+      "none": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://rpc.testnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "alchemy": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.testnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.testnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.testnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://rpc.testnet.chain.robinhood.com"
+          }
+        ]
+      },
+      "badKey": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://rpc.testnet.chain.robinhood.com"
+          }
+        ]
+      }
+    },
+    "412346": {
+      "none": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      },
+      "alchemy": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          }
+        ]
+      },
+      "badKey": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      }
+    },
+    "421614": {
+      "none": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://sepolia-rollup.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "alchemy": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://arb-sepolia.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://sepolia-rollup.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "custom": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://sepolia-rollup.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "both": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://arb-sepolia.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer snapshotKey_0123456789"
+            }
+          },
+          {
+            "provider": "custom",
+            "url": "https://rpc.example.org/strike"
+          },
+          {
+            "provider": "public",
+            "url": "https://sepolia-rollup.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "loopback": {
+        "ok": [
+          {
+            "provider": "custom",
+            "url": "http://127.0.0.1:8545"
+          }
+        ]
+      },
+      "alchemyUrl": {
+        "ok": [
+          {
+            "provider": "alchemy",
+            "url": "https://robinhood-testnet.g.alchemy.com/v2",
+            "headers": {
+              "Authorization": "Bearer abcdefgh12345678"
+            }
+          },
+          {
+            "provider": "public",
+            "url": "https://sepolia-rollup.arbitrum.io/rpc"
+          }
+        ]
+      },
+      "badKey": {
+        "ok": [
+          {
+            "provider": "public",
+            "url": "https://sepolia-rollup.arbitrum.io/rpc"
+          }
+        ]
+      }
+    }
+  },
+  "rpcUrlFor": {
+    "1": {
+      "none": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      },
+      "alchemy": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      }
+    },
+    "4663": {
+      "none": {
+        "ok": "https://rpc.mainnet.chain.robinhood.com"
+      },
+      "alchemy": {
+        "ok": "https://robinhood-mainnet.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://robinhood-mainnet.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "ok": "https://rpc.mainnet.chain.robinhood.com"
+      }
+    },
+    "31337": {
+      "none": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemy": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "ok": "http://127.0.0.1:8545"
+      }
+    },
+    "42161": {
+      "none": {
+        "ok": "https://arb1.arbitrum.io/rpc"
+      },
+      "alchemy": {
+        "ok": "https://arb-mainnet.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://arb-mainnet.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "ok": "https://arb1.arbitrum.io/rpc"
+      }
+    },
+    "46630": {
+      "none": {
+        "ok": "https://rpc.testnet.chain.robinhood.com"
+      },
+      "alchemy": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "ok": "https://rpc.testnet.chain.robinhood.com"
+      }
+    },
+    "412346": {
+      "none": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      },
+      "alchemy": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      }
+    },
+    "421614": {
+      "none": {
+        "ok": "https://sepolia-rollup.arbitrum.io/rpc"
+      },
+      "alchemy": {
+        "ok": "https://arb-sepolia.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "custom": {
+        "ok": "https://rpc.example.org/strike"
+      },
+      "both": {
+        "ok": "https://arb-sepolia.g.alchemy.com/v2/snapshotKey_0123456789"
+      },
+      "loopback": {
+        "ok": "http://127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "https://robinhood-testnet.g.alchemy.com/v2/abcdefgh12345678"
+      },
+      "badKey": {
+        "ok": "https://sepolia-rollup.arbitrum.io/rpc"
+      }
+    }
+  },
+  "describeRpc": {
+    "1": {
+      "none": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      },
+      "alchemy": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      },
+      "custom": {
+        "ok": "rpc.example.org"
+      },
+      "both": {
+        "ok": "rpc.example.org"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet)"
+      },
+      "badKey": {
+        "error": "no RPC URL for chain 1: set STRIKE_RPC_URL"
+      }
+    },
+    "4663": {
+      "none": {
+        "ok": "rpc.mainnet.chain.robinhood.com (public)"
+      },
+      "alchemy": {
+        "ok": "Alchemy (robinhood-mainnet), falling back to rpc.mainnet.chain.robinhood.com (public)"
+      },
+      "custom": {
+        "ok": "rpc.example.org, falling back to rpc.mainnet.chain.robinhood.com (public)"
+      },
+      "both": {
+        "ok": "Alchemy (robinhood-mainnet), falling back to rpc.example.org, then rpc.mainnet.chain.robinhood.com (public)"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet), falling back to rpc.mainnet.chain.robinhood.com (public)"
+      },
+      "badKey": {
+        "ok": "rpc.mainnet.chain.robinhood.com (public)"
+      }
+    },
+    "31337": {
+      "none": {
+        "ok": "127.0.0.1:8545 (public)"
+      },
+      "alchemy": {
+        "ok": "127.0.0.1:8545 (public)"
+      },
+      "custom": {
+        "ok": "rpc.example.org, falling back to 127.0.0.1:8545 (public)"
+      },
+      "both": {
+        "ok": "rpc.example.org, falling back to 127.0.0.1:8545 (public)"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet), falling back to 127.0.0.1:8545 (public)"
+      },
+      "badKey": {
+        "ok": "127.0.0.1:8545 (public)"
+      }
+    },
+    "42161": {
+      "none": {
+        "ok": "arb1.arbitrum.io (public)"
+      },
+      "alchemy": {
+        "ok": "Alchemy (arb-mainnet), falling back to arb1.arbitrum.io (public)"
+      },
+      "custom": {
+        "ok": "rpc.example.org, falling back to arb1.arbitrum.io (public)"
+      },
+      "both": {
+        "ok": "Alchemy (arb-mainnet), falling back to rpc.example.org, then arb1.arbitrum.io (public)"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet), falling back to arb1.arbitrum.io (public)"
+      },
+      "badKey": {
+        "ok": "arb1.arbitrum.io (public)"
+      }
+    },
+    "46630": {
+      "none": {
+        "ok": "rpc.testnet.chain.robinhood.com (public)"
+      },
+      "alchemy": {
+        "ok": "Alchemy (robinhood-testnet), falling back to rpc.testnet.chain.robinhood.com (public)"
+      },
+      "custom": {
+        "ok": "rpc.example.org, falling back to rpc.testnet.chain.robinhood.com (public)"
+      },
+      "both": {
+        "ok": "Alchemy (robinhood-testnet), falling back to rpc.example.org, then rpc.testnet.chain.robinhood.com (public)"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet), falling back to rpc.testnet.chain.robinhood.com (public)"
+      },
+      "badKey": {
+        "ok": "rpc.testnet.chain.robinhood.com (public)"
+      }
+    },
+    "412346": {
+      "none": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      },
+      "alchemy": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      },
+      "custom": {
+        "ok": "rpc.example.org"
+      },
+      "both": {
+        "ok": "rpc.example.org"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet)"
+      },
+      "badKey": {
+        "error": "no RPC URL for chain 412346: set STRIKE_RPC_URL"
+      }
+    },
+    "421614": {
+      "none": {
+        "ok": "sepolia-rollup.arbitrum.io (public)"
+      },
+      "alchemy": {
+        "ok": "Alchemy (arb-sepolia), falling back to sepolia-rollup.arbitrum.io (public)"
+      },
+      "custom": {
+        "ok": "rpc.example.org, falling back to sepolia-rollup.arbitrum.io (public)"
+      },
+      "both": {
+        "ok": "Alchemy (arb-sepolia), falling back to rpc.example.org, then sepolia-rollup.arbitrum.io (public)"
+      },
+      "loopback": {
+        "ok": "127.0.0.1:8545"
+      },
+      "alchemyUrl": {
+        "ok": "Alchemy (robinhood-testnet), falling back to sepolia-rollup.arbitrum.io (public)"
+      },
+      "badKey": {
+        "ok": "sepolia-rollup.arbitrum.io (public)"
+      }
+    }
+  },
+  "DEPLOYMENT_ENV": {
+    "epochManager": "STRIKE_EPOCH_MANAGER",
+    "agentRegistry": "STRIKE_AGENT_REGISTRY",
+    "vaultFactory": "STRIKE_VAULT_FACTORY",
+    "stockOracle": "STRIKE_STOCK_ORACLE",
+    "optionToken": "STRIKE_OPTION_TOKEN",
+    "feeManager": "STRIKE_FEE_MANAGER",
+    "marketCalendar": "STRIKE_MARKET_CALENDAR",
+    "usdg": "STRIKE_USDG",
+    "pricer": "STRIKE_PRICER",
+    "vaultImplementation": "STRIKE_VAULT_IMPLEMENTATION",
+    "decisionLog": "STRIKE_DECISION_LOG",
+    "riskEngine": "STRIKE_RISK_ENGINE",
+    "riskLens": "STRIKE_RISK_LENS",
+    "usdgDrip": "STRIKE_USDG_DRIP"
+  }
+}

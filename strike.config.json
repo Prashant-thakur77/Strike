@@ -1,0 +1,135 @@
+{
+  "$schema": "./strike.config.schema.json",
+  "version": 1,
+  "defaultChainId": 46630,
+  "chains": {
+    "46630": {
+      "name": "Robinhood Chain testnet",
+      "shortName": "RH testnet",
+      "testnet": true,
+      "explorer": "https://explorer.testnet.chain.robinhood.com",
+      "verifierUrl": "https://explorer.testnet.chain.robinhood.com/api/",
+      "faucet": "https://faucet.testnet.chain.robinhood.com/",
+      "rpc": {
+        "public": "https://rpc.testnet.chain.robinhood.com",
+        "alchemy": "https://robinhood-testnet.g.alchemy.com/v2"
+      },
+      "deployments": ["contracts/deployments/46630.json", "contracts/deployments/46630-v3.json"],
+      "mainnetFeedsChain": "4663",
+      "confirmations": 5,
+      "subgraphNetworks": ["robinhood-sepolia", "robinhood-testnet"]
+    },
+    "421614": {
+      "name": "Arbitrum Sepolia",
+      "shortName": "Arb Sepolia",
+      "testnet": true,
+      "explorer": "https://sepolia.arbiscan.io",
+      "verifierUrl": "https://arbitrum-sepolia.blockscout.com/api/",
+      "faucet": "https://faucets.chain.link/arbitrum-sepolia",
+      "rpc": {
+        "public": "https://sepolia-rollup.arbitrum.io/rpc",
+        "alchemy": "https://arb-sepolia.g.alchemy.com/v2"
+      },
+      "deployments": ["contracts/deployments/421614.json"],
+      "mainnetFeedsChain": "4663",
+      "confirmations": 5,
+      "subgraphNetworks": ["arbitrum-sepolia"]
+    },
+    "4663": {
+      "name": "Robinhood Chain",
+      "shortName": "Robinhood",
+      "testnet": false,
+      "explorer": "https://robinhoodchain.blockscout.com",
+      "verifierUrl": "https://robinhoodchain.blockscout.com/api/",
+      "rpc": {
+        "public": "https://rpc.mainnet.chain.robinhood.com",
+        "alchemy": "https://robinhood-mainnet.g.alchemy.com/v2"
+      },
+      "deployments": [],
+      "confirmations": 5,
+      "subgraphNetworks": ["robinhood", "robinhood-mainnet"],
+      "stocks": {
+        "TSLA": {
+          "token": "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
+          "feed": "0x4A1166a659A55625345e9515b32adECea5547C38"
+        },
+        "NVDA": {
+          "token": "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
+          "feed": "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15"
+        },
+        "AMZN": {
+          "token": "0x12f190a9F9d7D37a250758b26824B97CE941bF54",
+          "feed": "0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C"
+        },
+        "PLTR": {
+          "token": "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A",
+          "feed": "0x820ABedFF239034956B7A9d2F0a331f9F075eB4c"
+        },
+        "AMD": {
+          "token": "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
+          "feed": "0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72"
+        },
+        "SPY": {
+          "token": "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
+          "feed": "0x319724394D3A0e3669269846abE664Cd621f9f6A"
+        },
+        "AAPL": {
+          "token": "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
+          "feed": "0x6B22A786bAa607d76728168703a39Ea9C99f2cD0"
+        },
+        "QQQ": {
+          "token": "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
+          "feed": "0x80901d846d5D7B030F26B480776EE3b29374C2ae"
+        }
+      }
+    },
+    "42161": {
+      "name": "Arbitrum One",
+      "shortName": "Arbitrum",
+      "testnet": false,
+      "explorer": "https://arbiscan.io",
+      "rpc": {
+        "public": "https://arb1.arbitrum.io/rpc",
+        "alchemy": "https://arb-mainnet.g.alchemy.com/v2"
+      },
+      "deployments": [],
+      "confirmations": 5
+    },
+    "31337": {
+      "name": "Local devnet",
+      "shortName": "Local",
+      "testnet": true,
+      "local": true,
+      "explorer": null,
+      "rpc": {
+        "public": "http://127.0.0.1:8545",
+        "alchemy": null
+      },
+      "deployments": ["contracts/deployments/31337.json"],
+      "mainnetFeedsChain": "4663",
+      "confirmations": 0
+    }
+  },
+  "services": {
+    "app": "https://strike-options.vercel.app",
+    "mcp": "https://strike-options.vercel.app/api/mcp",
+    "indexer": { "port": 8787 },
+    "telegramBot": "https://t.me/strike_options_bot",
+    "repository": "https://github.com/Prashant-thakur77/Strike"
+  },
+  "secrets": {
+    "deployerKey": "PRIVATE_KEY",
+    "agentSignerKey": "AGENT_SIGNER_KEY",
+    "alchemyKey": "ALCHEMY_API_KEY",
+    "telegramToken": "TELEGRAM_BOT_TOKEN",
+    "databaseUrl": "DATABASE_URL",
+    "testDatabaseUrl": "TEST_DATABASE_URL",
+    "postgresPassword": "POSTGRES_PASSWORD",
+    "keeperKey": "KEEPER_PRIVATE_KEY",
+    "agentKey": "STRIKE_AGENT_PRIVATE_KEY",
+    "agent2Key": "AGENT2_PRIVATE_KEY",
+    "anthropicKey": "ANTHROPIC_API_KEY",
+    "claudeCodeToken": "CLAUDE_CODE_OAUTH_TOKEN",
+    "arbiscanKey": "ARBISCAN_API_KEY"
+  }
+}

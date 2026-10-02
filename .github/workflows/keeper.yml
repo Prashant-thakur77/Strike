@@ -22,9 +22,7 @@ jobs:
       matrix:
         include:
           - chain: 46630
-            rpc: https://rpc.testnet.chain.robinhood.com
           - chain: 421614
-            rpc: https://sepolia-rollup.arbitrum.io/rpc
     steps:
       - uses: actions/checkout@v6
       - uses: foundry-rs/foundry-toolchain@v1
@@ -40,8 +38,8 @@ jobs:
       - name: Run keeper once
         if: ${{ hashFiles(format('contracts/deployments/{0}.json', matrix.chain)) != '' }}
         env:
+          # RPC_URL is unset: the keeper uses the chain's public RPC from strike.config.json.
           CHAIN_ID: ${{ matrix.chain }}
-          RPC_URL: ${{ matrix.rpc }}
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: scripts/keeper.sh --once

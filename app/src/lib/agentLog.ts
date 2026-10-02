@@ -2,10 +2,13 @@
 // GitHub Actions job .github/workflows/agent.yml commits one per vault every Monday (propose) and Friday (settle);
 // the schema is `DecisionRecord` in agents/example/src/record.ts (version 1).
 //
-// Everything here is pure except `fetchAgentLog`, and nothing is imported, so the e2e specs (which load as
-// CommonJS) can unit-test the parser against fixture records.
+// Everything here is pure except `fetchAgentLog`, and nothing but data is imported (strike.config.json, directly
+// rather than through the SDK), so the e2e specs (which load as CommonJS) can unit-test the parser against fixture
+// records.
+import strikeConfig from "../../../strike.config.json";
 
-export const AGENT_LOG_REPO = "Prashant-thakur77/Strike";
+/** "owner/name" of strike.config.json's repository. */
+export const AGENT_LOG_REPO = strikeConfig.services.repository.replace(/^https:\/\/github\.com\//, "");
 export const AGENT_LOG_BRANCH = "main";
 export const AGENT_LOG_DIR = "docs/agent-log";
 
@@ -31,11 +34,15 @@ export const FIRST_RUN = Date.UTC(2026, 9, 2, 21, 15, 0);
 /** agent.yml's two crons, as offsets from Monday 00:00 UTC: Monday 15:00 (propose) and Friday 21:15 (settle). */
 const RUN_OFFSETS = [15 * 3_600_000, (4 * 24 + 21) * 3_600_000 + 15 * 60_000];
 
-/** Block explorers for chains records can come from, when a record carries no link of its own. */
-const EXPLORERS: Record<number, string> = {
-  46630: "https://explorer.testnet.chain.robinhood.com",
-  421614: "https://sepolia.arbiscan.io",
-};
+/**
+ * Block explorers for chains records can come from (a chain with deployments in strike.config.json), when a record
+ * carries no link of its own.
+ */
+const EXPLORERS: Record<number, string> = Object.fromEntries(
+  Object.entries(strikeConfig.chains).flatMap(([id, c]) =>
+    c.deployments.length && c.explorer ? [[Number(id), c.explorer]] : [],
+  ),
+);
 
 /* ================================================================ record types */
 

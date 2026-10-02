@@ -52,9 +52,10 @@ jobs:
       agent2: ${{ steps.mode.outputs.agent2 }}
     env:
       STRIKE_CHAIN_ID: "46630"
-      STRIKE_RPC_URL: https://rpc.testnet.chain.robinhood.com
     steps:
       - uses: actions/checkout@v6
+      - name: RPC from strike.config.json
+        run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -119,11 +120,9 @@ jobs:
         include:
           - chain: 46630
             name: Robinhood Chain testnet (v2 and v3)
-            rpc: https://rpc.testnet.chain.robinhood.com
             log: docs/agent-log
           - chain: 421614
             name: Arbitrum Sepolia (v3)
-            rpc: https://sepolia-rollup.arbitrum.io/rpc
             log: docs/agent-log/arbitrum-sepolia
     # One signer, one nonce: never send at the same time as the keeper on this chain (keeper.yml's job for the chain
     # uses the same group, strike-signer-<chainId>).
@@ -132,12 +131,15 @@ jobs:
       cancel-in-progress: false
     env:
       CHAIN_ID: ${{ matrix.chain }}
-      RPC_URL: ${{ matrix.rpc }}
       LOG_DIR: ${{ matrix.log }}
       STRIKE_CHAIN_ID: ${{ matrix.chain }}
-      STRIKE_RPC_URL: ${{ matrix.rpc }}
     steps:
       - uses: actions/checkout@v6
+      # The chain's public RPC from strike.config.json, for the keeper (RPC_URL) and the agent (STRIKE_RPC_URL).
+      - name: RPC from strike.config.json
+        run: |
+          rpc=$(jq -er --arg c "$CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)
+          { echo "RPC_URL=$rpc"; echo "STRIKE_RPC_URL=$rpc"; } >> "$GITHUB_ENV"
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
@@ -226,11 +228,12 @@ jobs:
       cancel-in-progress: false
     env:
       STRIKE_CHAIN_ID: "46630"
-      STRIKE_RPC_URL: https://rpc.testnet.chain.robinhood.com
       VAULT: "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969"
       LOG_DIR: docs/agent-log
     steps:
       - uses: actions/checkout@v6
+      - name: RPC from strike.config.json
+        run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:

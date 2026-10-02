@@ -1,5 +1,6 @@
 import { type HttpTransportConfig, type Transport, fallback, http } from "viem";
 import { getStrikeChain } from "./chains.js";
+import { loadStrikeConfig } from "./config.js";
 
 // Which RPC a Strike process reads and writes through. With ALCHEMY_API_KEY set, Alchemy first and the public RPC as
 // the fallback; without it, STRIKE_RPC_URL or the chain's public RPC, as before.
@@ -9,13 +10,20 @@ import { getStrikeChain } from "./chains.js";
 // prints the request URL in its error messages, and those messages end up in logs, MCP tool answers and decision
 // records. `rpcUrlFor` returns the key-in-path form for tools that take only a URL (cast, forge); never log it.
 
-/** Alchemy's network name per chain: `https://<name>.g.alchemy.com/v2` (https://www.alchemy.com/rpc). */
-export const ALCHEMY_NETWORKS: Readonly<Record<number, string>> = {
-  4663: "robinhood-mainnet",
-  46630: "robinhood-testnet",
-  42161: "arb-mainnet",
-  421614: "arb-sepolia",
-};
+const config = loadStrikeConfig();
+
+/**
+ * Alchemy's network name per chain: `https://<name>.g.alchemy.com/v2` (https://www.alchemy.com/rpc), from each
+ * chain's `rpc.alchemy` in strike.config.json.
+ */
+export const ALCHEMY_NETWORKS: Readonly<Record<number, string>> = Object.fromEntries(
+  Object.entries(config.chains).flatMap(([id, c]) =>
+    c.rpc.alchemy ? [[Number(id), new URL(c.rpc.alchemy).hostname.split(".")[0]!]] : [],
+  ),
+);
+
+/** The environment variable that holds the Alchemy key (`secrets.alchemyKey`: ALCHEMY_API_KEY). */
+const ALCHEMY_KEY_ENV = config.secrets.alchemyKey;
 
 /** Where an endpoint came from: Alchemy (ALCHEMY_API_KEY), STRIKE_RPC_URL, or the chain's public RPC. */
 export type RpcProvider = "alchemy" | "custom" | "public";
@@ -37,7 +45,7 @@ const ALCHEMY_URL = /^https:\/\/([a-z0-9-]+)\.g\.alchemy\.com\/v2\/([^/?#]+)\/?$
 
 /** ALCHEMY_API_KEY from `env`, trimmed, or undefined when unset or not a plausible key. */
 export function alchemyApiKey(env: Env = processEnv()): string | undefined {
-  const key = env.ALCHEMY_API_KEY?.trim();
+  const key = env[ALCHEMY_KEY_ENV]?.trim();
   return key && KEY_PATTERN.test(key) ? key : undefined;
 }
 
@@ -47,7 +55,7 @@ export function alchemyEndpoint(chainId: number): string | undefined {
   return network ? `https://${network}.g.alchemy.com/v2` : undefined;
 }
 
-/** The chain's public RPC (viem's chain definition), or undefined for an unknown chain. */
+/** The chain's public RPC (strike.config.json's `rpc.public`, through the chain definition), or undefined. */
 export function publicRpcUrl(chainId: number): string | undefined {
   try {
     return getStrikeChain(chainId).rpcUrls.default.http[0];

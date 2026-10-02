@@ -115,12 +115,15 @@ jobs:
     runs-on: ubuntu-latest
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
-    env:
-      ROBINHOOD_RPC_URL: https://rpc.mainnet.chain.robinhood.com
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
+      # Robinhood Chain mainnet's public RPC and Alchemy base URL (no key) from strike.config.json.
+      - name: RPCs from strike.config.json
+        run: |
+          echo "ROBINHOOD_RPC_URL=$(jq -er '.chains["4663"].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
+          echo "ROBINHOOD_ALCHEMY_URL=$(jq -er '.chains["4663"].rpc.alchemy' strike.config.json)" >> "$GITHUB_ENV"
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
@@ -137,7 +140,7 @@ jobs:
         run: |
           if [ -n "$ALCHEMY_API_KEY" ]; then
             echo "RPC: Alchemy (robinhood-mainnet)"
-            if ROBINHOOD_RPC_URL="https://robinhood-mainnet.g.alchemy.com/v2/$ALCHEMY_API_KEY" forge test --match-path "test/fork/*" -vv; then
+            if ROBINHOOD_RPC_URL="$ROBINHOOD_ALCHEMY_URL/$ALCHEMY_API_KEY" forge test --match-path "test/fork/*" -vv; then
               exit 0
             fi
             echo "::warning::Fork tests failed on Alchemy; trying the public RPC"

@@ -3,6 +3,16 @@ export const STRIKE_SDK_VERSION = "0.1.0";
 export * from "./abi/index.js";
 export * from "./chains.js";
 export {
+  STRIKE_CONFIG_FILE,
+  loadStrikeConfig,
+  locateStrikeConfig,
+  strikeChainConfig,
+  strikeExplorerUrl,
+  strikeSecretName,
+  validateStrikeConfig,
+} from "./config.js";
+export type { LoadStrikeConfigOptions, StrikeChainConfig, StrikeConfig, StrikeSecretRole } from "./config.js";
+export {
   AGENT_REGISTRY_EIP712,
   DEFAULT_CONSENT_TTL,
   REGISTER_CONSENT_TYPES,

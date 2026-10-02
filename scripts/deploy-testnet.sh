@@ -10,20 +10,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PATH="$HOME/.foundry/bin:$HOME/.cargo/bin:$PATH"
 set -a; source "$ROOT/contracts/.env"; set +a
+# shellcheck source=scripts/config.sh
+. "$ROOT/scripts/config.sh"
 
 case "${1:-}" in
-  robinhood-testnet)
-    CHAIN_ID=46630
-    RPC=https://rpc.testnet.chain.robinhood.com
-    VERIFIER_URL=https://explorer.testnet.chain.robinhood.com/api/
-    ;;
-  arbitrum-sepolia)
-    CHAIN_ID=421614
-    RPC=https://sepolia-rollup.arbitrum.io/rpc
-    VERIFIER_URL=https://arbitrum-sepolia.blockscout.com/api/
-    ;;
+  robinhood-testnet) CHAIN_ID=46630 ;;
+  arbitrum-sepolia) CHAIN_ID=421614 ;;
   *) echo "usage: $0 robinhood-testnet|arbitrum-sepolia"; exit 1 ;;
 esac
+# The chain's public RPC and the Blockscout API contracts are verified against, from strike.config.json.
+RPC=$(strike_config_get chains "$CHAIN_ID" rpc public)
+VERIFIER_URL=$(strike_config_get chains "$CHAIN_ID" verifierUrl)
 
 DEPLOYER=$(cast wallet address --private-key "$PRIVATE_KEY")
 echo "Deploying Strike to chain $CHAIN_ID from $DEPLOYER ($(cast balance "$DEPLOYER" --rpc-url "$RPC" --ether) ETH)"

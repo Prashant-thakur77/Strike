@@ -8,26 +8,27 @@
 #   rpc_label <url>: the URL for logs, with an Alchemy key replaced by ***.
 # The Node processes these scripts start (the example agent) pick Alchemy up themselves from ALCHEMY_API_KEY, with
 # the key in a header; pass them the explicit or public URL as STRIKE_RPC_URL, never the Alchemy one.
+# The endpoints come from strike.config.json (chains.<id>.rpc.public and .rpc.alchemy), through scripts/config.sh.
 
+# shellcheck source=scripts/config.sh
+. "$(dirname "${BASH_SOURCE[0]}")/config.sh"
+
+# rpc_public_url <chainId>: the chain's public RPC; fails for a chain the config does not have.
 rpc_public_url() {
-  case "$1" in
-    46630) echo "https://rpc.testnet.chain.robinhood.com" ;;
-    4663) echo "https://rpc.mainnet.chain.robinhood.com" ;;
-    421614) echo "https://sepolia-rollup.arbitrum.io/rpc" ;;
-    42161) echo "https://arb1.arbitrum.io/rpc" ;;
-    31337) echo "http://127.0.0.1:8545" ;;
-    *) return 1 ;;
-  esac
+  strike_config_get chains "$1" rpc public
 }
 
+# rpc_alchemy_base <chainId>: Alchemy's URL for the chain without the key (https://<network>.g.alchemy.com/v2).
+rpc_alchemy_base() {
+  strike_config_get chains "$1" rpc alchemy
+}
+
+# rpc_alchemy_network <chainId>: Alchemy's network name (robinhood-testnet); fails where Alchemy does not serve it.
 rpc_alchemy_network() {
-  case "$1" in
-    46630) echo "robinhood-testnet" ;;
-    4663) echo "robinhood-mainnet" ;;
-    421614) echo "arb-sepolia" ;;
-    42161) echo "arb-mainnet" ;;
-    *) return 1 ;;
-  esac
+  local base
+  base=$(rpc_alchemy_base "$1") || return 1
+  base="${base#https://}"
+  echo "${base%%.*}"
 }
 
 rpc_is_local() {
@@ -52,7 +53,7 @@ rpc_url_for() {
     if [[ ! "$ALCHEMY_API_KEY" =~ ^[A-Za-z0-9_-]{8,128}$ ]]; then
       echo "warning: ALCHEMY_API_KEY is not a plain key; using $(rpc_label "$fallback")" >&2
     else
-      url="https://$network.g.alchemy.com/v2/$ALCHEMY_API_KEY"
+      url="$(rpc_alchemy_base "$chain")/$ALCHEMY_API_KEY"
       got=$(cast chain-id --rpc-url "$url" 2>/dev/null || true)
       if [ "$got" = "$chain" ]; then
         echo "$url"

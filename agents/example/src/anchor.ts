@@ -2,6 +2,7 @@ import {
   decisionLogAbi,
   getDeployment,
   getStrikeChain,
+  loadStrikeConfig,
   rpcEndpointsFor,
   strikeVaultAbi,
   transportFromEndpoints,
@@ -31,9 +32,8 @@ export type { RecordAnchor } from "./record.js";
 /** Label of the anchoring transaction in the record's transactions list. */
 export const ANCHOR_TX_LABEL = "DecisionLog.record";
 
-/** Where the weekly workflow publishes decision records (docs/agent-log on main). */
-export const DEFAULT_RECORD_BASE_URL =
-  "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/";
+/** Where the weekly workflow publishes decision records: docs/agent-log on main of strike.config.json's repository. */
+export const DEFAULT_RECORD_BASE_URL = `${loadStrikeConfig().services.repository}/blob/main/docs/agent-log/`;
 
 /** keccak256 of a string's UTF-8 bytes (`cast keccak "$(cat file)"` for a file without a trailing newline). */
 export function hashText(text: string): Hex {

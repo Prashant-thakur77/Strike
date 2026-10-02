@@ -4,6 +4,7 @@ import {
   type StrikeClient,
   createStrikeClient,
   getStrikeChain,
+  loadStrikeConfig,
   rpcEndpointsFor,
   transportFromEndpoints,
 } from "@strike/sdk";
@@ -16,7 +17,7 @@ import { createStrikeMcpServer } from "./server.js";
 
 /** Options for {@link handleReadOnlyMcpRequest}. */
 export interface ReadOnlyMcpOptions {
-  /** Chain to read (default 46630, Robinhood Chain testnet). */
+  /** Chain to read (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet). */
   chainId?: number;
   /** RPC URL (default: the chain's public RPC). Ignored when `rpcEndpoints` is set. */
   rpcUrl?: string;
@@ -125,7 +126,7 @@ export async function handleReadOnlyMcpRequest(
       { status: 405, headers: { Allow: "POST" } },
     );
   }
-  const chainId = options.chainId ?? 46630;
+  const chainId = options.chainId ?? loadStrikeConfig().defaultChainId;
   const server = createStrikeMcpServer({
     chainId,
     readOnly: true,

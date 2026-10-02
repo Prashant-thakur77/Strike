@@ -1,11 +1,12 @@
-import { deployments } from "@strike/sdk";
+import { deployments, deploymentsFor } from "@strike/sdk";
 import type { Address } from "viem";
+import { REPO_URL, chainConfig, chainExplorer } from "./config";
 
 // Every claim on /app/proof, with the file that backs it. Update the numbers here when the source changes; the
 // comment above each block names the file (and section) to re-check. The e2e test `proof.spec.ts` fails if any
 // GitHub link below points to a path that does not exist in the repository.
 
-export const REPO = "https://github.com/Prashant-thakur77/Strike";
+export const REPO = REPO_URL;
 
 /** A file in the repository on GitHub (optionally a line or a heading anchor). */
 export const gh = (path: string, anchor?: number | string) =>
@@ -15,7 +16,9 @@ export const gh = (path: string, anchor?: number | string) =>
 export const ghTree = (path: string) => `${REPO}/tree/main/${path}`;
 
 export const PROOF_CHAIN_ID = 46630;
-export const EXPLORER = "https://explorer.testnet.chain.robinhood.com";
+export const EXPLORER = chainExplorer(PROOF_CHAIN_ID);
+/** The public RPC the `cargo stylus verify` commands below were run against. */
+const PROOF_RPC = chainConfig(PROOF_CHAIN_ID).rpc.public;
 export const explorerAddress = (a: string) => `${EXPLORER}/address/${a}`;
 export const explorerTx = (h: string) => `${EXPLORER}/tx/${h}`;
 
@@ -51,6 +54,21 @@ interface V2Deployment {
 }
 
 const v2 = deployments[String(PROOF_CHAIN_ID)] as unknown as V2Deployment;
+
+/** The v2 deployment's TSLA MirrorFeed (contracts/deployments/46630.json). */
+function tslaFeed(): Address {
+  const feed = v2.stocks.TSLA?.feed;
+  if (!feed) throw new Error(`no TSLA feed in the ${PROOF_CHAIN_ID} deployment`);
+  return feed;
+}
+
+/** v3 next to v2 on 46630: contracts/deployments/46630-v3.json, the chain's secondary deployment in the SDK. */
+const v3 = (() => {
+  const d = deploymentsFor(PROOF_CHAIN_ID).find((x) => x.version === "v3");
+  if (!d?.riskLens || !d.stylusPricer)
+    throw new Error(`no v3 deployment with RiskLens and Stylus on ${PROOF_CHAIN_ID}`);
+  return { ...d, riskLens: d.riskLens, stylusPricer: d.stylusPricer };
+})();
 
 export const DEPLOYMENT = {
   version: v2.version,
@@ -175,7 +193,7 @@ export const CONTRACTS: readonly ContractFact[] = [
   {
     name: "TSLA MirrorFeed",
     role: "Testnet only: copies mainnet Chainlink TSLA rounds",
-    address: v2.stocks.TSLA?.feed ?? "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+    address: tslaFeed(),
     verification: "blockscout",
     source: "contracts/src/testnet/MirrorFeed.sol",
   },
@@ -204,32 +222,31 @@ export const ghV3 = (path: string) => `${REPO}/blob/v3-contracts/${path}`;
 // "2. Stylus pricer and risk engine": cargo stylus verify "Verification successful"); vector counts from
 // contracts/test/vectors/risk.json (200 greeks + 150 impliedVol + 60 scenarioLoss = 410).
 export const V3 = {
-  block: 126_713_718,
+  block: v3.block ?? 0,
   sourceCommit: "448d83b",
   deployCommit: "64fcb93",
   file: gh("contracts/deployments/46630-v3.json"),
   log: gh("docs/testnet-epochs/2026-09-30-v3.md"),
   design: ghV3("docs/design.md"),
   stylus: {
-    address: "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec" as Address,
+    address: v3.stylusPricer,
     deployTx: "0xc71be99442c8bbc9b9be9d419795ac2709b95b8b70214a465a71aeef9b89d49a",
     activationTx: "0x19277b827e7b979963e71118f69874b83c3d6c69acac58a494c49881efed417a",
-    command:
-      "cargo stylus verify --deployment-tx 0xc71b…d49a --endpoint https://rpc.testnet.chain.robinhood.com",
+    command: `cargo stylus verify --deployment-tx 0xc71b…d49a --endpoint ${PROOF_RPC}`,
     metadataHash: "ef5f968b0429b7b240d59acda917a4c8c7232ed1f53215e162e7afda5fbde267",
     wasmBytes: 23_562,
     source: ghV3("stylus/pricer/src/risk.rs"),
   },
   contracts: [
-    { name: "EpochManager", address: "0x256D4546486368dCb23E94758b4cb500c215929F" },
-    { name: "RiskLens", address: "0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D" },
-    { name: "BlackScholesRef + RiskLib", address: "0x2B6A2A51bd802Ed11bE7c0B954a7Ec9287c362d0" },
-    { name: "FeeManager (high-water mark)", address: "0x8DBE22eAa3CEFC367C435ce2b6F779fabe7D2Fa7" },
-    { name: "AgentRegistry (EIP-712 consent)", address: "0x1c42740145B245b2f894d8e989ca29dfd9A9052f" },
-    { name: "VaultFactory", address: "0x97ab9ed707758Fc23b4e59132d97Ab7cb9fb215e" },
-    { name: "StrikeVault implementation", address: "0x2E67F1Cf23eAAeecaee36d248d76e8366DA076D9" },
-    { name: "OptionToken", address: "0xfbeb6cf8350C182c7895165A8Fdd3D9884aB46B6" },
-    { name: "StockOracle", address: "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A" },
+    { name: "EpochManager", address: v3.epochManager },
+    { name: "RiskLens", address: v3.riskLens },
+    { name: "BlackScholesRef + RiskLib", address: v3.pricer },
+    { name: "FeeManager (high-water mark)", address: v3.feeManager },
+    { name: "AgentRegistry (EIP-712 consent)", address: v3.agentRegistry },
+    { name: "VaultFactory", address: v3.vaultFactory },
+    { name: "StrikeVault implementation", address: v3.vaultImplementation },
+    { name: "OptionToken", address: v3.optionToken },
+    { name: "StockOracle", address: v3.stockOracle },
   ] as readonly { name: string; address: Address }[],
   vectors: {
     count: 410,
@@ -248,8 +265,7 @@ export const V3 = {
 // Source: docs/gas.md, "The live Stylus pricer is verifiably this source" and the two gas tables.
 export const STYLUS = {
   deployTx: "0x93fccce03198d72320afc7f613b097450ea4fafad3701bae732b81180ba237fe",
-  command:
-    "cargo stylus verify --deployment-tx 0x93fc…37fe --endpoint https://rpc.testnet.chain.robinhood.com",
+  command: `cargo stylus verify --deployment-tx 0x93fc…37fe --endpoint ${PROOF_RPC}`,
   toolchain: "cargo-stylus 0.10.9, Rust 1.91.0, reproducible Docker build",
   metadataHash: "5773190b3eed71771269cdaa28bfd562adc3bc8888ddb49e2b901cf4ceca7045",
   wasmBytes: 15_574,

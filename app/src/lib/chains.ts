@@ -1,12 +1,13 @@
 import { strikeChains } from "@strike/sdk";
 import { defineChain, type Chain } from "viem";
+import { STRIKE_CONFIG, chainConfig } from "./config";
 
-/** Local anvil devnet. Override the RPC with NEXT_PUBLIC_LOCAL_RPC. */
-export const LOCAL_RPC = process.env.NEXT_PUBLIC_LOCAL_RPC || "http://127.0.0.1:8545";
+/** Local anvil devnet (strike.config.json's 31337). Override the RPC with NEXT_PUBLIC_LOCAL_RPC. */
+export const LOCAL_RPC = process.env.NEXT_PUBLIC_LOCAL_RPC || chainConfig(31337).rpc.public;
 
 export const localChain = defineChain({
   id: 31337,
-  name: "Local devnet",
+  name: chainConfig(31337).name,
   nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [LOCAL_RPC] } },
   testnet: true,
@@ -29,11 +30,17 @@ interface ChainMeta {
   testnet: boolean;
 }
 
+/** Names and the testnet flag from strike.config.json (`name`, `shortName`, `testnet`). */
+const meta = (id: AppChainId): ChainMeta => {
+  const c = chainConfig(id);
+  return { label: c.name, short: c.shortName, testnet: c.testnet };
+};
+
 export const CHAIN_META: Record<AppChainId, ChainMeta> = {
-  46630: { label: "Robinhood Chain testnet", short: "RH testnet", testnet: true },
-  421614: { label: "Arbitrum Sepolia", short: "Arb Sepolia", testnet: true },
-  4663: { label: "Robinhood Chain", short: "Robinhood", testnet: false },
-  31337: { label: "Local devnet", short: "Local", testnet: true },
+  46630: meta(46630),
+  421614: meta(421614),
+  4663: meta(4663),
+  31337: meta(31337),
 };
 
 export function isAppChainId(id: unknown): id is AppChainId {
@@ -41,7 +48,12 @@ export function isAppChainId(id: unknown): id is AppChainId {
 }
 
 const envDefault = Number(process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID);
-export const DEFAULT_CHAIN_ID: AppChainId = isAppChainId(envDefault) ? envDefault : 46630;
+const configDefault = STRIKE_CONFIG.defaultChainId;
+export const DEFAULT_CHAIN_ID: AppChainId = isAppChainId(envDefault)
+  ? envDefault
+  : isAppChainId(configDefault)
+    ? configDefault
+    : 46630;
 
 export function getAppChain(id: AppChainId): Chain {
   return appChains.find((c) => c.id === id) ?? appChains[0];
