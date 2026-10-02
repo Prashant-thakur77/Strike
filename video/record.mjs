@@ -41,6 +41,7 @@ import {
   timingHash,
   writeFileSync,
 } from "./lib/engine.mjs";
+import { chainConfig } from "./lib/config.mjs";
 import { arbFacts, readmeFacts } from "./lib/facts.mjs";
 
 const KIND = process.argv[2];
@@ -126,7 +127,7 @@ async function main() {
       "--disable-blink-features=AutomationControlled",
     ],
   });
-  const env = { EXPLORER: "https://explorer.testnet.chain.robinhood.com", epoch: epochLog(), facts };
+  const env = { EXPLORER: chainConfig(46630).explorer, epoch: epochLog(), facts };
   const live = def.probe ? await def.probe(browser) : {};
   if (Object.keys(live).length) log("live", JSON.stringify(live));
   let scenes = def.scenes(facts, live);

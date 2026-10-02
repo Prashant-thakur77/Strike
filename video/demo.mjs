@@ -10,16 +10,20 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { STRIKE_CONFIG, chainConfig } from "./lib/config.mjs";
 import { L, ROOT } from "./lib/engine.mjs";
 import { sayDec, sayInt, sayUsd } from "./lib/facts.mjs";
 import { signingContext, signingPrepare, signingRun } from "./lib/wallet.mjs";
 
-export const APP = (process.env.APP_URL ?? "https://strike-options.vercel.app").replace(/\/$/, "");
-export const EXPLORER = "https://explorer.testnet.chain.robinhood.com";
-const ARBISCAN = "https://sepolia.arbiscan.io";
-const ARB_RPC = "https://sepolia-rollup.arbitrum.io/rpc";
+export const APP = (process.env.APP_URL ?? STRIKE_CONFIG.services.app).replace(/\/$/, "");
+export const EXPLORER = chainConfig(46630).explorer;
+const ARBISCAN = chainConfig(421614).explorer;
+const ARB_RPC = chainConfig(421614).rpc.public;
 const REJECT_TX = "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0";
-const CC_VAULT = "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e"; // sTSLA-CC, v2 on 46630
+// sTSLA-CC, v2 on 46630
+const CC_VAULT = JSON.parse(
+  readFileSync(join(ROOT, "contracts/deployments/46630-vaults.json"), "utf8"),
+).TSLA_covered_call;
 const U = "U S D G"; // Chatterbox reads "USDG" as a word
 const EM = "Eepok Manager"; // "Epoch Manager" as Chatterbox should say it (Whisper hears "epoch manager")
 // a desktop Chrome user agent for Arbiscan, whose bot check stops a headless one
