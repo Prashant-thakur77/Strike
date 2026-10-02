@@ -10,34 +10,36 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 | [Design spec](design.md)                | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates |
 | [SafeStockFeed guide](safestockfeed.md) | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them               |
 | [Gas: Stylus vs Solidity](gas.md)       | Measured costs of the pricer and of real protocol transactions, including where Stylus loses      |
-| [Decisions](decisions.md)               | Every design decision with its reason (D1–D38)                                                    |
+| [Decisions](decisions.md)               | Every design decision with its reason (D1–D40)                                                    |
 
 ## Check that it is safe
 
-| Document                                                  | What it covers                                                                    |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Threat model](threat-model.md)                           | 25 threats, each with its mitigation and the test that shows it                   |
-| [Internal security review](security/review-2026-09-29.md) | 1 High, 3 Medium, 4 Low, 3 Info, all fixed with regression tests                  |
-| [v3 security review](security/review-2026-10-01-v3.md)    | 4 Low, 3 Info, no High or Medium; three fixed on `v3-contracts`, not yet deployed |
-| [Formal verification](security/formal-verification.md)    | 9 properties proven with Halmos, 16 more written down and marked unproven         |
-| [Slither triage](security/slither.md)                     | Static analysis results and why each remaining finding is accepted                |
-| [Testing](testing.md)                                     | Test suites, invariants with mutation checks, coverage, how to run each           |
-| [Audit readiness](audit-readiness.md)                     | Scope and nSLOC, roles and trust, known issues, where an auditor starts           |
-| [Risk model](risk-model.md)                               | What a depositor can lose, and when                                               |
-| [Security policy](../SECURITY.md)                         | How to report a vulnerability                                                     |
+| Document                                                  | What it covers                                                                                                                                                               |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Trust model](trust-model.md)                             | What is trusted and what is verified, component by component, how to check each, and what breaks if it misbehaves; the price mirror audit (`node scripts/verify-mirror.mjs`) |
+| [Threat model](threat-model.md)                           | 25 threats, each with its mitigation and the test that shows it                                                                                                              |
+| [Internal security review](security/review-2026-09-29.md) | 1 High, 3 Medium, 4 Low, 3 Info, all fixed with regression tests                                                                                                             |
+| [v3 security review](security/review-2026-10-01-v3.md)    | 4 Low, 3 Info, no High or Medium; three fixed on `v3-contracts`, not yet deployed                                                                                            |
+| [Formal verification](security/formal-verification.md)    | 9 properties proven with Halmos, 16 more written down and marked unproven                                                                                                    |
+| [Slither triage](security/slither.md)                     | Static analysis results and why each remaining finding is accepted                                                                                                           |
+| [Testing](testing.md)                                     | Test suites, invariants with mutation checks, coverage, how to run each                                                                                                      |
+| [Audit readiness](audit-readiness.md)                     | Scope and nSLOC, roles and trust, known issues, where an auditor starts                                                                                                      |
+| [Risk model](risk-model.md)                               | What a depositor can lose, and when                                                                                                                                          |
+| [Security policy](../SECURITY.md)                         | How to report a vulnerability                                                                                                                                                |
 
 ## See it run
 
-| Document                                                                            | What it covers                                                                                                                                                       |
-| ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Judge's tour](JUDGES.md)                                                           | The demo video, the no-wallet playground and the live transactions in 3 minutes, then a clone and the tests in 15                                                    |
-| [Live epoch, 2026-09-29](testnet-epochs/2026-09-29.md)                              | The first agent-run epoch, v2 on Robinhood Chain testnet, with Blockscout links                                                                                      |
-| [v3 on Arbitrum Sepolia, 2026-09-30](testnet-epochs/2026-09-30-arbitrum-sepolia.md) | v3 deployed and verified on Arbitrum Sepolia, and its live epoch on 30 September, planned by Claude                                                                  |
-| [v3 on Robinhood Chain testnet](testnet-epochs/2026-09-30-v3.md)                    | v3 deployed next to v2 on 30 September, and its live epoch on 1 October ([§7](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)), planned by Claude            |
-| [Agent log](agent-log/README.md)                                                    | The agent's decision records for each vault and epoch, anchored on-chain in the DecisionLog                                                                          |
-| [Deployments and versions](DEPLOYMENTS.md)                                          | Every deployment (v1, v2, v3 on Robinhood Chain testnet and Arbitrum Sepolia): commits, blocks, addresses, verification, live transactions, and how to re-check each |
-| [Tester guide](testers.md)                                                          | Five minutes: the no-wallet playground, then testnet tokens, the app, the example agent and the feedback form                                                        |
-| [Backtest](backtest.md)                                                             | Eight years of weekly epochs on TSLA, NVDA, AMZN and SPY                                                                                                             |
+| Document                                                                            | What it covers                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Judge's tour](JUDGES.md)                                                           | The demo video, the no-wallet playground and the live transactions in 3 minutes, then a clone and the tests in 15                                                                   |
+| [Live epoch, 2026-09-29](testnet-epochs/2026-09-29.md)                              | The first agent-run epoch, v2 on Robinhood Chain testnet, with Blockscout links                                                                                                     |
+| [Price mirror audit, 2026-10-02](testnet-epochs/2026-10-02-mirror-audit.md)         | The first runs of `verify-mirror.mjs` on both testnets: every keeper round against mainnet Chainlink, the deploy seeds, a fabricated round caught on a fork, the settlement dry run |
+| [v3 on Arbitrum Sepolia, 2026-09-30](testnet-epochs/2026-09-30-arbitrum-sepolia.md) | v3 deployed and verified on Arbitrum Sepolia, and its live epoch on 30 September, planned by Claude                                                                                 |
+| [v3 on Robinhood Chain testnet](testnet-epochs/2026-09-30-v3.md)                    | v3 deployed next to v2 on 30 September, and its live epoch on 1 October ([§7](testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october)), planned by Claude                           |
+| [Agent log](agent-log/README.md)                                                    | The agent's decision records for each vault and epoch, anchored on-chain in the DecisionLog                                                                                         |
+| [Deployments and versions](DEPLOYMENTS.md)                                          | Every deployment (v1, v2, v3 on Robinhood Chain testnet and Arbitrum Sepolia): commits, blocks, addresses, verification, live transactions, and how to re-check each                |
+| [Tester guide](testers.md)                                                          | Five minutes: the no-wallet playground, then testnet tokens, the app, the example agent and the feedback form                                                                       |
+| [Backtest](backtest.md)                                                             | Eight years of weekly epochs on TSLA, NVDA, AMZN and SPY                                                                                                                            |
 
 ## Build on it or run it
 
