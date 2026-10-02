@@ -1,4 +1,4 @@
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -128,8 +128,11 @@ describe("config", () => {
     const repo = loadIndexerSpec({ root: ROOT, env: {} });
     expect(repo.source).toBe("strike.config.json");
     expect(summary(repo)).toEqual(summary(fallback));
-    const local = loadIndexerSpec({ root: ROOT, env: {}, chains: [31337] });
-    expect(local.chains.map((c) => c.chainId)).toEqual([31337]);
+    // The devnet's deployment files are gitignored (absent in CI): only check it is read when asked for and present.
+    if (existsSync(join(ROOT, "contracts/deployments/31337.json"))) {
+      const local = loadIndexerSpec({ root: ROOT, env: {}, chains: [31337] });
+      expect(local.chains.map((c) => c.chainId)).toEqual([31337]);
+    }
   });
 
   it("limits the chains to INDEXER_CHAINS", () => {

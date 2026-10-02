@@ -190,14 +190,15 @@ export function loadIndexerSpec(
     const chains: ChainSpec[] = [];
     for (const [id, raw] of Object.entries((cfg.chains ?? {}) as Record<string, Json>)) {
       const chainId = Number(id);
+      // A local devnet (31337, `local: true`) only when asked for by INDEXER_CHAINS: a hosted indexer cannot reach it,
+      // and its deployment files are gitignored, so they are not read unless asked for.
+      if (raw.local === true && !wanted?.has(chainId)) continue;
       const files = Array.isArray(raw.deployments) ? raw.deployments.map(deploymentPath) : [];
       const deployments = files
         .filter((f): f is string => f !== null)
         .map((f) => readDeployment(root, f, chainId))
         .filter((d) => d.chainId === chainId);
       if (!deployments.length) continue; // e.g. 4663: the mainnet feeds chain, no Strike deployment
-      // A local devnet (31337, `local: true`) only when asked for by INDEXER_CHAINS: a hosted indexer cannot reach it.
-      if (raw.local === true && !wanted?.has(chainId)) continue;
       chains.push({
         chainId,
         name: typeof raw.name === "string" ? raw.name : (CHAIN_LABELS[chainId]?.name ?? `Chain ${chainId}`),
