@@ -156,6 +156,17 @@ STRIKE_CHAIN_ID=421614 STRIKE_AGENT_PRIVATE_KEY=<v3 signer> pnpm --filter @strik
 
 Each finds the keeper's settlement ("Already settled by the keeper at $S: …") and writes `2026-10-02-sTSLA-CC.{md,json}`; v2's and v3's records on 46630 share the folder, so the second gets a `-2` suffix. **Settlement records are anchored (`--anchor`):** a settlement record anchors under the vault's current epoch, still 1, and so replaces `latestHash(1, vault, 1)`, but the app's "Why this strike" panel checks each record against its own anchoring transaction's `DecisionRecorded` event, so the proposal record keeps "hash matches (anchored in tx …)" and the panel notes that a later record for the epoch exists. If the series is not settled yet when this runs, the agent settles it itself through the SDK (with hints if a single round is not enough).
 
+### 8. Proven-week records
+
+Once the three settlements (steps 3 and 4) and the two put-vault aborts (step 6) are on chain, rewrite the week's machine-readable records from the chain (read-only, no key) and check them. The scheduled job runs the same two commands from the repository root:
+
+```bash
+node scripts/proven-week.mjs --expiry 2026-10-02    # docs/evidence/46630-v2-, 46630-v3- and 421614-v3-2026-10-02.json
+node scripts/check-claims.mjs                       # every tx and block in the records and the docs, against the chains
+```
+
+Expect `wrote docs/evidence/46630-v2-2026-10-02.json: 2 vault(s), closed` and the same for the other two files, with no `pending` step except `redemptions and claims` on a vault nobody has claimed from yet (rerun after those claims). The settlement records of step 7 appear in each call vault's `decisionRecords`. Commit only `docs/evidence/*-2026-10-02.json`. With `--check` instead of writing, the script exits 1 if a committed record no longer matches the chain. The format: [docs/evidence/README.md](evidence/README.md).
+
 ### Expected numbers
 
 Per option of a call: payout = (S − K) / S TSLA when S > K, else 0; payout value = payout × S in USDG. Fee = 10% of max(premium − payout value − `lossCarried`, 0) (`lossCarried` is v3 only and 0 today), half to agent #1's payout address, half to the treasury; both are the deployer. Feedback value = premium − payout value. Depositors can claim premium − fee.

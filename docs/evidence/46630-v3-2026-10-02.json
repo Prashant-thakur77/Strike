@@ -1,0 +1,226 @@
+{
+  "about": "One week of a Strike deployment, read from the chain by scripts/proven-week.mjs; every tx and block is checked by scripts/check-claims.mjs. Amounts are exact decimals; a step not done yet is 'pending', one that will not happen this week is 'none'.",
+  "chain": "Robinhood Chain testnet",
+  "chainId": 46630,
+  "contracts": {
+    "agentRegistry": "0x1c42740145b245b2f894d8e989ca29dfd9a9052f",
+    "decisionLog": "0xa98106db53519f8cfe4d7c56b34d4fe0460403a4",
+    "epochManager": "0x256d4546486368dcb23e94758b4cb500c215929f",
+    "stockOracle": "0x5bcdbfab940bfaef821392d7f58c670c2064989a",
+    "usdg": "0x7e955252e15c84f5768b83c41a71f9eba181802f"
+  },
+  "deployment": "contracts/deployments/46630-v3.json",
+  "expiry": "2026-10-02T20:00:00Z",
+  "explorer": "https://explorer.testnet.chain.robinhood.com",
+  "regenerate": "node scripts/proven-week.mjs --expiry 2026-10-02 --deployment contracts/deployments/46630-v3.json",
+  "status": "pending settlement",
+  "vaults": [
+    {
+      "address": "0x478e7bc3c3ab07fdd104e4765f178977adee6285",
+      "agentId": 1,
+      "curator": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+      "epoch": 1,
+      "kind": "covered call",
+      "lifecycle": {
+        "1 deposit": {
+          "events": [
+            {
+              "account": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "asset": "TSLA",
+              "assets": "5",
+              "block": 127181515,
+              "shares": "5",
+              "time": "2026-10-01T14:46:49Z",
+              "tx": "0x830766807f0e55fe9a9a3cfeecbdd1c2c2aedcc3dbf797d1ec8e4771d060695d"
+            }
+          ],
+          "status": "done"
+        },
+        "2 open": {
+          "block": 127182770,
+          "epoch": 1,
+          "spotUsd": "358.5505",
+          "status": "done",
+          "time": "2026-10-01T14:50:53Z",
+          "tx": "0x4b179fb1809a4777961e5fe1439f7ad4dd2c418f4cc2e20c99b397d561d959e1"
+        },
+        "3 proposal": {
+          "decisionRecords": [
+            {
+              "agentId": 1,
+              "block": 127182818,
+              "recordHash": "0xa68cb23065b54095d6e4b75987cc6ebe035a45b2a449693d2e3737c93483a175",
+              "time": "2026-10-01T14:51:04Z",
+              "tx": "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388",
+              "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-01-sTSLA-CC.json"
+            }
+          ],
+          "events": [
+            {
+              "block": 127182793,
+              "expiry": "2026-10-02T20:00:00Z",
+              "options": "4",
+              "outcome": "accepted",
+              "premiumBps": 10500,
+              "signer": "0x4fd9565bf8c0bda9bbdf2add233d19c64e50ac6f",
+              "strikeUsd": "369.36",
+              "time": "2026-10-01T14:50:58Z",
+              "tx": "0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45"
+            }
+          ],
+          "status": "done"
+        },
+        "4 rejection and slash": {
+          "events": [],
+          "status": "none"
+        },
+        "5 accept": {
+          "block": 127182793,
+          "delta": "0.200215560828630513",
+          "expiry": "2026-10-02T20:00:00Z",
+          "fairValueUsd": "1.36485561576979649",
+          "options": "4",
+          "premiumBps": 10500,
+          "seriesId": "48103703716925406245656156603615117052914973735876202170787552644395932337728",
+          "seriesRisk": {
+            "delta": "0.200215560828630513",
+            "gamma": "0.022573932771959373",
+            "thetaPerDay": "-1.431157836336115616",
+            "vega": "5.794311946789530613"
+          },
+          "status": "done",
+          "strikeUsd": "369.36",
+          "time": "2026-10-01T14:50:58Z",
+          "tx": "0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45"
+        },
+        "6 buys": {
+          "events": [
+            {
+              "block": 127183681,
+              "buyer": "0x1a00badc191ffcb65d16d27c0d1f3599528f7364",
+              "options": "4",
+              "premiumUsdg": "7.38387",
+              "recipient": "0x1a00badc191ffcb65d16d27c0d1f3599528f7364",
+              "time": "2026-10-01T14:54:00Z",
+              "tx": "0x16d9345d815d1d5fb5a39540533b725367cfbaeab0287647f984d0202b6a61fc"
+            }
+          ],
+          "status": "done",
+          "totalOptions": "4",
+          "totalPremiumUsdg": "7.38387"
+        },
+        "7 settlement": {
+          "status": "pending"
+        },
+        "8 redemptions and claims": {
+          "claims": [],
+          "redemptions": [],
+          "status": "pending"
+        }
+      },
+      "status": "pending",
+      "symbol": "sTSLA-CC",
+      "underlying": "TSLA",
+      "underlyingToken": "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e"
+    },
+    {
+      "address": "0x1bc73c1b28f520e57982fae6127477190fa53690",
+      "agentId": 1,
+      "curator": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+      "epoch": 1,
+      "kind": "cash-secured put",
+      "lifecycle": {
+        "1 deposit": {
+          "events": [
+            {
+              "account": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "asset": "USDG",
+              "assets": "60",
+              "block": 127181547,
+              "shares": "60",
+              "time": "2026-10-01T14:46:54Z",
+              "tx": "0x14706419a930d05899f113b5c80cf15c09b6a680421bd9d46e79b6015685e66b"
+            }
+          ],
+          "status": "done"
+        },
+        "2 open": {
+          "block": 127183170,
+          "epoch": 1,
+          "spotUsd": "358.5505",
+          "status": "done",
+          "time": "2026-10-01T14:52:20Z",
+          "tx": "0x6feeaeebac01b2288ea6000557b4c9d4f41bfecd73c25808dc2fc0a2e4239fc3"
+        },
+        "3 proposal": {
+          "decisionRecords": [
+            {
+              "agentId": 1,
+              "block": 127183224,
+              "recordHash": "0x51003bc2b3f8650ec40f05b6e50f9d7d5373225de5e555d8ebab16a8b5f8892a",
+              "time": "2026-10-01T14:52:30Z",
+              "tx": "0x966985d8ca2026bb6426a46d35ae708a48724a6ed74208a1ecd9c65fbf4a6e27",
+              "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-01-sTSLA-CSP.json"
+            }
+          ],
+          "events": [
+            {
+              "block": 127183195,
+              "expiry": "2026-10-02T20:00:00Z",
+              "options": "0.133876276008255703",
+              "outcome": "rejected",
+              "premiumBps": 10000,
+              "signer": "0x4fd9565bf8c0bda9bbdf2add233d19c64e50ac6f",
+              "strikeUsd": "358.54",
+              "time": "2026-10-01T14:52:24Z",
+              "tx": "0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2"
+            }
+          ],
+          "status": "done"
+        },
+        "4 rejection and slash": {
+          "events": [
+            {
+              "agentId": 1,
+              "block": 127183195,
+              "erc8004Feedback": {
+                "erc8004Id": 114,
+                "posted": true,
+                "tag": "strike.mandate.rejection",
+                "valueUsdg": "-10"
+              },
+              "reason": "DeltaOutOfBand",
+              "slashedUsdg": "10",
+              "strikes": 1,
+              "time": "2026-10-01T14:52:24Z",
+              "tx": "0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2"
+            }
+          ],
+          "status": "done"
+        },
+        "5 accept": {
+          "status": "pending"
+        },
+        "6 buys": {
+          "events": [],
+          "status": "none",
+          "totalOptions": "0",
+          "totalPremiumUsdg": "0"
+        },
+        "7 settlement": {
+          "status": "pending"
+        },
+        "8 redemptions and claims": {
+          "claims": [],
+          "redemptions": [],
+          "status": "pending"
+        }
+      },
+      "status": "pending",
+      "symbol": "sTSLA-CSP",
+      "underlying": "TSLA",
+      "underlyingToken": "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e"
+    }
+  ],
+  "version": "v3"
+}

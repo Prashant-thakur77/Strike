@@ -1,0 +1,231 @@
+{
+  "about": "One week of a Strike deployment, read from the chain by scripts/proven-week.mjs; every tx and block is checked by scripts/check-claims.mjs. Amounts are exact decimals; a step not done yet is 'pending', one that will not happen this week is 'none'.",
+  "chain": "Robinhood Chain testnet",
+  "chainId": 46630,
+  "contracts": {
+    "agentRegistry": "0xe5b76249041e59c74ee317fc2729f26249618d32",
+    "decisionLog": "0xbf94f54fd0258ac59e2f54b70754dfaffd245d93",
+    "epochManager": "0x5a3b58df27e4dd5e0fa6493d90ff653e0e199c99",
+    "stockOracle": "0x7bb3cab211e7ce51e37693e0155c77f477f8ab89",
+    "usdg": "0x7e955252e15c84f5768b83c41a71f9eba181802f"
+  },
+  "deployment": "contracts/deployments/46630.json",
+  "expiry": "2026-10-02T20:00:00Z",
+  "explorer": "https://explorer.testnet.chain.robinhood.com",
+  "regenerate": "node scripts/proven-week.mjs --expiry 2026-10-02 --deployment contracts/deployments/46630.json",
+  "status": "pending settlement",
+  "vaults": [
+    {
+      "address": "0xadff7900dbe01e8170a750ab88e1f4ea8d9d1d4e",
+      "agentId": 1,
+      "curator": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+      "epoch": 1,
+      "kind": "covered call",
+      "lifecycle": {
+        "1 deposit": {
+          "events": [
+            {
+              "account": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "asset": "TSLA",
+              "assets": "5",
+              "block": 125882421,
+              "shares": "5",
+              "time": "2026-09-28T21:18:19Z",
+              "tx": "0x59607b345eac62590f82621ae0a95632953da7e6268e0319374af1cca0959849"
+            }
+          ],
+          "status": "done"
+        },
+        "2 open": {
+          "block": 126302279,
+          "epoch": 1,
+          "spotUsd": "352.453",
+          "status": "done",
+          "time": "2026-09-29T17:08:58Z",
+          "tx": "0x475be822c2a68c194999148e2c52d2ab134d74bb19fc235fe0b509a5333fc5a5"
+        },
+        "3 proposal": {
+          "decisionRecords": [
+            {
+              "agentId": 1,
+              "block": 126699329,
+              "recordHash": "0xffd051c8d7bdb2692879653db2002b54979482787e8d86a8fcad0a883d12bc5a",
+              "time": "2026-09-30T12:54:37Z",
+              "tx": "0x934ab96ba12a9ad501e20c8366fc338ab35d0550b88cc2d76fc5c39991c524c4",
+              "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/testnet-epochs/2026-09-29.md"
+            }
+          ],
+          "events": [
+            {
+              "block": 126302301,
+              "expiry": "2026-10-02T20:00:00Z",
+              "options": "4",
+              "outcome": "accepted",
+              "premiumBps": 10000,
+              "signer": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "strikeUsd": "369.86",
+              "time": "2026-09-29T17:09:01Z",
+              "tx": "0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4"
+            }
+          ],
+          "status": "done"
+        },
+        "4 rejection and slash": {
+          "events": [],
+          "status": "none"
+        },
+        "5 accept": {
+          "block": 126302301,
+          "delta": "0.200043397642121272",
+          "expiry": "2026-10-02T20:00:00Z",
+          "fairValueUsd": "2.126678382777417825",
+          "options": "4",
+          "premiumBps": 10000,
+          "seriesId": "8614008145645214741184698995285385951692715470493509368088435356950067027964",
+          "seriesRisk": "none",
+          "status": "done",
+          "strikeUsd": "369.86",
+          "time": "2026-09-29T17:09:01Z",
+          "tx": "0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4"
+        },
+        "6 buys": {
+          "events": [
+            {
+              "block": 126302569,
+              "buyer": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "options": "4",
+              "premiumUsdg": "10.005944",
+              "recipient": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "time": "2026-09-29T17:09:45Z",
+              "tx": "0x425e5b63ddeb1fcff5d63aa9f5a9fd11f4d3c0f52facd05e0fb44096f2ede9f9"
+            }
+          ],
+          "status": "done",
+          "totalOptions": "4",
+          "totalPremiumUsdg": "10.005944"
+        },
+        "7 settlement": {
+          "status": "pending"
+        },
+        "8 redemptions and claims": {
+          "claims": [],
+          "redemptions": [],
+          "status": "pending"
+        }
+      },
+      "status": "pending",
+      "symbol": "sTSLA-CC",
+      "underlying": "TSLA",
+      "underlyingToken": "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e"
+    },
+    {
+      "address": "0xe33ead75df1af35cba330f1fc7636926e31c67d7",
+      "agentId": 1,
+      "curator": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+      "epoch": 1,
+      "kind": "cash-secured put",
+      "lifecycle": {
+        "1 deposit": {
+          "events": [
+            {
+              "account": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "asset": "USDG",
+              "assets": "20",
+              "block": 126302119,
+              "shares": "20",
+              "time": "2026-09-29T17:08:30Z",
+              "tx": "0x001cbf637009addbe13bb20e7c6ad5bdaf10f149cb1fc66a99a7afe599696498"
+            }
+          ],
+          "status": "done"
+        },
+        "2 open": {
+          "block": 126302426,
+          "epoch": 1,
+          "spotUsd": "352.453",
+          "status": "done",
+          "time": "2026-09-29T17:09:21Z",
+          "tx": "0x5aea0d2022f0a83d480c64014273a21d8e47c932ed0aaff46227a2f8f13e518f"
+        },
+        "3 proposal": {
+          "decisionRecords": [],
+          "events": [
+            {
+              "block": 126302448,
+              "expiry": "2026-10-02T20:00:00Z",
+              "options": "0.04539779820678697",
+              "outcome": "rejected",
+              "premiumBps": 10000,
+              "signer": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "strikeUsd": "352.44",
+              "time": "2026-09-29T17:09:25Z",
+              "tx": "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0"
+            }
+          ],
+          "status": "done"
+        },
+        "4 rejection and slash": {
+          "events": [
+            {
+              "agentId": 1,
+              "block": 126302448,
+              "erc8004Feedback": "none",
+              "reason": "DeltaOutOfBand",
+              "slashedUsdg": "10",
+              "strikes": 1,
+              "time": "2026-09-29T17:09:25Z",
+              "tx": "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0"
+            }
+          ],
+          "status": "done"
+        },
+        "5 accept": {
+          "status": "none"
+        },
+        "6 buys": {
+          "events": [],
+          "status": "none",
+          "totalOptions": "0",
+          "totalPremiumUsdg": "0"
+        },
+        "7 settlement": {
+          "block": 126385117,
+          "outcome": "aborted",
+          "slashPaidToVaultUsdg": "10",
+          "status": "done",
+          "time": "2026-09-29T21:24:16Z",
+          "tx": "0x62442f37b3601aa5b56d5e991d3199464ba2e60373f70e00892746c053b629a7"
+        },
+        "8 redemptions and claims": {
+          "claims": [
+            {
+              "account": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "amount": "20",
+              "asset": "USDG",
+              "block": 126713014,
+              "kind": "Withdraw",
+              "time": "2026-09-30T13:40:07Z",
+              "tx": "0x0a7167a0d15eef1b6e9398e67c63f7e5ca8d18dcdb20b395e8bde4b231919cc3"
+            },
+            {
+              "account": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+              "amount": "10",
+              "asset": "USDG",
+              "block": 126713037,
+              "kind": "PremiumClaimed",
+              "time": "2026-09-30T13:40:10Z",
+              "tx": "0x1c53ff12ec2e9749e84f92ae4fa29a4d584789a8abd661e6f099151361067620"
+            }
+          ],
+          "redemptions": [],
+          "status": "done"
+        }
+      },
+      "status": "aborted",
+      "symbol": "sTSLA-CSP",
+      "underlying": "TSLA",
+      "underlyingToken": "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e"
+    }
+  ],
+  "version": "v2"
+}
