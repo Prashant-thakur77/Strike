@@ -422,14 +422,18 @@ jobs:
       POSTGRES_PASSWORD: ci-throwaway
     steps:
       - uses: actions/checkout@v6
+      # Every rule at the default threshold (info), except DL3066 (new in hadolint 2.15, info): both images run as
+      # `USER node`, the node base image's own unprivileged user (uid 1000), which the image's /etc/passwd resolves.
       - name: hadolint, services/indexer/Dockerfile
         uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: services/indexer/Dockerfile
+          ignore: DL3066
       - name: hadolint, bots/telegram/Dockerfile
         uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: bots/telegram/Dockerfile
+          ignore: DL3066
       - name: Compose file is valid (with and without the bot profile)
         run: docker compose config -q && docker compose --profile bot config -q
       # The bot's image is built, never started: it needs a Telegram token, and one process per token may poll.
