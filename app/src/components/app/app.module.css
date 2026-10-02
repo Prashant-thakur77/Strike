@@ -1666,6 +1666,10 @@ a.idChip:hover {
   color: var(--loss-c);
 }
 
+.verdict[data-tone="warn"] {
+  color: var(--accent-text, var(--accent));
+}
+
 .logFacts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -31,6 +31,7 @@ import { PageIndex } from "../PageIndex";
 import { Rail } from "../Rail";
 import appStyles from "../app.module.css";
 import { MirrorAuditPanel } from "../mirror/MirrorAuditPanel";
+import { LivenessCard } from "../status/LivenessCard";
 import { ActivePricer } from "./ActivePricer";
 import styles from "./proof.module.css";
 
@@ -38,6 +39,7 @@ import styles from "./proof.module.css";
 const testCount = (label: string) => TESTS.find((t) => t.label === label)?.count ?? "?";
 
 const SECTIONS = [
+  { id: "status", label: "Status" },
   { id: "live", label: "Deployment" },
   { id: "mirror", label: "Price audit" },
   { id: "stylus", label: "Stylus" },
@@ -135,9 +137,28 @@ export function ProofPage() {
       <PageIndex items={SECTIONS} />
 
       <div className={`${styles.body} ${appStyles.indexed}`}>
-        {/* ------------------------------------------------------------ 01 live deployment */}
+        {/* ------------------------------------------------------------ 01 liveness */}
         <Rail
           index="01"
+          id="status"
+          label="Running by itself"
+          note={
+            <>
+              Whether the testnets keep moving without anyone at a keyboard: the age of each mirrored price,
+              each vault&apos;s epoch and last settlement, and whether the scheduled keeper and weekly agent
+              are switched on, from <code className="mono">/api/status</code>. Sources:{" "}
+              <Out href={gh("app/src/lib/statusRead.ts")}>statusRead.ts</Out>,{" "}
+              <Out href={gh(".github/workflows/keeper.yml")}>keeper.yml</Out>,{" "}
+              <Out href={gh(".github/workflows/agent.yml")}>agent.yml</Out>.
+            </>
+          }
+        >
+          <LivenessCard />
+        </Rail>
+
+        {/* ------------------------------------------------------------ 02 live deployment */}
+        <Rail
+          index="02"
           id="live"
           label="Live on Robinhood Chain testnet"
           note={
@@ -268,9 +289,9 @@ export function ProofPage() {
           </div>
         </Rail>
 
-        {/* ------------------------------------------------------------ 02 price mirror audit */}
+        {/* ------------------------------------------------------------ 03 price mirror audit */}
         <Rail
-          index="02"
+          index="03"
           id="mirror"
           label="Price mirror audit"
           note={
@@ -285,9 +306,9 @@ export function ProofPage() {
           <MirrorAuditPanel />
         </Rail>
 
-        {/* ------------------------------------------------------------ 03 stylus */}
+        {/* ------------------------------------------------------------ 04 stylus */}
         <Rail
-          index="03"
+          index="04"
           id="stylus"
           label="Stylus"
           note={
@@ -389,9 +410,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 04 tests */}
+        {/* ------------------------------------------------------------ 05 tests */}
         <Rail
-          index="04"
+          index="05"
           id="tests"
           label="Tests"
           note={
@@ -443,9 +464,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 05 deeper checks */}
+        {/* ------------------------------------------------------------ 06 deeper checks */}
         <Rail
-          index="05"
+          index="06"
           id="checks"
           label="Invariants, forks, differential"
           note="Checks that go beyond example-based tests: random call sequences, deliberately broken code, real mainnet state and two independent pricer implementations."
@@ -470,9 +491,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 06 security */}
+        {/* ------------------------------------------------------------ 07 security */}
         <Rail
-          index="06"
+          index="07"
           id="security"
           label="Security"
           note="Static analysis, an internal adversarial review and a threat model. None of this replaces an external audit."
@@ -532,9 +553,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 07 testnet usage */}
+        {/* ------------------------------------------------------------ 08 testnet usage */}
         <Rail
-          index="07"
+          index="08"
           id="usage"
           label="Testnet usage"
           note={
@@ -548,9 +569,9 @@ export function ProofPage() {
           <UsageTable teamFileHref={gh("app/src/lib/usage/team.ts")} />
         </Rail>
 
-        {/* ------------------------------------------------------------ 08 live activity */}
+        {/* ------------------------------------------------------------ 09 live activity */}
         <Rail
-          index="08"
+          index="09"
           id="activity"
           label="Live activity"
           note={
@@ -563,8 +584,8 @@ export function ProofPage() {
           <ActivityFeed />
         </Rail>
 
-        {/* ------------------------------------------------------------ 09 research */}
-        <Rail index="09" id="research" label="Research">
+        {/* ------------------------------------------------------------ 10 research */}
+        <Rail index="10" id="research" label="Research">
           <Fold summary="Show research" openSummary="Hide section">
             <ul className={styles.research}>
               {RESEARCH.map((r) => (

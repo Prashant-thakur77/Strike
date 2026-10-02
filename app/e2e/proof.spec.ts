@@ -84,6 +84,8 @@ test("proof: every GitHub link points to a file or folder in the repository", as
       if (v3Ref && !gitHas(`${v3Ref}:${decodeURIComponent(v3[2] as string)}`)) missing.push(href);
       continue;
     }
+    // The liveness card links the keeper's and the agent's last workflow runs: pages, not files.
+    if (/^\/Prashant-thakur77\/Strike\/actions\/runs\/\d+$/.test(new URL(href).pathname)) continue;
     const m = new URL(href).pathname.match(/^\/Prashant-thakur77\/Strike\/(blob|tree)\/main\/(.+)$/);
     if (!m) {
       missing.push(`${href} (not a blob/tree link)`);
