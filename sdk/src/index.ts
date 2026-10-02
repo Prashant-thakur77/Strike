@@ -141,6 +141,7 @@ export type {
   MirrorGap,
   MirrorRoundCheck,
   MirrorRoundStatus,
+  OracleFeedCheck,
   SeriesSettlementCheck,
   SettlementAudit,
   SettlementAuditOptions,

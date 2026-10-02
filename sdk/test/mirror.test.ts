@@ -368,6 +368,66 @@ describe("auditMirror", () => {
     expect(audit.summary.matched).toBe(6);
   });
 
+  it("checks that each deployment's StockOracle reads the audited feeds", async () => {
+    const d = deploymentsFor(421614)[0]!;
+    const mainnet = mainnetHistory(6);
+    const tsla = testnetFeed(mirrorOf(mainnet), d.stocks.TSLA!.feed);
+    const nvda = testnetFeed(mirrorOf(mainnet), d.stocks.NVDA!.feed);
+    const reads: Record<string, Address> = {
+      [d.stocks.TSLA!.token.toLowerCase()]: d.stocks.TSLA!.feed,
+      [d.stocks.NVDA!.token.toLowerCase()]: d.stocks.NVDA!.feed,
+    };
+    const oracle: FakeContract = {
+      abi: stockOracleAbi as Abi,
+      fns: {
+        feedConfig: (args: readonly unknown[]) => ({
+          feed: reads[(args[0] as string).toLowerCase()] ?? addr(0),
+          maxPriceAge: 90_000,
+          corporateActionGrace: 86_400,
+          feedDecimals: 8,
+        }),
+      },
+    };
+    const run = () => {
+      const testnet = fakeChain(
+        withMulticall({
+          [d.stocks.TSLA!.feed]: tsla.contract,
+          [d.stocks.NVDA!.feed]: nvda.contract,
+          [d.stockOracle]: oracle,
+        }),
+        { timestamp: mainnet[5]!.at + 600n, logs: [...tsla.logs, ...nvda.logs] },
+      );
+      const proxies = withMulticall({
+        "0x4A1166a659A55625345e9515b32adECea5547C38": mainnetProxy(mainnet),
+        "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15": mainnetProxy(mainnet),
+      });
+      const m = fakeChain(proxies, { timestamp: mainnet[5]!.at + 600n });
+      return auditMirror({
+        chainId: 421614,
+        testnetClient: testnet.client,
+        mainnetClient: m.client,
+        ...fast,
+      });
+    };
+    const good = await run();
+    expect(good.ok).toBe(true);
+    expect(good.summary.matched).toBe(12);
+    expect(good.oracleFeeds.map((o) => [o.symbol, o.same])).toEqual([
+      ["NVDA", true],
+      ["TSLA", true],
+    ]);
+
+    // The admin points TSLA at another contract: every round still matches, but the audit no longer passes.
+    reads[d.stocks.TSLA!.token.toLowerCase()] = addr(0xbad);
+    const swapped = await run();
+    expect(swapped.summary.matched).toBe(12);
+    expect(swapped.ok).toBe(false);
+    expect(swapped.oracleFeeds.find((o) => o.symbol === "TSLA")).toMatchObject({
+      same: false,
+      feed: addr(0xbad),
+    });
+  });
+
   it("covers every MirrorFeed of the chain's deployments once", () => {
     const targets = mirrorFeedTargets(46630);
     const feeds = new Set(deploymentsFor(46630).flatMap((d) => Object.values(d.stocks).map((s) => s.feed)));

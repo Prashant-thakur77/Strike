@@ -189,6 +189,19 @@ function printAudit(sdk, audit, chain) {
   const s = audit.summary;
   for (const u of s.unverifiable)
     console.log(`Not checked: ${u.symbol} (${u.rounds} round(s)): ${u.reason}.`);
+  const oracles = audit.oracleFeeds ?? [];
+  const swapped = oracles.filter((o) => !o.same);
+  if (oracles.length && !swapped.length) {
+    const byOracle = [...new Set(oracles.map((o) => `${o.version ?? "?"} ${o.stockOracle}`))];
+    console.log(
+      `Oracle check: the StockOracle of each deployment (${byOracle.join(", ")}) reads the audited MirrorFeed for all ${oracles.length} listed token(s).`,
+    );
+  }
+  for (const o of swapped) {
+    console.log(
+      `MISMATCH: the ${o.version ?? "?"} StockOracle ${o.stockOracle} reads ${o.symbol} from ${o.feed ?? "(unreadable)"}, not the audited MirrorFeed ${o.expected}.`,
+    );
+  }
   if (s.seeds.length) {
     console.log(
       `Deploy seeds, listed apart (round 1, pushed by contracts/script/Deploy.s.sol when it created the feed, before the keeper ran; not mainnet prints): ${s.seeds

@@ -225,8 +225,25 @@ export interface MirrorAudit {
     /** The longest gap between pushes over all feeds. */
     largestGap: (MirrorGap & { symbol: string }) | null;
   };
-  /** Every checked round matched. */
+  /**
+   * What each deployment's StockOracle reads for each listed token (`feedConfig(token).feed`), against the MirrorFeed
+   * the deployment record names and this audit checks. Empty when the audit was given its own `feeds`.
+   */
+  oracleFeeds: OracleFeedCheck[];
+  /** Every checked round matched, and every oracle reads the feed that was audited. */
   ok: boolean;
+}
+
+/** One token of one deployment: the feed its StockOracle reads, against the one the deployment record names. */
+export interface OracleFeedCheck {
+  version: string | null;
+  stockOracle: Address;
+  symbol: string;
+  token: Address;
+  /** `StockOracle.feedConfig(token).feed`; null when it could not be read. */
+  feed: Address | null;
+  expected: Address;
+  same: boolean;
 }
 
 /** A MirrorFeed to audit and the mainnet proxy it copies. */
@@ -814,6 +831,45 @@ async function auditFeed(
   };
 }
 
+/**
+ * The feed each deployment's StockOracle actually reads for each listed token. The audit checks the MirrorFeeds the
+ * deployment records name; this makes sure those are the ones settlement and sales read (an admin's `setFeed` to
+ * another contract would show here).
+ */
+async function checkOracleFeeds(ctx: Ctx, chainId: number, symbol?: string): Promise<OracleFeedCheck[]> {
+  const t = ctx.testnet;
+  const out: OracleFeedCheck[] = [];
+  for (const d of deploymentsFor(chainId)) {
+    for (const [sym, s] of Object.entries(d.stocks ?? {})) {
+      if (symbol && sym.toUpperCase() !== symbol.toUpperCase()) continue;
+      let feed: Address | null = null;
+      try {
+        const cfg = (await read(t, () =>
+          t.client.readContract({
+            address: d.stockOracle,
+            abi: stockOracleAbi,
+            functionName: "feedConfig",
+            args: [s.token],
+          }),
+        )) as { feed: Address };
+        feed = getAddress(cfg.feed);
+      } catch {
+        feed = null;
+      }
+      out.push({
+        version: d.version ?? null,
+        stockOracle: getAddress(d.stockOracle),
+        symbol: sym,
+        token: getAddress(s.token),
+        feed,
+        expected: getAddress(s.feed),
+        same: feed !== null && feed === getAddress(s.feed),
+      });
+    }
+  }
+  return out;
+}
+
 /** Run `fn` over `items`, at most `n` at a time, keeping order. */
 async function mapLimit<T, U>(items: readonly T[], n: number, fn: (x: T) => Promise<U>): Promise<U[]> {
   const out: U[] = new Array(items.length);
@@ -844,6 +900,7 @@ export async function auditMirror(opts: MirrorAuditOptions): Promise<MirrorAudit
     );
   }
   const ctx = await contextFor(opts);
+  const oracleFeeds = opts.feeds ? [] : await checkOracleFeeds(ctx, opts.chainId, opts.symbol);
   // Two feeds at a time: the mainnet public RPC rate-limits bursts.
   const feeds = await mapLimit(targets, 2, (target) => auditFeed(ctx, target, opts));
   if (ctx.mainnetHead.time === 0n) ctx.mainnetHead = await headOf(ctx.mainnet);
@@ -876,6 +933,7 @@ export async function auditMirror(opts: MirrorAuditOptions): Promise<MirrorAudit
     testnetBlock: ctx.testnetHead.block,
     testnetTime: ctx.testnetHead.time,
     feeds,
+    oracleFeeds,
     summary: {
       rounds,
       matched: counts.match,
@@ -885,7 +943,7 @@ export async function auditMirror(opts: MirrorAuditOptions): Promise<MirrorAudit
       seeds,
       largestGap,
     },
-    ok: rounds - counts.match === 0,
+    ok: rounds - counts.match === 0 && oracleFeeds.every((o) => o.same),
   };
 }
 
