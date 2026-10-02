@@ -29,6 +29,9 @@ const settings = (databaseUrl: string, over: Partial<Settings> = {}): Settings =
   logLevel: "silent",
   shutdownTimeoutMs: 5000,
   poolMax: 4,
+  rateLimitMax: 0,
+  rateLimitWindowMs: 60_000,
+  trustProxy: false,
   ...over,
 });
 

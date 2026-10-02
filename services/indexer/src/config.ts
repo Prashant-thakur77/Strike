@@ -262,6 +262,12 @@ export interface Settings {
   logLevel: string;
   shutdownTimeoutMs: number;
   poolMax: number;
+  /** Requests per client IP per window on every route but /health (RATE_LIMIT_MAX, default 120; 0 turns it off). */
+  rateLimitMax: number;
+  /** The window (RATE_LIMIT_WINDOW_SECONDS, default 60). */
+  rateLimitWindowMs: number;
+  /** Read the client IP from X-Forwarded-For (TRUST_PROXY=true), for an instance behind a reverse proxy. */
+  trustProxy: boolean;
 }
 
 function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min = 0): number {
@@ -270,6 +276,13 @@ function intEnv(env: NodeJS.ProcessEnv, name: string, fallback: number, min = 0)
   const n = Number(raw);
   if (!Number.isInteger(n) || n < min) throw new Error(`invalid ${name}: ${raw}`);
   return n;
+}
+
+function boolEnv(env: NodeJS.ProcessEnv, name: string): boolean {
+  const raw = env[name]?.trim().toLowerCase();
+  if (!raw || raw === "false" || raw === "0") return false;
+  if (raw === "true" || raw === "1") return true;
+  throw new Error(`invalid ${name}: ${raw} (true or false)`);
 }
 
 export function settingsFromEnv(
@@ -299,5 +312,8 @@ export function settingsFromEnv(
     logLevel: env.LOG_LEVEL?.trim() || "info",
     shutdownTimeoutMs: intEnv(env, "SHUTDOWN_TIMEOUT_SECONDS", 25, 1) * 1000,
     poolMax: intEnv(env, "PGPOOL_MAX", 10, 1),
+    rateLimitMax: intEnv(env, "RATE_LIMIT_MAX", 120),
+    rateLimitWindowMs: intEnv(env, "RATE_LIMIT_WINDOW_SECONDS", 60, 1) * 1000,
+    trustProxy: boolEnv(env, "TRUST_PROXY"),
   };
 }

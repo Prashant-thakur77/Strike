@@ -3,6 +3,7 @@ import Fastify, { type FastifyBaseLogger, type FastifyInstance, type FastifyRequ
 import type pg from "pg";
 import type { Logger } from "pino";
 import { BadRequest, queryAgents, queryEpochs, queryEvents } from "./queries.js";
+import { RateLimiter, registerRateLimit } from "./rate-limit.js";
 import { readStats } from "./stats.js";
 
 // The HTTP API. Every route reads Postgres through the pool, so a standby instance (one that does not hold the
@@ -18,6 +19,11 @@ export interface ApiDeps {
   readyMaxHeadAgeSeconds: number;
   isWriter: () => boolean;
   version?: string;
+  /** Requests per client IP per window on every route but /health; 0 or unset turns the limiter off. */
+  rateLimitMax?: number;
+  rateLimitWindowMs?: number;
+  /** Take the client IP from X-Forwarded-For (only behind a proxy that sets it). */
+  trustProxy?: boolean;
 }
 
 const REQUEST_ID = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -61,8 +67,14 @@ export function buildApi(deps: ApiDeps): FastifyInstance {
     },
     return503OnClosing: true,
     forceCloseConnections: "idle",
+    trustProxy: deps.trustProxy ?? false,
   });
   const started = Date.now();
+
+  registerRateLimit(
+    app,
+    new RateLimiter({ max: deps.rateLimitMax ?? 0, windowMs: deps.rateLimitWindowMs ?? 60_000 }),
+  );
 
   app.addHook("onSend", async (req, reply) => {
     reply.header("x-request-id", req.id);

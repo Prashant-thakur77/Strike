@@ -76,6 +76,9 @@ export class IndexerService {
       readyMaxLagBlocks: settings.readyMaxLagBlocks,
       readyMaxHeadAgeSeconds: settings.readyMaxHeadAgeSeconds,
       isWriter: () => this.writer.held,
+      rateLimitMax: settings.rateLimitMax,
+      rateLimitWindowMs: settings.rateLimitWindowMs,
+      trustProxy: settings.trustProxy,
       ...(o.version ? { version: o.version } : {}),
     });
   }
