@@ -63,3 +63,16 @@ describe("configFromEnv", () => {
     expect(deploymentBlock(46630)).toBe(125_880_607n);
   });
 });
+
+describe("configFromEnv and strike.config.json", () => {
+  it("takes the default chain, the explorer and the token's variable from the config", async () => {
+    const { loadStrikeConfig, strikeSecretName } = await import("@strike/sdk");
+    const strike = loadStrikeConfig();
+    const c = configFromEnv({});
+    expect(c.chainId).toBe(strike.defaultChainId);
+    expect(c.explorerUrl).toBe(strike.chains[String(strike.defaultChainId)]!.explorer);
+    expect(configFromEnv({ STRIKE_CHAIN_ID: "421614" }).explorerUrl).toBe(strike.chains["421614"]!.explorer);
+    expect(configFromEnv({ STRIKE_CHAIN_ID: "31337" }).explorerUrl).toBe("");
+    expect(strikeSecretName("telegramToken")).toBe("TELEGRAM_BOT_TOKEN");
+  });
+});

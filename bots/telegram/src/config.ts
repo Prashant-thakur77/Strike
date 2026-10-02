@@ -6,7 +6,10 @@ import {
   createStrikeClient,
   getDeployment,
   getStrikeChain,
+  loadStrikeConfig,
   rpcEndpointsFor,
+  strikeExplorerUrl,
+  strikeSecretName,
   transportFromEndpoints,
 } from "@strike/sdk";
 import { createPublicClient } from "viem";
@@ -17,7 +20,7 @@ export interface BotConfig {
   token?: string;
   /** TELEGRAM_API_URL (default https://api.telegram.org): a self-hosted Bot API server, or a mock. */
   telegramApiUrl: string;
-  /** STRIKE_CHAIN_ID (default 46630, Robinhood Chain testnet). */
+  /** STRIKE_CHAIN_ID (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet). */
   chainId: number;
   /** The first RPC endpoint's URL, for display. Never carries an API key (Alchemy's goes in a header). */
   rpcUrl: string;
@@ -31,14 +34,9 @@ export interface BotConfig {
   logBlockRange: bigint;
   /** First block to scan when there is no stored cursor: the Strike deploy block. */
   startBlock: bigint;
-  /** Block explorer base URL for tx links. */
+  /** Block explorer base URL for tx links (strike.config.json's `explorer` for the chain). */
   explorerUrl: string;
 }
-
-/** Blockscout for Robinhood Chain testnet (the chain definition's explorer is used for other chains). */
-const EXPLORERS: Record<number, string> = {
-  46630: "https://explorer.testnet.chain.robinhood.com",
-};
 
 /**
  * The block Strike was deployed at on a chain. The SDK's generated deployments carry it (from
@@ -57,14 +55,15 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): nu
   return n;
 }
 
-/** Read and validate the environment. */
+/** Read and validate the environment (defaults, the explorer and the token's variable from strike.config.json). */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
-  const chainId = positiveInt(env, "STRIKE_CHAIN_ID", 46630);
+  const chainId = positiveInt(env, "STRIKE_CHAIN_ID", loadStrikeConfig().defaultChainId);
   const chain = getStrikeChain(chainId);
   const rpcEndpoints = rpcEndpointsFor(chainId, env);
-  const token = env.TELEGRAM_BOT_TOKEN?.trim() || undefined;
+  const tokenEnv = strikeSecretName("telegramToken"); // TELEGRAM_BOT_TOKEN
+  const token = env[tokenEnv]?.trim() || undefined;
   if (token && !/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) {
-    throw new Error("TELEGRAM_BOT_TOKEN does not look like a BotFather token (<digits>:<secret>)");
+    throw new Error(`${tokenEnv} does not look like a BotFather token (<digits>:<secret>)`);
   }
   return {
     token,
@@ -76,7 +75,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
     pollIntervalMs: positiveInt(env, "POLL_INTERVAL_SECONDS", 15) * 1000,
     logBlockRange: BigInt(positiveInt(env, "LOG_BLOCK_RANGE", 50_000)),
     startBlock: deploymentBlock(chainId),
-    explorerUrl: EXPLORERS[chainId] ?? chain.blockExplorers?.default.url ?? "",
+    explorerUrl: strikeExplorerUrl(chainId) ?? chain.blockExplorers?.default.url ?? "",
   };
 }
 
