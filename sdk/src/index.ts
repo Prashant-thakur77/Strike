@@ -114,6 +114,38 @@ export {
   vaultExposure,
 } from "./risk.js";
 export type { Greeks, LastBuyImpliedVol, RiskScenario, SeriesRisk, SeriesRiskOptions } from "./risk.js";
+export {
+  DEPLOY_SEED_PRICES,
+  MAINNET_CHAINLINK_FEEDS,
+  MAINNET_FEEDS_CHAIN_ID,
+  MIRROR_ROUND_STATUSES,
+  MULTICALL3,
+  aggregatorProxyAbi,
+  auditMirror,
+  auditSettlement,
+  classifyMirrorRounds,
+  fmtAnswer,
+  largestPushGap,
+  mirrorFeedTargets,
+  mirrorRpcEndpoints,
+} from "./mirror.js";
+export type {
+  CheckedStatus,
+  MainnetRound,
+  MirrorAudit,
+  MirrorAuditOptions,
+  MirrorClientOptions,
+  MirrorCounts,
+  MirrorFeedAudit,
+  MirrorFeedTarget,
+  MirrorGap,
+  MirrorRoundCheck,
+  MirrorRoundStatus,
+  SeriesSettlementCheck,
+  SettlementAudit,
+  SettlementAuditOptions,
+  SettlementCheckStatus,
+} from "./mirror.js";
 export { type CorporateAction, findSettlementHints, findSettlementRound } from "./settlement.js";
 export type { FeedRound, RoundReader } from "./settlement.js";
 export type * from "./types.js";
