@@ -62,6 +62,8 @@ export interface TraceEpochJson {
   status: "open" | "selling" | "settled" | "aborted";
   seriesId: string | null;
   expiry: number | null;
+  /** The settlement price in USD ("436.0712"), once the epoch settled with options sold; null otherwise. */
+  settlementPrice?: string | null;
   steps: TraceStepJson[];
 }
 
@@ -140,6 +142,7 @@ export function buildTrace(ctx: TraceContext, logs: readonly TraceLog[]): EpochT
     const add = (log: TraceLog | null, step: Omit<TraceStepJson, "tx" | "time"> & Partial<TraceStepJson>) =>
       steps.push({ log, step: { tx: log?.tx ?? null, time: log?.time ?? null, ...step } });
     let expiry: number | null = null;
+    let settlementPrice: string | null = null;
     let status: TraceEpochJson["status"] = "open";
 
     for (const l of em) {
@@ -193,6 +196,7 @@ export function buildTrace(ctx: TraceContext, logs: readonly TraceLog[]): EpochT
       } else if (l.eventName === "EpochSettled" && mine) {
         status = "settled";
         const price = big(a.settlementPrice);
+        if (price > 0n) settlementPrice = formatUnits(price, 18);
         const fee = big(a.fee);
         const recorded = sorted.find(
           (o) =>
@@ -329,6 +333,7 @@ export function buildTrace(ctx: TraceContext, logs: readonly TraceLog[]): EpochT
       status,
       seriesId: seriesId === null ? null : seriesId.toString(),
       expiry,
+      settlementPrice,
       steps: steps.map((s) => s.step),
     });
   }

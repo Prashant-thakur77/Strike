@@ -108,6 +108,19 @@ export interface LogDryRun {
   premiumBps: number | null;
   fairValue: string | null;
   yieldBps: number | null;
+  /** The expiry the dry run asked for (absent in older drafts). */
+  expiryIso: string | null;
+}
+
+/** The vault's mandate as the record states it (the contract's `Mandate` struct). */
+export interface LogMandate {
+  minDeltaBps: number;
+  maxDeltaBps: number;
+  minPremiumBps: number;
+  minYieldBps: number;
+  maxShareSoldBps: number;
+  minTenor: number;
+  maxTenor: number;
 }
 
 /** The record's on-chain anchor (`--anchor`): its hash committed to the DecisionLog contract. */
@@ -164,6 +177,11 @@ export interface LogRecord {
     kind: VaultKind;
     underlying: string;
     mandateSummary: string | null;
+    /** The mandate in the contract's units (bps, seconds), when the record carries it. */
+    mandate: LogMandate | null;
+    /** The vault's collateral (`totalAssets`) when the record was written, in whole units of `collateralAsset`. */
+    collateral: string | null;
+    collateralAsset: string | null;
   };
   market: LogMarket | null;
   decision: LogDecision | null;
@@ -320,7 +338,28 @@ function parseDryRun(v: unknown): LogDryRun | null {
     premiumBps: num(v.premiumBps),
     fairValue: decimal(v.fairValue),
     yieldBps: num(v.yieldBps),
+    expiryIso: nonEmpty(v.expiryIso),
   };
+}
+
+function parseMandate(v: unknown): LogMandate | null {
+  if (!isObj(v)) return null;
+  const keys = [
+    "minDeltaBps",
+    "maxDeltaBps",
+    "minPremiumBps",
+    "minYieldBps",
+    "maxShareSoldBps",
+    "minTenor",
+    "maxTenor",
+  ] as const;
+  const out = {} as LogMandate;
+  for (const k of keys) {
+    const n = num(v[k]);
+    if (n === null || n < 0) return null;
+    out[k] = n;
+  }
+  return out;
 }
 
 function parseAnchor(v: unknown): LogAnchor | null {
@@ -422,6 +461,9 @@ export function parseRecord(json: unknown): LogRecord | null {
       kind,
       underlying: str(vault.underlying) ?? "",
       mandateSummary: nonEmpty(mandate.summary),
+      mandate: parseMandate(mandate),
+      collateral: decimal(vault.collateral),
+      collateralAsset: nonEmpty(vault.collateralAsset),
     },
     market: parseMarket(json.market),
     decision: parseDecision(json.decision),
@@ -449,7 +491,8 @@ export function parseRecordText(text: string): LogRecord | null {
 
 /* ================================================================ folder listing */
 
-const RECORD_FILE_RE = /^(\d{4}-\d{2}-\d{2})-(.+?)(?:-(\d+))?\.json$/;
+/** A record file name: `<YYYY-MM-DD>-<vault symbol>[-N].json`. */
+export const RECORD_FILE_NAME_RE = /^(\d{4}-\d{2}-\d{2})-(.+?)(?:-(\d+))?\.json$/;
 
 /** A file's page on GitHub. */
 export const recordPageUrl = (fileName: string) =>
@@ -477,7 +520,7 @@ export function parseListing(json: unknown, limit = AGENT_LOG_LIMIT): LogFile[] 
   const names = new Set(json.flatMap((e) => (isObj(e) && typeof e.name === "string" ? [e.name] : [])));
   const files = json.flatMap((e): LogFile[] => {
     if (!isObj(e) || e.type !== "file" || typeof e.name !== "string") return [];
-    const m = e.name.match(RECORD_FILE_RE);
+    const m = e.name.match(RECORD_FILE_NAME_RE);
     const downloadUrl = rawUrl(e.download_url);
     if (!m || !downloadUrl) return [];
     const base = e.name.slice(0, -".json".length);
