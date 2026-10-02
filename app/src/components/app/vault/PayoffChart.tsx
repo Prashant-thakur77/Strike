@@ -14,6 +14,10 @@ interface PayoffChartProps {
   premium: number;
   /** Where `premium` comes from, for the caption. */
   premiumNote: string;
+  /** The label of the `spot` marker: "Spot now" while the series sells, "Last print" once it has expired. */
+  spotLabel?: string;
+  /** A sentence for the caption about the settlement price (shown for a series past expiry). */
+  settlementNote?: string;
 }
 
 const M = { top: 44, right: 18, bottom: 46, left: 60 };
@@ -39,7 +43,16 @@ function ticks(lo: number, hi: number, target: number): number[] {
 }
 
 /** Buyer's and depositor's result at expiry, per option, against the settlement price. SVG, no dependency. */
-export function PayoffChart({ isCall, symbol, strike, spot, premium, premiumNote }: PayoffChartProps) {
+export function PayoffChart({
+  isCall,
+  symbol,
+  strike,
+  spot,
+  premium,
+  premiumNote,
+  spotLabel = "Spot now",
+  settlementNote,
+}: PayoffChartProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hover, setHover] = useState<number | null>(null);
@@ -102,9 +115,13 @@ export function PayoffChart({ isCall, symbol, strike, spot, premium, premiumNote
   }
   const hv = hover === null ? null : payoffAt(isCall, strike, hover, premium);
 
+  const where =
+    spotLabel === "Spot now"
+      ? `${symbol} is at ${usd(spot)} now.`
+      : `${spotLabel}: ${symbol} at ${usd(spot)}.`;
   const summary = isCall
-    ? `The buyer paid about ${usd(premium)} per option. If ${symbol} settles above ${usd(be)} (the breakeven), the buyer gains $1 for every $1 above it; at or below the ${usd(strike)} strike the option expires worthless and the buyer loses the premium. The depositor keeps the ${usd(premium)} while ${symbol} settles at or below the strike and gives up the difference above it. ${symbol} is at ${usd(spot)} now.`
-    : `The buyer paid about ${usd(premium)} per option. If ${symbol} settles below ${usd(be)} (the breakeven), the buyer gains $1 for every $1 below it; at or above the ${usd(strike)} strike the option expires worthless and the buyer loses the premium. The depositor keeps the ${usd(premium)} while ${symbol} settles at or above the strike and pays the difference below it. ${symbol} is at ${usd(spot)} now.`;
+    ? `The buyer paid about ${usd(premium)} per option. If ${symbol} settles above ${usd(be)} (the breakeven), the buyer gains $1 for every $1 above it; at or below the ${usd(strike)} strike the option expires worthless and the buyer loses the premium. The depositor keeps the ${usd(premium)} while ${symbol} settles at or below the strike and gives up the difference above it. ${where}`
+    : `The buyer paid about ${usd(premium)} per option. If ${symbol} settles below ${usd(be)} (the breakeven), the buyer gains $1 for every $1 below it; at or above the ${usd(strike)} strike the option expires worthless and the buyer loses the premium. The depositor keeps the ${usd(premium)} while ${symbol} settles at or above the strike and pays the difference below it. ${where}`;
 
   const rows = [...new Set([xLo, spot, strike, be, xHi].map((v) => Math.round(v * 100) / 100))].sort(
     (a, b) => a - b,
@@ -191,7 +208,7 @@ export function PayoffChart({ isCall, symbol, strike, spot, premium, premiumNote
             textAnchor={spotRight ? "start" : "end"}
             className={styles.pMarkMuted}
           >
-            Spot now {usd(spot)}
+            {spotLabel} {usd(spot)}
           </text>
 
           {/* series */}
@@ -240,6 +257,7 @@ export function PayoffChart({ isCall, symbol, strike, spot, premium, premiumNote
       </div>
       <figcaption id={descId} className={styles.payoffCaption}>
         {summary}{" "}
+        {settlementNote ? <strong data-testid="payoff-settlement-note">{settlementNote} </strong> : null}
         <span className={styles.payoffNote}>
           {isCall
             ? `Calls pay (S − K) / S ${symbol} per option, worth S − K dollars at settlement price S.`
@@ -274,7 +292,7 @@ export function PayoffChart({ isCall, symbol, strike, spot, premium, premiumNote
                     : s === Math.round(be * 100) / 100
                       ? " · breakeven"
                       : s === Math.round(spot * 100) / 100
-                        ? " · spot now"
+                        ? ` · ${spotLabel.toLowerCase()}`
                         : "";
                 return (
                   <tr key={s}>

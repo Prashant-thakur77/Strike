@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { buildTrace, type EpochTraceJson, type TraceContext, type TraceLog } from "../src/lib/epochTrace";
 import { settlementLine, type SettlementAuditJson } from "../src/lib/settlementAudit";
 import { acknowledge, horizontalOverflow, settle } from "./helpers";
+import { PHASE_SELECTORS, patchEthCalls, vaultPhase } from "./lifecycle";
 
 // The epoch trace on the vault page (rail "Epoch trace"): every step of the current and the last epoch with its
 // transaction and evidence. The first group builds traces from decoded logs without a network (src/lib/epochTrace.ts)
@@ -360,7 +361,7 @@ test.describe("epoch trace from logs", () => {
     const pending = expired.epochs[0]!.steps.at(-1)!;
     expect(pending.kind).toBe("pending");
     expect(pending.facts[0]).toBe(
-      "Expired at 20:00 UTC on Fri 2 Oct; waiting for the settle transaction, which anyone may send, at the first price round at or after expiry.",
+      "Expired at 20:00 UTC on Fri 2 Oct; waiting for the first price round at or after expiry (the settlement price), then for the settle transaction, which anyone may send.",
     );
     expect(buildTrace({ ...CTX, currentEpoch: 0n }, []).epochs).toEqual([]);
   });
@@ -539,6 +540,10 @@ test("vault page: before expiry the settlement step says when; the current recor
   test.skip(!(await testnetUp()), "Robinhood Chain testnet RPC unreachable");
   const trace = buildTrace({ ...CTX, currentEpoch: 1n, now: at("2026-10-02T15:00:00Z") }, logs().slice(0, 5));
   const asked = await serve(page, trace);
+  // The rest of the page in the same state as the trace: the series on sale, before its expiry (lifecycle.ts).
+  await patchEthCalls(page, 46630, "https://rpc.testnet.chain.robinhood.com", PHASE_SELECTORS, [
+    vaultPhase({ vault: VAULT, seriesId: SERIES, phase: "selling" }),
+  ]);
   await page.goto(`/app/vault/${VAULT}?chain=46630#trace`);
   const rail = page.locator("#trace");
   const cur = rail.locator('[data-testid="trace-epoch"][data-epoch="1"]');
@@ -548,7 +553,7 @@ test("vault page: before expiry the settlement step says when; the current recor
   );
   await expect(cur.getByTestId("trace-why")).toHaveAttribute("href", "#why");
   await expect(cur.getByTestId("trace-audit")).toHaveCount(0);
-  expect(asked.audit).toBe(0); // nothing expired: the mainnet check is not asked for
+  expect(asked.audit).toBe(0); // nothing expired: the mainnet check is not asked for, by the trace or the series rail
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   await shot(page, "pending");
 });

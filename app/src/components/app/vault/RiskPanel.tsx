@@ -9,6 +9,7 @@ import { errorMessage } from "@/hooks/useTx";
 import { CHAIN_META, explorerUrl, type AppChainId } from "@/lib/chains";
 import type { Deployment } from "@/lib/deployment";
 import { fmtAmount, fmtDuration, shortAddr, toNumber } from "@/lib/format";
+import { fmtUtc } from "@/lib/marketHours";
 import type { VaultSummary } from "@/lib/reads";
 import { Skeleton } from "../Skeleton";
 import { RiskChart, type RiskPoint, shockLabel } from "./RiskChart";
@@ -110,48 +111,75 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
   const kind = r.isCall ? "call" : "put";
   const iv = r.impliedVol;
   const share = (r.worstShareOfCollateralBps / 100).toFixed(1);
+  // Past expiry (and not settled): no time value is left, so greeks say nothing. The engine returns zeros there; the
+  // panel shows why instead of four zeros, and the stress test is read against the last print.
+  const expired = r.tenor === 0n && !r.settled;
 
   return (
-    <div className={styles.risk} data-testid="risk-panel" data-stale={stale || undefined}>
+    <div
+      className={styles.risk}
+      data-testid="risk-panel"
+      data-stale={stale || undefined}
+      data-expired={expired || undefined}
+    >
       <p className={styles.riskLead}>
-        <span className="micro micro-muted">Depositors&apos; side, live</span>
-        <span>
-          {sold} {sym} {kind}
-          {r.sold === 10n ** BigInt(r.tokenDecimals) ? "" : "s"} sold · {sym}{" "}
-          <span className="mono">{money(toNumber(r.spot, 18))}</span> · σ{" "}
-          <span className="mono">{pct(r.sigma, 0)}</span>{" "}
-          {r.sigmaSource === "epoch-open" ? "(the epoch's opening volatility)" : "(current volatility)"} ·{" "}
-          {r.tenor > 0n ? `${fmtDuration(Number(r.tenor))} to expiry` : "expired"}
+        <span className="micro micro-muted">
+          {expired ? "Depositors' side, at expiry" : "Depositors' side, live"}
         </span>
+        {expired ? (
+          <span>
+            {sold} {sym} {kind}
+            {r.sold === 10n ** BigInt(r.tokenDecimals) ? "" : "s"} sold · expired {fmtUtc(Number(r.expiry))} ·
+            last print {sym} <span className="mono">{money(toNumber(r.spot, 18))}</span>
+          </span>
+        ) : (
+          <span>
+            {sold} {sym} {kind}
+            {r.sold === 10n ** BigInt(r.tokenDecimals) ? "" : "s"} sold · {sym}{" "}
+            <span className="mono">{money(toNumber(r.spot, 18))}</span> · σ{" "}
+            <span className="mono">{pct(r.sigma, 0)}</span>{" "}
+            {r.sigmaSource === "epoch-open" ? "(the epoch's opening volatility)" : "(current volatility)"} ·{" "}
+            {r.tenor > 0n ? `${fmtDuration(Number(r.tenor))} to expiry` : "expired"}
+          </span>
+        )}
       </p>
-      {r.spotStatus !== "Ok" ? (
+      {r.spotStatus !== "Ok" && !expired ? (
         <p className={styles.riskWarn} role="status">
           The price feed reports {r.spotStatus}: these numbers use its last print, not a live price.
         </p>
       ) : null}
 
-      <dl className={styles.riskGreeks} aria-label="Greeks for the depositors">
-        {GREEKS.map((g) => {
-          const exp = toNumber(r.exposure[g.key as keyof Greeks], 18);
-          const per = toNumber(r.greeks[g.key as keyof Greeks], 18);
-          return (
-            <div key={g.key} className={styles.riskGreek} data-greek={g.key}>
-              <dt className="micro micro-muted">
-                <Term id={g.key}>{g.label}</Term>
-              </dt>
-              <dd className={styles.riskValue}>
-                {signed(exp, g.frac)}
-                {g.unit ? <span className={styles.riskUnit}>{g.unit}</span> : null}
-              </dd>
-              <dd className={styles.riskLine}>{cap(rest(lines[g.key]))}</dd>
-              <dd className={styles.riskPer}>
-                Per option, buyer&apos;s side: <span className="mono">{signed(per, g.frac + 2)}</span>
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
-      {r.atCurrentSigma ? (
+      {expired ? (
+        <p className={styles.riskExpired} role="note" data-testid="risk-expired">
+          <strong>No greeks after expiry.</strong> Delta, gamma, vega and theta measure how the options&apos;
+          value moves before expiry. This series expired {fmtUtc(Number(r.expiry))}, so no time value is left:
+          what holders are paid depends only on the settlement price, the first print at or after expiry,
+          which is not in yet.
+        </p>
+      ) : (
+        <dl className={styles.riskGreeks} aria-label="Greeks for the depositors">
+          {GREEKS.map((g) => {
+            const exp = toNumber(r.exposure[g.key as keyof Greeks], 18);
+            const per = toNumber(r.greeks[g.key as keyof Greeks], 18);
+            return (
+              <div key={g.key} className={styles.riskGreek} data-greek={g.key}>
+                <dt className="micro micro-muted">
+                  <Term id={g.key}>{g.label}</Term>
+                </dt>
+                <dd className={styles.riskValue}>
+                  {signed(exp, g.frac)}
+                  {g.unit ? <span className={styles.riskUnit}>{g.unit}</span> : null}
+                </dd>
+                <dd className={styles.riskLine}>{cap(rest(lines[g.key]))}</dd>
+                <dd className={styles.riskPer}>
+                  Per option, buyer&apos;s side: <span className="mono">{signed(per, g.frac + 2)}</span>
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+      )}
+      {r.atCurrentSigma && !expired ? (
         <p className={styles.hint}>
           At today&apos;s σ of {pct(r.currentSigma, 0)}: delta{" "}
           {signed(toNumber(r.atCurrentSigma.exposure.delta, 18), 2)}, vega{" "}
@@ -163,7 +191,9 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
       <figure className={styles.payoff} aria-labelledby={titleId}>
         <div className={styles.payoffHead}>
           <h3 id={titleId} className="micro">
-            Vault result at expiry by {sym} move
+            {expired
+              ? `Vault result at settlement by ${sym} move from the last print`
+              : `Vault result at expiry by ${sym} move`}
           </h3>
           <div className={styles.riskToggle} role="group" aria-label="View">
             <button
@@ -190,7 +220,14 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
               <li data-series="gain">Premium kept</li>
               <li data-series="loss">Net loss</li>
             </ul>
-            <RiskChart symbol={sym} points={points} worst={worst} premium={premium} titleId={titleId} />
+            <RiskChart
+              symbol={sym}
+              points={points}
+              worst={worst}
+              premium={premium}
+              titleId={titleId}
+              axisLabel={expired ? `${sym} settlement price, as a move from the last print` : undefined}
+            />
           </>
         ) : (
           <div className={styles.tableWrap}>
@@ -216,7 +253,9 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
                     <td className="mono">
                       {shockLabel(p.shock)}
                       {i === worst && p.payout > 0 ? <span className={styles.cellMuted}>worst</span> : null}
-                      {Math.abs(p.shock) < 1e-9 ? <span className={styles.cellMuted}>now</span> : null}
+                      {Math.abs(p.shock) < 1e-9 ? (
+                        <span className={styles.cellMuted}>{expired ? "last print" : "now"}</span>
+                      ) : null}
                     </td>
                     <td className={`mono ${styles.num}`}>{money(p.spot)}</td>
                     <td className={`mono ${styles.num}`}>{money(p.payout)}</td>

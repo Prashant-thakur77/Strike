@@ -14,6 +14,10 @@ export const LINKS = {
   skill: `${REPO_URL}/blob/main/docs/STRIKE_SKILL.md`,
   company: `${REPO_URL}#building-strike-as-a-company`,
   design: `${REPO_URL}/blob/main/docs/design.md`,
+  /** Who and what is trusted, including the settlement rule (the price rows of the table). */
+  trustModel: `${REPO_URL}/blob/main/docs/trust-model.md#the-table`,
+  /** The runbook's step on waiting for the first mainnet print after expiry. */
+  settlementWait: `${REPO_URL}/blob/main/docs/operations.md#2-after-2000-utc-wait-for-the-first-mainnet-print-after-the-close`,
   feedback: `${REPO_URL}/issues/new?template=testnet-feedback.yml`,
   robinhoodFaucet: faucet(46630),
   /** Paxos's USDG faucet (every testnet Paxos serves; not a chain's gas faucet). */

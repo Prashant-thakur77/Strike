@@ -319,7 +319,7 @@ export function buildTrace(ctx: TraceContext, logs: readonly TraceLog[]): EpochT
           facts: [
             ctx.now < expiry
               ? `Settles after ${fmtWhen(expiry)}, at the first price round at or after expiry. Anyone may call settle then.`
-              : `Expired at ${fmtWhen(expiry)}; waiting for the settle transaction, which anyone may send, at the first price round at or after expiry.`,
+              : `Expired at ${fmtWhen(expiry)}; waiting for the first price round at or after expiry (the settlement price), then for the settle transaction, which anyone may send.`,
           ],
           tx: null,
           time: null,

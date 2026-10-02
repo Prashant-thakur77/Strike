@@ -15,6 +15,7 @@ import {
   fmtWadUsd,
   toNumber,
 } from "@/lib/format";
+import { clockNow, seriesPhase } from "@/lib/lifecycle";
 import type { VaultHistory, VaultSummary } from "@/lib/reads";
 import { StartHere } from "@/components/ui/StartHere";
 import { Gate } from "./Gate";
@@ -64,9 +65,15 @@ export function VaultsPage() {
   const groups = multi ? byVersion(rows) : [{ version: "", rows }];
   const defaultVersion = deployments[0]?.version ?? "";
   const tvl = rows.reduce((s, r) => s + (r.summary.tvlUsd ?? 0), 0);
-  const live = rows.filter((r) => r.summary.state === 2).length;
+  const now = clockNow(market.data?.now);
+  // A series past expiry stays Selling on chain until it settles: counted apart, never as on sale.
+  const live = rows.filter((r) => seriesPhase(r.summary, now) === "selling").length;
+  const settling = rows.filter((r) => seriesPhase(r.summary, now) === "expired").length;
   const onSale = rows.filter(
-    (r) => r.summary.state === 2 && r.summary.series && r.summary.series.sold < r.summary.series.size,
+    (r) =>
+      seriesPhase(r.summary, now) === "selling" &&
+      r.summary.series &&
+      r.summary.series.sold < r.summary.series.size,
   ).length;
   const premium = rows.reduce(
     (s, r) => s + (r.history ? toNumber(r.history.premiumPaid, r.summary.usdg.decimals) : 0),
@@ -112,7 +119,12 @@ export function VaultsPage() {
               label: "Live series",
               term: "series",
               value: String(live),
-              sub: onSale === live ? "options on sale now" : `${onSale} with options left to buy`,
+              sub: [
+                onSale === live ? "options on sale now" : `${onSale} with options left to buy`,
+                settling ? `${settling} expired, waiting for settlement` : null,
+              ]
+                .filter(Boolean)
+                .join(" · "),
             },
             {
               label: "Premium to depositors",
@@ -169,6 +181,7 @@ export function VaultsPage() {
                       vault={r.summary}
                       history={r.history}
                       showVersion={multi}
+                      now={now}
                     />
                   ))}
                 </div>
@@ -186,13 +199,16 @@ function VaultRow({
   history,
   index,
   showVersion,
+  now,
 }: {
   vault: VaultSummary;
   history: VaultHistory | null;
   index: number;
   showVersion: boolean;
+  now: number;
 }) {
   const s = vault.series;
+  const expired = seriesPhase(vault, now) === "expired";
   return (
     <Link
       href={`/app/vault/${vault.address}`}
@@ -228,7 +244,7 @@ function VaultRow({
         </span>
       </span>
       <span className={styles.rowCell} data-label="Epoch">
-        <StateTag state={vault.state} />
+        <StateTag state={vault.state} expired={expired} />
         <span className={styles.rowSub}>Epoch {vault.currentEpoch.toString()}</span>
       </span>
       <span className={styles.rowCell} data-label="Live series">
@@ -238,7 +254,9 @@ function VaultRow({
               {fmtWadUsd(s.strike)} {s.isCall ? "call" : "put"}
             </span>
             <PerShare price={s.strike} multiplier={vault.multiplier} />
-            <span className={styles.rowSub}>{fmtNy(s.expiry)}</span>
+            <span className={styles.rowSub}>
+              {expired ? `Expired ${fmtNy(s.expiry)}, waiting for settlement` : fmtNy(s.expiry)}
+            </span>
           </>
         ) : vault.state === 1 ? (
           <>

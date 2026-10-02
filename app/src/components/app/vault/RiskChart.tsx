@@ -22,6 +22,8 @@ interface RiskChartProps {
   worst: number;
   premium: number;
   titleId: string;
+  /** The x axis title; default "<symbol> move by expiry". */
+  axisLabel?: string;
 }
 
 const M = { top: 34, right: 12, bottom: 50, left: 62 };
@@ -57,7 +59,7 @@ function column(x: number, w: number, y0: number, y1: number): string {
  * The vault's result at expiry (premium kept minus what it pays holders) across the stress grid: one column per
  * spot move, one USD axis with its zero baseline, the worst case marked. SVG, no dependency.
  */
-export function RiskChart({ symbol, points, worst, premium, titleId }: RiskChartProps) {
+export function RiskChart({ symbol, points, worst, premium, titleId, axisLabel }: RiskChartProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(640);
   const [hover, setHover] = useState<number | null>(null);
@@ -148,7 +150,7 @@ export function RiskChart({ symbol, points, worst, premium, titleId }: RiskChart
             ) : null;
           })}
           <text x={M.left + w / 2} y={HEIGHT - 8} textAnchor="middle" className={styles.pAxisTitle}>
-            {symbol} move by expiry
+            {axisLabel ?? `${symbol} move by expiry`}
           </text>
 
           {points.map((p, i) => (

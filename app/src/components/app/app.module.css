@@ -475,6 +475,16 @@
   animation: ping 2.2s var(--ease-out) infinite;
 }
 
+/* Selling on chain but past expiry: no live sale, so no ping; the dot is hollow until settlement. */
+.state[data-expired] .stateDot {
+  background: transparent;
+  border-color: var(--accent-bright);
+}
+
+.state[data-expired] .stateDot::after {
+  content: none;
+}
+
 @keyframes ping {
   from {
     transform: scale(0.5);
@@ -2181,6 +2191,26 @@ a.idChip:hover {
   gap: 14px;
 }
 
+/* A series past expiry, waiting for its settlement price (SettlementWait). */
+.settleWait {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+  padding: 18px 20px;
+  border-left: 3px solid var(--accent-bright);
+  background: var(--surface);
+}
+
+.settleWait :global(.body) {
+  max-width: 48em;
+}
+
+.settleWaitLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
 .priceSteps {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2645,6 +2675,14 @@ a.idChip:hover {
   border-left: 3px solid var(--loss-c);
   font-size: 0.9rem;
   line-height: 1.5;
+}
+
+.riskExpired {
+  padding: 10px 14px;
+  border-left: 3px solid var(--accent-bright);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  max-width: 48em;
 }
 
 .riskState {

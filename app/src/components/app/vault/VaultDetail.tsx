@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import type { Address } from "viem";
-import { useVault, useVaultHistory } from "@/hooks/queries";
+import { useMarket, useVault, useVaultHistory } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { DeploymentScope } from "@/components/providers/DeploymentScope";
 import { FEED_STATUS } from "@/lib/labels";
 import { fmtAmount, fmtDay, fmtPct, fmtUsd, fmtWadUsd } from "@/lib/format";
+import { clockNow, seriesPhase } from "@/lib/lifecycle";
 import { LINKS } from "@/lib/links";
 import { hasMultiplier } from "@/lib/shares";
 import { AddressLink } from "../AddressLink";
@@ -37,7 +38,10 @@ export function VaultDetail({ address }: { address: Address }) {
   const vault = useVault(address);
   const history = useVaultHistory(vault.data);
   const { deployments, chainId } = useStrike();
+  const market = useMarket().data;
   const v = vault.data;
+  const phase = v ? seriesPhase(v, clockNow(market?.now)) : null;
+  const expired = phase === "expired";
   // Where a chain runs more than one deployment (v2 and v3 on Robinhood Chain testnet), say which one this vault is.
   const showVersion = deployments.length > 1 && !!v?.version;
 
@@ -117,10 +121,12 @@ export function VaultDetail({ address }: { address: Address }) {
               {
                 label: `Epoch ${v.currentEpoch.toString()}`,
                 term: "epoch",
-                value: <StateTag state={v.state} large />,
-                sub: v.locked
-                  ? "Vault locked: deposits and withdrawals queue until settlement"
-                  : "Vault unlocked: deposit or withdraw now",
+                value: <StateTag state={v.state} expired={expired} large />,
+                sub: expired
+                  ? "Series expired, not settled yet: deposits and withdrawals queue until settlement"
+                  : v.locked
+                    ? "Vault locked: deposits and withdrawals queue until settlement"
+                    : "Vault unlocked: deposit or withdraw now",
               },
             ]}
           />
@@ -136,9 +142,11 @@ export function VaultDetail({ address }: { address: Address }) {
               index="02"
               label={v.locked ? "Queue a deposit or withdrawal" : "Deposit & withdraw"}
               note={
-                v.locked
-                  ? "The vault is locked while this week's options are live. Requests queue and are processed at settlement, at that epoch's closing share price."
-                  : "The vault is between epochs, so deposits and withdrawals go through at once."
+                expired
+                  ? "This week's series has expired and the vault stays locked until it settles. Requests queue and are processed at settlement, at that epoch's closing share price."
+                  : v.locked
+                    ? "The vault is locked while this week's options are live. Requests queue and are processed at settlement, at that epoch's closing share price."
+                    : "The vault is between epochs, so deposits and withdrawals go through at once."
               }
             >
               {v.isCall ? null : <DripNudge />}
@@ -150,7 +158,7 @@ export function VaultDetail({ address }: { address: Address }) {
               note="Buyers pay USDG: fair value at the moment of purchase times the series' premium factor, never below intrinsic value."
             >
               {v.isCall ? <DripNudge /> : null}
-              <SeriesPanel vault={v} />
+              <SeriesPanel vault={v} history={history.data} />
             </Rail>
             <Rail
               index="04"
@@ -164,7 +172,11 @@ export function VaultDetail({ address }: { address: Address }) {
               index="05"
               id="risk"
               label="Risk"
-              note="Greeks and a ±30% stress test of this week's series, computed on-chain by the Stylus risk engine each time the page refreshes."
+              note={
+                expired
+                  ? "The series has expired: greeks need time to expiry, so none are shown. The ±30% stress test, computed on-chain by the Stylus risk engine, shows the vault's result against the last print until the settlement price is in."
+                  : "Greeks and a ±30% stress test of this week's series, computed on-chain by the Stylus risk engine each time the page refreshes."
+              }
             >
               <RiskPanel vault={v} />
             </Rail>

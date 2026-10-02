@@ -1,6 +1,8 @@
 "use client";
 
+import { useMarket } from "@/hooks/queries";
 import { fmtAmount, fmtNy, fmtWadUsd } from "@/lib/format";
+import { clockNow, seriesPhase } from "@/lib/lifecycle";
 import type { EpochEvents, VaultHistory, VaultSummary } from "@/lib/reads";
 import { Skeleton } from "../Skeleton";
 import styles from "../app.module.css";
@@ -14,8 +16,14 @@ interface Step {
   done: boolean;
 }
 
-function steps(vault: VaultSummary, cur: EpochEvents | undefined, prev: EpochEvents | undefined): Step[] {
+function steps(
+  vault: VaultSummary,
+  cur: EpochEvents | undefined,
+  prev: EpochEvents | undefined,
+  now: number,
+): Step[] {
   const settled = cur?.settledAt ?? cur?.abortedAt;
+  const expired = !settled && seriesPhase(vault, now) === "expired";
   return [
     {
       name: "Idle",
@@ -48,22 +56,25 @@ function steps(vault: VaultSummary, cur: EpochEvents | undefined, prev: EpochEve
         ? cur?.compensation
           ? `Vault unlocked · ${fmtAmount(cur.compensation, vault.usdg.decimals)} USDG slash to depositors`
           : "Vault unlocked"
-        : vault.series
-          ? "Expiry"
-          : undefined,
+        : expired
+          ? "Expired · waiting for the first print at or after expiry"
+          : vault.series
+            ? "Expiry"
+            : undefined,
       done: !!settled,
     },
   ];
 }
 
 export function Timeline({ vault, history }: { vault: VaultSummary; history: VaultHistory | undefined }) {
+  const market = useMarket().data;
   if (!history) return <Skeleton width="60%" />;
   if (vault.currentEpoch === 0n) {
     return <p className="body">No epoch has run yet. The first one opens during US market hours.</p>;
   }
   const cur = history.epochs.find((e) => e.epoch === vault.currentEpoch);
   const prev = history.epochs.find((e) => e.epoch === vault.currentEpoch - 1n);
-  const list = steps(vault, cur, prev);
+  const list = steps(vault, cur, prev, clockNow(market?.now));
   const active = list.findIndex((s) => !s.done);
   const progress = active === -1 ? 1 : Math.max(0, active - 0.5) / (list.length - 1);
   const past = history.epochs.filter((e) => e.settledAt !== undefined).reverse();

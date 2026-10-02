@@ -4,36 +4,42 @@ import { blackScholes } from "@strike/sdk";
 import type { ReactNode } from "react";
 import { useMarket, useQuoteBuy } from "@/hooks/queries";
 import { fmtAmount, fmtBps, fmtDuration, fmtNy, fmtWadUsd, toNumber } from "@/lib/format";
+import { clockNow, seriesPhase } from "@/lib/lifecycle";
+import { fmtUtc } from "@/lib/marketHours";
 import { buyPrice } from "@/lib/payoff";
-import type { Series, VaultSummary } from "@/lib/reads";
+import type { Series, VaultHistory, VaultSummary } from "@/lib/reads";
 import { hasMultiplier } from "@/lib/shares";
 import { PerShare } from "../PerShare";
 import { MarketHours } from "../market/MarketHours";
 import { BuyPanel } from "./BuyPanel";
 import { PayoffChart } from "./PayoffChart";
+import { SettlementWait } from "./SettlementWait";
 import { Term } from "@/components/ui/Term";
 import styles from "../app.module.css";
 
 const money = (n: number, frac = 2) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: frac, maximumFractionDigits: frac })}`;
 
-export function SeriesPanel({ vault }: { vault: VaultSummary }) {
+export function SeriesPanel({ vault, history }: { vault: VaultSummary; history?: VaultHistory }) {
   const s = vault.series;
   const market = useMarket().data;
+  const phase = seriesPhase(vault, clockNow(market?.now));
 
-  if (!s || vault.state !== 2) {
+  if (!s || phase === "idle" || phase === "open") {
     return (
-      <div className={styles.prompt}>
-        <p className="h3">{vault.state === 1 ? "Waiting for the agent." : "No option on sale."}</p>
+      <div className={styles.prompt} data-phase={phase}>
+        <p className="h3">{phase === "open" ? "Waiting for the agent." : "No option on sale."}</p>
         <p className="body">
-          {vault.state === 1
+          {phase === "open"
             ? "The epoch is open and the vault is locked. The agent has a day to make a proposal the mandate accepts; if it doesn't, anyone can abort the epoch and the vault unlocks."
             : "The vault is between epochs. The next one opens during US market hours, once the price feed is fresh: openEpoch reverts with MarketClosed outside a session."}
         </p>
-        {vault.state === 0 ? <MarketHours action="open" /> : null}
+        {phase === "idle" ? <LastSettlement vault={vault} history={history} /> : null}
+        {phase === "idle" ? <MarketHours action="open" /> : null}
       </div>
     );
   }
+  const expired = phase === "expired";
 
   const dec = vault.underlying.decimals;
   const sold = toNumber(s.sold, dec);
@@ -52,8 +58,12 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
           <span className="micro">
             {vault.underlying.symbol} {s.isCall ? "call" : "put"} · European · cash-settled
           </span>
-          <span className="micro">
-            {left !== null && left > 0 ? `Expires in ${fmtDuration(left)}` : "Expired"}
+          <span className="micro" data-testid="series-clock">
+            {expired
+              ? `Expired ${fmtUtc(Number(s.expiry))}`
+              : left !== null && left > 0
+                ? `Expires in ${fmtDuration(left)}`
+                : "Expired"}
           </span>
         </div>
         <div className={styles.seriesStrikeWrap}>
@@ -73,7 +83,10 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
             <dd>{fmtNy(s.expiry)}</dd>
           </div>
           <div>
-            <dt className="micro micro-muted">{scaled ? "Spot per token" : "Spot"}</dt>
+            <dt className="micro micro-muted">
+              {expired ? "Last print" : "Spot"}
+              {scaled ? " per token" : ""}
+            </dt>
             <dd>{vault.spot.price > 0n ? fmtWadUsd(vault.spot.price) : "—"}</dd>
             {scaled ? (
               <dd>
@@ -99,36 +112,73 @@ export function SeriesPanel({ vault }: { vault: VaultSummary }) {
           {fmtAmount(s.sold, dec)} of {fmtAmount(s.size, dec)} sold · {fmtAmount(s.size - s.sold, dec)} left
         </p>
       </div>
-      <PriceNote vault={vault} series={s} now={market?.now}>
-        {(quote) =>
-          spot > 0 && (paid ?? quote) ? (
+      {expired ? (
+        <>
+          <SettlementWait vault={vault} series={s} />
+          {spot > 0 && paid !== null ? (
             <PayoffChart
               isCall={s.isCall}
               symbol={vault.underlying.symbol}
               strike={strike}
               spot={spot}
-              premium={(paid ?? quote)!}
-              premiumNote={
-                paid !== null
-                  ? `the average buyers paid in this series, ${money(paid)} (${fmtAmount(s.premium, vault.usdg.decimals)} USDG for ${fmtAmount(s.sold, dec)} options)`
-                  : `today's live quote, ${money(quote!)}`
-              }
+              spotLabel="Last print"
+              premium={paid}
+              premiumNote={`the average buyers paid in this series, ${money(paid)} (${fmtAmount(s.premium, vault.usdg.decimals)} USDG for ${fmtAmount(s.sold, dec)} options)`}
+              settlementNote="The result is read at the settlement price, the first print at or after expiry; the last print is marked for reference and is not that price."
             />
-          ) : null
-        }
-      </PriceNote>
-      {s.sold < s.size ? (
-        <BuyPanel vault={vault} series={s} />
+          ) : null}
+        </>
       ) : (
-        <div className={styles.buy}>
-          <h3 className="micro">Buy options</h3>
-          <p className={styles.hint}>
-            <strong>Sold out.</strong> All {fmtAmount(s.size, dec)} options in this series are sold. It
-            settles at expiry, {fmtNy(s.expiry)}; holders redeem after that.
-          </p>
-        </div>
+        <>
+          <PriceNote vault={vault} series={s} now={market?.now}>
+            {(quote) =>
+              spot > 0 && (paid ?? quote) ? (
+                <PayoffChart
+                  isCall={s.isCall}
+                  symbol={vault.underlying.symbol}
+                  strike={strike}
+                  spot={spot}
+                  premium={(paid ?? quote)!}
+                  premiumNote={
+                    paid !== null
+                      ? `the average buyers paid in this series, ${money(paid)} (${fmtAmount(s.premium, vault.usdg.decimals)} USDG for ${fmtAmount(s.sold, dec)} options)`
+                      : `today's live quote, ${money(quote!)}`
+                  }
+                />
+              ) : null
+            }
+          </PriceNote>
+          {s.sold < s.size ? (
+            <BuyPanel vault={vault} series={s} />
+          ) : (
+            <div className={styles.buy}>
+              <h3 className="micro">Buy options</h3>
+              <p className={styles.hint}>
+                <strong>Sold out.</strong> All {fmtAmount(s.size, dec)} options in this series are sold. It
+                settles at expiry, {fmtNy(s.expiry)}; holders redeem after that.
+              </p>
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/** Between epochs: the last settled epoch of this vault, from its EpochSettled log, so a settled week reads as one. */
+function LastSettlement({ vault, history }: { vault: VaultSummary; history?: VaultHistory }) {
+  const last = history?.epochs.filter((e) => e.settledAt !== undefined).at(-1);
+  if (!last) return null;
+  const price = last.settlementPrice ?? 0n;
+  const itm =
+    last.strike !== undefined && price > 0n && (vault.isCall ? price > last.strike : price < last.strike);
+  return (
+    <p className="body" data-testid="last-settlement">
+      Epoch {last.epoch.toString()} settled {fmtUtc(last.settledAt!)}
+      {price > 0n
+        ? `, at ${fmtWadUsd(price)} against a ${last.strike ? fmtWadUsd(last.strike) : "—"} strike: ${itm ? "in the money, holders redeem the difference" : "expired worthless, the vault kept the premium"}.`
+        : ", with no options sold, so no price was recorded."}
+    </p>
   );
 }
 
