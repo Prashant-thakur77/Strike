@@ -370,8 +370,9 @@ export async function proxyRpc(raw: string, opts: ProxyOptions): Promise<ProxyRe
         timeoutMs,
       );
       answers = res.answers;
-      // A refused key or a network the key does not cover answers 401/403 to everything: skip it for a while too.
-      if (res.status === 401 || res.status === 403) {
+      // A refused key (401/403), a rate limit (429) or a server error: skip it for a while too. A 400 is one refused
+      // call (an eth_getLogs range), not a dead endpoint.
+      if (res.status === 401 || res.status === 403 || res.status === 429 || res.status >= 500) {
         opts.onUpstreamError?.(up.provider, `HTTP ${res.status}`);
         opts.health?.markDown(up);
       } else {

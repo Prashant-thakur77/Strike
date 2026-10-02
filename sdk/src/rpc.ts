@@ -158,11 +158,25 @@ export function describeRpc(endpoints: readonly RpcEndpoint[]): string {
   return rest.length ? `${first}, falling back to ${rest.join(", then ")}` : (first ?? "no RPC");
 }
 
+/** How long an endpoint that timed out, could not be reached or refused us (401, 403, 429, 5xx) is skipped. */
+export const RPC_COOLDOWN_MS = 30_000;
+
+/** An HTTP status that means the endpoint, not the call, failed: a refused key, a rate limit, a server error. */
+const endpointDownStatus = (status: number) =>
+  status === 401 || status === 403 || status === 429 || status >= 500;
+
+/** A thrown error that means the endpoint gave no answer: a timeout, or a request that never got a response. */
+function endpointUnreachable(err: unknown): boolean {
+  const e = err as { name?: string; status?: number } | null;
+  return e?.name === "TimeoutError" || (e?.name === "HttpRequestError" && e.status === undefined);
+}
+
 /**
  * A viem transport over the endpoints: one `http` transport each (Alchemy's key in a header), tried in order with
  * viem's `fallback`, which moves on for transport errors and RPC limits (Alchemy's free tier caps `eth_getLogs` at
- * 10 blocks) but never retries a revert. `config` goes to every `http` transport; its `retryCount` applies to the
- * whole fallback when there is more than one endpoint.
+ * 10 blocks) but never retries a revert. An endpoint that timed out, could not be reached or refused us is skipped
+ * for {@link RPC_COOLDOWN_MS} (all but the last), so an outage costs one timeout, not one per call. `config` goes to
+ * every `http` transport; its `retryCount` applies to the whole fallback when there is more than one endpoint.
  */
 export function transportFromEndpoints(
   endpoints: readonly RpcEndpoint[],
@@ -183,8 +197,38 @@ export function transportFromEndpoints(
         : {}),
     });
   if (endpoints.length === 1) return one(endpoints[0]!, config);
+  const downUntil = new Map<number, number>();
+  const markDown = (i: number) => downUntil.set(i, Date.now() + RPC_COOLDOWN_MS);
+  const guarded = (e: RpcEndpoint, i: number): Transport => {
+    if (i === endpoints.length - 1) return one(e, rest);
+    // The status is read from the response itself: viem reports a 401 or 429 with a JSON-RPC body as an RPC error.
+    const inner = one(e, {
+      ...rest,
+      onFetchResponse: (res) => {
+        if (endpointDownStatus(res.status)) markDown(i);
+        return rest.onFetchResponse?.(res);
+      },
+    });
+    return ((params: Parameters<Transport>[0]) => {
+      const t = inner(params);
+      return {
+        ...t,
+        async request(args: unknown, options?: unknown) {
+          if ((downUntil.get(i) ?? 0) > Date.now()) {
+            throw new Error(`${describeRpcEndpoint(e)} skipped for a few seconds after failing`);
+          }
+          try {
+            return await (t.request as (a: unknown, o?: unknown) => Promise<unknown>)(args, options);
+          } catch (err) {
+            if (endpointUnreachable(err)) markDown(i);
+            throw err;
+          }
+        },
+      };
+    }) as Transport;
+  };
   return fallback(
-    endpoints.map((e) => one(e, rest)),
+    endpoints.map((e, i) => guarded(e, i)),
     retryCount === undefined ? {} : { retryCount },
   );
 }

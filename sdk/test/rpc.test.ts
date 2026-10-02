@@ -1,7 +1,8 @@
 import { createPublicClient } from "viem";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ALCHEMY_NETWORKS,
+  RPC_COOLDOWN_MS,
   alchemyApiKey,
   describeRpc,
   isLocalRpcUrl,
@@ -149,38 +150,99 @@ describe("rpcTransportFor", () => {
     ]);
   });
 
-  it("falls back to the public RPC when Alchemy rate-limits or refuses a log range, without the header", async () => {
+  it("falls back to the public RPC for a refused log range and keeps using Alchemy, without the header", async () => {
     const { calls, fetchFn } = mockFetch((url, b) => {
-      if (url.includes("alchemy")) {
-        if (b.method === "eth_getLogs")
-          return json(
-            {
-              jsonrpc: "2.0",
-              id: b.id,
-              error: {
-                code: -32600,
-                message:
-                  "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.",
-              },
+      if (url.includes("alchemy") && b.method === "eth_getLogs")
+        return json(
+          {
+            jsonrpc: "2.0",
+            id: b.id,
+            error: {
+              code: -32600,
+              message:
+                "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range.",
             },
-            400,
-          );
-        return json({ jsonrpc: "2.0", id: b.id, error: { code: 429, message: "Too many requests" } }, 429);
-      }
+          },
+          400,
+        );
       return json({ jsonrpc: "2.0", id: b.id, result: b.method === "eth_getLogs" ? [] : "0x20" });
     });
     const client = createPublicClient({
       transport: rpcTransportFor(46630, { ALCHEMY_API_KEY: KEY }, { fetchFn, retryCount: 0 }),
     });
-    expect(await client.getBlockNumber({ cacheTime: 0 })).toBe(32n);
     expect(await client.getLogs({ fromBlock: 1n, toBlock: 100_000n })).toEqual([]);
+    expect(await client.getBlockNumber({ cacheTime: 0 })).toBe(32n);
     expect(calls.map((c) => [c.url.includes("alchemy") ? "alchemy" : "public", c.method])).toEqual([
-      ["alchemy", "eth_blockNumber"],
-      ["public", "eth_blockNumber"],
       ["alchemy", "eth_getLogs"],
       ["public", "eth_getLogs"],
+      ["alchemy", "eth_blockNumber"], // a refused range is not an outage: Alchemy keeps the other calls
     ]);
     for (const c of calls.filter((c) => !c.url.includes("alchemy"))) expect(c.auth).toBeNull();
+  });
+
+  it("skips Alchemy for 30 s after a rate limit, a refused key or a timeout, then tries it again", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      let mode: "429" | "401" | "hang" | "ok" = "429";
+      const { calls, fetchFn } = mockFetch((url, b) => {
+        if (url.includes("alchemy")) {
+          if (mode === "429")
+            return json(
+              { jsonrpc: "2.0", id: b.id, error: { code: 429, message: "Too many requests" } },
+              429,
+            );
+          if (mode === "401")
+            return json(
+              { jsonrpc: "2.0", id: b.id, error: { code: -32600, message: "Must be authenticated!" } },
+              401,
+            );
+          if (mode === "ok") return json({ jsonrpc: "2.0", id: b.id, result: "0xa1" });
+        }
+        return json({ jsonrpc: "2.0", id: b.id, result: "0x20" });
+      });
+      // "hang": Alchemy never answers; the 50 ms timeout aborts it.
+      const hangingFetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (mode === "hang" && String(input).includes("alchemy")) {
+          calls.push({ url: String(input), auth: null, method: "hang" });
+          return new Promise<Response>((_, reject) =>
+            init?.signal?.addEventListener("abort", () =>
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" })),
+            ),
+          );
+        }
+        return fetchFn(input, init);
+      }) as typeof fetch;
+      const client = createPublicClient({
+        transport: rpcTransportFor(
+          46630,
+          { ALCHEMY_API_KEY: KEY },
+          { fetchFn: hangingFetch, retryCount: 0, timeout: 50 },
+        ),
+      });
+      const where = () => calls.map((c) => (c.url.includes("alchemy") ? "alchemy" : "public"));
+      const block = () => client.getBlockNumber({ cacheTime: 0 });
+
+      expect(await block()).toBe(32n); // 429: public answers, Alchemy cools down
+      expect(await block()).toBe(32n); // skipped: no request to Alchemy
+      expect(where()).toEqual(["alchemy", "public", "public"]);
+
+      for (const next of ["401", "hang"] as const) {
+        vi.setSystemTime(Date.now() + RPC_COOLDOWN_MS + 1);
+        mode = next;
+        calls.length = 0;
+        expect(await block()).toBe(32n);
+        expect(await block()).toBe(32n);
+        expect(where(), next).toEqual(["alchemy", "public", "public"]);
+      }
+
+      vi.setSystemTime(Date.now() + RPC_COOLDOWN_MS + 1);
+      mode = "ok";
+      calls.length = 0;
+      expect(await block()).toBe(161n);
+      expect(where()).toEqual(["alchemy"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not retry a revert on the public RPC", async () => {

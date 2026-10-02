@@ -247,7 +247,7 @@ test.describe("rpc proxy core", () => {
     expect(Date.now() - started).toBeLessThan(2_000);
   });
 
-  test("skips an upstream that gave no answer or refused the key for 30 s, never the last one", async () => {
+  test("skips an upstream that gave no answer, refused the key or rate-limited for 30 s, never the last one", async () => {
     pure();
     let now = 0;
     const health = new UpstreamHealth(() => now);
@@ -282,6 +282,26 @@ test.describe("rpc proxy core", () => {
     expect(await ask()).toBe("0xb2"); // a refused key also trips it
     expect(await ask()).toBe("0xb2");
     expect(hosts()).toEqual(["alchemy", "public", "public", "alchemy", "alchemy", "public", "public"]);
+
+    // A rate limit (429) trips it; a refused call (400, an eth_getLogs range) does not.
+    for (const [status, skipped] of [
+      [429, true],
+      [400, false],
+    ] as const) {
+      const h = new UpstreamHealth(() => now);
+      const seen = upstreamRaw(async (url) =>
+        url.includes("alchemy")
+          ? new Response(body({ jsonrpc: "2.0", id: 0, error: { code: -32005, message: "refused" } }), {
+              status,
+            })
+          : new Response(body({ jsonrpc: "2.0", id: 0, result: "0xb2" })),
+      );
+      const o = { upstreams: [ALCHEMY, PUBLIC], fetch: seen.fetchFn, health: h };
+      await proxyRpc(body(req(1, "eth_getLogs", [{ fromBlock: "0x1", toBlock: "0x2" }])), o);
+      await proxyRpc(body(req(2, "eth_blockNumber")), o);
+      const alchemyCalls = seen.calls.filter((c) => c.url.includes("alchemy")).length;
+      expect(alchemyCalls, `HTTP ${status}`).toBe(skipped ? 1 : 2);
+    }
 
     // The last upstream is tried even while marked down.
     const lonely = { provider: "public" as const, url: "https://public-down.example" };

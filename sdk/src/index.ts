@@ -53,6 +53,7 @@ export type {
 export { createStrikeClient, resolveAddresses } from "./client.js";
 export {
   ALCHEMY_NETWORKS,
+  RPC_COOLDOWN_MS,
   alchemyApiKey,
   alchemyEndpoint,
   describeRpc,
