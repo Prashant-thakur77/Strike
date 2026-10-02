@@ -10,11 +10,18 @@ import {
 } from "@strike/sdk";
 import { type Hex, createPublicClient, createWalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
+import { findDeploymentVersion, normalizeVersion } from "./deployments.js";
 
 /** Server configuration from the environment. */
 export interface StrikeMcpConfig {
   /** STRIKE_CHAIN_ID (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet). */
   chainId: number;
+  /**
+   * STRIKE_DEPLOYMENT_VERSION ("v2", "v3"): which of the chain's deployments to use, for v3 next to v2 on Robinhood
+   * Chain testnet. Default: the SDK's default deployment for the chain, with the STRIKE_EPOCH_MANAGER-style address
+   * overrides on top (those do not apply to a deployment picked here).
+   */
+  deploymentVersion?: string;
   /** The first RPC endpoint's URL, for display. Never carries an API key (Alchemy's goes in a header). */
   rpcUrl: string;
   /**
@@ -36,6 +43,14 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): StrikeMcpCo
   if (!Number.isInteger(chainId) || chainId <= 0)
     throw new Error(`invalid STRIKE_CHAIN_ID: ${env.STRIKE_CHAIN_ID}`);
   const rpcEndpoints = rpcEndpointsFor(chainId, env);
+  const rawVersion = env.STRIKE_DEPLOYMENT_VERSION?.trim();
+  let deploymentVersion: string | undefined;
+  if (rawVersion) {
+    deploymentVersion = normalizeVersion(rawVersion) ?? undefined;
+    if (!deploymentVersion)
+      throw new Error(`invalid STRIKE_DEPLOYMENT_VERSION: ${rawVersion} (use v2 or v3)`);
+    findDeploymentVersion(chainId, deploymentVersion, (m) => new Error(`STRIKE_DEPLOYMENT_VERSION: ${m}`));
+  }
   const readOnly = env.STRIKE_MCP_READ_ONLY === "1" || env.STRIKE_MCP_READ_ONLY === "true";
   const keyEnv = strikeSecretName("agentKey"); // STRIKE_AGENT_PRIVATE_KEY
   const key = readOnly ? undefined : env[keyEnv]?.trim();
@@ -44,6 +59,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): StrikeMcpCo
   }
   return {
     chainId,
+    deploymentVersion,
     rpcUrl: rpcEndpoints[0]!.url,
     rpcEndpoints,
     privateKey: key ? (key as Hex) : undefined,
@@ -62,7 +78,10 @@ export function clientFromConfig(config: StrikeMcpConfig): StrikeClient {
     ? createWalletClient({ account: privateKeyToAccount(config.privateKey), chain, transport })
     : undefined;
   try {
-    return createStrikeClient({ publicClient, walletClient, chainId: config.chainId });
+    const deployment = config.deploymentVersion
+      ? findDeploymentVersion(config.chainId, config.deploymentVersion)
+      : undefined;
+    return createStrikeClient({ publicClient, walletClient, chainId: config.chainId, deployment });
   } catch (err) {
     throw new Error(
       `${err instanceof Error ? err.message : String(err)}. Deploy Strike there and run \`node scripts/export-abis.mjs\`, or set STRIKE_CHAIN_ID to a deployed chain (31337 for the local devnet: scripts/demo-local.sh).`,

@@ -102,6 +102,7 @@ async function previewProposal(_vault: Address, p: ProposalParams) {
 // The buyer side: a live 389.79 call (2.44 USDG per option) and a live 350 put (1.50 USDG per option).
 const PUT_VAULT = addr(0x1002);
 const USDG = addr(0xd6);
+const EPOCH_MANAGER = addr(0xe0);
 const BUYER = addr(0xb0b);
 const callSeries: SeriesState = {
   id: 42n,
@@ -256,7 +257,7 @@ function stub(opts: StubOptions = {}) {
   const series = opts.series ?? [callSeries, putSeries];
   const client = {
     viem: { walletClient: opts.wallet ? { account: { address: AGENT } } : undefined },
-    addresses: { usdg: USDG },
+    addresses: { usdg: USDG, epochManager: EPOCH_MANAGER },
     listVaults: async () => vaults,
     getVault: async (a: Address) => vaults.find((v) => v.address === a) ?? vault,
     getSeries: async (id: bigint) => series.find((s) => s.id === id) ?? null,

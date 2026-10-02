@@ -61,10 +61,18 @@ export function seriesView(s: SeriesState, underlyingDecimals: number) {
   };
 }
 
-/** A vault in human units (used by list_vaults and vault_state). */
-export function vaultView(v: VaultState) {
+/** Which deployment a vault belongs to: its chain and protocol version (null when the SDK's map names none). */
+export interface DeploymentLabel {
+  chainId: number;
+  version: string | null;
+}
+
+/** A vault in human units (used by list_vaults and vault_state), labelled with its chain and deployment version. */
+export function vaultView(v: VaultState, label: DeploymentLabel) {
   return {
     address: v.address,
+    chainId: label.chainId,
+    version: label.version,
     name: v.name,
     symbol: v.symbol,
     kind: v.kind,

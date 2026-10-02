@@ -29,6 +29,7 @@ import {
   roundStrikeToCent,
   formatAmount,
   formatWad,
+  deploymentForEpochManager,
   getDeployment,
   mandateProblems,
   maxProposalSize,
@@ -37,15 +38,28 @@ import {
   parseWad,
   strikeChains,
   strikeForDelta,
+  strikeVaultAbi,
   vaultCapacity,
   wadToNumber,
 } from "@strike/sdk";
 import { type Address, erc20Abi, getAddress, isAddress } from "viem";
 import { z } from "zod";
-import { absDelta, failure, iso, mandateView, result, usd, usdg, vaultView } from "./format.js";
+import {
+  type DeploymentLabel,
+  absDelta,
+  failure,
+  iso,
+  mandateView,
+  result,
+  usd,
+  usdg,
+  vaultView,
+} from "./format.js";
+import { normalizeVersion } from "./deployments.js";
 import {
   agentSchema,
   createVaultShape,
+  deploymentSchema,
   hedgePlanShape,
   hedgeSchema,
   registerAgentShape,
@@ -59,6 +73,12 @@ import {
 export const SERVER_VERSION = "0.1.0";
 export const SKILL_URI = "strike://skill";
 
+/** One Strike deployment a server reads: a client bound to it and its protocol version ("v2", "v3"). */
+export interface DeploymentClient {
+  version: string | null;
+  client: StrikeClient;
+}
+
 /** Options for {@link createStrikeMcpServer}. */
 export interface StrikeMcpOptions {
   chainId: number;
@@ -67,6 +87,13 @@ export interface StrikeMcpOptions {
    * when the client cannot be built, for example on a chain without a deployment.
    */
   client: () => StrikeClient;
+  /**
+   * Every deployment the read tools cover, the chain's default first (the remote endpoint passes one per
+   * `deploymentsFor(chainId)` entry). list_vaults and hedge_plan then list them all, a tool given a vault reads it
+   * through the deployment its `manager()` names, and a series id is looked up in each. Agent ids and share symbols
+   * resolve in the first one unless a tool says otherwise. Default: `client` alone.
+   */
+  deployments?: () => readonly DeploymentClient[];
   /** Where STRIKE_SKILL.md lives (default: docs/STRIKE_SKILL.md in the repository). */
   skillPath?: string | URL;
   /** STRIKE_SKILL.md's text, when the host embeds it (a bundled web server has no repository to read from). */
@@ -112,7 +139,9 @@ const DEFAULT_TARGET_DELTA = 0.2;
 const vaultInput = z
   .string()
   .min(1)
-  .describe("Vault address (0x...) or share symbol such as sTSLA-CC (see list_vaults)");
+  .describe(
+    "Vault address (0x...) or share symbol such as sTSLA-CC (see list_vaults). A symbol that two deployments share means the default deployment's vault; pass the address for the other",
+  );
 const decimalInput = z.union([z.number().nonnegative(), z.string().regex(/^\d+(\.\d+)?$/)]);
 const proposalInput = {
   vault: vaultInput,
@@ -170,12 +199,17 @@ async function run(fn: () => Promise<CallToolResult>): Promise<CallToolResult> {
 
 const round = (x: number, digits = 4) => Number(x.toFixed(digits));
 
+/** The vault whose share symbol or name is `ref` (any case), or undefined. */
+function findVault(vaults: readonly VaultState[], ref: string): VaultState | undefined {
+  const wanted = ref.trim().toLowerCase();
+  return vaults.find((v) => v.symbol.toLowerCase() === wanted || v.name.toLowerCase() === wanted);
+}
+
 /** A vault address from an address or a share symbol / name. */
 async function resolveVault(strike: StrikeClient, ref: string): Promise<Address> {
   if (isAddress(ref)) return getAddress(ref);
   const vaults = await strike.listVaults();
-  const wanted = ref.trim().toLowerCase();
-  const match = vaults.find((v) => v.symbol.toLowerCase() === wanted || v.name.toLowerCase() === wanted);
+  const match = findVault(vaults, ref);
   if (!match) {
     throw new StrikeError(
       `unknown vault "${ref}"; known vaults: ${vaults.map((v) => v.symbol).join(", ") || "none"}`,
@@ -635,6 +669,93 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     }) as typeof server.registerTool;
   }
 
+  // The deployments the read tools cover: `options.deployments`, else the one client, labelled with the version the
+  // SDK's map gives its EpochManager.
+  const deployments = (): readonly DeploymentClient[] => {
+    const listed = options.deployments?.();
+    if (listed?.length) return listed;
+    const strike = client();
+    const em = strike.addresses?.epochManager;
+    return [{ version: (em && deploymentForEpochManager(chainId, em)?.version) || null, client: strike }];
+  };
+  const label = (d: DeploymentClient): DeploymentLabel => ({ chainId, version: d.version });
+  const versionsOf = (all: readonly DeploymentClient[]) =>
+    all.map((d) => d.version ?? "unversioned").join(", ");
+
+  /** The deployment a vault belongs to (its `manager()` is that deployment's EpochManager) and its address. */
+  async function vaultDeployment(ref: string): Promise<{ d: DeploymentClient; address: Address }> {
+    const all = deployments();
+    const first = all[0] as DeploymentClient;
+    if (all.length === 1) return { d: first, address: await resolveVault(first.client, ref) };
+    if (isAddress(ref)) {
+      const address = getAddress(ref);
+      const manager = await first.client.viem.publicClient
+        .readContract({ address, abi: strikeVaultAbi, functionName: "manager" })
+        .catch(() => null);
+      const d = manager
+        ? all.find((x) => x.client.addresses.epochManager.toLowerCase() === manager.toLowerCase())
+        : undefined;
+      if (!d) {
+        throw new StrikeError(
+          `${address} is not a vault of a Strike deployment on chain ${chainId} (deployments: ${versionsOf(all)})`,
+        );
+      }
+      return { d, address };
+    }
+    // A symbol or name: the default deployment first, since v2 and v3 vaults share symbols such as sTSLA-CC.
+    const known: string[] = [];
+    for (const d of all) {
+      const vaults = await d.client.listVaults();
+      const match = findVault(vaults, ref);
+      if (match) return { d, address: match.address };
+      known.push(...vaults.map((v) => `${v.symbol} (${d.version ?? "unversioned"})`));
+    }
+    throw new StrikeError(`unknown vault "${ref}"; known vaults: ${known.join(", ") || "none"}`);
+  }
+
+  /** The deployment whose EpochManager has series `id` (ids hash the vault, so at most one), else the default. */
+  async function seriesDeployment(id: bigint): Promise<DeploymentClient> {
+    const all = deployments();
+    if (all.length === 1) return all[0] as DeploymentClient;
+    const found = await Promise.all(all.map((d) => d.client.getSeries(id).catch(() => null)));
+    return all[
+      Math.max(
+        found.findIndex((x) => x !== null),
+        0,
+      )
+    ] as DeploymentClient;
+  }
+
+  /**
+   * Every vault of every deployment, the default deployment's first. With several deployments, one that cannot be
+   * read is reported in `error` instead of failing the whole list.
+   */
+  async function readAllVaults(): Promise<
+    { d: DeploymentClient; vaults: VaultState[]; error: string | null }[]
+  > {
+    const all = deployments();
+    return Promise.all(
+      all.map(async (d) => {
+        try {
+          return { d, vaults: await d.client.listVaults(), error: null };
+        } catch (err) {
+          if (all.length === 1) throw err;
+          return { d, vaults: [], error: explainError(err) };
+        }
+      }),
+    );
+  }
+
+  /** The deployment with protocol version `version` ("v3" or "3"), or the default one when it is undefined. */
+  function deploymentByVersion(version: string | undefined): DeploymentClient {
+    const all = deployments();
+    if (version === undefined) return all[0] as DeploymentClient;
+    const wanted = normalizeVersion(version);
+    const d = wanted ? all.find((x) => x.version?.toLowerCase() === wanted) : undefined;
+    if (!d) throw new StrikeError(`no ${version} deployment here; this server reads ${versionsOf(all)}`);
+    return d;
+  }
+
   server.registerResource(
     "strike-skill",
     SKILL_URI,
@@ -662,7 +783,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "Strike protocol info",
       description:
-        "Describe Strike, the chain this server is connected to, whether it can send transactions, and the chains the SDK knows (Strike is deployed on Robinhood Chain testnet, 46630, and Arbitrum Sepolia, 421614).",
+        "Describe Strike, the chain this server is connected to and the deployments (v2, v3) it reads there, whether it can send transactions, and the chains the SDK knows (Strike is deployed on Robinhood Chain testnet, 46630, and Arbitrum Sepolia, 421614).",
       inputSchema: {},
       outputSchema: {
         protocol: z.string(),
@@ -673,6 +794,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         mode: z.enum(["read-only", "agent"]),
         agentAddress: z.string().nullable(),
         deployed: z.boolean(),
+        deployments: z.array(deploymentSchema),
         skillResource: z.string(),
         chains: z.array(z.object({ id: z.number(), name: z.string() })),
       },
@@ -681,8 +803,14 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     async () => {
       let agentAddress: string | null = null;
       let deployed = true;
+      let read: z.infer<typeof deploymentSchema>[] = [];
       try {
         agentAddress = client().viem.walletClient?.account?.address ?? null;
+        read = deployments().map((d, i) => ({
+          ...label(d),
+          epochManager: d.client.addresses.epochManager,
+          default: i === 0,
+        }));
       } catch {
         deployed = false;
       }
@@ -696,6 +824,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         mode: agentAddress ? "agent" : "read-only",
         agentAddress,
         deployed,
+        deployments: read,
         skillResource: SKILL_URI,
         chains: Object.values(strikeChains).map((c) => ({ id: c.id, name: c.name })),
       });
@@ -707,15 +836,34 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     {
       title: "List vaults",
       description:
-        "Every Strike vault: underlying stock, covered call or cash-secured put, collateral, epoch state, agent, mandate and live series.",
+        "Every Strike vault of every deployment this server reads (each labelled with its chainId and version, v2 or v3): underlying stock, covered call or cash-secured put, collateral, epoch state, agent, mandate and live series.",
       inputSchema: {},
-      outputSchema: { chainId: z.number(), vaults: z.array(vaultSchema) },
+      outputSchema: {
+        chainId: z.number(),
+        deployments: z.array(
+          deploymentSchema.extend({
+            vaults: z.number(),
+            error: z.string().nullable().describe("Why this deployment could not be read, else null"),
+          }),
+        ),
+        vaults: z.array(vaultSchema),
+      },
       annotations: READ_ONLY,
     },
     async () =>
       run(async () => {
-        const vaults = await client().listVaults();
-        return result({ chainId, vaults: vaults.map(vaultView) });
+        const read = await readAllVaults();
+        return result({
+          chainId,
+          deployments: read.map(({ d, vaults, error }, i) => ({
+            ...label(d),
+            epochManager: d.client.addresses.epochManager,
+            default: i === 0,
+            vaults: vaults.length,
+            error,
+          })),
+          vaults: read.flatMap(({ d, vaults }) => vaults.map((v) => vaultView(v, label(d)))),
+        });
       }),
   );
 
@@ -755,8 +903,9 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     },
     async ({ vault }) =>
       run(async () => {
-        const strike = client();
-        const v = await strike.getVault(await resolveVault(strike, vault));
+        const { d, address } = await vaultDeployment(vault);
+        const strike = d.client;
+        const v = await strike.getVault(address);
         const [oracle, marketOpen, now, expiry, agent] = await Promise.all([
           strike.oracleStatus(v.underlying),
           strike.marketOpen(),
@@ -765,7 +914,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           strike.getAgent(v.agentId),
         ]);
         return result({
-          vault: vaultView(v),
+          vault: vaultView(v, label(d)),
           spot: {
             price: oracle.price === 0n ? null : usd(oracle.price),
             status: oracle.status,
@@ -825,11 +974,15 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     },
     async ({ vault, seriesId, amount }) =>
       run(async () => {
-        const strike = client();
+        let strike: StrikeClient;
         let id: bigint;
-        if (seriesId !== undefined) id = BigInt(seriesId);
-        else if (vault !== undefined) {
-          const v = await strike.getVault(await resolveVault(strike, vault));
+        if (seriesId !== undefined) {
+          id = BigInt(seriesId);
+          strike = (await seriesDeployment(id)).client;
+        } else if (vault !== undefined) {
+          const { d, address } = await vaultDeployment(vault);
+          strike = d.client;
+          const v = await strike.getVault(address);
           if (!v.series)
             throw new StrikeError(`vault ${v.symbol} has no live series (epoch is ${v.epoch.state})`);
           id = v.series.id;
@@ -890,58 +1043,74 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     },
     async ({ vault, underlying, position, side }) =>
       run(async () => {
-        const strike = client();
         const pos = parsePosition(position);
         const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
         if (underlying && pos.symbol && !same(underlying, pos.symbol)) {
           throw new StrikeError(`underlying ${underlying} and position ${pos.symbol} disagree`);
         }
-        let vaults: VaultState[];
+        // Each candidate vault with the deployment it belongs to: quotes and sale cutoffs come from that one.
+        let vaults: { v: VaultState; d: DeploymentClient }[];
         let wanted: "long" | "short";
         if (vault !== undefined) {
-          const v = await strike.getVault(await resolveVault(strike, vault));
+          const { d, address } = await vaultDeployment(vault);
+          const v = await d.client.getVault(address);
           const other = underlying ?? pos.symbol;
           if (other && !same(other, v.underlyingSymbol)) {
             throw new StrikeError(`${v.symbol} is a ${v.underlyingSymbol} vault, not ${other}`);
           }
           wanted = side ?? (v.isCall ? "short" : "long");
-          vaults = [v];
+          vaults = [{ v, d }];
         } else {
           const ref = underlying ?? pos.symbol;
           if (!ref)
             throw new StrikeError('give a vault, an underlying symbol, or a position such as "10 TSLA"');
-          const all = await strike.listVaults();
-          vaults = all.filter((v) => same(v.underlyingSymbol, ref));
+          const all = (await readAllVaults()).flatMap(({ d, vaults: vs }) => vs.map((v) => ({ v, d })));
+          vaults = all.filter(({ v }) => same(v.underlyingSymbol, ref));
           if (vaults.length === 0) {
-            const known = [...new Set(all.map((v) => v.underlyingSymbol))].join(", ") || "none";
+            const known = [...new Set(all.map(({ v }) => v.underlyingSymbol))].join(", ") || "none";
             throw new StrikeError(`no Strike vault on ${ref}; vaults exist on: ${known}`);
           }
           wanted = side ?? "long";
         }
-        const first = vaults[0] as VaultState;
+        const { v: first, d: firstDeployment } = vaults[0] as { v: VaultState; d: DeploymentClient };
+        const strike = firstDeployment.client;
         const symbol = first.underlyingSymbol;
         const dec = first.underlyingDecimals;
         const positionRaw = parseAmount(pos.amount, dec);
         if (positionRaw === 0n) throw new StrikeError("position must be positive");
-        const [now, cutoff, marketOpen, oracle, usdgDecimals] = await Promise.all([
-          strike.blockTimestamp(),
-          strike.saleCutoff(),
-          strike.marketOpen(),
-          strike.oracleStatus(first.underlying),
-          strike.usdgDecimals(),
-        ]);
+        const [now, marketOpen] = await Promise.all([strike.blockTimestamp(), strike.marketOpen()]);
+        const cutoffs = new Map<DeploymentClient, Promise<number>>();
+        const cutoffOf = (d: DeploymentClient) => {
+          let c = cutoffs.get(d);
+          if (!c) cutoffs.set(d, (c = d.client.saleCutoff()));
+          return c;
+        };
+        // Name a vault outside the default deployment by its address: symbols repeat across deployments.
+        const deps = deployments();
+        const multi = deps.length > 1;
+        const defaultEm = deps[0]?.client.addresses.epochManager;
+        const ref = (v: VaultState, d: DeploymentClient) =>
+          multi && d.client.addresses.epochManager !== defaultEm ? v.address : v.symbol;
 
         const wantCall = wanted === "short";
         const kindWord = optionWord(wantCall);
         const considered: z.infer<typeof hedgePlanShape.considered> = [];
-        const plans: { v: VaultState; s: SeriesState; options: bigint; premium: bigint }[] = [];
-        for (const v of vaults) {
-          const entry = { vault: v.address, vaultSymbol: v.symbol, kind: v.kind };
+        const plans: {
+          v: VaultState;
+          d: DeploymentClient;
+          s: SeriesState;
+          options: bigint;
+          premium: bigint;
+          cutoff: number;
+        }[] = [];
+        for (const { v, d } of vaults) {
+          const entry = { vault: v.address, vaultSymbol: v.symbol, version: d.version, kind: v.kind };
           if (v.isCall !== wantCall) {
             const note = `sells ${optionWord(v.isCall)}s, which do not hedge a ${wanted} position`;
             considered.push({ ...entry, usable: false, note });
             continue;
           }
+          const cutoff = await cutoffOf(d);
           const blocked = saleBlocker(v, now, cutoff);
           if (blocked) {
             considered.push({ ...entry, usable: false, note: blocked });
@@ -951,8 +1120,8 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           const left = s.size - s.sold;
           const options = positionRaw < left ? positionRaw : left;
           try {
-            const q = await strike.quoteBuy(s.id, options);
-            plans.push({ v, s, options, premium: q.premium });
+            const q = await d.client.quoteBuy(s.id, options);
+            plans.push({ v, d, s, options, premium: q.premium, cutoff });
             const note = `series ${s.id}: strike $${usd(s.strike)}, ${formatAmount(left, dec)} options left, ${usdg(q.premium)} USDG for ${formatAmount(options, dec)}`;
             considered.push({ ...entry, usable: true, note });
           } catch (err) {
@@ -968,6 +1137,9 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
             cmp(a.premium, b.premium),
         );
 
+        // The spot from the oracle of the deployment that would sell the hedge.
+        const priced = plans[0] ?? { v: first, d: firstDeployment };
+        const oracle = await priced.d.client.oracleStatus(priced.v.underlying);
         const spot = oracle.price === 0n ? null : oracle.price;
         const positionAmount = formatAmount(positionRaw, dec);
         const base = {
@@ -980,7 +1152,9 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         };
         const best = plans[0];
         if (!best) {
-          const why = considered.map((c) => `${c.vaultSymbol}: ${c.note}`).join("; ");
+          const why = considered
+            .map((c) => `${c.vaultSymbol}${multi ? ` (${c.version ?? "unversioned"})` : ""}: ${c.note}`)
+            .join("; ");
           return result({
             ...base,
             hedgeable: false,
@@ -990,7 +1164,8 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           });
         }
 
-        const { v, s, options, premium } = best;
+        const { v, d, s, options, premium, cutoff } = best;
+        const usdgDecimals = await d.client.usdgDecimals();
         const spotWad = spot ?? 0n;
         const per = perOption(premium, options, dec);
         const perWad = usdgToWad(per, usdgDecimals);
@@ -1007,12 +1182,13 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         const protection = wantCall
           ? `At expiry, buying back each covered token costs at most $${K} ($${usd(effective)} with the premium): above the strike each call pays (S − K) / S ${symbol}.`
           : `At expiry each covered token is worth at least $${K} ($${usd(effective)} after the premium): below the strike each put pays K − S in USDG.`;
-        let explanation = `Hedge ${wantCall ? "a short of " : ""}${positionAmount} ${symbol} with ${opts} ${kindWord}s of ${v.symbol} (series ${s.id}, strike $${K}, expiry ${iso(s.expiry)}): ${usdg(premium)} USDG now (${usdg(per)} per option, ${round(costBps / 100, 2)}% of the covered value at $${usd(spotWad)}). ${protection} Worst case versus today, premium included: a loss of $${usd(maxLoss)}.`;
+        const named = multi ? `${v.symbol} (${d.version ?? "unversioned"})` : v.symbol;
+        let explanation = `Hedge ${wantCall ? "a short of " : ""}${positionAmount} ${symbol} with ${opts} ${kindWord}s of ${named} (series ${s.id}, strike $${K}, expiry ${iso(s.expiry)}): ${usdg(premium)} USDG now (${usdg(per)} per option, ${round(costBps / 100, 2)}% of the covered value at $${usd(spotWad)}). ${protection} Worst case versus today, premium included: a loss of $${usd(maxLoss)}.`;
         if (options < positionRaw) {
           explanation += ` Only ${opts} options are left, so ${formatAmount(positionRaw - options, dec)} ${symbol} stay unhedged.`;
         }
         explanation += marketOpen
-          ? ` Buy it with buy_options { "vault": "${v.symbol}", "amount": "${opts}" } before ${iso(closes)}.`
+          ? ` Buy it with buy_options { "vault": "${ref(v, d)}", "amount": "${opts}" } before ${iso(closes)}.`
           : ` Not buyable right now: ${ERROR_HINTS.MarketClosed}`;
         return result({
           ...base,
@@ -1022,6 +1198,7 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           hedge: {
             vault: v.address,
             vaultSymbol: v.symbol,
+            version: d.version,
             seriesId: s.id.toString(),
             optionType: kindWord,
             strike: K,
@@ -1297,7 +1474,11 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
       outputSchema: riskCheckShape,
       annotations: READ_ONLY,
     },
-    async (input) => run(async () => result((await evaluate(client(), input)).report)),
+    async (input) =>
+      run(async () => {
+        const { d, address } = await vaultDeployment(input.vault);
+        return result((await evaluate(d.client, { ...input, vault: address })).report);
+      }),
   );
 
   server.registerTool(
@@ -1521,26 +1702,37 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         "An agent's bond, strikes, accepted and rejected proposals, on-chain track record (settled epochs, cumulative USDG PnL), fees and how many rejections it can absorb. Defaults to this server's agent, else the vault's agent.",
       inputSchema: {
         agentId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/)]).optional(),
-        vault: vaultInput.optional().describe("Use this vault's agent"),
+        vault: vaultInput.optional().describe("Use this vault's agent (in the vault's own deployment)"),
+        version: z
+          .string()
+          .regex(/^[vV]?\d+$/)
+          .optional()
+          .describe(
+            "Deployment (v2, v3) whose AgentRegistry the agentId is in: agent ids are per deployment. Default: this server's default deployment (strike_info lists them)",
+          ),
       },
       outputSchema: agentSchema.shape,
       annotations: READ_ONLY,
     },
-    async ({ agentId, vault }) =>
+    async ({ agentId, vault, version }) =>
       run(async () => {
-        const strike = client();
+        let d = deploymentByVersion(version);
         let id: bigint | undefined;
         if (agentId !== undefined) id = BigInt(agentId);
-        else if (vault !== undefined) id = (await strike.getVault(await resolveVault(strike, vault))).agentId;
-        else {
-          const me = strike.viem.walletClient?.account?.address;
-          if (me) id = await strike.agentOfSigner(me);
+        else if (vault !== undefined) {
+          const found = await vaultDeployment(vault);
+          d = found.d;
+          id = (await d.client.getVault(found.address)).agentId;
+        } else {
+          const me = d.client.viem.walletClient?.account?.address;
+          if (me) id = await d.client.agentOfSigner(me);
         }
         if (!id)
           throw new StrikeError("give an agentId or a vault (this server has no registered agent key)");
-        const s = await strike.agentStats(id);
+        const s = await d.client.agentStats(id);
         return result({
           agentId: s.agentId.toString(),
+          version: d.version,
           status: s.status,
           active: s.active,
           owner: s.owner,
@@ -1586,11 +1778,15 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
     },
     async ({ vault, seriesId }) =>
       run(async () => {
-        const strike = client();
+        let strike: StrikeClient;
         let id: bigint;
-        if (seriesId !== undefined) id = BigInt(seriesId);
-        else if (vault !== undefined) {
-          const v = await strike.getVault(await resolveVault(strike, vault));
+        if (seriesId !== undefined) {
+          id = BigInt(seriesId);
+          strike = (await seriesDeployment(id)).client;
+        } else if (vault !== undefined) {
+          const { d, address } = await vaultDeployment(vault);
+          strike = d.client;
+          const v = await strike.getVault(address);
           if (!v.series || v.epoch.state !== "Selling") {
             throw new StrikeError(
               `${v.symbol} has no live series (epoch is ${v.epoch.state}); pass a seriesId to read a past one`,

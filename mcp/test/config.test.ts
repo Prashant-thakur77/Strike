@@ -1,5 +1,6 @@
+import { deploymentsFor } from "@strike/sdk";
 import { describe, expect, it } from "vitest";
-import { configFromEnv } from "../src/config.js";
+import { clientFromConfig, configFromEnv } from "../src/config.js";
 
 const KEY = `0x${"11".repeat(32)}`;
 
@@ -61,6 +62,31 @@ describe("configFromEnv and strike.config.json", () => {
     expect(strikeSecretName("agentKey")).toBe("STRIKE_AGENT_PRIVATE_KEY");
     expect(() => configFromEnv({ STRIKE_AGENT_PRIVATE_KEY: "0x12" })).toThrow(
       /^STRIKE_AGENT_PRIVATE_KEY must be/,
+    );
+  });
+});
+
+describe("STRIKE_DEPLOYMENT_VERSION", () => {
+  const em = (chainId: number, version: string) =>
+    deploymentsFor(chainId).find((d) => d.version === version)!.epochManager;
+
+  it("picks one of the chain's deployments (v3 next to v2 on 46630); unset keeps the SDK's default", () => {
+    const v3 = configFromEnv({ STRIKE_CHAIN_ID: "46630", STRIKE_DEPLOYMENT_VERSION: "V3" });
+    expect(v3.deploymentVersion).toBe("v3");
+    expect(clientFromConfig(v3).addresses.epochManager).toBe(em(46630, "v3"));
+    const v2 = configFromEnv({ STRIKE_CHAIN_ID: "46630", STRIKE_DEPLOYMENT_VERSION: "2" });
+    expect(clientFromConfig(v2).addresses.epochManager).toBe(em(46630, "v2"));
+    const unset = configFromEnv({ STRIKE_CHAIN_ID: "46630" });
+    expect(unset.deploymentVersion).toBeUndefined();
+    expect(clientFromConfig(unset).addresses.epochManager).toBe(deploymentsFor(46630)[0]!.epochManager);
+  });
+
+  it("refuses a version the chain does not have, or a malformed one, at startup", () => {
+    expect(() => configFromEnv({ STRIKE_CHAIN_ID: "421614", STRIKE_DEPLOYMENT_VERSION: "v2" })).toThrow(
+      /^STRIKE_DEPLOYMENT_VERSION: no v2 deployment on chain 421614; it has v3/,
+    );
+    expect(() => configFromEnv({ STRIKE_DEPLOYMENT_VERSION: "latest" })).toThrow(
+      /invalid STRIKE_DEPLOYMENT_VERSION: latest/,
     );
   });
 });

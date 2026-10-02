@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Check a remote Strike MCP endpoint with the official MCP client: connect over Streamable HTTP, list the tools,
 // and call list_vaults and risk_check. Usage: node mcp/scripts/remote-check.mjs [url]
-// (default: services.mcp in strike.config.json, https://strike-options.vercel.app/api/mcp).
+// (default: services.mcp in strike.config.json, https://strike-options.vercel.app/api/mcp; add ?chainId=421614 or
+// ?version=v3 to read one chain or deployment).
 import { readFileSync } from "node:fs";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
@@ -16,7 +17,9 @@ console.log(`tools (${tools.length}): ${tools.map((t) => t.name).join(", ")}`);
 const vaults = await client.callTool({ name: "list_vaults", arguments: {} });
 if (vaults.isError) throw new Error(`list_vaults failed: ${vaults.content[0]?.text}`);
 const list = vaults.structuredContent.vaults;
-console.log(`list_vaults: ${list.map((v) => `${v.symbol} (${v.epochState})`).join(", ")}`);
+console.log(
+  `list_vaults on ${vaults.structuredContent.chainId}: ${list.map((v) => `${v.symbol} ${v.version ?? ""} (${v.epochState})`).join(", ")}`,
+);
 
 const vault = list[0]?.symbol;
 if (vault) {

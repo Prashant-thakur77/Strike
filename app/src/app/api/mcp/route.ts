@@ -1,11 +1,13 @@
 import { handleReadOnlyMcpRequest } from "@strike/mcp/http";
 import { rpcEndpointsFor } from "@strike/sdk";
+import { RPC_OVERRIDES } from "@/lib/chains";
 import { SKILL_MD } from "@/lib/skill";
 
 // Read-only Strike MCP server over Streamable HTTP: POST /api/mcp. Stateless (a fresh server per request, JSON
-// answers, no sessions), read tools only, no signer. Chain reads are shared for a few seconds per instance, and go to
-// Alchemy first when the server has ALCHEMY_API_KEY (key in a header), then STRIKE_MCP_RPC_URL or
-// NEXT_PUBLIC_RPC_46630, then the public RPC.
+// answers, no sessions), read tools only, no signer. ?chainId=46630|421614 picks the chain (default 46630) and
+// ?version=v2|v3 one deployment on it (default: all of them). Chain reads are shared for a few seconds per instance,
+// and go to Alchemy first when the server has ALCHEMY_API_KEY (key in a header), then STRIKE_MCP_RPC_URL (46630) or
+// NEXT_PUBLIC_RPC_<chainId>, then the public RPC.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -31,10 +33,14 @@ async function handle(request: Request): Promise<Response> {
   try {
     const res = await handleReadOnlyMcpRequest(request, {
       chainId: CHAIN_ID,
-      rpcEndpoints: rpcEndpointsFor(CHAIN_ID, {
-        ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY,
-        STRIKE_RPC_URL: process.env.STRIKE_MCP_RPC_URL || process.env.NEXT_PUBLIC_RPC_46630 || undefined,
-      }),
+      rpcEndpoints: (chainId) =>
+        rpcEndpointsFor(chainId, {
+          ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY,
+          STRIKE_RPC_URL:
+            (chainId === CHAIN_ID && process.env.STRIKE_MCP_RPC_URL) ||
+            (RPC_OVERRIDES as Record<number, string | undefined>)[chainId] ||
+            undefined,
+        }),
       skillText: SKILL_MD,
     });
     return withCors(res);

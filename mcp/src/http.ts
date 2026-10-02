@@ -2,30 +2,49 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import {
   type RpcEndpoint,
   type StrikeClient,
+  type StrikeDeployment,
   createStrikeClient,
+  deploymentsFor,
   getStrikeChain,
   loadStrikeConfig,
   rpcEndpointsFor,
   transportFromEndpoints,
 } from "@strike/sdk";
-import { createPublicClient, custom } from "viem";
-import { createStrikeMcpServer } from "./server.js";
+import { type PublicClient, createPublicClient, custom } from "viem";
+import { findDeploymentVersion, normalizeVersion } from "./deployments.js";
+import { type DeploymentClient, createStrikeMcpServer } from "./server.js";
 
 // The read-only Strike MCP server over Streamable HTTP, for serverless hosts (the app serves it at /api/mcp).
 // Stateless: every request builds a fresh server and transport and answers with plain JSON, so no session has to
 // survive between invocations. Only the read-only tools are registered, and the client never has a signer.
+// Each request picks its chain and deployment with the URL's query: /api/mcp?chainId=421614, /api/mcp?version=v3.
+// Without them it reads the default chain and every deployment there (v2 and v3 on Robinhood Chain testnet).
 
 /** Options for {@link handleReadOnlyMcpRequest}. */
 export interface ReadOnlyMcpOptions {
-  /** Chain to read (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet). */
+  /**
+   * Chain to read when the request URL has no `chainId` (default: strike.config.json's defaultChainId, 46630,
+   * Robinhood Chain testnet).
+   */
   chainId?: number;
-  /** RPC URL (default: the chain's public RPC). Ignored when `rpcEndpoints` is set. */
+  /**
+   * Deployment version to read ("v2", "v3") when the request URL has no `version`. Default: every deployment on the
+   * chain, the SDK's default one first.
+   */
+  version?: string;
+  /**
+   * Chains a request may pick with `?chainId=` (default: every chain in strike.config.json with a deployment, except
+   * the local devnet). The default chain is always allowed.
+   */
+  chainIds?: readonly number[];
+  /** RPC URL for the default chain (default: the chain's public RPC). Ignored when `rpcEndpoints` is set. */
   rpcUrl?: string;
   /**
    * RPC endpoints, best first, from the SDK's `rpcEndpointsFor` (Alchemy with its key in a header, then the public
-   * RPC): reads fall back down the list.
+   * RPC): reads fall back down the list. A list applies to the default chain only (other chains read their public
+   * RPC); a function gives the endpoints for whichever chain the request picks.
    */
-  rpcEndpoints?: readonly RpcEndpoint[];
+  rpcEndpoints?: readonly RpcEndpoint[] | ((chainId: number) => readonly RpcEndpoint[]);
   /** STRIKE_SKILL.md's text for the strike://skill resource. */
   skillText?: string;
   /** How long identical RPC reads are shared between requests, in ms (default 10 000). */
@@ -78,17 +97,20 @@ export function cachedReadTransport(rpc: string | readonly RpcEndpoint[], ttlMs:
   );
 }
 
-// One read client per chain and RPC per server instance: warm serverless invocations reuse it and its cache.
+// One public client per chain and RPC, and one read client per deployment on it, per server instance: warm
+// serverless invocations reuse them, and every deployment of a chain shares one read cache.
+const publicClients = new Map<string, PublicClient>();
 const clients = new Map<string, StrikeClient>();
 
 /**
  * A read-only Strike client (no wallet) over the caching transport. `rpc` is a URL or the SDK's endpoints (default:
- * the chain's public RPC).
+ * the chain's public RPC). `deployment` picks one of the chain's deployments (default: the SDK's default one).
  */
 export function readOnlyClient(
   chainId: number,
   rpc?: string | readonly RpcEndpoint[],
   cacheTtlMs = 10_000,
+  deployment?: StrikeDeployment,
 ): StrikeClient {
   const endpoints: readonly RpcEndpoint[] =
     typeof rpc === "string" && rpc
@@ -98,14 +120,83 @@ export function readOnlyClient(
         : rpcEndpointsFor(chainId, {});
   // The cache key names the endpoints by provider and URL only: the key in a header never becomes a map key.
   const key = `${chainId}:${endpoints.map((e) => `${e.provider}@${e.url}`).join(",")}:${cacheTtlMs}`;
-  let client = clients.get(key);
+  const clientKey = `${key}:${deployment?.epochManager.toLowerCase() ?? "default"}`;
+  let client = clients.get(clientKey);
   if (!client) {
-    const chain = { ...getStrikeChain(chainId), rpcUrls: { default: { http: [endpoints[0]!.url] } } };
-    const publicClient = createPublicClient({ chain, transport: cachedReadTransport(endpoints, cacheTtlMs) });
-    client = createStrikeClient({ publicClient, chainId });
-    clients.set(key, client);
+    let publicClient = publicClients.get(key);
+    if (!publicClient) {
+      const chain = { ...getStrikeChain(chainId), rpcUrls: { default: { http: [endpoints[0]!.url] } } };
+      publicClient = createPublicClient({
+        chain,
+        transport: cachedReadTransport(endpoints, cacheTtlMs),
+      }) as PublicClient;
+      publicClients.set(key, publicClient);
+    }
+    client = createStrikeClient({ publicClient, chainId, deployment });
+    clients.set(clientKey, client);
   }
   return client;
+}
+
+/**
+ * Read-only clients for the chain's deployments, the SDK's default one first: every deployment, or only the one
+ * with `version` ("v2", "v3"). A chain without a deployment gets the default client, which throws when built.
+ */
+export function readOnlyClients(
+  chainId: number,
+  rpc?: string | readonly RpcEndpoint[],
+  cacheTtlMs = 10_000,
+  version?: string,
+): DeploymentClient[] {
+  if (version !== undefined) {
+    const d = findDeploymentVersion(chainId, version);
+    return [{ version: d.version ?? null, client: readOnlyClient(chainId, rpc, cacheTtlMs, d) }];
+  }
+  const all = deploymentsFor(chainId);
+  if (!all.length) return [{ version: null, client: readOnlyClient(chainId, rpc, cacheTtlMs) }];
+  return all.map((d) => ({
+    version: d.version ?? null,
+    client: readOnlyClient(chainId, rpc, cacheTtlMs, d),
+  }));
+}
+
+/** A request's chain and deployment version did not name something this endpoint reads. */
+export class McpTargetError extends Error {}
+
+/** Chains a request may pick by default: strike.config.json's chains with a deployment, except local ones. */
+export function remoteChainIds(): number[] {
+  return Object.entries(loadStrikeConfig().chains)
+    .filter(([id, c]) => !c.local && deploymentsFor(Number(id)).length > 0)
+    .map(([id]) => Number(id));
+}
+
+/**
+ * The chain and deployment version a request reads: `?chainId=` and `?version=` from its URL, else the options'.
+ * Throws {@link McpTargetError} for a chain this endpoint does not read or a version the chain does not have.
+ */
+export function mcpTarget(
+  url: string,
+  options: Pick<ReadOnlyMcpOptions, "chainId" | "version" | "chainIds"> = {},
+): { chainId: number; version?: string } {
+  const query = new URL(url).searchParams;
+  const defaultChainId = options.chainId ?? loadStrikeConfig().defaultChainId;
+  const rawChain = query.get("chainId")?.trim();
+  let chainId = defaultChainId;
+  if (rawChain) {
+    const allowed = [...new Set([defaultChainId, ...(options.chainIds ?? remoteChainIds())])];
+    chainId = /^\d+$/.test(rawChain) ? Number(rawChain) : Number.NaN;
+    if (!allowed.includes(chainId)) {
+      throw new McpTargetError(
+        `unknown chainId ${rawChain.slice(0, 24)}: this endpoint reads chains ${allowed.join(", ")}`,
+      );
+    }
+  }
+  const rawVersion = query.get("version")?.trim() || options.version;
+  if (!rawVersion) return { chainId };
+  const version = normalizeVersion(rawVersion);
+  if (!version) throw new McpTargetError(`invalid version ${rawVersion.slice(0, 24)}: use v2 or v3`);
+  findDeploymentVersion(chainId, version, (m) => new McpTargetError(m));
+  return { chainId, version };
 }
 
 /**
@@ -126,12 +217,32 @@ export async function handleReadOnlyMcpRequest(
       { status: 405, headers: { Allow: "POST" } },
     );
   }
-  const chainId = options.chainId ?? loadStrikeConfig().defaultChainId;
+  let target: { chainId: number; version?: string };
+  try {
+    target = mcpTarget(request.url, options);
+  } catch (err) {
+    if (!(err instanceof McpTargetError)) throw err;
+    return Response.json(
+      { jsonrpc: "2.0", error: { code: -32602, message: err.message }, id: null },
+      { status: 400 },
+    );
+  }
+  const { chainId, version } = target;
+  const isDefaultChain = chainId === (options.chainId ?? loadStrikeConfig().defaultChainId);
+  const rpc =
+    typeof options.rpcEndpoints === "function"
+      ? options.rpcEndpoints(chainId)
+      : isDefaultChain
+        ? (options.rpcEndpoints ?? options.rpcUrl)
+        : undefined;
+  let built: DeploymentClient[] | undefined;
+  const deployments = () => (built ??= readOnlyClients(chainId, rpc, options.cacheTtlMs, version));
   const server = createStrikeMcpServer({
     chainId,
     readOnly: true,
     skillText: options.skillText,
-    client: () => readOnlyClient(chainId, options.rpcEndpoints ?? options.rpcUrl, options.cacheTtlMs),
+    client: () => deployments()[0]!.client,
+    deployments,
   });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

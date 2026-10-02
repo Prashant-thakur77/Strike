@@ -34,8 +34,15 @@ export const seriesSchema = z.object({
 
 const tokenSchema = z.object({ address, symbol: z.string(), decimals: z.number() });
 
+const versionSchema = z
+  .string()
+  .nullable()
+  .describe("Protocol version of the deployment (v2, v3); null when the SDK's map does not name one");
+
 export const vaultSchema = z.object({
   address,
+  chainId: z.number(),
+  version: versionSchema,
   name: z.string(),
   symbol: z.string(),
   kind: z.enum(["covered-call", "cash-secured-put"]),
@@ -53,6 +60,16 @@ export const vaultSchema = z.object({
   compensation: decimal.describe("Slashed agent bonds owed to depositors at epoch close (USDG)"),
   mandate: mandateSchema,
   series: seriesSchema.nullable(),
+});
+
+/** One Strike deployment a server reads: list_vaults and strike_info list them. */
+export const deploymentSchema = z.object({
+  chainId: z.number(),
+  version: versionSchema,
+  epochManager: address,
+  default: z
+    .boolean()
+    .describe("The chain's default deployment: agent ids and share symbols resolve here first"),
 });
 
 const reasonSchema = z.string().describe("MandateGuard.Reason name: None means inside the mandate");
@@ -101,6 +118,7 @@ export const riskCheckShape = {
 export const hedgeSchema = z.object({
   vault: address,
   vaultSymbol: z.string(),
+  version: versionSchema,
   seriesId: z.string(),
   optionType: z.enum(["put", "call"]),
   strike: decimal.describe("USD per token"),
@@ -132,6 +150,7 @@ export const hedgePlanShape = {
     z.object({
       vault: address,
       vaultSymbol: z.string(),
+      version: versionSchema,
       kind: z.enum(["covered-call", "cash-secured-put"]),
       usable: z.boolean(),
       note: z.string(),
@@ -141,6 +160,9 @@ export const hedgePlanShape = {
 
 export const agentSchema = z.object({
   agentId: z.string(),
+  version: versionSchema.describe(
+    "The deployment whose AgentRegistry holds this agent id (ids are per deployment)",
+  ),
   status: z.enum(["None", "Active", "Suspended", "Retired"]),
   active: z.boolean(),
   owner: address,
