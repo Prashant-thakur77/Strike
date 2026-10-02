@@ -1,12 +1,12 @@
 # Sponsor technology
 
-Every sponsor technology Strike uses, one row per feature: what Strike uses it for, why it is needed, what breaks without it, where the code is, and a transaction or live page that shows it. The status column says whether a feature is live, wired but not live, in code but not configured, or not built. Addresses and transactions are copied from [DEPLOYMENTS.md](DEPLOYMENTS.md) and the [testnet epoch logs](testnet-epochs); the on-chain reads marked "2 October" were made with `cast` against the public RPCs on 2026-10-02 and can be re-run with the commands at the end.
+Every sponsor technology Strike uses, one row per feature: what Strike uses it for, why it is needed, what breaks without it, where the code is, and a transaction or live page that shows it. The status column says whether a feature is live, wired but not yet live, in code but not configured, or not built. Addresses and transactions are copied from [DEPLOYMENTS.md](DEPLOYMENTS.md) and the [testnet epoch logs](testnet-epochs); the on-chain reads marked "2 October" were made with `cast` against the public RPCs on 2026-10-02 and can be re-run with the commands at the end.
 
 Status values:
 
 - **Live**: deployed and used on a testnet, with a transaction to show it.
 - **Read live**: Strike reads it from a live chain, but has no deployment of its own there.
-- **Wired, not live**: the code is in place and tested; it is switched off until a key or setting is provided.
+- **Wired, not yet live**: the code is in place and tested; it is switched off until a key or setting is provided.
 - **In code, not configured**: the contracts support it, and no deployment has it turned on.
 - **Not deployed**: written and tested locally, never run in production.
 
@@ -19,7 +19,7 @@ Status values:
 | Chainlink             | Read live from Robinhood Chain mainnet; mirrored to the testnets; sequencer check not configured | [Price mirror audit](testnet-epochs/2026-10-02-mirror-audit.md): 66 of 66 rounds on 46630, 23 of 23 on 421614                                          |
 | Paxos USDG            | Live on both testnets (Paxos's own testnet tokens)                                               | [10 USDG slash](https://explorer.testnet.chain.robinhood.com/tx/0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0) paid to depositors |
 | OpenZeppelin          | Live in every deployed protocol contract except `DecisionLog`                                    | Verified source on [Blockscout](DEPLOYMENTS.md)                                                                                                        |
-| Alchemy               | Wired, not live: needs a key                                                                     | [`sdk/src/rpc.ts`](../sdk/src/rpc.ts), [`/api/rpc`](../app/src/app/api/rpc/%5BchainId%5D/route.ts)                                                     |
+| Alchemy               | Wired, not yet live; needs a key                                                                 | [`sdk/src/rpc.ts`](../sdk/src/rpc.ts), [`/api/rpc`](../app/src/app/api/rpc/%5BchainId%5D/route.ts)                                                     |
 | AWS                   | Not built yet / not deployed                                                                     | [`infra/aws`](../infra/aws/README.md): template and scripts, tested locally                                                                            |
 
 ## Arbitrum
