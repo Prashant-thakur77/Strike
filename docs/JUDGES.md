@@ -107,7 +107,7 @@ Admin timelock ([D43](decisions.md#d43--on-mainnet-the-admin-is-a-safe-behind-a-
 forge test --root contracts --match-path "test/governance/*"
 ```
 
-Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 454 TypeScript tests (SDK 252, MCP 84, example agents 71, indexer 47; 2 more SDK tests are opt-in live checks), 62 Telegram bot tests, 10 subgraph tests, 216 Playwright tests per viewport (184 run by default; 32 are the opt-in UI audit). The [threat model](threat-model.md) lists 25 threats, each with the test that covers it. Every count is in [`evidence/facts.json`](evidence/facts.json), and CI fails when this page states a different one.
+Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 480 TypeScript tests (SDK 253, MCP 84, example agents 96, indexer 47; 2 more SDK tests are opt-in live checks), 62 Telegram bot tests, 10 subgraph tests, 216 Playwright tests per viewport (184 run by default; 32 are the opt-in UI audit). The [threat model](threat-model.md) lists 25 threats, each with the test that covers it. Every count is in [`evidence/facts.json`](evidence/facts.json), and CI fails when this page states a different one.
 
 ## What each step shows
 

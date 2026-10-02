@@ -37,8 +37,8 @@
       "items": [
         {
           "label": "SDK",
-          "count": 252,
-          "source": "sdk: vitest run --reporter=json, 252 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
+          "count": 253,
+          "source": "sdk: vitest run --reporter=json, 253 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
         },
         {
           "label": "Telegram bot",
@@ -52,8 +52,8 @@
         },
         {
           "label": "Example agents",
-          "count": 71,
-          "source": "agents/example: vitest run --reporter=json, 71 tests"
+          "count": 96,
+          "source": "agents/example: vitest run --reporter=json, 96 tests"
         },
         {
           "label": "Indexer",
