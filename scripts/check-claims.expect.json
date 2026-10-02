@@ -1,0 +1,558 @@
+{
+  "about": "What scripts/check-claims.mjs checks in a cited transaction beyond its status, block, time and gas (those are read from the tables that cite it). Each entry is one claim the docs make, with the events its receipt must contain. Values: '10 USDG' and '369.86 USD' are exact amounts in the unit's decimals; a leading '~' compares after rounding to the decimals written ('~0.20 WAD'); '8 (DeltaOutOfBand)' is an enum value with its name; addresses compare case-insensitively. 'status': 'reverted' marks a transaction cited because it failed. 'context' lists figures a citing sentence may also state that are not in this receipt (balances before and after), each with what it is.",
+  "units": { "USDG": 6, "USD": 18, "WAD": 18, "TOKEN": 18 },
+  "events": {
+    "EpochOpened": "EpochOpened(address indexed vault, uint64 indexed epoch, uint256 spot)",
+    "SeriesProposed": "SeriesProposed(address indexed vault, uint64 indexed epoch, uint256 indexed seriesId, uint256 strike, uint64 expiry, uint256 size, uint16 premiumBps, uint256 fairValue, int256 delta)",
+    "SeriesRisk": "SeriesRisk(uint256 indexed seriesId, int256 delta, uint256 gamma, uint256 vega, int256 theta)",
+    "ProposalRejected": "ProposalRejected(address indexed vault, uint64 indexed epoch, uint256 indexed agentId, uint8 reason, uint256 slashed, uint256 strike, uint64 expiry, uint256 size, uint16 premiumBps)",
+    "OptionsBought": "OptionsBought(uint256 indexed seriesId, address indexed buyer, address indexed recipient, uint256 amount, uint256 premium)",
+    "EpochSettled": "EpochSettled(address indexed vault, uint64 indexed epoch, uint256 indexed seriesId, uint256 settlementPrice, uint256 payout, uint256 premium, uint256 fee)",
+    "EpochAborted": "EpochAborted(address indexed vault, uint64 indexed epoch)",
+    "SettlementPriceRecorded": "SettlementPriceRecorded(address indexed token, uint64 indexed expiry, uint80 roundId, uint256 price)",
+    "Slashed": "Slashed(uint256 indexed agentId, address indexed recipient, uint256 amount, uint32 strikes)",
+    "BondPosted": "BondPosted(uint256 indexed agentId, address indexed from, uint256 amount)",
+    "AgentRegistered": "AgentRegistered(uint256 indexed agentId, address indexed owner, address signer, uint256 erc8004Id)",
+    "ReputationFeedback": "ReputationFeedback(uint256 indexed agentId, uint256 indexed erc8004Id, int128 value, string tag, bool posted)",
+    "DecisionRecorded": "DecisionRecorded(uint256 indexed agentId, address indexed vault, uint64 indexed epoch, bytes32 recordHash, string uri, uint256 timestamp)",
+    "VaultCreated": "VaultCreated(address indexed vault, address indexed curator, address indexed underlying, bool isCall, uint256 agentId)",
+    "Deposit": "Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares)",
+    "Withdraw": "Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)",
+    "PremiumClaimed": "PremiumClaimed(address indexed account, uint256 amount)",
+    "Transfer": "Transfer(address indexed from, address indexed to, uint256 value)",
+    "IdentityMinted": "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+  },
+  "transactions": {
+    "0x001cbf637009addbe13bb20e7c6ad5bdaf10f149cb1fc66a99a7afe599696498": {
+      "chain": 46630,
+      "claim": "v2: put vault collateral, 20 USDG",
+      "events": [
+        {
+          "event": "Deposit",
+          "address": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+          "args": { "assets": "20 USDG" }
+        }
+      ]
+    },
+    "0x475be822c2a68c194999148e2c52d2ab134d74bb19fc235fe0b509a5333fc5a5": {
+      "chain": 46630,
+      "claim": "v2: the seller agent opens the covered-call epoch at spot $352.45",
+      "events": [
+        {
+          "event": "EpochOpened",
+          "args": {
+            "vault": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",
+            "epoch": "1",
+            "spot": "~352.45 USD"
+          }
+        }
+      ]
+    },
+    "0x92169eac7bd2491d1f22f394e15643d5d54309c1e980683cf82a13088021a9d4": {
+      "chain": 46630,
+      "claim": "v2: proposeByDelta accepted, 0.20-delta TSLA call, strike $369.86, 4 options, fair value $2.13",
+      "events": [
+        {
+          "event": "SeriesProposed",
+          "address": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "args": {
+            "vault": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",
+            "strike": "369.86 USD",
+            "size": "4 TOKEN",
+            "delta": "~0.20 WAD",
+            "fairValue": "~2.13 USD",
+            "expiry": "1790971200"
+          }
+        }
+      ],
+      "context": { "USD": { "352.45": "spot at openEpoch (EpochOpened in 0x475be822)" } }
+    },
+    "0x5aea0d2022f0a83d480c64014273a21d8e47c932ed0aaff46227a2f8f13e518f": {
+      "chain": 46630,
+      "claim": "v2: the reckless agent opens the put epoch",
+      "events": [
+        {
+          "event": "EpochOpened",
+          "args": { "vault": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7", "epoch": "1" }
+        }
+      ]
+    },
+    "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0": {
+      "chain": 46630,
+      "claim": "v2: at-the-money put rejected on-chain (DeltaOutOfBand), 10 USDG slashed from agent #1's bond",
+      "events": [
+        {
+          "event": "ProposalRejected",
+          "address": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "args": {
+            "vault": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+            "agentId": "1",
+            "reason": "8 (DeltaOutOfBand)",
+            "slashed": "10 USDG",
+            "strike": "352.44 USD"
+          }
+        },
+        {
+          "event": "Slashed",
+          "address": "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+          "args": { "agentId": "1", "amount": "10 USDG" }
+        }
+      ],
+      "context": {
+        "USD": { "352.45": "spot at openEpoch (EpochOpened in 0x5aea0d20)" },
+        "USDG": { "20": "the put vault's deposit", "30": "the put vault after the slash is paid in" }
+      }
+    },
+    "0x425e5b63ddeb1fcff5d63aa9f5a9fd11f4d3c0f52facd05e0fb44096f2ede9f9": {
+      "chain": 46630,
+      "claim": "v2: the buyer agent buys 4 calls for 10.005944 USDG",
+      "events": [
+        {
+          "event": "OptionsBought",
+          "address": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "args": { "amount": "4 TOKEN", "premium": "10.005944 USDG" }
+        }
+      ]
+    },
+    "0x62442f37b3601aa5b56d5e991d3199464ba2e60373f70e00892746c053b629a7": {
+      "chain": 46630,
+      "claim": "v2: abortEpoch pays the 10 USDG slash into the put vault (20 to 30 USDG)",
+      "events": [
+        {
+          "event": "EpochAborted",
+          "args": { "vault": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7", "epoch": "1" }
+        },
+        {
+          "event": "Transfer",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": {
+            "from": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+            "to": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+            "value": "10 USDG"
+          }
+        }
+      ],
+      "context": { "USDG": { "20": "the put vault before the payment", "30": "the put vault after it" } }
+    },
+    "0x0a7167a0d15eef1b6e9398e67c63f7e5ca8d18dcdb20b395e8bde4b231919cc3": {
+      "chain": 46630,
+      "claim": "v2: the put vault's depositor redeems the 20 USDG deposit",
+      "events": [
+        {
+          "event": "Withdraw",
+          "address": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+          "args": { "assets": "20 USDG" }
+        }
+      ],
+      "context": { "USDG": { "30": "deposit plus the slash, taken out by this and 0x1c53ff12" } }
+    },
+    "0x1c53ff12ec2e9749e84f92ae4fa29a4d584789a8abd661e6f099151361067620": {
+      "chain": 46630,
+      "claim": "v2: the put vault's depositor claims the 10 USDG slash (claimPremium)",
+      "events": [
+        {
+          "event": "PremiumClaimed",
+          "address": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+          "args": { "amount": "10 USDG" }
+        }
+      ],
+      "context": { "USDG": { "30": "deposit plus the slash, taken out by this and 0x0a7167a0" } }
+    },
+    "0x934ab96ba12a9ad501e20c8366fc338ab35d0550b88cc2d76fc5c39991c524c4": {
+      "chain": 46630,
+      "claim": "v2: the 29 September epoch log anchored in the DecisionLog",
+      "events": [
+        {
+          "event": "DecisionRecorded",
+          "address": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+          "args": {
+            "agentId": "1",
+            "vault": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",
+            "epoch": "1",
+            "recordHash": "0xffd051c8d7bdb2692879653db2002b54979482787e8d86a8fcad0a883d12bc5a"
+          }
+        }
+      ]
+    },
+    "0x3bb9cad397322da84adbf78fda288dcce9a19318798b63178467899cdf9c7e53": {
+      "chain": 46630,
+      "claim": "Agent #1 registered on the official ERC-8004 Identity Registry as #114",
+      "events": [
+        {
+          "event": "IdentityMinted",
+          "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+          "args": { "from": "0x0000000000000000000000000000000000000000", "tokenId": "114" }
+        }
+      ]
+    },
+    "0x324e08868492d51986b3da6142031e39ffbb67dcda5a4dbc2613205f35a87125": {
+      "chain": 46630,
+      "claim": "v2: setIdentity links agent #1 to ERC-8004 #114",
+      "events": [
+        {
+          "event": "AgentRegistered",
+          "address": "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+          "args": { "agentId": "1", "erc8004Id": "114" }
+        }
+      ]
+    },
+    "0x46b6e7961426769c44169faea5705990b96e25d9d6f7d95feb2b0e4842b4c033": {
+      "chain": 46630,
+      "claim": "ERC-8004 identity #116 registered by agent #2's fresh wallet",
+      "events": [
+        {
+          "event": "IdentityMinted",
+          "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+          "args": { "from": "0x0000000000000000000000000000000000000000", "tokenId": "116" }
+        }
+      ]
+    },
+    "0xab52b9983e7cb261606b0e1bd5e1fb6af2ea1baf79190ab952106d3f98632854": {
+      "chain": 46630,
+      "claim": "v2: agent #2 registered from the app, linked to #116",
+      "events": [
+        {
+          "event": "AgentRegistered",
+          "address": "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+          "args": { "agentId": "2", "erc8004Id": "116" }
+        }
+      ]
+    },
+    "0xc9708eb6c4332c89449cd20fdcc1646473e587f179848da5cbbf7baee56a466a": {
+      "chain": 46630,
+      "claim": "v2: agent #2 bonded with 60 USDG",
+      "events": [
+        {
+          "event": "BondPosted",
+          "address": "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+          "args": { "agentId": "2", "amount": "60 USDG" }
+        }
+      ]
+    },
+    "0xc56dd89e6ff51d3bf5a5c286e9a8b76f844346e30c50ba8d6d1f41f4038a40ff": {
+      "chain": 46630,
+      "claim": "v2: sTSLA-CSP-A2, a put vault run by agent #2, created by the app",
+      "events": [
+        {
+          "event": "VaultCreated",
+          "address": "0x5665E02878fA592513C1633af2F07b08cF606beC",
+          "args": { "isCall": false, "agentId": "2" }
+        }
+      ]
+    },
+    "0x8c9504234bae72bd16566a4c363f0a90f9b18ae52a82a26453a6cc902e5a0bc2": {
+      "chain": 46630,
+      "claim": "v2: 150 USDG deposited into agent #2's put vault",
+      "events": [{ "event": "Deposit", "args": { "assets": "150 USDG", "shares": "150 USDG" } }]
+    },
+    "0x52f5999da7ab48d37ffb8fc5d3b476b9da1c0d3faa855de645cb80a784827162": {
+      "chain": 46630,
+      "claim": "v3: agent #1 registered with a separate signer's EIP-712 consent",
+      "events": [
+        {
+          "event": "AgentRegistered",
+          "address": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+          "args": { "agentId": "1", "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f" }
+        }
+      ]
+    },
+    "0xc617c3eb7feb026513bf791bb0e1c2108d4821bd86995c49a14f391832904154": {
+      "chain": 46630,
+      "claim": "v3: setIdentity links agent #1 to ERC-8004 #114",
+      "events": [
+        {
+          "event": "AgentRegistered",
+          "address": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+          "args": { "agentId": "1", "erc8004Id": "114" }
+        }
+      ]
+    },
+    "0x23a42953480fe13db45b0ebbfba10f7d44d06052a52192ed78989c5ae6517581": {
+      "chain": 46630,
+      "claim": "v3: the signer bonds agent #1 with 60 USDG",
+      "events": [
+        {
+          "event": "BondPosted",
+          "address": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+          "args": {
+            "agentId": "1",
+            "from": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f",
+            "amount": "60 USDG"
+          }
+        }
+      ],
+      "context": { "USDG": { "10.005944": "the v2 buy cited in the same sentence of sponsor-tech.md" } }
+    },
+    "0x4b179fb1809a4777961e5fe1439f7ad4dd2c418f4cc2e20c99b397d561d959e1": {
+      "chain": 46630,
+      "claim": "v3: the signer opens the covered-call epoch, TSLA spot 358.5505",
+      "events": [
+        {
+          "event": "EpochOpened",
+          "address": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "args": {
+            "vault": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+            "epoch": "1",
+            "spot": "358.5505 USD"
+          }
+        }
+      ]
+    },
+    "0xe823a351b82404077c126482ca61f6be9c1c461606b4626f55bea1898d335a45": {
+      "chain": 46630,
+      "claim": "v3: Claude-planned proposeByDelta accepted, 0.20-delta call at $369.36, 105% of fair value, 4 options, SeriesRisk delta 0.2002",
+      "events": [
+        {
+          "event": "SeriesProposed",
+          "address": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "args": {
+            "vault": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+            "strike": "369.36 USD",
+            "size": "4 TOKEN",
+            "premiumBps": "10500",
+            "delta": "~0.20 WAD",
+            "expiry": "1790971200"
+          }
+        },
+        { "event": "SeriesRisk", "args": { "delta": "~0.2002 WAD" } }
+      ]
+    },
+    "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388": {
+      "chain": 46630,
+      "claim": "v3: the call's decision record anchored in the v3 DecisionLog",
+      "events": [
+        {
+          "event": "DecisionRecorded",
+          "address": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+          "args": {
+            "vault": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+            "epoch": "1",
+            "recordHash": "0xa68cb23065b54095d6e4b75987cc6ebe035a45b2a449693d2e3737c93483a175"
+          }
+        }
+      ]
+    },
+    "0x6feeaeebac01b2288ea6000557b4c9d4f41bfecd73c25808dc2fc0a2e4239fc3": {
+      "chain": 46630,
+      "claim": "v3: the signer opens the put epoch",
+      "events": [
+        {
+          "event": "EpochOpened",
+          "address": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "args": { "vault": "0x1bc73c1B28F520E57982FAe6127477190FA53690", "epoch": "1" }
+        }
+      ]
+    },
+    "0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2": {
+      "chain": 46630,
+      "claim": "v3: at-the-money put rejected (DeltaOutOfBand), 10 USDG slashed, -10 ERC-8004 feedback to #114",
+      "events": [
+        {
+          "event": "ProposalRejected",
+          "address": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "args": {
+            "vault": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+            "agentId": "1",
+            "reason": "8 (DeltaOutOfBand)",
+            "slashed": "10 USDG"
+          }
+        },
+        { "event": "Slashed", "args": { "agentId": "1", "amount": "10 USDG" } },
+        {
+          "event": "ReputationFeedback",
+          "address": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+          "args": {
+            "erc8004Id": "114",
+            "value": "-10 USDG",
+            "tag": "strike.mandate.rejection",
+            "posted": true
+          }
+        }
+      ]
+    },
+    "0x966985d8ca2026bb6426a46d35ae708a48724a6ed74208a1ecd9c65fbf4a6e27": {
+      "chain": 46630,
+      "claim": "v3: the rejection's decision record anchored",
+      "events": [
+        {
+          "event": "DecisionRecorded",
+          "address": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+          "args": {
+            "vault": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+            "epoch": "1",
+            "recordHash": "0x51003bc2b3f8650ec40f05b6e50f9d7d5373225de5e555d8ebab16a8b5f8892a"
+          }
+        }
+      ]
+    },
+    "0x16d9345d815d1d5fb5a39540533b725367cfbaeab0287647f984d0202b6a61fc": {
+      "chain": 46630,
+      "claim": "v3: a separate buyer wallet buys 4 calls for 7.38387 USDG",
+      "events": [
+        {
+          "event": "OptionsBought",
+          "address": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "args": { "amount": "4 TOKEN", "premium": "7.38387 USDG" }
+        }
+      ]
+    },
+    "0x9865efd793e63ee8386e4a670eeb0bc65f5d45f1c3070126bc295f261a98de59": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: the signer opens the covered-call epoch at spot $350.23",
+      "events": [
+        {
+          "event": "EpochOpened",
+          "address": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+          "args": {
+            "vault": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+            "epoch": "1",
+            "spot": "350.23 USD"
+          }
+        }
+      ]
+    },
+    "0xf26315b33df93548bfa31d68b7d9964792ef88184cb154796180e19b9365b5f4": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: Claude-planned proposeByDelta accepted, 0.20-delta call at $364.29, 105% of fair value, SeriesRisk emitted",
+      "events": [
+        {
+          "event": "SeriesProposed",
+          "address": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+          "args": {
+            "vault": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+            "strike": "364.29 USD",
+            "size": "4 TOKEN",
+            "premiumBps": "10500",
+            "delta": "~0.20 WAD",
+            "expiry": "1790971200"
+          }
+        },
+        { "event": "SeriesRisk", "args": { "delta": "~0.20 WAD" } }
+      ],
+      "context": { "USD": { "350.23": "spot at openEpoch (EpochOpened in 0x9865efd7)" } }
+    },
+    "0x1f9f7eafdf448c205df43e81d75e94f5282dd3b2bb465473330012c04cac3538": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: the call's decision record anchored in the DecisionLog",
+      "events": [
+        {
+          "event": "DecisionRecorded",
+          "address": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+          "args": {
+            "vault": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+            "epoch": "1",
+            "recordHash": "0x7ca1bd76f2bc2f658221e776b0a2bf15f3f1eb07f05961f216ab4a69c124e0f9"
+          }
+        }
+      ]
+    },
+    "0xf92fba5da7558aeccd5c5270adf46b6f218e6024a42000922c09cc8e8fdb1605": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: the signer opens the put epoch",
+      "events": [
+        {
+          "event": "EpochOpened",
+          "address": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+          "args": { "vault": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe", "epoch": "1" }
+        }
+      ]
+    },
+    "0x4813b1089c8e6a3f3e728c74b9b6bb2d79ec73fb36ab0b5142abc72aa333756d": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: at-the-money put rejected (DeltaOutOfBand), 10 USDG slashed, -10 ERC-8004 feedback to #253",
+      "events": [
+        {
+          "event": "ProposalRejected",
+          "address": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+          "args": {
+            "vault": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+            "agentId": "1",
+            "reason": "8 (DeltaOutOfBand)",
+            "slashed": "10 USDG"
+          }
+        },
+        { "event": "Slashed", "args": { "agentId": "1", "amount": "10 USDG" } },
+        {
+          "event": "ReputationFeedback",
+          "address": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+          "args": {
+            "erc8004Id": "253",
+            "value": "-10 USDG",
+            "tag": "strike.mandate.rejection",
+            "posted": true
+          }
+        }
+      ]
+    },
+    "0x6ee65ef8a6fa002f4388f7cf279f6fd098c0a45ab2bff118c0fc0ab0ed266c8e": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: the rejection's decision record anchored",
+      "events": [
+        {
+          "event": "DecisionRecorded",
+          "address": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+          "args": {
+            "vault": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+            "epoch": "1",
+            "recordHash": "0x6d478786600403f8d8fb1645909db1cbe6e8f0cd464d5bbbff45d60edacc43f4"
+          }
+        }
+      ]
+    },
+    "0x82e2d5b4e476edec205c80daca431a8becdd5fbdb1f84e3ca0dea8d7d49265f4": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: a separate buyer wallet buys all 4 calls for 8.905435 USDG",
+      "events": [
+        {
+          "event": "OptionsBought",
+          "address": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+          "args": { "amount": "4 TOKEN", "premium": "8.905435 USDG" }
+        }
+      ]
+    },
+    "0x2f99add127c63313b1277df97680387dcf4e1f26e0487618e826a12df6b4d435": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: agent #1 registered on the official ERC-8004 Identity Registry as #253",
+      "events": [
+        {
+          "event": "IdentityMinted",
+          "address": "0x8004A818BFB912233c491871b3d84c89A494BD9e",
+          "args": { "from": "0x0000000000000000000000000000000000000000", "tokenId": "253" }
+        }
+      ]
+    },
+    "0x62b8c7bb68b0ff6f18227a95f0f51e619dd28f365250d7e43c67f867bf2960b8": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: setIdentity(1, 253)",
+      "events": [
+        {
+          "event": "AgentRegistered",
+          "address": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+          "args": { "agentId": "1", "erc8004Id": "253" }
+        }
+      ]
+    },
+    "0xb1d1d505b5312d63e2f044b73838412774674d9e2e90d29a51217ad24897a5ae": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: agent #1 registered with the signer's EIP-712 consent",
+      "events": [
+        {
+          "event": "AgentRegistered",
+          "address": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+          "args": { "agentId": "1", "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f" }
+        }
+      ]
+    },
+    "0x81fcc53457ed9d6ac539783b37b0f157606f4a65d1bef7bcc90e5f030a0fe03d": {
+      "chain": 421614,
+      "claim": "Arbitrum Sepolia: postBond(1, 60 USDG)",
+      "events": [
+        {
+          "event": "BondPosted",
+          "address": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+          "args": { "agentId": "1", "amount": "60 USDG" }
+        }
+      ]
+    }
+  }
+}

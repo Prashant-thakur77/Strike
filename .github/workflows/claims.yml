@@ -1,0 +1,46 @@
+name: Claims
+
+# The evidence gate. claims: every transaction the README, docs/ and the app cite is fetched from its chain and checked
+# against what the docs say about it (scripts/check-claims.mjs, read-only, the public RPCs in strike.config.json); a
+# chain whose RPC does not answer is skipped with a warning. It runs on a schedule too, because a cited transaction is
+# only as good as the chain that serves it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Minute 37 every 4 hours: away from keeper.yml's ten-minute marks and live-smoke.yml's minute 23.
+    - cron: "37 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claims-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  claims:
+    name: Cited transactions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Check every cited transaction
+        run: |
+          set -o pipefail
+          node scripts/check-claims.mjs | tee "$RUNNER_TEMP/claims.txt"
+      - name: Job summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Cited transactions"
+            echo
+            echo '```text'
+            tail -n 40 "$RUNNER_TEMP/claims.txt" 2>/dev/null || echo "no output"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
