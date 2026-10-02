@@ -16,13 +16,19 @@
 // missing or older than the source (needs `pnpm install` once). RPC: the chains' public RPCs, or Alchemy when
 // ALCHEMY_API_KEY is set; STRIKE_RPC_URL overrides the testnet's.
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DIST = join(ROOT, "sdk/dist/index.js");
-const CHAIN_NAMES = { 46630: "Robinhood Chain testnet", 421614: "Arbitrum Sepolia" };
+// The chains whose MirrorFeeds copy mainnet Chainlink (strike.config.json: a mainnetFeedsChain and deployments).
+const STRIKE_CONFIG = JSON.parse(readFileSync(join(ROOT, "strike.config.json"), "utf8"));
+const CHAIN_NAMES = Object.fromEntries(
+  Object.entries(STRIKE_CONFIG.chains)
+    .filter(([, c]) => c.mainnetFeedsChain && !c.local && c.deployments.length)
+    .map(([id, c]) => [id, c.name]),
+);
 const MATCH_LINE = "rounds match Robinhood Chain mainnet Chainlink";
 
 function usage(message) {

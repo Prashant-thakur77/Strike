@@ -11,6 +11,7 @@ import { mirrorFeedAbi } from "./abi/mirrorFeed.js";
 import { stockOracleAbi } from "./abi/stockOracle.js";
 import { strikeVaultAbi } from "./abi/strikeVault.js";
 import { getStrikeChain } from "./chains.js";
+import { loadStrikeConfig } from "./config.js";
 import { type StrikeDeployment, deploymentForEpochManager, deploymentsFor } from "./deployments.js";
 import { StrikeError } from "./errors.js";
 import { type RpcEndpoint, rpcEndpointsFor, transportFromEndpoints } from "./rpc.js";
@@ -24,24 +25,29 @@ import { type FeedRound, findSettlementRound } from "./settlement.js";
 // runs); it reports the gaps instead, and for a settlement whether the round used is the first mainnet print at or
 // after expiry, the one mainnet settlement would use.
 
-/** Robinhood Chain mainnet: where the Chainlink stock feeds the MirrorFeeds copy live. */
-export const MAINNET_FEEDS_CHAIN_ID = 4663;
+const strikeConfig = loadStrikeConfig();
+
+/**
+ * Robinhood Chain mainnet: where the Chainlink stock feeds the MirrorFeeds copy live (strike.config.json's
+ * `mainnetFeedsChain` of the default chain).
+ */
+export const MAINNET_FEEDS_CHAIN_ID = Number(
+  strikeConfig.chains[String(strikeConfig.defaultChainId)]?.mainnetFeedsChain ?? 4663,
+);
 
 /** Multicall3, at the same address on 4663, 46630 and 421614. */
 export const MULTICALL3: Address = "0xcA11bde05977b3631167028862bE2a173976CA11";
 
 /**
- * The Robinhood Chain mainnet Chainlink Standard proxies the keeper copies (scripts/keeper.sh MAINNET_FEED,
- * docs/research.md). Chainlink lists no NFLX feed on Robinhood Chain, so the NFLX MirrorFeed cannot be checked.
+ * The Robinhood Chain mainnet Chainlink Standard proxies the keeper copies: strike.config.json's
+ * chains.4663.stocks, the map scripts/keeper.sh reads (docs/research.md). Chainlink lists no NFLX feed on Robinhood
+ * Chain, so the NFLX MirrorFeed cannot be checked.
  */
-export const MAINNET_CHAINLINK_FEEDS: Readonly<Record<string, Address>> = {
-  TSLA: "0x4A1166a659A55625345e9515b32adECea5547C38",
-  NVDA: "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
-  AMZN: "0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C",
-  PLTR: "0x820ABedFF239034956B7A9d2F0a331f9F075eB4c",
-  AMD: "0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72",
-  SPY: "0x319724394D3A0e3669269846abE664Cd621f9f6A",
-};
+export const MAINNET_CHAINLINK_FEEDS: Readonly<Record<string, Address>> = Object.fromEntries(
+  Object.entries(strikeConfig.chains[String(MAINNET_FEEDS_CHAIN_ID)]?.stocks ?? {}).map(
+    ([symbol, { feed }]) => [symbol, feed],
+  ),
+);
 
 /** A Chainlink aggregator proxy: round ids are `phaseId << 64 | aggregatorRound`. */
 export const aggregatorProxyAbi = [
