@@ -1,0 +1,57 @@
+name: Live smoke
+
+# Read-only checks against production every hour (scripts/live-smoke.mjs): the key pages, the HTTP API, the remote
+# MCP and the freshness of the mirrored prices. No secret: the only token is the workflow's own, to open an issue
+# titled "Live smoke failing" when a check fails (or comment on the open one) and close it on the next pass.
+# A stale mirror is a warning in the summary, never a failure; the keeper's own workflow reports its failures.
+on:
+  schedule:
+    # Minute 23: off the hour, away from keeper.yml's ten-minute marks and GitHub's top-of-the-hour queue.
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Production checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Live smoke
+        id: smoke
+        run: |
+          if node scripts/live-smoke.mjs --markdown "$RUNNER_TEMP/smoke.md"; then failed=false; else failed=true; fi
+          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+      - name: Open, update or close the "Live smoke failing" issue
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/github-script@v9
+        env:
+          FAILED: ${{ steps.smoke.outputs.failed != 'false' }}
+        with:
+          script: |
+            const fs = require("node:fs");
+            const { syncIssue } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/ci-issue.mjs`);
+            const report = `${process.env.RUNNER_TEMP}/smoke.md`;
+            await syncIssue({ github, context, core }, {
+              title: "Live smoke failing",
+              failed: process.env.FAILED === "true",
+              body: fs.existsSync(report) ? fs.readFileSync(report, "utf8") : "The smoke script wrote no report.",
+            });
+      - name: Fail when a check failed
+        if: steps.smoke.outputs.failed != 'false'
+        run: |
+          echo "::error::At least one production check failed; see the table in the job summary."
+          exit 1
