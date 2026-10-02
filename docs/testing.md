@@ -16,6 +16,31 @@ Run everything with `make test` (default profile) or `make ci-test` (5,000 fuzz 
 | Formal           | `contracts/test/formal` (Halmos)                                        | 9 properties proven for every input in range; 16 more kept and marked unproven ([formal-verification.md](security/formal-verification.md))                                                                                                                                                                                                                                                                                                                                                    |
 | App end-to-end   | `app/e2e` (Playwright)                                                  | Every page at desktop and mobile sizes, the remote MCP endpoint, navigation and the glossary; the opt-in UI audit checks every page at 1440, 1024, 768, 390 and 360 px for overflow, clipped text, overlaps, console errors and layout shift                                                                                                                                                                                                                                                  |
 
+## App end-to-end in CI
+
+The `playwright` job in [`ci.yml`](../.github/workflows/ci.yml) runs every spec in `app/e2e`, one job per Playwright project (desktop and mobile), each against its own anvil devnet. The same steps run locally:
+
+```bash
+anvil --port 8545 --timestamp 1791212400 --silent &   # Mon 2026-10-05 15:00 UTC, NYSE open
+cd contracts
+for s in Deploy Seed DeployUsdgDrip; do               # anvil's account 0, a public dev key
+  PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+    forge script script/$s.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --silent --skip test
+done
+cd ../app
+RPC_URL=http://127.0.0.1:8545 node scripts/demo-chain.mjs   # deposits, settled epochs, live series, rejections
+corepack pnpm build && corepack pnpm e2e
+```
+
+The addresses on chain 31337 are deterministic and match the SDK's deployments map, which the app and the specs read. The desktop job then replaces the devnet with v3 (`Deploy.s.sol` and `Seed.s.sol` from the `v3-contracts` branch, with the same core addresses) and runs `register.spec.ts` again, so its three v3 registration tests run too. Each job's summary lists every skipped run with the reason the spec gives. A local run on 2 October: 396 runs, 224 passed and 172 skipped, as follows.
+
+| Skipped runs                                                              | Why                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 104: one viewport of a test that runs in the other                        | Pure functions, HTTP-only routes and flows that change the chain run at desktop size only; the phone menu and touch tests run at mobile size only                                                                                       |
+| 64: `ui-audit.spec.ts` (32 tests in each project)                         | An opt-in capture tool with no assertions: it saves screenshots and DOM reports for review. Run it with `UI_AUDIT=1`                                                                                                                    |
+| 3: `register.spec.ts`'s v3 tests on the v2 devnet                         | They run in the desktop job's v3 pass, where the v2 test skips instead                                                                                                                                                                  |
+| 1 here, more when a network is down: live reads of the testnets or GitHub | `app`, `faucet`, `mirror`, `playground`, `proof`, `risk`, `usage`, `v3robinhood` and `why` read Robinhood Chain testnet, Arbitrum Sepolia or GitHub and skip when it does not answer from the runner; nothing is sent to a public chain |
+
 ## Coverage
 
 `make coverage` (Foundry, `--ir-minimum`, production code only):

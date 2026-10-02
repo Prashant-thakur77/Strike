@@ -151,6 +151,18 @@ otherwise an embedded Postgres 17 that the `embedded-postgres` package starts in
 Each test file gets its own database. The chain is an in-memory fake (`test/helpers.ts`) whose logs are encoded with
 the SDK's ABIs, with hashes that change when a test replaces blocks.
 
+CI runs the suite twice: on the embedded Postgres in the `js` job, and on a `postgres:17-alpine` service container
+with `TEST_DATABASE_URL` in the `indexer-postgres` job. The `docker` job lints both Dockerfiles with hadolint, builds
+the images, runs `docker compose config -q`, starts `postgres` and `indexer` with compose and waits for the image's
+healthcheck, then checks `/health` (200), that every migration is applied and that SIGTERM stops the indexer with exit
+code 0. `/ready` is polled for two minutes and only warns, because it depends on the public testnet RPCs.
+
+```bash
+# The same suite on a server you run (any Postgres 17; the user must be able to create databases)
+docker run -d --rm --name strike-test-pg -e POSTGRES_PASSWORD=postgres -p 127.0.0.1:55432:5432 postgres:17-alpine
+TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres corepack pnpm --filter @strike/indexer test
+```
+
 | File                 | What it proves                                                                                                                                                                                                                                                                                                                                                                           |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `migrations.test.ts` | Migrations apply from an empty database, in order; the second run is a no-op; two instances starting together apply each once; an edited migration stops the start                                                                                                                                                                                                                       |

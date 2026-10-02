@@ -23,7 +23,7 @@ scripts/demo-local.sh            # the full story on a local chain
 
 ## What CI checks
 
-Every push and pull request runs: `forge fmt --check`, the contract build and tests (CI profile), coverage (at least 95% of lines), the Stylus crate tests, Rust vs Solidity differential tests, mainnet fork tests, Slither, the Halmos proofs, TypeScript lint, tests and build, the subgraph build and tests, prettier, and the end-to-end demo. Separate workflows run CodeQL and a gitleaks secret scan. The app's Playwright tests are not in CI; run `pnpm --filter @strike/app e2e` locally when you change the app. Please run the relevant ones locally first.
+Every push and pull request runs: `forge fmt --check`, the contract build and tests (CI profile), coverage (at least 95% of lines), the Stylus crate tests, Rust vs Solidity differential tests, mainnet fork tests, Slither, the Halmos proofs, TypeScript lint, tests and build, the subgraph build and tests, prettier, the end-to-end demo, the app's Playwright suite on an anvil devnet (desktop and mobile; `register.spec.ts` again on a v3 devnet), the indexer tests on a Postgres 17 service container, and the Docker images (hadolint, build, `docker compose config`, and the compose stack started until the indexer's `/health` answers and its migrations are applied). Separate workflows run CodeQL and a gitleaks secret scan. Please run the relevant ones locally first; [docs/testing.md](docs/testing.md#app-end-to-end-in-ci) has the commands CI uses to start the devnet for Playwright.
 
 ## Conventions
 
