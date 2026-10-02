@@ -1,6 +1,6 @@
 # Strike design
 
-This document is the contract-level specification. [PLAN.md](PLAN.md) says what we build and why; this file says exactly how it behaves. Code, tests and this document must agree; when they disagree, fix the one that is wrong and log it in [decisions.md](decisions.md).
+This document is the contract-level specification. The [README](../README.md) and the [litepaper](litepaper.md) say what we build and why; this file says exactly how it behaves. Code, tests and this document must agree; when they disagree, fix the one that is wrong and log it in [decisions.md](decisions.md).
 
 It describes the source on `main`, from which the v2 deployment was built. v3 (the [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch, deployed on Robinhood Chain testnet next to v2 and on Arbitrum Sepolia) adds a fee high-water mark, EIP-712 signer consent, an active-agent check, `InvalidMandate(reason)` and the Stylus risk engine with `SeriesRisk` and `RiskLens`; that branch's design.md specifies them in §11 ([decisions.md D36](decisions.md)).
 

@@ -1,6 +1,6 @@
 # Project rules
 
-- Source of truth: docs/PLAN.md. Follow its phases in order.
+- Source of truth: .internal/docs/PLAN.md (local, gitignored). Follow its phases in order.
 - Don't start a phase until the previous phase's gate passes.
 - Contracts: Solidity + Foundry. Every function and custom error gets a test.
 - Never apply the stock-token uiMultiplier to Chainlink prices (they already include it).
@@ -9,7 +9,7 @@
 
 # Working state
 
-- Resume from docs/progress.md (done / next / blockers). Decisions go in docs/decisions.md, anything that needs the owner in docs/req-you.md.
+- Working notes live in `.internal/` (gitignored, never committed): resume from .internal/docs/progress.md (done / next / blockers), cycle plans go in .internal/docs/plans/, anything that needs the owner in .internal/docs/req-you.md. Decisions go in docs/decisions.md (public).
 - Commit after each working task; tag each passed phase gate: Phase N → `v0.(N+1).0`, submission → `v1.0.0`.
 - Never commit secrets: keys live in `.env` files, which are gitignored.
 

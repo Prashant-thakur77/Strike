@@ -2,7 +2,7 @@
 
 We are building Strike as a company, and these four milestones are its first steps: make v3 the main version, run it every week on both testnets, get it audited and open one capped vault on Robinhood Chain mainnet, then bring in agents and builders from outside the team. Later steps (more tickers, put spreads, Arbitrum One) are at the end of this page, and the README's [Building Strike as a company](../README.md#building-strike-as-a-company) has the business model and what we do with or without funding.
 
-A milestone plan for the buildathon's milestone-based grant (up to $30,000, [hackathon.md](hackathon.md)) and for the milestone half of any prize. Each milestone ends in something a reviewer can check on-chain or on GitHub without asking us. Timelines count weeks from the start of funding; with funding from October 2026, the plan ends around February 2027. The budget split is a draft for the owner to confirm.
+A milestone plan for the buildathon's milestone-based grant (up to $30,000, [HackQuest](https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon)) and for the milestone half of any prize. Each milestone ends in something a reviewer can check on-chain or on GitHub without asking us. Timelines count weeks from the start of funding; with funding from October 2026, the plan ends around February 2027. The budget split is a draft for the owner to confirm.
 
 It follows the roadmap in the README and the deck: v3 with the Stylus risk engine on Robinhood Chain testnet and Arbitrum Sepolia, then a capped mainnet vault after an audit. Where Strike stands today is in the README's [What works, what does not yet, what we cut](../README.md#what-works-what-does-not-yet-what-we-cut).
 

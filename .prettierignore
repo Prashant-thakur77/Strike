@@ -10,7 +10,6 @@ dist
 pnpm-lock.yaml
 subgraph/generated
 subgraph/build
-docs/PLAN.md
 contracts/test/vectors
 sdk/src/abi
 sdk/src/deployments.generated.ts

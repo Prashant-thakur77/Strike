@@ -13,88 +13,13 @@ Public RPCs used for on-chain checks:
 
 ## 1. Hackathon: Arbitrum Open House Singapore, Online Buildathon
 
-Primary source: https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon. The page renders client-side, so I took the values from the JSON embedded in the HTML.
+Sources: the [HackQuest page](https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon) and the Arbitrum Foundation posts linked below.
 
-### Timeline
-
-HackQuest sets `timeZone: "Asia/Singapore"` (UTC+8) for this event. The raw timestamps are in UTC.
-
-| Event                                            | Raw (UTC)             | Singapore time (SGT) |
-| ------------------------------------------------ | --------------------- | -------------------- |
-| Registration opens                               | 2026-07-29T17:01Z     | Jul 30, 01:01 SGT    |
-| Submission opens                                 | 2026-09-13T17:01Z     | Sep 14, 01:01 SGT    |
-| **Registration closes**                          | **2026-10-02T17:01Z** | **Oct 3, 01:01 SGT** |
-| **Submission closes (deadline)**                 | **2026-10-04T15:59Z** | **Oct 4, 23:59 SGT** |
-| "rewardTime" (HackQuest labels it "Judging End") | 2026-10-12T06:00Z     | Oct 12, 14:00 SGT    |
-| Founder House Singapore (in person)              | Oct 23–25, 2026       | —                    |
-
-- The blog describes it as "a three-week online Buildathon from September 14 to October 4, followed one month later by a three-day, in-person Founder House". Source: https://blog.arbitrum.foundation/open-house-singapore-applications-are-now-open/
-- The top three teams each earn a place at the in-person Founder House (HackQuest description). The Founder House dates come from https://blog.arbitrum.foundation/founder-house-singapore-apply-now-to-launch-products-on-arbitrum-one-robinhood-chain/
-- HackQuest showed 1005 participants and `projectCount: 88`. The public GraphQL `listProjects` returned only 32 visible projects on 2026-09-28.
-
-### Prizes
-
-Prizes are paid in USDC to an Arbitrum One wallet (source: HackQuest JSON).
-
-| Track                                   | 1st     | 2nd     | 3rd     | Total         |
-| --------------------------------------- | ------- | ------- | ------- | ------------- |
-| Overall Prize                           | $40,000 | $20,000 | $10,000 | $70,000       |
-| Promising Products Track                | $7,000  | $5,000  | $3,000  | $15,000       |
-| Grants (discretionary, milestone-based) | —       | —       | —       | up to $30,000 |
-| **Buildathon total**                    |         |         |         | **$115,000**  |
-
-- The Arbitrum Foundation blog says: "Except for under the Promising Products Track, all the prize money amounts above are to be split 50/50 into upfront payments and milestone based payouts." The same post describes the Promising Products Track as "reserved for up and coming new products entering frontier areas like AI agents, new financial primitives and more." Source: https://blog.arbitrum.foundation/open-house-singapore-applications-are-now-open/
-- The "$415k" figure in the blogs is the Buildathon ($115k) plus the Founder House prizes and grants ($300k, paid in USDG).
-
-### Judging criteria (verbatim from HackQuest)
-
-> Your project must be deployed on an Arbitrum chain to qualify. For example: Arbitrum Sepolia, Arbitrum One, Robinhood Chain, or others.
-> Projects are assessed on the following criteria:
-> Smart contract quality - code following best practices, structured logically and efficiently, with minimal security vulnerabilities
-> Product-Market Fit - projects with clear potential to attract and retain users
-> Innovation and Creativity - original approaches that push boundaries
-> Real Problem Solving - applications that address genuine market needs.
-> **Extra consideration is given to projects integrating Paxos' USDG stablecoin.**
-> Note:
-> **At minimum, 1 of 3 prizes is reserved for a project building on Robinhood Chain**
-> At minimum, 1 of 3 prizes is reserved for a project building on Arbitrum
-> All prizes are subject to development-tied milestones. Please refer to our Terms and Conditions for details.
-
-- The blog also says: "At least one of the top three spots is reserved for products building on the Robinhood Chain" (both tracks).
-- The listed tech stacks are "Solidity" and "Rust". The description says: "Build with Stylus in familiar programming languages or use Solidity."
-- Robinhood Chain has committed $1M to early-stage teams building through Open House. Source: https://blog.arbitrum.foundation/builders-block-024-robinhood-chain-commits-1m-in-funding-to-open-house-arbos-elara-now-live/
-
-### Submission form (organizer's custom fields, all mandatory)
-
-Source: HackQuest JSON.
-
-1. "Link to frontend/UI/website of your project" (project or demo).
-2. "List your Core Protocol/ Smart Contract Addresses", one per line in the format `network: address — label`.
-   - The supported networks are listed as "Arbitrum One", "Arbitrum Nova", **"Robinhood Chain — Robinhood Chain testnet"** and "Arbitrum Sepolia".
-   - So **deployed contracts are required**.
-3. "List your Factory/Pool Contracts (if applicable)". This explicitly covers vaults created dynamically. Answer N/A if none.
-4. "List your Token Contract Address (if applicable)". Answer N/A if none.
-5. "Which parts of your code have been produced during the Buildathon?"
-   - An existing GitHub repo is allowed; explain which code is new.
-   - "Making logical and structured commits will help us understand your progress."
-   - If you build in stealth, invite `https://github.com/engineering-AF`.
-6. Checkbox "Which sponsor/partner technologies have you used": options are Have not used any, GMX, **Robinhood Chain**, Dune Analytics, ZeroDev, Fhenix, Alchemy, AWS, OpenZeppelin, **Paxos/USDG**.
-7. A "Contract Address" field.
-
-Registration also required GitHub, Twitter, Telegram, email, location and an Arbitrum One wallet address.
-
-**Video:** there is no video field among the organizer's custom fields. **UNVERIFIED** whether HackQuest's base project form requires a demo or pitch video. Other entrants (for example Manda) do ship a demo video.
-
-Other resources listed on the page:
-
-- Robinhood Chain faucet `https://faucet.testnet.chain.robinhood.com/`
-- Discord `#open-house`
-- A workshop calendar
-- Free QuickNode credits
-
-The T&C link (`https://openhouse.arbitrum.io/singapore_version_open_house_buildathon_terms___conditions.pdf`) returned an HTML page, not a PDF, so I could not read the T&C. **UNVERIFIED.**
-
-Judging tips from an Open House judge (Ben, Arbitrum DevRel): "How Do You Build A Good Submission… With Your AI Code?" https://x.com/hummusonrails/status/2098064078438866979 (linked from https://blog.arbitrum.foundation/builders-block-026-300k-awaits-at-founder-house-singapore-what-great-startups-have-in-common/)
+- "A three-week online Buildathon from September 14 to October 4, followed one month later by a three-day, in-person Founder House" ([Arbitrum Foundation](https://blog.arbitrum.foundation/open-house-singapore-applications-are-now-open/)). Submissions close 2026-10-04 at 15:59 UTC (23:59 in Singapore). Founder House Singapore runs October 23–25, 2026 ([Arbitrum Foundation](https://blog.arbitrum.foundation/founder-house-singapore-apply-now-to-launch-products-on-arbitrum-one-robinhood-chain/)).
+- A project must be deployed on an Arbitrum chain, for example Arbitrum Sepolia, Arbitrum One or Robinhood Chain. The listed stacks are Solidity and Rust: "Build with Stylus in familiar programming languages or use Solidity."
+- The submission form asks for the frontend link, the core, factory and token contract addresses (one per line, `network: address — label`), which code was written during the buildathon, and the sponsor technologies used. Each text field takes at most 300 characters. Strike's answers: [submission/hackquest-answers.md](submission/hackquest-answers.md).
+- Robinhood Chain has committed $1M to early-stage teams building through Open House ([Builder's Block #024](https://blog.arbitrum.foundation/builders-block-024-robinhood-chain-commits-1m-in-funding-to-open-house-arbos-elara-now-live/)).
+- Other resources on the page: the Robinhood Chain faucet `https://faucet.testnet.chain.robinhood.com/`, Discord `#open-house`, a workshop calendar and QuickNode credits.
 
 ---
 
@@ -516,30 +441,19 @@ Source: https://docs.chain.link/data-feeds/l2-sequencer-feeds
 
 ## 8. Competitors and options on Robinhood Chain
 
-HackQuest's public project list for this hackathon was read through `https://api.hackquest.io/graphql` `listProjects`, which returned 32 visible projects.
+Projects in this buildathon that overlap with Strike, from each project's public repository or HackQuest page (the source column).
 
-| Name              | One-liner                                                                                                                                                                                                                                                   | Source                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| **HarvestBot**    | "Tax-loss harvesting agent for Robinhood tokenized stocks, bounded by an onchain mandate: Stylus (Rust→WASM) HIFO tax-lot ledger, contract-enforced 30-day wash-sale wall, slashable agent bond. Live on Robinhood Chain testnet." Repo created 2026-09-27. | https://github.com/edycutjong/harvestbot                                          |
-| **Amen Protocol** | **UNVERIFIED.** Not found on HackQuest's public list or GitHub. One search snippet mentions an "@ama_protocol" building TEE-based agent execution infra, but I could not confirm it is the same project.                                                    | —                                                                                 |
-| **StockGuard**    | "Drop-in Morpho oracle that stops DeFi lending against wrong or weekend-stale Robinhood Chain stock prices". It checks ERC-8056 multiplier lag or pending status, staleness, copycat tokens and wrong feeds. Fork-tested on mainnet.                        | https://github.com/snit292012/stockguard                                          |
-| **Lexifi**        | "Compliance for Uniswap v4 pools. Each pool sets its own rules - jurisdiction, KYC level, trade size - enforced in the contract… Live on Robinhood Chain (4663)."                                                                                           | https://www.hackquest.io/projects/Lexifi                                          |
-| **Manda**         | "Human-owned payment identity with bounded AI agent authority across Arbitrum and Robinhood Chain". Uses ERC-4337 Modular Account V2, gas-sponsored payments, optional USDG mandates and a demo video.                                                      | https://github.com/Nifemi0/manda                                                  |
-| **Regen Bazaar**  | "tRWI (tokenized real-world impact) marketplace. EAS-attested, lazy-minted ERC-1155. Testnets: Celo Sepolia, Arbitrum Sepolia, Robinhood Chain (USDG)." Submitted 2026-09-27.                                                                               | https://github.com/Regen-Bazaar/regenbazaar-beta                                  |
-| **ProtoRWA**      | Tokenized hardware manufacturing with milestone escrow in USDG. Includes a Stylus WASM Merkle verifier for sensor telemetry. Runs on Robinhood testnet.                                                                                                     | https://github.com/Fredincorporation/ProtoRWA (https://protorwa-eosin.vercel.app) |
-| **Latheon**       | "Open-source privacy protocol — same code, live on Ethereum, Arbitrum, and Robinhood Chain. Prove a transaction to one chosen auditor, without spending power."                                                                                             | https://www.hackquest.io/projects/Latheon-UPDATED                                 |
+| Name             | One-liner                                                                                                                                                                                                                                                   | Source                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **HarvestBot**   | "Tax-loss harvesting agent for Robinhood tokenized stocks, bounded by an onchain mandate: Stylus (Rust→WASM) HIFO tax-lot ledger, contract-enforced 30-day wash-sale wall, slashable agent bond. Live on Robinhood Chain testnet." Repo created 2026-09-27. | https://github.com/edycutjong/harvestbot                                          |
+| **StockGuard**   | "Drop-in Morpho oracle that stops DeFi lending against wrong or weekend-stale Robinhood Chain stock prices". It checks ERC-8056 multiplier lag or pending status, staleness, copycat tokens and wrong feeds. Fork-tested on mainnet.                        | https://github.com/snit292012/stockguard                                          |
+| **Lexifi**       | "Compliance for Uniswap v4 pools. Each pool sets its own rules - jurisdiction, KYC level, trade size - enforced in the contract… Live on Robinhood Chain (4663)."                                                                                           | https://www.hackquest.io/projects/Lexifi                                          |
+| **Manda**        | "Human-owned payment identity with bounded AI agent authority across Arbitrum and Robinhood Chain". Uses ERC-4337 Modular Account V2, gas-sponsored payments, optional USDG mandates and a demo video.                                                      | https://github.com/Nifemi0/manda                                                  |
+| **Regen Bazaar** | "tRWI (tokenized real-world impact) marketplace. EAS-attested, lazy-minted ERC-1155. Testnets: Celo Sepolia, Arbitrum Sepolia, Robinhood Chain (USDG)." Submitted 2026-09-27.                                                                               | https://github.com/Regen-Bazaar/regenbazaar-beta                                  |
+| **ProtoRWA**     | Tokenized hardware manufacturing with milestone escrow in USDG. Includes a Stylus WASM Merkle verifier for sensor telemetry. Runs on Robinhood testnet.                                                                                                     | https://github.com/Fredincorporation/ProtoRWA (https://protorwa-eosin.vercel.app) |
+| **Latheon**      | "Open-source privacy protocol — same code, live on Ethereum, Arbitrum, and Robinhood Chain. Prove a transaction to one chosen auditor, without spending power."                                                                                             | https://www.hackquest.io/projects/Latheon-UPDATED                                 |
 
-Other entries in this edition that touch stock tokens (HackQuest intros):
-
-- **CorpShift**: corporate-action attestation plus multiplier checks.
-- **Vigil**: a session-aware collateral risk layer for tokenized equity on Morpho.
-- **batpilot**: "Your US stocks, managed while you sleep".
-- **Gifted**: DCA and limit orders into Stock Tokens.
-- **Roundtrip**: measures whether stock tokens can be sold.
-- **JUJING**: a stock-token verification layer.
-- **NERON & LYRA**, **Hashling**.
-
-**None of these HackQuest entries is an options vault.**
+**None of these entries is an options vault.**
 
 ### Options on Robinhood Chain: yes, they already exist
 
@@ -558,7 +472,7 @@ The official docs list "structured products" and "Perps & derivatives" as intend
 
 ### Past Open House winner on Robinhood Chain: Tilt Protocol
 
-Added 2026-09-30 from the past-winners research ([research-winners.md](research-winners.md)). These facts come from Tilt's HackQuest text and linked repositories; I did not check them against its deployed contracts (**UNVERIFIED**, item 13 below).
+Added 2026-09-30. The result is from the Arbitrum Foundation's posts on the [NYC buildathon winners](https://blog.arbitrum.foundation/open-house-nyc-buildathon-concludes-meet-the-winning-teams/) and the [NYC Founder House](https://blog.arbitrum.foundation/nyc-founder-house-concludes-with-340k-in-awards-to-winning-teams/). The other rows come from Tilt's HackQuest text and linked repositories; I did not check them against its deployed contracts (**UNVERIFIED**, item 9 below).
 
 | Field                 | What the sources say                                                                                                                                                                                                                                                           |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -587,17 +501,13 @@ Strike's cash-secured-put vault, 2019 to 2026 ([backtest.md](backtest.md)): −0
 
 ## UNVERIFIED / needs a human check
 
-1. **Demo video.** Is it required by HackQuest's base project form? The organizer's custom fields do not ask for one. Check the Submit form in the HackQuest UI.
-2. **Hackathon T&C text.** The PDF link served HTML. Milestone and payout details come only from the blog ("50/50 upfront/milestone").
-3. **Amen Protocol**: I could not identify it.
-4. **Clutch Labs "Covered Call Options"**: I only saw it in a search snippet.
-5. **Robinhood testnet stock-token addresses.** These are not on any official Robinhood doc page. They are corroborated by two third-party repos, the on-chain name and symbol, and the shared beacon. If possible, confirm with the faucet UI (it returned HTTP 429 to curl).
-6. **NFLX has no Chainlink feed on mainnet**, even though the Robinhood docs say "every Stock Token has a live Chainlink price feed". Re-check https://docs.chain.link/data-feeds/price-feeds/addresses?network=robinhood before relying on NFLX.
-7. **Chainlink sequencer uptime feed on Robinhood Chain and on Arbitrum Sepolia**: none found. Assume absent.
-8. **`paused()` vs `tokenPaused()` on stock tokens**: both exist, but their semantics are not documented. Assume either being true blocks transfers.
-9. **Standard vs SVR proxy labelling.** I inferred it from the Chainlink docs JS, where `proxyAddress` is labelled "Standard Proxy". Consumers such as Strike should use the Standard proxy.
-10. **Trion and St0kes addresses**: taken from their READMEs; I did not check them on-chain.
-11. **Robinhood mainnet Blockscout API**: it was behind a Cloudflare challenge for curl. `forge verify-contract` against `https://robinhoodchain.blockscout.com/api/` is what the official docs say, but I have not tested it.
-12. **HackQuest project count.** 88 in the metadata vs 32 publicly listed. Some competitors named in the brief (HarvestBot, Amen, StockGuard, Manda, Regen Bazaar, ProtoRWA) are not in the public list yet. They may be drafts or unpublished.
-13. **Tilt Protocol**: the table above repeats its HackQuest text; its contracts were not checked.
-14. **Robinhood Earn at about 7%**: taken from the FalconX primer and the Robinhood newsroom, not from the Earn page itself. Whether it is subsidised is not confirmed.
+1. **Clutch Labs "Covered Call Options"**: I only saw it in a search snippet.
+2. **Robinhood testnet stock-token addresses.** These are not on any official Robinhood doc page. They are corroborated by two third-party repos, the on-chain name and symbol, and the shared beacon. If possible, confirm with the faucet UI (it returned HTTP 429 to curl).
+3. **NFLX has no Chainlink feed on mainnet**, even though the Robinhood docs say "every Stock Token has a live Chainlink price feed". Re-check https://docs.chain.link/data-feeds/price-feeds/addresses?network=robinhood before relying on NFLX.
+4. **Chainlink sequencer uptime feed on Robinhood Chain and on Arbitrum Sepolia**: none found. Assume absent.
+5. **`paused()` vs `tokenPaused()` on stock tokens**: both exist, but their semantics are not documented. Assume either being true blocks transfers.
+6. **Standard vs SVR proxy labelling.** I inferred it from the Chainlink docs JS, where `proxyAddress` is labelled "Standard Proxy". Consumers such as Strike should use the Standard proxy.
+7. **Trion and St0kes addresses**: taken from their READMEs; I did not check them on-chain.
+8. **Robinhood mainnet Blockscout API**: it was behind a Cloudflare challenge for curl. `forge verify-contract` against `https://robinhoodchain.blockscout.com/api/` is what the official docs say, but I have not tested it.
+9. **Tilt Protocol**: the table above repeats its HackQuest text; its contracts were not checked.
+10. **Robinhood Earn at about 7%**: taken from the FalconX primer and the Robinhood newsroom, not from the Earn page itself. Whether it is subsidised is not confirmed.

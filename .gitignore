@@ -50,3 +50,15 @@ contracts/broadcast/*/412346/
 
 # telegram bot state (subscribers, log cursor)
 bots/telegram/data/
+
+# internal working notes, kept locally and not published
+.internal/
+# moved to .internal/docs/; ignored here so they are not re-added to the public tree by mistake
+docs/review.md
+docs/plans/
+docs/PLAN.md
+docs/progress.md
+docs/req-you.md
+docs/hackathon.md
+docs/research-winners.md
+docs/research-final-week.md

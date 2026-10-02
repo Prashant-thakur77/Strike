@@ -277,7 +277,7 @@
     ]
   },
   "source_notes": {
-    "Tilt Protocol": "Cells come from its HackQuest text (via docs/research-winners.md) and were not checked against its contracts. It does not sell options, so it has no point in 'positions'.",
-    "AfterHours, Novation, CallPut": "Added on 2026-10-01 from docs/research-final-week.md, which read each project's README and HackQuest page. Novation and CallPut are not confirmed as entrants of this buildathon. Neither is on the positioning chart: who picks the strike is not described in those sources, and for CallPut neither is how the premium is set."
+    "Tilt Protocol": "Cells come from its HackQuest text and were not checked against its contracts. It does not sell options, so it has no point in 'positions'.",
+    "AfterHours, Novation, CallPut": "Added on 2026-10-01 from each project's README and HackQuest page. Novation and CallPut are not confirmed as entrants of this buildathon. Neither is on the positioning chart: who picks the strike is not described in those sources, and for CallPut neither is how the premium is set."
   }
 }

@@ -1,6 +1,6 @@
 # HackQuest submission answers
 
-Paste-ready answers for the HackQuest form. Every organizer text field takes at most 300 characters ([hackathon.md](../hackathon.md)). The count after each heading is the answer's length in characters (Python `len`, line breaks included). Every answer is within the limit.
+Paste-ready answers for the HackQuest form. Every organizer text field takes at most 300 characters ([HackQuest](https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon)). The count after each heading is the answer's length in characters (Python `len`, line breaks included). Every answer is within the limit.
 
 Addresses are the v2 deployment on Robinhood Chain testnet (chain 46630, deploy block 125880607), the one with every fix from the [internal security review](../security/review-2026-09-29.md) and the app's default, plus the v3 `EpochManager` on Arbitrum Sepolia (421614). They match the README and [`contracts/deployments/46630.json`](../../contracts/deployments/46630.json) / [`46630-vaults.json`](../../contracts/deployments/46630-vaults.json) / [`421614.json`](../../contracts/deployments/421614.json). v3 on Robinhood Chain testnet ([`46630-v3.json`](../../contracts/deployments/46630-v3.json)) does not fit in the address fields; it is in the README and [DEPLOYMENTS.md](../DEPLOYMENTS.md). The pre-review v1 addresses in `46630-v1*.json` are not submitted.
 
