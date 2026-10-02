@@ -1,0 +1,74 @@
+#!/bin/bash
+# Reads the bot's secrets from SSM Parameter Store and writes them to a root-only env file on tmpfs.
+#
+# strike-bot.service runs this as root before every start (ExecStartPre=+), and systemd reads the file into
+# the bot's environment (EnvironmentFile=). The secrets never touch the disk, the user-data or the unit file,
+# and they are re-read on every restart, so a rotated token only needs `systemctl restart strike-bot`.
+# Nothing here prints a secret.
+#
+# Input (environment, from /etc/strike-bot/bot.conf through the unit's EnvironmentFile=):
+#   AWS_REGION                 region of the parameters
+#   STRIKE_TOKEN_PARAMETER     SecureString holding TELEGRAM_BOT_TOKEN (required)
+#   STRIKE_ALCHEMY_PARAMETER   SecureString holding ALCHEMY_API_KEY (optional; a missing parameter is fine)
+#   STRIKE_BOT_SECRETS_FILE    output file (default /run/strike-bot/secrets.env; tests point it elsewhere)
+set -euo pipefail
+
+: "${AWS_REGION:?AWS_REGION is not set}"
+: "${STRIKE_TOKEN_PARAMETER:?STRIKE_TOKEN_PARAMETER is not set}"
+out=${STRIKE_BOT_SECRETS_FILE:-/run/strike-bot/secrets.env}
+
+umask 077
+mkdir -p "$(dirname "$out")"
+err=$(mktemp)
+trap 'rm -f "$err" "${tmp:-}"' EXIT
+
+# get_parameter NAME: print the decrypted value. Exit 3 when the parameter does not exist.
+get_parameter() {
+  if aws ssm get-parameter --region "$AWS_REGION" --name "$1" --with-decryption \
+    --query Parameter.Value --output text 2>"$err"; then
+    return 0
+  fi
+  if grep -q ParameterNotFound "$err"; then return 3; fi
+  echo "strike-bot-env: cannot read $1:" >&2
+  cat "$err" >&2
+  return 1
+}
+
+status=0
+token=$(get_parameter "$STRIKE_TOKEN_PARAMETER") || status=$?
+if [ "$status" -eq 3 ]; then
+  echo "strike-bot-env: parameter $STRIKE_TOKEN_PARAMETER does not exist (infra/aws/deploy-bot.sh creates it)" >&2
+  exit 1
+elif [ "$status" -ne 0 ]; then
+  exit 1
+fi
+# Same shape check as bots/telegram/src/config.ts, so a bad value fails here with a clear message.
+if [[ ! $token =~ ^[0-9]+:[A-Za-z0-9_-]{20,}$ ]]; then
+  echo "strike-bot-env: $STRIKE_TOKEN_PARAMETER does not hold a BotFather token (<digits>:<secret>)" >&2
+  exit 1
+fi
+
+alchemy=""
+if [ -n "${STRIKE_ALCHEMY_PARAMETER:-}" ]; then
+  status=0
+  alchemy=$(get_parameter "$STRIKE_ALCHEMY_PARAMETER") || status=$?
+  if [ "$status" -eq 3 ]; then
+    alchemy=""
+  elif [ "$status" -ne 0 ]; then
+    exit 1
+  elif [[ ! $alchemy =~ ^[A-Za-z0-9_-]+$ ]]; then
+    echo "strike-bot-env: $STRIKE_ALCHEMY_PARAMETER does not look like an Alchemy API key" >&2
+    exit 1
+  fi
+fi
+
+tmp=$(mktemp "$out.XXXXXX")
+{
+  printf 'TELEGRAM_BOT_TOKEN=%s\n' "$token"
+  if [ -n "$alchemy" ]; then printf 'ALCHEMY_API_KEY=%s\n' "$alchemy"; fi
+} >"$tmp"
+chmod 0600 "$tmp"
+mv -f "$tmp" "$out"
+tmp=""
+
+echo "strike-bot-env: wrote $out (bot token from $STRIKE_TOKEN_PARAMETER; Alchemy key: $([ -n "$alchemy" ] && echo "from $STRIKE_ALCHEMY_PARAMETER" || echo none))"

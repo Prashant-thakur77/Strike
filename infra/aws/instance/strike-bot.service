@@ -1,0 +1,55 @@
+# Strike Telegram bot on EC2. Installed by infra/aws/instance/install.sh to /etc/systemd/system/strike-bot.service.
+#
+# Non-secret settings come from /etc/strike-bot/bot.conf (written once by the CloudFormation user-data). The bot
+# token and the optional Alchemy key are read from SSM Parameter Store by strike-bot-env, as root, before every
+# start, into /run/strike-bot/secrets.env (tmpfs, root-only, removed when the bot stops); systemd passes them to
+# the bot's environment. The bot itself runs unprivileged and can only write its state directory.
+[Unit]
+Description=Strike Telegram bot (read-only alerts and commands, long polling)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=strike-bot
+Group=strike-bot
+WorkingDirectory=/opt/strike/repo/bots/telegram
+EnvironmentFile=/etc/strike-bot/bot.conf
+EnvironmentFile=-/run/strike-bot/secrets.env
+Environment=DATA_DIR=/var/lib/strike-bot
+Environment=NODE_OPTIONS=--max-old-space-size=256
+ExecStartPre=+/usr/local/sbin/strike-bot-env
+# What `pnpm --filter @strike/telegram-bot start` runs, without the pnpm and tsx CLI wrapper processes
+# (about 150 MB less memory on a 512 MB instance).
+ExecStart=/opt/strike/node/bin/node --conditions=strike-source --import tsx src/index.ts
+ExecStopPost=+/bin/rm -f /run/strike-bot/secrets.env
+Restart=always
+RestartSec=15
+StateDirectory=strike-bot
+StateDirectoryMode=0700
+StandardOutput=append:/var/log/strike-bot/bot.log
+StandardError=inherit
+
+# Sandbox: the bot only needs outbound HTTPS and its state directory.
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

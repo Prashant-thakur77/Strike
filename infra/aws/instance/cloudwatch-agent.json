@@ -1,0 +1,31 @@
+{
+  "agent": {
+    "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/strike-bot/bot.log",
+            "log_group_name": "/strike/telegram-bot",
+            "log_stream_name": "{instance_id}/bot",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/cloud-init-output.log",
+            "log_group_name": "/strike/telegram-bot",
+            "log_stream_name": "{instance_id}/bootstrap",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/strike-bot/install.log",
+            "log_group_name": "/strike/telegram-bot",
+            "log_stream_name": "{instance_id}/install",
+            "timezone": "UTC"
+          }
+        ]
+      }
+    }
+  }
+}

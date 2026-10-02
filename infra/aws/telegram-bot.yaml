@@ -1,0 +1,321 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Strike Telegram bot (@strike_options_bot) on one EC2 instance: t4g.nano, Amazon Linux 2023 arm64, no SSH key
+  and no inbound ports (Session Manager for access), outbound HTTPS only, bot token from SSM Parameter Store,
+  logs in CloudWatch Logs. Deploy with infra/aws/deploy-bot.sh; see infra/aws/README.md.
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: Bot }
+        Parameters: [ChainId, RpcUrl, RepoUrl, RepoRef, NodeVersion]
+      - Label: { default: Instance }
+        Parameters: [InstanceType, CpuCredits, VolumeSize, LatestAmiId, ImageId]
+      - Label: { default: Secrets in SSM Parameter Store (SecureString) }
+        Parameters: [TokenParameterName, AlchemyKeyParameterName, StateSeedParameterName]
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t4g.nano
+    AllowedValues: [t4g.nano, t4g.micro, t4g.small]
+    Description: Graviton (arm64) burstable instance. t4g.nano (2 vCPU, 0.5 GiB) is enough for the bot.
+  CpuCredits:
+    Type: String
+    Default: standard
+    AllowedValues: [standard, unlimited]
+    Description: >-
+      standard caps CPU at the baseline and never bills surplus credits (bootstrap is slower). unlimited bursts
+      freely and bills surplus vCPU-hours if the 24-hour average exceeds the baseline.
+  VolumeSize:
+    Type: Number
+    Default: 8
+    MinValue: 8
+    MaxValue: 30
+    Description: Root volume (gp3, encrypted) in GiB. Changing it replaces the instance.
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+    Description: Public SSM parameter for the newest Amazon Linux 2023 arm64 AMI, used when ImageId is empty.
+  ImageId:
+    Type: String
+    Default: ""
+    AllowedPattern: ^(ami-[0-9a-f]{8,17})?$
+    Description: >-
+      Pin an AMI. deploy-bot.sh pins the running instance's AMI on updates, so a newer Amazon Linux release
+      does not replace the instance (and its state file). Empty uses LatestAmiId.
+  ChainId:
+    Type: String
+    Default: "46630"
+    AllowedPattern: ^[0-9]+$
+    Description: STRIKE_CHAIN_ID. 46630 is Robinhood Chain testnet, 421614 Arbitrum Sepolia.
+  RpcUrl:
+    Type: String
+    Default: ""
+    AllowedPattern: ^(https://[A-Za-z0-9._~:/?#\[\]@!&()*+,;=%-]+)?$
+    Description: >-
+      STRIKE_RPC_URL. Empty uses the chain's public RPC. Do not put an API key here (it would be readable in the
+      stack's parameters); store an Alchemy key in AlchemyKeyParameterName instead.
+  RepoUrl:
+    Type: String
+    Default: https://github.com/Prashant-thakur77/Strike.git
+    AllowedPattern: ^https://[A-Za-z0-9._/-]+$
+    Description: Public Git repository to clone (HTTPS).
+  RepoRef:
+    Type: String
+    Default: main
+    AllowedPattern: ^[A-Za-z0-9._/-]+$
+    Description: Branch or tag to deploy. Later updates go through update-bot.sh (git pull and restart).
+  NodeVersion:
+    Type: String
+    Default: 22.23.3
+    AllowedPattern: ^22\.[0-9]+\.[0-9]+$
+    Description: Node.js 22 release from nodejs.org, checked against its SHASUMS256.txt.
+  TokenParameterName:
+    Type: String
+    Default: /strike/telegram-bot-token
+    AllowedPattern: ^/[A-Za-z0-9_./-]+$
+    Description: SecureString parameter holding TELEGRAM_BOT_TOKEN (deploy-bot.sh creates it from bots/telegram/.env).
+  AlchemyKeyParameterName:
+    Type: String
+    Default: /strike/alchemy-api-key
+    AllowedPattern: ^/[A-Za-z0-9_./-]+$
+    Description: Optional SecureString parameter holding ALCHEMY_API_KEY. The bot starts without it.
+  StateSeedParameterName:
+    Type: String
+    Default: /strike/telegram-bot-state-seed
+    AllowedPattern: ^/[A-Za-z0-9_./-]+$
+    Description: >-
+      Optional SecureString holding a bot state file (subscribers, log cursor) to start from on the first boot;
+      deploy-bot.sh uploads the local copy's state there and deletes it after the deploy.
+
+Conditions:
+  PinImage: !Not [!Equals [!Ref ImageId, ""]]
+
+Resources:
+  # Network: a small VPC of its own with one public subnet, so the stack does not depend on a default VPC.
+  # The instance needs a public IPv4 address for outbound traffic (GitHub has no IPv6, and a NAT gateway
+  # costs ten times as much). Nothing listens: the security group has no inbound rules.
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.73.0.0/24
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - { Key: Name, Value: strike-telegram-bot }
+        - { Key: Project, Value: Strike }
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - { Key: Name, Value: strike-telegram-bot }
+        - { Key: Project, Value: Strike }
+
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.73.0.0/26
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - { Key: Name, Value: strike-telegram-bot }
+        - { Key: Project, Value: Strike }
+
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - { Key: Name, Value: strike-telegram-bot }
+        - { Key: Project, Value: Strike }
+
+  DefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetRouteTable:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+
+  # No ingress rules at all. Egress is TCP 443 only: Telegram, the chain RPC, GitHub, nodejs.org, the npm
+  # registry, the Amazon Linux repositories and the SSM, CloudWatch Logs and CloudFormation endpoints. DNS,
+  # NTP and instance metadata go to link-local Amazon services that security groups do not filter.
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Strike Telegram bot - no inbound, outbound HTTPS only
+      VpcId: !Ref Vpc
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS out
+      Tags:
+        - { Key: Name, Value: strike-telegram-bot }
+        - { Key: Project, Value: Strike }
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: /strike/telegram-bot
+      RetentionInDays: 14
+      Tags:
+        - { Key: Project, Value: Strike }
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Strike Telegram bot instance - Session Manager, its own SSM parameters, its log group
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: strike-telegram-bot
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadBotParameters
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TokenParameterName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AlchemyKeyParameterName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${StateSeedParameterName}
+              # AmazonSSMManagedInstanceCore allows ssm:GetParameter(s) on every parameter in the account.
+              # This explicit deny narrows reads to the three parameters above (and AWS's public ones).
+              - Sid: DenyOtherParameters
+                Effect: Deny
+                Action:
+                  - ssm:GetParameter
+                  - ssm:GetParameters
+                  - ssm:GetParametersByPath
+                  - ssm:GetParameterHistory
+                NotResource:
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TokenParameterName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AlchemyKeyParameterName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${StateSeedParameterName}
+                  - !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::parameter/aws/*
+              - Sid: WriteBotLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !GetAtt LogGroup.Arn
+              - Sid: SignalBootstrap
+                Effect: Allow
+                Action: cloudformation:SignalResource
+                Resource: !Ref AWS::StackId
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  BotInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: DefaultRoute
+    CreationPolicy:
+      ResourceSignal:
+        Count: 1
+        Timeout: PT45M
+    Properties:
+      ImageId: !If [PinImage, !Ref ImageId, !Ref LatestAmiId]
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref InstanceProfile
+      SubnetId: !Ref Subnet
+      SecurityGroupIds: [!Ref SecurityGroup]
+      CreditSpecification:
+        CPUCredits: !Ref CpuCredits
+      MetadataOptions:
+        HttpEndpoint: enabled
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+        InstanceMetadataTags: disabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: !Ref VolumeSize
+            Encrypted: true
+            DeleteOnTermination: true
+      PropagateTagsToVolumeOnCreation: true
+      Tags:
+        - { Key: Name, Value: strike-telegram-bot }
+        - { Key: Project, Value: Strike }
+      # Runs once, on the first boot. It holds no secrets: the bot reads its token from SSM at every start.
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          export HOME=/root
+
+          signal() {
+            local imds iid
+            imds=$(curl -sS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token)
+            iid=$(curl -sS -H "X-aws-ec2-metadata-token: $imds" http://169.254.169.254/latest/meta-data/instance-id)
+            echo "bootstrap: $1 ($2)"
+            aws cloudformation signal-resource --region '${AWS::Region}' --stack-name '${AWS::StackName}' \
+              --logical-resource-id BotInstance --unique-id "$iid" --status "$1" || true
+          }
+          trap 'signal FAILURE "failed at line $LINENO; see the bootstrap and install log streams"' ERR
+
+          install -d -m 0755 /etc/strike-bot
+          cat > /etc/strike-bot/bot.conf <<'CONF'
+          AWS_REGION=${AWS::Region}
+          STRIKE_CHAIN_ID=${ChainId}
+          STRIKE_RPC_URL=${RpcUrl}
+          STRIKE_TOKEN_PARAMETER=${TokenParameterName}
+          STRIKE_ALCHEMY_PARAMETER=${AlchemyKeyParameterName}
+          STRIKE_STATE_SEED_PARAMETER=${StateSeedParameterName}
+          NODE_VERSION=${NodeVersion}
+          REPO_REF=${RepoRef}
+          CONF
+          chmod 0644 /etc/strike-bot/bot.conf
+
+          dnf install -y -q git
+          rm -rf /opt/strike/repo
+          install -d -m 0755 /opt/strike
+          git clone --quiet --depth 1 --branch '${RepoRef}' '${RepoUrl}' /opt/strike/repo
+          /opt/strike/repo/infra/aws/instance/install.sh
+          signal SUCCESS "the bot is running"
+
+Outputs:
+  InstanceId:
+    Description: The bot's EC2 instance
+    Value: !Ref BotInstance
+  ImageId:
+    Description: AMI the instance runs (deploy-bot.sh pins it on updates)
+    Value: !If [PinImage, !Ref ImageId, !Ref LatestAmiId]
+  LogGroupName:
+    Description: CloudWatch Logs group (streams <instance-id>/bot, /bootstrap and /install)
+    Value: !Ref LogGroup
+  StartSessionCommand:
+    Description: Shell on the instance through Session Manager (needs the session-manager-plugin)
+    Value: !Sub aws ssm start-session --region ${AWS::Region} --target ${BotInstance}
+  TailLogsCommand:
+    Description: Follow the bot's logs
+    Value: !Sub aws logs tail ${LogGroup} --region ${AWS::Region} --follow
