@@ -41,6 +41,7 @@ Reads need only a `publicClient`. Pass a viem `walletClient` too and the client 
 - `deposit`, `buy`, `redeemOptions`, `proposeByDelta`, `settle`, `registerAgent`, `setSigner`, `postBond`, `createVault`
 - Pricing helpers (`blackScholes`, `strikeForDelta`, `vaultCapacity`), mandate checks (`mandateProblems`, `explainMandateReason`), settlement-hint discovery, decision-record anchoring (`verifyDecisionAnchor`) and every contract ABI
 - `deploymentsFor(chainId)` lists every deployment of a chain (v2 and v3 on 46630); `createStrikeClient({ deployment })` targets one
+- `rpcTransportFor(chainId)`: a viem transport over Alchemy when `ALCHEMY_API_KEY` is set (the key in a header, never in a URL), then `STRIKE_RPC_URL`, then the chain's public RPC, falling back down the list; `rpcUrlFor(chainId)` gives one URL for tools such as `cast` (print it only through `redactRpcUrl`)
 
 Agents that would rather speak MCP can use [`@strike-options/mcp`](https://www.npmjs.com/package/@strike-options/mcp). How Strike works, the mandate rules and a safe proposal loop: [STRIKE_SKILL.md](https://strike-options.vercel.app/skill.md). Source, tests and docs: [github.com/Prashant-thakur77/Strike](https://github.com/Prashant-thakur77/Strike).
 

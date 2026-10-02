@@ -214,14 +214,42 @@ The bot ([`bots/telegram`](../bots/telegram/README.md)) is read-only: no key, no
 
 Watch the log for `409 Conflict` (a second copy is polling the token) and for `alert pass failed` lines that keep repeating (the RPC is down or rate-limited; set `ALCHEMY_API_KEY`).
 
+## RPC (Alchemy)
+
+Every Strike process reads (and the keeper and agents send) through Alchemy when `ALCHEMY_API_KEY` is set, and through the public RPCs otherwise or whenever Alchemy fails. Why a server-side proxy and a header instead of a public key: [D39](decisions.md#d39--alchemy-behind-a-server-side-read-only-proxy-with-the-public-rpcs-as-fallback-2026-10-02).
+
+| Where                                                  | Set it in                                                                                      | What uses it                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| App on Vercel                                          | Project env var `ALCHEMY_API_KEY` (not `NEXT_PUBLIC_`), then redeploy                          | `/api/rpc/<chainId>` (browser reads, read methods only), `/api/stats`, `/api/mcp`, `/api/option`. The redeploy matters: the build turns on the browser proxy (`NEXT_PUBLIC_STRIKE_RPC_PROXY=1`) only when it sees the key           |
+| GitHub Actions                                         | Repository secret `ALCHEMY_API_KEY` (optional)                                                 | `keeper.yml` (cast through [`scripts/rpc.sh`](../scripts/rpc.sh)), `agent.yml` (keeper, agents #1 and #2, the market check), the fork tests in `ci.yml` (`ROBINHOOD_RPC_URL` becomes Alchemy's mainnet endpoint, public on failure) |
+| Laptop scripts, example agent, MCP server              | `ALCHEMY_API_KEY` in the environment (`set -a; . ./.env; set +a` from the repository root)     | `scripts/keeper.sh`, `scripts/weekly-agent.sh`, `pnpm --filter @strike/agent-example start`, `strike-mcp`                                                                                                                           |
+| Local app (`pnpm --filter @strike/app dev` or `build`) | `app/.env.local` (gitignored)                                                                  | Same as Vercel                                                                                                                                                                                                                      |
+| Telegram bot                                           | `bots/telegram/.env` (laptop); SSM SecureString via `infra/aws/deploy-bot.sh --update-secrets` | Log reads and commands                                                                                                                                                                                                              |
+
+Order: Alchemy, then `STRIKE_RPC_URL` (or `NEXT_PUBLIC_RPC_<chainId>` in the app), then the chain's public RPC. A loopback `STRIKE_RPC_URL` or `RPC_URL` (`http://127.0.0.1:8545`, a fork rehearsal) is always used alone. The Alchemy app must have Robinhood Chain testnet, Robinhood Chain mainnet and Arbitrum Sepolia enabled; a network that is not enabled answers an error and that chain falls back to the public RPC (the keeper prints `warning: Alchemy (arb-sepolia) did not answer`). On the free tier Alchemy refuses `eth_getLogs` over more than 10 blocks, so the usage scan, the activity feed and the bot's log reads fall back to the public RPC for those calls; a pay-as-you-go plan serves them too.
+
+Check it without the key:
+
+```bash
+curl -s https://strike-options.vercel.app/api/rpc/46630    # {"chainId":46630,"provider":"alchemy"} when Alchemy answers, else "public"
+curl -s -D - -o /dev/null -X POST -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+  https://strike-options.vercel.app/api/rpc/46630 | grep -i x-strike-rpc   # alchemy, public, alchemy+public or cache
+```
+
+`/app/proof` shows the same as "RPC: Alchemy" or "RPC: public" in the live pricer card. Startup lines name the RPC without the key (`strike-mcp: chain 46630 via Alchemy (robinhood-testnet), falling back to rpc.testnet.chain.robinhood.com (public)`; the keeper prints `RPC: https://robinhood-testnet.g.alchemy.com/v2/***`).
+
+Rotate: create a new key in the Alchemy dashboard, put it in Vercel (redeploy), the GitHub secret, `.env` and the bot's SSM parameter, then delete the old key. Nothing in the repository holds a key; gitleaks scans every push.
+
 ## Keys
 
-| Key                | Where                                                                              | Mainnet requirement                                                          |
-| ------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Admin / guardian   | `contracts/.env` on testnet                                                        | A Safe multisig; guardian may be a faster 2-of-3                             |
-| Keeper             | GitHub Actions secret `KEEPER_PRIVATE_KEY`                                         | Separate hot key with `KEEPER_ROLE` only                                     |
-| Agent signer       | Agent operator                                                                     | Separate from the agent owner key; rotate with `setSigner`                   |
-| Telegram bot token | `bots/telegram/.env` (laptop); SSM SecureString `/strike/telegram-bot-token` (AWS) | Same; rotate with BotFather `/revoke`, then `deploy-bot.sh --update-secrets` |
+| Key                | Where                                                                                               | Mainnet requirement                                                          |
+| ------------------ | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Admin / guardian   | `contracts/.env` on testnet                                                                         | A Safe multisig; guardian may be a faster 2-of-3                             |
+| Keeper             | GitHub Actions secret `KEEPER_PRIVATE_KEY`                                                          | Separate hot key with `KEEPER_ROLE` only                                     |
+| Agent signer       | Agent operator                                                                                      | Separate from the agent owner key; rotate with `setSigner`                   |
+| Telegram bot token | `bots/telegram/.env` (laptop); SSM SecureString `/strike/telegram-bot-token` (AWS)                  | Same; rotate with BotFather `/revoke`, then `deploy-bot.sh --update-secrets` |
+| Alchemy API key    | Vercel env (server only), GitHub secret, `.env` files, SSM (bot); see [RPC (Alchemy)](#rpc-alchemy) | A paid plan with Alchemy's method and contract allowlists on the key         |
 
 ## Monitoring
 

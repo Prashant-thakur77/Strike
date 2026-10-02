@@ -10,7 +10,8 @@ The app is a Next.js project in `app/` inside a pnpm workspace. It reads contrac
 4. Framework preset: Next.js. `app/vercel.json` already sets the install and build commands.
 5. Optional environment variables:
    - `NEXT_PUBLIC_DEFAULT_CHAIN_ID`: `46630` (Robinhood Chain testnet, the default) or `421614`
-   - `NEXT_PUBLIC_RPC_46630`, `NEXT_PUBLIC_RPC_421614`, `NEXT_PUBLIC_RPC_4663`: private RPC URLs if the public ones rate-limit
+   - `ALCHEMY_API_KEY` (not `NEXT_PUBLIC_`): the app then reads through Alchemy behind its server-side proxy `/api/rpc/<chainId>`, with the public RPCs as fallback; the key never reaches the browser. Redeploy after setting it: the build turns the browser side on only when it sees the key. Details in [operations.md](operations.md#rpc-alchemy)
+   - `NEXT_PUBLIC_RPC_46630`, `NEXT_PUBLIC_RPC_421614`, `NEXT_PUBLIC_RPC_4663`: other RPC URLs to use instead of the public ones (they are inlined into the browser bundle, so never put a key in them)
 6. Deploy. Put the resulting URL in the README "Live app" row and in `docs/submission/hackquest-answers.md`.
 
 The ERC-1155 option metadata URI in the contracts is `https://strike-options.vercel.app/api/option/{id}.json`. If the Vercel project gets a different domain, either add `strike-options.vercel.app` as a domain alias or call `OptionToken.setURI` with the new base.
