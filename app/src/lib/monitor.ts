@@ -3,10 +3,14 @@
 // Chain mainnet tokens exactly the way the contracts would, without a Strike deployment on mainnet.
 
 import type { Address } from "viem";
+// Data, not code: the Playwright specs load this file as it is, so it reads strike.config.json directly rather than
+// through the SDK (docs/configuration.md).
+import strikeConfig from "../../../strike.config.json";
 
 /** Robinhood Chain mainnet. The monitor always reads it, whatever network the app has selected. */
 export const MONITOR_CHAIN_ID = 4663;
-export const MONITOR_RPC = "https://rpc.mainnet.chain.robinhood.com";
+const mainnet = strikeConfig.chains["4663"];
+export const MONITOR_RPC = mainnet.rpc.public;
 
 /** Staleness limit on mainnet: Chainlink heartbeat 24 h + 1 h (contracts/script/Deploy.s.sol, chain 4663). */
 export const MAX_PRICE_AGE = 25 * 3600;
@@ -21,61 +25,32 @@ export interface MonitorToken {
   feed: Address;
 }
 
+/** Display names of the mainnet stock tokens. */
+const TOKEN_NAMES: Readonly<Record<string, string>> = {
+  TSLA: "Tesla",
+  NVDA: "NVIDIA",
+  AMZN: "Amazon",
+  PLTR: "Palantir",
+  AMD: "AMD",
+  SPY: "SPDR S&P 500 ETF",
+  AAPL: "Apple",
+  QQQ: "Invesco QQQ",
+};
+
 /**
- * Every mainnet stock token with a Chainlink feed. Addresses from scripts/keeper.sh (MAINNET_FEED),
- * Deploy.s.sol (4663) and docs/research.md §3a; each token's symbol and each feed's description were checked
- * on-chain. NFLX is left out: Chainlink lists no feed for it on Robinhood Chain.
+ * Every mainnet stock token with a Chainlink feed: strike.config.json's chains.4663.stocks, the same map the keeper
+ * mirrors to the testnets (scripts/keeper.sh), from Deploy.s.sol (4663) and docs/research.md §3a; each token's
+ * symbol and each feed's description were checked on-chain. NFLX is left out: Chainlink lists no feed for it on
+ * Robinhood Chain.
  */
-export const MONITOR_TOKENS: readonly MonitorToken[] = [
-  {
-    symbol: "TSLA",
-    name: "Tesla",
-    token: "0x322F0929c4625eD5bAd873c95208D54E1c003b2d",
-    feed: "0x4A1166a659A55625345e9515b32adECea5547C38",
-  },
-  {
-    symbol: "NVDA",
-    name: "NVIDIA",
-    token: "0xd0601CE157Db5bdC3162BbaC2a2C8aF5320D9EEC",
-    feed: "0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15",
-  },
-  {
-    symbol: "AMZN",
-    name: "Amazon",
-    token: "0x12f190a9F9d7D37a250758b26824B97CE941bF54",
-    feed: "0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C",
-  },
-  {
-    symbol: "PLTR",
-    name: "Palantir",
-    token: "0x894E1EC2D74FFE5AEF8Dc8A9e84686acCB964F2A",
-    feed: "0x820ABedFF239034956B7A9d2F0a331f9F075eB4c",
-  },
-  {
-    symbol: "AMD",
-    name: "AMD",
-    token: "0x86923f96303D656E4aa86D9d42D1e57ad2023fdC",
-    feed: "0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72",
-  },
-  {
-    symbol: "SPY",
-    name: "SPDR S&P 500 ETF",
-    token: "0x117cc2133c37B721F49dE2A7a74833232B3B4C0C",
-    feed: "0x319724394D3A0e3669269846abE664Cd621f9f6A",
-  },
-  {
-    symbol: "AAPL",
-    name: "Apple",
-    token: "0xaF3D76f1834A1d425780943C99Ea8A608f8a93f9",
-    feed: "0x6B22A786bAa607d76728168703a39Ea9C99f2cD0",
-  },
-  {
-    symbol: "QQQ",
-    name: "Invesco QQQ",
-    token: "0xD5f3879160bc7c32ebb4dC785F8a4F505888de68",
-    feed: "0x80901d846d5D7B030F26B480776EE3b29374C2ae",
-  },
-];
+export const MONITOR_TOKENS: readonly MonitorToken[] = Object.entries(mainnet.stocks).map(
+  ([symbol, { token, feed }]) => ({
+    symbol,
+    name: TOKEN_NAMES[symbol] ?? symbol,
+    token: token as Address,
+    feed: feed as Address,
+  }),
+);
 
 // ------------------------------------------------------------------ SafeStockFeed.status()
 

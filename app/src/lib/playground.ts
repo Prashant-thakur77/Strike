@@ -20,6 +20,7 @@ import {
   type VaultState,
 } from "@strike/sdk";
 import { createPublicClient, formatUnits, getAddress, type Abi, type Address, type PublicClient } from "viem";
+import { REPO_URL, chainExplorer } from "@/lib/config";
 import { readTransport } from "@/lib/rpc/client";
 import {
   decodeRevertWith,
@@ -38,12 +39,10 @@ export * from "@/components/app/playground/model";
 export const PLAYGROUND_CHAIN_ID = 46630 as const;
 export const PLAYGROUND_CHAIN = strikeChains.robinhoodTestnet;
 export const PLAYGROUND_RPC = PLAYGROUND_CHAIN.rpcUrls.default.http[0];
-export const PLAYGROUND_EXPLORER = "https://explorer.testnet.chain.robinhood.com";
+export const PLAYGROUND_EXPLORER = chainExplorer(PLAYGROUND_CHAIN_ID);
 
-export const MANDATE_GUARD_URL =
-  "https://github.com/Prashant-thakur77/Strike/blob/main/contracts/src/libraries/MandateGuard.sol";
-export const EPOCH_MANAGER_URL =
-  "https://github.com/Prashant-thakur77/Strike/blob/main/contracts/src/core/EpochManager.sol";
+export const MANDATE_GUARD_URL = `${REPO_URL}/blob/main/contracts/src/libraries/MandateGuard.sol`;
+export const EPOCH_MANAGER_URL = `${REPO_URL}/blob/main/contracts/src/core/EpochManager.sol`;
 /** The live `ProposalRejected` on the put vault (agent #1 slashed). */
 export const LIVE_REJECTION_TX = "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469dc6a0";
 export const LIVE_REJECTION_URL = `${PLAYGROUND_EXPLORER}/tx/${LIVE_REJECTION_TX}`;
@@ -61,17 +60,23 @@ export interface PlaygroundVault {
 
 const deployment = getDeployment(PLAYGROUND_CHAIN_ID);
 const vaultMap = deployment.vaults as Record<string, string>;
+/** A vault of the 46630 deployment (contracts/deployments/46630-vaults.json, through the SDK). */
+function vaultAddress(key: string): Address {
+  const v = vaultMap[key];
+  if (!v) throw new Error(`no ${key} in the ${PLAYGROUND_CHAIN_ID} deployment's vaults`);
+  return getAddress(v);
+}
 
 export const PLAYGROUND_VAULTS: readonly PlaygroundVault[] = [
   {
     key: "call",
-    address: getAddress(vaultMap.TSLA_covered_call ?? "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e"),
+    address: vaultAddress("TSLA_covered_call"),
     label: "TSLA covered call",
     short: "Covered call",
   },
   {
     key: "put",
-    address: getAddress(vaultMap.TSLA_cash_secured_put ?? "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7"),
+    address: vaultAddress("TSLA_cash_secured_put"),
     label: "TSLA cash-secured put",
     short: "Cash-secured put",
   },
