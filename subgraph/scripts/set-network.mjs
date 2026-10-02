@@ -11,10 +11,12 @@
 //
 // Then build or deploy with `graph build --network <name>` (graph-cli copies the entry into subgraph.yaml).
 //
-// Network names differ per indexer, so one chain can fill several entries:
+// Network names differ per indexer, so one chain can fill several entries (strike.config.json's
+// chains.<id>.subgraphNetworks):
 //   421614 arbitrum-sepolia                        (The Graph Studio, Goldsky, Ormi)
 //   46630  robinhood-sepolia (The Graph registry id), robinhood-testnet (Goldsky)
 //   4663   robinhood (The Graph registry id, Ormi, Sentio), robinhood-mainnet (Goldsky)
+// The deployment file defaults to the chain's primary one in the config (contracts/deployments/<chainId>.json).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,12 +25,8 @@ const here = dirname(fileURLToPath(import.meta.url));
 const subgraphDir = join(here, "..");
 const contractsDir = join(subgraphDir, "..", "contracts");
 const networksFile = join(subgraphDir, "networks.json");
-
-const NETWORKS_BY_CHAIN = {
-  421614: ["arbitrum-sepolia"],
-  46630: ["robinhood-sepolia", "robinhood-testnet"],
-  4663: ["robinhood", "robinhood-mainnet"],
-};
+const strikeConfig = JSON.parse(readFileSync(join(subgraphDir, "..", "strike.config.json"), "utf8"));
+const chainConfig = (id) => strikeConfig.chains[String(id)];
 
 // subgraph.yaml data source name -> field in deployments/<chainId>.json
 const SOURCES = {
@@ -69,12 +67,16 @@ if (startBlockOverride !== undefined && !(Number.isInteger(startBlockOverride) &
   usage("--start-block must be a non-negative integer");
 }
 
-const networks = networkOverrides.length ? networkOverrides : NETWORKS_BY_CHAIN[chainId];
+const networks = networkOverrides.length ? networkOverrides : chainConfig(chainId)?.subgraphNetworks;
 if (!networks) usage(`no graph network known for chain ${chainId}; pass --network <name>`);
 
 // ------------------------------------------------------------------ deployment
 
-const file = resolve(deploymentsPath ?? join(contractsDir, "deployments", `${chainId}.json`));
+const primary = chainConfig(chainId)?.deployments[0];
+const file = resolve(
+  deploymentsPath ??
+    (primary ? join(subgraphDir, "..", primary) : join(contractsDir, "deployments", `${chainId}.json`)),
+);
 if (!existsSync(file)) usage(`deployment file not found: ${file} (run contracts/script/Deploy.s.sol first)`);
 const deployment = JSON.parse(readFileSync(file, "utf8"));
 if (deployment.chainId !== undefined && String(deployment.chainId) !== chainId) {
