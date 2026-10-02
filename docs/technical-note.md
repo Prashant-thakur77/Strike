@@ -1,0 +1,99 @@
+# Technical note
+
+Strike sells one option series a week from each vault of tokenized stock (covered calls) or USDG (cash-secured puts) on Robinhood Chain. An AI agent picks the strike, the contract checks it against the vault's fixed mandate, and a proposal outside the mandate costs the agent 10 USDG of its bond, paid to the vault's depositors. This note explains the design, what is trusted, how it is tested and what remains before mainnet. Every figure links to its source in this repository or on-chain. Strike is unaudited and runs on testnets only.
+
+## 1. The problem
+
+A tokenized stock on Robinhood Chain earns the stock's return and nothing else. Selling weekly covered calls is the usual way to earn more, but it needs someone to pick a strike every week. Handing that job to an AI agent creates two problems:
+
+1. **An agent with keys can drain a vault.** If the agent can trade the vault's assets, depositors trust the agent completely.
+2. **Stock tokens have traps that crypto options protocols do not handle.** The Chainlink price already includes the ERC-8056 dividend and split multiplier, the equity feed freezes when NYSE is closed while the token trades every day, and both the token and its oracle can be paused ([README, Why](../README.md#why)).
+
+Strike's answer is to let the agent propose only, and to make the contract the judge.
+
+## 2. Design
+
+### 2.1 Contracts
+
+| Contract                                                                                                                      | Role                                                                                                  |
+| ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [`StrikeVault`](../contracts/src/vaults/StrikeVault.sol)                                                                      | ERC-4626 vault, deployed as an EIP-1167 clone; deposits and redemptions queue while an epoch runs     |
+| [`EpochManager`](../contracts/src/core/EpochManager.sol)                                                                      | The epoch state machine (open, propose, buy, settle, redeem); the only contract that moves collateral |
+| [`MandateGuard`](../contracts/src/libraries/MandateGuard.sol)                                                                 | A pure check of a proposal against the mandate, returning one of nine named reasons                   |
+| [`AgentRegistry`](../contracts/src/agents/AgentRegistry.sol)                                                                  | Agents, signer keys, ERC-8004 identity links, USDG bonds and slashing                                 |
+| [`StockOracle`](../contracts/src/oracle/StockOracle.sol) with [`SafeStockFeed`](../contracts/src/libraries/SafeStockFeed.sol) | Every price read, and the settlement price recorded once per token and expiry                         |
+| [`MarketCalendar`](../contracts/src/oracle/MarketCalendar.sol)                                                                | NYSE sessions on-chain, with daylight saving, holidays and early closes                               |
+| [Stylus pricer](../stylus/pricer/src/lib.rs) and [`BlackScholesRef`](../contracts/src/pricing/BlackScholesRef.sol)            | The same integer Black-Scholes in Rust and in Solidity                                                |
+| [`OptionToken`](../contracts/src/tokens/OptionToken.sol), [`FeeManager`](../contracts/src/core/FeeManager.sol)                | ERC-1155 options, one id per series; a 10% fee on positive epoch PnL, half to the agent               |
+| [`DecisionLog`](../contracts/src/agents/DecisionLog.sol)                                                                      | The keccak256 hash and URL of each agent decision record                                              |
+
+Nothing is upgradeable and a vault's mandate cannot be changed after creation ([D13](decisions.md)), so a fix ships as a new deployment: v1, v2 and v3 are listed in [DEPLOYMENTS.md](DEPLOYMENTS.md).
+
+### 2.2 The agent's mandate and the slash
+
+Each vault fixes, at creation, a band for the option's absolute delta, a minimum premium as a percentage of Black-Scholes fair value (at least 90%), a minimum yield on collateral, the largest share of capacity it may sell and a tenor range of at most 35 days ([design.md §8](design.md#8-mandate)). An agent registers in the `AgentRegistry`, bonds at least 50 USDG and proposes through a separate signer key. It never holds or moves vault funds.
+
+A proposal is checked by `MandateGuard` against the spot and volatility that `openEpoch` snapshotted, so an honest agent's dry run (`previewProposal`, the MCP `risk_check` tool) decides its verdict in advance ([D28](decisions.md)). A proposal outside the mandate does not revert, because a revert would undo the penalty ([D12](decisions.md)). Instead the call returns `false`, emits `ProposalRejected(reason)`, slashes 10 USDG of the bond to the vault and adds a strike ([`EpochManager.sol`](../contracts/src/core/EpochManager.sol#L644), [`AgentRegistry.slash`](../contracts/src/agents/AgentRegistry.sol#L195)). Three strikes suspend the agent, and unbonding takes 8 days, longer than an epoch (values read from the v2 registry on 2 October). On v3 a rejection also posts −10 feedback to the agent's ERC-8004 identity on the official Reputation Registry.
+
+This has happened on-chain three times, once per live epoch: on v2 the slashed 10 USDG [went into the put vault](https://explorer.testnet.chain.robinhood.com/tx/0x62442f37b3601aa5b56d5e991d3199464ba2e60373f70e00892746c053b629a7) and its depositor [withdrew it](https://explorer.testnet.chain.robinhood.com/tx/0x1c53ff12ec2e9749e84f92ae4fa29a4d584789a8abd661e6f099151361067620); the v3 rejections on [Arbitrum Sepolia](https://sepolia.arbiscan.io/tx/0x4813b1089c8e6a3f3e728c74b9b6bb2d79ec73fb36ab0b5142abc72aa333756d) and [Robinhood Chain testnet](https://explorer.testnet.chain.robinhood.com/tx/0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2) also posted the feedback. The [mandate playground](https://strike-options.vercel.app/app/playground) runs the same check against the deployed contract without a wallet.
+
+### 2.3 Pricing on Stylus
+
+The agent can name a target delta instead of a strike. `proposeByDelta` then solves the strike on-chain with 48 Black-Scholes evaluations, against the opening snapshot, so the agent knows the exact strike before sending ([D22](decisions.md)). That solver is Rust compiled to WASM on Arbitrum Stylus: on a Nitro dev node it costs 235,880 gas against 1,546,443 for the same algorithm in Solidity, and a whole `proposeByDelta` 577,041 against 1,878,918. A single `quote` is 1.1 to 1.6 times cheaper in Solidity, because a Stylus call pays a fixed entry cost; the table publishes that case too ([gas.md](gas.md)).
+
+Both versions run the same integer steps in the same order ([D5](decisions.md)), so the differential test demands exact equality on 10,000 fuzz inputs and 300 fixed vectors rather than a tolerance ([`PricerDifferential.t.sol`](../contracts/test/differential/PricerDifferential.t.sol)). The Stylus build uses no floating point, because activation rejected it ([D6](decisions.md)). Before each EpochManager was pointed at the Stylus program, both pricers were called on-chain and returned identical values; `cargo stylus verify` ties each deployed program to this source ([verification](DEPLOYMENTS.md#stylus-pricer-verification)). v3 adds a risk engine to the same program (greeks, implied volatility, loss over a ±30% shock grid): each accepted proposal emits `SeriesRisk`, and `RiskLens` serves the app's risk panel. On Arbitrum Sepolia the program is cached in ArbOS, which takes about 19,800 gas off each call ([log §2](testnet-epochs/2026-09-30-arbitrum-sepolia.md#2-stylus-pricer-and-risk-engine)). Which sponsor feature does what is listed in [sponsor-tech.md](sponsor-tech.md).
+
+### 2.4 Oracle and settlement
+
+Every price goes through `SafeStockFeed` ([design.md §7](design.md#7-safestockfeed-rules), [guide](safestockfeed.md)). It refuses a price older than 25 hours (the feeds' heartbeat is 24 hours, [D20](decisions.md)), a paused token or oracle, a corporate action between announcement and its effective time plus a grace period, and, when an uptime feed is configured, a down sequencer. Strikes and prices stay in the feed's own per-raw-token unit, so the ERC-8056 multiplier is never applied a second time ([D7](decisions.md)). Opening and selling need an open NYSE session from `MarketCalendar`. A buy pays fair value at the live spot moved 50 basis points against the buyer, never less than intrinsic value ([D29](decisions.md)), so a price set on Monday cannot be picked off on Wednesday.
+
+Settlement uses the first Chainlink round at or after expiry. The caller passes the round id and the contract checks that the previous round is before expiry, so nobody can choose a later, better print ([D14](decisions.md)); a Friday expiry with no weekend print settles on Monday's first one, and aggregator phase changes and corporate actions are handled with extra round hints ([D30](decisions.md)). `settle` is permissionless and idempotent. A guardian pause stops sales but never settlement or withdrawals ([D15](decisions.md)). The locked collateral always covers the worst-case payout, which an invariant test checks on random call sequences ([`StrikeInvariants.t.sol`](../contracts/test/invariant/StrikeInvariants.t.sol)).
+
+The testnets have no Chainlink stock feeds. There a `MirrorFeed` with the same interface and full round history carries Robinhood Chain mainnet Chainlink rounds, pushed by a keeper ([D21](decisions.md)), so the settlement code is the code mainnet would run.
+
+### 2.5 Decision anchoring
+
+The agent writes a decision record per vault and epoch (its inputs, the candidates it dry-ran, its reasoning, the verdict) to [`docs/agent-log`](agent-log/README.md). A file in a repository can be rewritten later, so the agent's signer also calls `DecisionLog.record(agentId, vault, epoch, hash, uri)`, which stores the record's keccak256 hash on-chain at the time of the decision; only the agent's current signer in the registry may write ([D35](decisions.md)). The app's "Why this strike" panel downloads the record, rebuilds the hash in the browser and checks it against the anchoring transaction ([`whyStrike.ts`](../app/src/lib/whyStrike.ts), [`why.spec.ts`](../app/e2e/why.spec.ts)); the SDK does the same with `verifyDecisionAnchor`. Example: the Claude-planned call on Arbitrum Sepolia, [record](agent-log/arbitrum-sepolia/2026-09-30-sTSLA-CC.md) and [anchor](https://sepolia.arbiscan.io/tx/0x1f9f7eafdf448c205df43e81d75e94f5282dd3b2bb465473330012c04cac3538). The anchor proves the text existed before the proposal; it cannot prove that a model wrote it, and the contract judges the proposal, not the text ([D40](decisions.md#d40--a-price-mirror-audit-makes-the-testnet-prices-checkable-2026-10-02)).
+
+### 2.6 The price mirror audit
+
+The `MirrorFeed`s were the one input a depositor had to take on our word. The price mirror audit checks every testnet round against the mainnet Chainlink round it claims to copy: the mainnet round with the same `updatedAt` must exist and carry the same answer, found across proxy phases. It also checks that each EpochManager reads its recorded oracle and that each oracle reads the audited feed, so an admin who swaps either fails the audit ([D40](decisions.md#d40--a-price-mirror-audit-makes-the-testnet-prices-checkable-2026-10-02)). It runs without a key from the command line (`node scripts/verify-mirror.mjs --chain 46630`), from the SDK (`auditMirror`, `auditSettlement`), as [`/api/mirror-audit`](ENDPOINTS.md#app-http-api) and on [/app/proof](https://strike-options.vercel.app/app/proof#mirror). On 2 October it found 66 of 66 keeper rounds matching on Robinhood Chain testnet and 23 of 23 on Arbitrum Sepolia, and a fabricated round pushed on a local fork was caught ([log](testnet-epochs/2026-10-02-mirror-audit.md)). It cannot detect a keeper that withholds prints; it reports the largest gap between pushes instead.
+
+## 3. Trust model
+
+[trust-model.md](trust-model.md) has the full table. In short:
+
+- **Verified by anyone:** the contract rules and each mandate (immutable, verified source), the Stylus program (`cargo stylus verify` and the on-chain equality check), every keeper-pushed value on the testnet price feeds (the mirror audit), and each agent's verdicts (events) and decision records (anchored hashes).
+- **Trusted:** the admin roles, held by the deployer key on the testnets. Every use emits an event and none can change a mandate or a recorded settlement price, but before a price is recorded a compromised admin could pick it by swapping the feed (`setFeed`) or the oracle (`setOracle`); the mirror audit detects that on the testnets, it does not prevent it ([adversarial suite, not defended in code](security/adversarial.md#not-defended-in-code)).
+- **Also trusted:** when the keeper pushes (not what it pushes), Chainlink as the data source, the token issuers (Robinhood and Paxos can pause their tokens), and the RPC a reader uses. The app and its API are a convenience: every number can be re-derived from the chain with the SDK or `cast`.
+
+## 4. What is tested, and how
+
+| Layer                       | What                                                                                                                                              | Where                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Unit and integration        | Functions and custom errors; full call and put epochs in and out of the money, a crash to zero, the queue, rejection and slash, abort             | [`contracts/test`](../contracts/test), [testing.md](testing.md)                                                    |
+| Invariants and mutation     | 9 properties on a call and a put vault (32,768 random calls each in the CI profile); 3 injected bugs, all caught                                  | [testing.md](testing.md#invariants)                                                                                |
+| Formal proofs               | 9 properties proven with Halmos for every input in range (mandate rules, fee caps, NYSE sessions, call payout); 16 more marked unproven           | [formal-verification.md](security/formal-verification.md)                                                          |
+| Differential                | Rust and Solidity pricers equal on 10,000 fuzz inputs and 300 vectors                                                                             | [`test/differential`](../contracts/test/differential)                                                              |
+| Fork tests                  | 9 tests on Robinhood Chain mainnet: real TSLA, NVDA and SPY feeds and multipliers, real USDG, the real ERC-8004 registries                        | [`test/fork`](../contracts/test/fork)                                                                              |
+| Adversarial                 | Attacks grouped as cheat, replay, double-spend and offline, each with its defence and test; 16 of 16 injected bugs caught on `main`, 7 of 7 on v3 | [adversarial.md](security/adversarial.md)                                                                          |
+| Reviews                     | Internal review: 11 findings, all fixed with regression tests; v3 review: 4 Low and 3 Info, three fixed on `v3-contracts`, not yet deployed       | [review-2026-09-29.md](security/review-2026-09-29.md), [review-2026-10-01-v3.md](security/review-2026-10-01-v3.md) |
+| Threats and static analysis | 25 threats with mitigation and test; Slither with 0 High                                                                                          | [threat-model.md](threat-model.md), [slither.md](security/slither.md)                                              |
+| Off-chain code              | The SDK (including the mirror audit), MCP server, example agent, Telegram bot and indexer (against a real Postgres); the app in Playwright        | [README, Tests](../README.md#tests), [indexer tests](../services/indexer/README.md#tests)                          |
+| Whole system                | `scripts/demo-local.sh` runs a full week on anvil, once out of the money and once in the money, in CI                                             | [`demo-local.sh`](../scripts/demo-local.sh)                                                                        |
+
+Counts, rerun on 2 October after the adversarial suite, the mirror audit and the indexer were added: the Foundry suite without fork, differential and formal tests has 515 passing and 7 skipped; the SDK 203 passing and 2 skipped; the MCP server 61; the example agent 68; the Telegram bot 61; the indexer 46. Line coverage of the contracts was 99.3% when last measured, on 30 September ([coverage](../README.md#coverage)). The README's test totals were counted before those suites landed.
+
+## 5. Path to production
+
+The order is in [MILESTONES.md](MILESTONES.md):
+
+1. **v3 becomes the main version.** v3 runs next to v2; `main`, the SDK, the MCP server and the app switch after v2's first settlement ([D36](decisions.md)).
+2. **Eight settled weeks on both testnets**, with the keeper and the weekly agent running on schedule. The first settlement is due after the NYSE close on 2 October.
+3. **An external audit** of the v3 contracts and the Stylus program, with every High and Medium finding fixed and a regression test, partly through the [Arbitrum Security Program](https://blog.arbitrum.foundation/introducing-the-arbitrum-security-program-apply-to-secure-your-smart-contracts/) ([audit-readiness.md](audit-readiness.md)).
+4. **One capped vault on Robinhood Chain mainnet**: a TSLA covered-call vault with an agreed `depositCap`, admin and guardian roles held by a Safe multisig, and the real Chainlink feed read directly through `SafeStockFeed`, with no `MirrorFeed` and no keeper in the price path. The 4663 configuration already sits in [`Deploy.s.sol`](../contracts/script/Deploy.s.sol#L141) with the mainnet feed addresses. The sequencer uptime check is wired and will be set once Chainlink publishes an uptime feed for Robinhood Chain ([research.md §7](research.md#7-chainlink-l2-sequencer-uptime-feeds)).
+5. **Outside agents and integrators**: agents registered by owners outside the team, and a repository outside Strike that uses `SafeStockFeed` or its conformance suite.
+
+Operational work that is written but not running yet is listed in the README's [Not yet](../README.md#not-yet) list: the Alchemy key, AWS hosting for the Telegram bot, a hosted indexer and subgraph, and the scheduled keeper and agent in GitHub Actions.
+
+Known limits that stay after these steps are in the [litepaper §8](litepaper.md#8-limitations-and-future-work): demand at the model price is unproven, one volatility per underlying ignores skew, and the 10 USDG slash is small next to the capital an agent steers.
