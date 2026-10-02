@@ -127,13 +127,17 @@ function json(res, what) {
   }
 }
 
+// &amp; goes last: decoding it first would turn "&amp;quot;" into "&quot;" and then into a quote (double decoding).
 const decode = (s) =>
   s
-    .replace(/&amp;/g, "&")
     .replace(/&#x27;|&#39;/g, "'")
     .replace(/&quot;/g, '"')
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+// A table cell: the backslash is escaped first, so the one added before a pipe is not itself escaped again.
+const mdCell = (s) => String(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 
 // ---------------------------------------------------------------- checks
 
@@ -497,9 +501,7 @@ const md = [
   "",
   "| Result | Check | Detail |",
   "| ------ | ----- | ------ |",
-  ...results.map(
-    (r) => `| ${ICON[r.status]} | ${r.group} \`${r.name}\` | ${r.detail.replace(/\|/g, "\\|")} |`,
-  ),
+  ...results.map((r) => `| ${ICON[r.status]} | ${r.group} \`${r.name}\` | ${mdCell(r.detail)} |`),
   "",
 ].join("\n");
 if (opts.markdown) writeFileSync(opts.markdown, md);

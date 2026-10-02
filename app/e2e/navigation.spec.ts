@@ -57,7 +57,7 @@ test("following Next from the vaults walks the whole tour and comes back", async
     seen.push(href!);
     if (href === "/app") break;
     await page.getByTestId("next-step").click();
-    await expect(page).toHaveURL(new RegExp(`${href!.replace(/\//g, "\\/")}$`));
+    await expect(page).toHaveURL((url) => url.pathname === href);
   }
   expect(seen).toEqual([
     "/app/playground",

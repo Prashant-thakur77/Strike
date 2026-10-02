@@ -140,24 +140,27 @@ export async function signingContext(ctx, env) {
     return hash;
   });
   if (w.rpc !== TESTNET_RPC)
-    await ctx.route(new RegExp(`^${TESTNET_RPC.replace(/[.]/g, "\\.")}`), async (route) => {
-      const cors = {
-        "access-control-allow-origin": "*",
-        "access-control-allow-headers": "*",
-        "access-control-allow-methods": "POST, OPTIONS",
-      };
-      if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
-      const r = await fetch(w.rpc, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: route.request().postData(),
-      });
-      route.fulfill({
-        status: r.status,
-        headers: { ...cors, "content-type": "application/json" },
-        body: await r.text(),
-      });
-    });
+    await ctx.route(
+      (url) => url.href.startsWith(TESTNET_RPC),
+      async (route) => {
+        const cors = {
+          "access-control-allow-origin": "*",
+          "access-control-allow-headers": "*",
+          "access-control-allow-methods": "POST, OPTIONS",
+        };
+        if (route.request().method() === "OPTIONS") return route.fulfill({ status: 204, headers: cors });
+        const r = await fetch(w.rpc, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: route.request().postData(),
+        });
+        route.fulfill({
+          status: r.status,
+          headers: { ...cors, "content-type": "application/json" },
+          body: await r.text(),
+        });
+      },
+    );
   await ctx.addInitScript(injectedWallet, { address: w.account.address });
 }
 

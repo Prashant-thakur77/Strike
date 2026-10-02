@@ -17,11 +17,19 @@ const sources = [...tracked].filter(
   (f) => f === "README.md" || f === "CHANGELOG.md" || /^docs\/.+\.md$/.test(f),
 );
 
+// Removes HTML tags until none are left: one pass over "<<b>b>" leaves "<b>", which is a tag again.
+function stripTags(text) {
+  let prev;
+  do {
+    prev = text;
+    text = text.replace(/<[^>]+>/g, "");
+  } while (text !== prev);
+  return text;
+}
+
 // GitHub's heading slugs: rendered text, lowercased, punctuation dropped, spaces to hyphens, duplicates numbered.
 function slug(text) {
-  return text
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/<[^>]+>/g, "")
+  return stripTags(text.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1"))
     .replace(/[`*]/g, "")
     .trim()
     .toLowerCase()

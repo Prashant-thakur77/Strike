@@ -48,7 +48,8 @@ const count = (s) => all.filter((r) => r.status === s).length;
 const skipped = all.filter((r) => r.status === "skipped");
 const failed = all.filter((r) => r.status === "unexpected");
 const minutes = ((report.stats?.duration ?? 0) / 60000).toFixed(1);
-const cell = (s) => String(s).replace(/\|/g, "\\|");
+// Backslash first, so the one added before a pipe is not itself escaped again.
+const cell = (s) => String(s).replace(/\\/g, "\\\\").replace(/\|/g, "\\|");
 // Spec paths in the report are relative to playwright.config.ts's testDir.
 const where = (r) => `\`app/e2e/${r.file}:${r.line}\``;
 
