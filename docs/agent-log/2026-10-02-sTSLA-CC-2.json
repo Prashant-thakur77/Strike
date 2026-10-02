@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-02",
+  "chainTimeIso": "2026-10-02T22:47:57.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    "symbol": "sTSLA-CC",
+    "name": "Strike TSLA Covered Call",
+    "kind": "covered-call",
+    "underlying": "TSLA",
+    "collateral": "5",
+    "collateralAsset": "TSLA",
+    "epochState": "Selling",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "358.5505",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-01T14:50:53.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "DecisionLog.record",
+      "hash": "0xd167a03b837adc03074985972fe92220c85a9aee4768b7b4c573b25cf9c493a1",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xd167a03b837adc03074985972fe92220c85a9aee4768b7b4c573b25cf9c493a1"
+    }
+  ],
+  "result": {
+    "status": "failed",
+    "summary": "Agent stopped: settle_epoch: no price at or after expiry 1790971200 yet (latest round 22 was published at 1790970931)"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 1,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "70",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+    "recordHash": "0xc9532741f2729bec109254cdbedc56061ed823f972b0f23e644dd9696764c652",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-02-sTSLA-CC-2.json",
+    "epoch": 1,
+    "txHash": "0xd167a03b837adc03074985972fe92220c85a9aee4768b7b4c573b25cf9c493a1"
+  }
+}
