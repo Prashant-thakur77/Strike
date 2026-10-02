@@ -9,6 +9,12 @@ import { readTransport } from "@/lib/rpc/client";
 let client: PublicClient | null = null;
 let reader: ActivityReader | null = null;
 
+//
+// Contract reads go through Multicall3 (one eth_call per tick), like wagmi's and the playground's clients. With plain
+// JSON-RPC batching each read is a call of its own: the feed's first load sent batches of 33 to 61 calls (each row's
+// vault, series and block), and the public RPC answers a burst like that with HTTP 429. Its 429 carries
+// "Access-Control-Allow-Origin: *,*", which the browser rejects as a CORS error, so the page logged errors and the
+// feed failed until the limit cleared (CI runs 37055228383 and 37068333653). The block reads stay JSON-RPC batched.
 export function testnetClient(): PublicClient {
   client ??= createPublicClient({
     chain: strikeChains.robinhoodTestnet,
@@ -17,6 +23,7 @@ export function testnetClient(): PublicClient {
       retryCount: 1,
       batch: { wait: 16 },
     }),
+    batch: { multicall: { wait: 16 } },
   }) as PublicClient;
   return client;
 }
