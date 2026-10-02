@@ -6,6 +6,12 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "start": "node dist/main.js",
+    "dev": "tsx --conditions=strike-source src/main.ts",
+    "once": "tsx --conditions=strike-source src/once.ts",
+    "migrate": "tsx --conditions=strike-source src/migrate-cli.ts",
+    "compare": "tsx --conditions=strike-source src/compare-cli.ts",
+    "build": "tsup",
     "lint": "tsc --noEmit",
     "test": "vitest run"
   },
