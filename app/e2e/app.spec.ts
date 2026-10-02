@@ -73,8 +73,9 @@ test.describe("on Robinhood Chain testnet", () => {
     await expect(chart.locator("text", { hasText: /^(Breakeven|B\/E) \$[\d,.]+$/ })).toHaveCount(1);
     await expect(chart.locator("text", { hasText: /^Spot now \$[\d,.]+$/ })).toHaveCount(1);
     await expect(chart.locator("text", { hasText: "price at expiry (USD)" })).toHaveCount(1);
-    // The text summary carries the same content for screen readers and a table view exists.
-    await expect(page.locator("figcaption")).toContainText(/breakeven/);
+    // The text summary carries the same content for screen readers and a table view exists. (The chart's own caption:
+    // the "Why this strike" panel has a figcaption too once the epoch has a published record.)
+    await expect(page.locator("figure", { has: chart }).locator("figcaption")).toContainText(/breakeven/);
     await expect(page.getByText("Show as a table")).toBeAttached();
 
     const price = page.getByRole("region", { name: "How the buy price is set" });
