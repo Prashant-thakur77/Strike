@@ -1,0 +1,19 @@
+# The build context is the repository root (a pnpm workspace). Only what the images need goes in; everything
+# else, and above all .env files and the bot's state, stays out.
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!strike.config.json
+!sdk/
+!services/indexer/
+!bots/telegram/
+!contracts/deployments/
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+bots/telegram/data
+contracts/deployments/31337*
+contracts/deployments/412346*

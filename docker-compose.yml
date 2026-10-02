@@ -1,0 +1,85 @@
+# Strike's services on one host: Postgres, the indexer (services/indexer) and, with the `bot` profile, the Telegram
+# bot (bots/telegram).
+#
+#   cp .env.example .env              # set POSTGRES_PASSWORD (URL-safe characters); the rest is optional
+#   docker compose up -d --build      # postgres + indexer
+#   curl -s localhost:8787/ready      # 200 once both testnets are indexed to within READY_MAX_LAG_BLOCKS of the head
+#   docker compose --profile bot up -d telegram-bot   # needs TELEGRAM_BOT_TOKEN in .env
+#
+# The bot is behind a profile because Telegram serves updates to one process per token: start it here only where
+# no other copy of the bot runs (a laptop, or the AWS instance in infra/aws). Secrets reach the containers as
+# environment variables read from .env at `up` time; none is in an image or in this file. Each container gets only
+# the variables it uses.
+
+name: strike
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-strike}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}
+      POSTGRES_DB: ${POSTGRES_DB:-strike}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+    # No published port: the indexer reaches it on the compose network. `docker compose exec postgres psql -U strike`
+    # for a shell.
+
+  indexer:
+    build:
+      context: .
+      dockerfile: services/indexer/Dockerfile
+    image: strike-indexer:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-strike}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env (see .env.example)}@postgres:5432/${POSTGRES_DB:-strike}
+      ALCHEMY_API_KEY: ${ALCHEMY_API_KEY:-}
+      RPC_URL_46630: ${RPC_URL_46630:-}
+      RPC_URL_421614: ${RPC_URL_421614:-}
+      INDEXER_CHAINS: ${INDEXER_CHAINS:-}
+      CONFIRMATIONS: ${CONFIRMATIONS:-}
+      POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-}
+      LOG_MAX_RANGE: ${LOG_MAX_RANGE:-}
+      READY_MAX_LAG_BLOCKS: ${READY_MAX_LAG_BLOCKS:-}
+      READY_MAX_HEAD_AGE_SECONDS: ${READY_MAX_HEAD_AGE_SECONDS:-}
+      TVL_INTERVAL_SECONDS: ${TVL_INTERVAL_SECONDS:-}
+      SHUTDOWN_TIMEOUT_SECONDS: ${SHUTDOWN_TIMEOUT_SECONDS:-}
+      PGPOOL_MAX: ${PGPOOL_MAX:-}
+      LOG_LEVEL: ${LOG_LEVEL:-}
+    ports:
+      - "127.0.0.1:${INDEXER_PORT:-8787}:8787"
+    restart: unless-stopped
+    # SIGTERM first: the indexer finishes the chunk in flight and releases its lock (SHUTDOWN_TIMEOUT_SECONDS, 25).
+    stop_grace_period: 35s
+
+  telegram-bot:
+    profiles: ["bot"]
+    build:
+      context: .
+      dockerfile: bots/telegram/Dockerfile
+    image: strike-telegram-bot:local
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      STRIKE_CHAIN_ID: ${STRIKE_CHAIN_ID:-}
+      STRIKE_RPC_URL: ${STRIKE_RPC_URL:-}
+      ALCHEMY_API_KEY: ${ALCHEMY_API_KEY:-}
+      POLL_INTERVAL_SECONDS: ${BOT_POLL_INTERVAL_SECONDS:-}
+      LOG_BLOCK_RANGE: ${LOG_BLOCK_RANGE:-}
+      TELEGRAM_API_URL: ${TELEGRAM_API_URL:-}
+      DATA_DIR: /data
+    volumes:
+      - botdata:/data
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  botdata:
