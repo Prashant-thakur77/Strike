@@ -56,7 +56,8 @@ export type StrikeSecretRole =
   | "agent2Key"
   | "anthropicKey"
   | "claudeCodeToken"
-  | "arbiscanKey";
+  | "arbiscanKey"
+  | "githubToken";
 
 /** strike.config.json (version 1). */
 export interface StrikeConfig {
