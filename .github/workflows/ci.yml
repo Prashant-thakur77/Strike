@@ -131,8 +131,9 @@ jobs:
           # Pull requests from forks get no secrets and use the public RPC.
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         # Alchemy first when the secret is set (GitHub masks the key in the log); if that run fails, the public RPC.
-        # The public mainnet RPC sometimes answers CI with a Cloudflare 403; retry once after a pause. A real
-        # failure fails every time.
+        # The public mainnet RPC sometimes answers CI with a Cloudflare 403; retry once after a pause, then use the
+        # chain's second public RPC (viem's list for Robinhood Chain; the mirror audit falls back to it the same
+        # way). A real failure fails on every RPC.
         run: |
           if [ -n "$ALCHEMY_API_KEY" ]; then
             echo "RPC: Alchemy (robinhood-mainnet)"
@@ -142,7 +143,11 @@ jobs:
             echo "::warning::Fork tests failed on Alchemy; trying the public RPC"
           fi
           echo "RPC: $ROBINHOOD_RPC_URL"
-          forge test --match-path "test/fork/*" -vv || (sleep 60 && forge test --match-path "test/fork/*" -vv)
+          forge test --match-path "test/fork/*" -vv && exit 0
+          sleep 60
+          forge test --match-path "test/fork/*" -vv && exit 0
+          echo "::warning::Fork tests failed twice on $ROBINHOOD_RPC_URL; trying https://rpc.ordofi.network"
+          ROBINHOOD_RPC_URL=https://rpc.ordofi.network forge test --match-path "test/fork/*" -vv
 
   slither:
     name: Slither (fail on High)
