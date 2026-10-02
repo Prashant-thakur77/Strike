@@ -149,6 +149,7 @@ export const bundledStrikeConfig: StrikeConfig = {
     "agent2Key": "AGENT2_PRIVATE_KEY",
     "anthropicKey": "ANTHROPIC_API_KEY",
     "claudeCodeToken": "CLAUDE_CODE_OAUTH_TOKEN",
-    "arbiscanKey": "ARBISCAN_API_KEY"
+    "arbiscanKey": "ARBISCAN_API_KEY",
+    "githubToken": "GITHUB_TOKEN"
   }
 };
