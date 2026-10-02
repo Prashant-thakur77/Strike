@@ -1,45 +1,255 @@
 name: Testnet keeper
 
-# Mirrors mainnet Chainlink stock prices into the testnet MirrorFeeds and settles expired epochs.
-# Needs the repository secret KEEPER_PRIVATE_KEY (a key with KEEPER_ROLE on the MirrorFeeds). Optional secret
-# ALCHEMY_API_KEY: cast reads and sends through Alchemy (testnet and the mainnet feeds), the public RPCs if it is unset
-# or Alchemy does not answer (scripts/rpc.sh).
+# Keeps the testnets' prices and settlements going, per chain: mirrors the newest Robinhood Chain mainnet Chainlink
+# round of each stock into the testnet MirrorFeeds and settles every expired epoch of every active deployment
+# (scripts/keeper.sh --once: 46630 v2 and v3, 421614 v3, every vault of each EpochManager, agent #2's included).
+# After each pass a dry run must find nothing left to push or settle; if it does, the keeper runs once more.
+#
+# Why a loop and a chain. GitHub runs scheduled workflows when it has capacity: this file's 10-minute cron produced 19
+# runs from 28 September to 2 October, 2.7 to 6.8 hours apart. So each run keeps going for KEEPER_LOOP_MINUTES (default
+# 50), one pass every 10 minutes, and then starts the next run itself (workflow_dispatch with the workflow's own
+# token), which also starts the live smoke test, and the weekly agent when one of its runs is due and has not happened
+# (agent.yml's crons can be dropped the same way). The cron stays as the backstop that restarts the chain if it
+# breaks. One run at a time (the concurrency group below). Cancelling a run, or setting KEEPER_ENABLED to anything
+# but true, stops the chain.
+#
+# Rerun-safe: only rounds newer than a feed's latest are pushed and only epochs still Selling past expiry are settled,
+# so a rerun, or a keeper running elsewhere at the same time, sends nothing twice (a lost race reverts in the gas
+# estimate, before anything is sent).
+# Switches: the repository variable KEEPER_ENABLED = true and the secret KEEPER_PRIVATE_KEY. Without the variable every
+# run is skipped, which is how the app's liveness card (/app/proof, app/src/lib/status.ts) tells from the public run
+# list that the keeper is off; with the variable and no secret, every run stops at a notice. The secret is the CI keeper
+# key (docs/DEPLOYMENTS.md#ci-keeper-key): KEEPER_ROLE on the mirrored MirrorFeeds and nothing else; settling needs no
+# role. Optional secret ALCHEMY_API_KEY: cast reads and sends through
+# Alchemy, the public RPCs if it is unset or does not answer (scripts/rpc.sh).
+# A run whose last pass still left work fails, and opens a "Keeper failing" issue (or comments on it, at most hourly);
+# the next passing run closes it.
 on:
   schedule:
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: strike-keeper
+  cancel-in-progress: false
+
 jobs:
-  keep:
+  gate:
+    name: Secret check
     if: ${{ vars.KEEPER_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    # One signer, one nonce: the weekly agent's job for the same chain (agent.yml, agent #1 on 46630 or 421614) runs the
-    # keeper and signs with the same key, and joins this group (strike-signer-46630, strike-signer-421614).
-    concurrency:
-      group: strike-signer-${{ matrix.chain }}
-      cancel-in-progress: false
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Is the keeper key set?
+        id: check
+        env:
+          KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::notice title=Keeper key missing::KEEPER_ENABLED is true but the repository secret KEEPER_PRIVATE_KEY (the CI keeper key, see docs/operations.md) is not set. Nothing was run."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  keep:
+    name: Keeper on ${{ matrix.chain }}
+    needs: gate
+    if: needs.gate.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 80
     strategy:
+      fail-fast: false
       matrix:
-        include:
-          - chain: 46630
-          - chain: 421614
+        chain: [46630, 421614]
+    env:
+      # RPC_URL stays unset: the keeper uses the chain's public RPC from strike.config.json (or Alchemy, see above).
+      CHAIN_ID: ${{ matrix.chain }}
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      LOOP_MINUTES: ${{ vars.KEEPER_LOOP_MINUTES || '50' }}
     steps:
       - uses: actions/checkout@v6
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      # Node packages are only used when a settlement needs more than one round of proof (the SDK finds the hints).
+      # Node packages are only used when a settlement needs more than one round of proof (the example agent and the
+      # SDK, run from source, find the hints). The cast path does not need them, so a failed install does not stop it.
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile && pnpm --filter @strike/sdk --filter @strike/mcp build
-      - name: Run keeper once
-        if: ${{ hashFiles(format('contracts/deployments/{0}.json', matrix.chain)) != '' }}
+      - name: Install (for the multi-round settlement path only)
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile
+
+      # The public mainnet RPC sometimes answers GitHub's runners with a Cloudflare 403 (ci.yml's fork job): use the
+      # chain's second public RPC when it does not answer a feed read.
+      - name: Mainnet RPC for the Chainlink feeds
+        run: |
+          feed=$(jq -er '.chains["4663"].stocks.TSLA.feed' strike.config.json)
+          for rpc in "$(jq -er '.chains["4663"].rpc.public' strike.config.json)" https://rpc.ordofi.network; do
+            for attempt in 1 2; do
+              if cast call "$feed" "latestRoundData()(uint80,int256,uint256,uint256,uint80)" --rpc-url "$rpc" >/dev/null 2>&1; then
+                echo "MAINNET_RPC=$rpc" >> "$GITHUB_ENV"
+                echo "Mainnet feeds read through $rpc"
+                exit 0
+              fi
+              echo "attempt $attempt: no answer"
+              sleep 5
+            done
+            echo "::warning::$rpc did not answer a feed read"
+          done
+          echo "::warning::No public Robinhood Chain mainnet RPC answered; the keeper tries the default (and Alchemy, if set)"
+
+      - name: Keeper address and balance
         env:
-          # RPC_URL is unset: the keeper uses the chain's public RPC from strike.config.json.
-          CHAIN_ID: ${{ matrix.chain }}
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-        run: scripts/keeper.sh --once
+        run: |
+          addr=$(cast wallet address --private-key "$PRIVATE_KEY")
+          rpc=$(jq -er --arg c "$CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)
+          wei=$(cast balance "$addr" --rpc-url "$rpc")
+          echo "Keeper $addr on $CHAIN_ID: $(cast from-wei "$wei") ETH" | tee -a "$GITHUB_STEP_SUMMARY"
+          # 0.0005 ETH is hundreds of pushes on either chain (docs/DEPLOYMENTS.md#ci-keeper-key).
+          if [ "$wei" -lt 500000000000000 ]; then
+            echo "::warning::The keeper key $addr has under 0.0005 ETH on $CHAIN_ID; top it up from the deployer"
+          fi
+
+      - name: Keep (a pass every 10 minutes for LOOP_MINUTES)
+        env:
+          PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: |
+          # keeper.sh --dry-run reads the same state and prints "would push" or "would settle" for anything not done.
+          left() {
+            scripts/keeper.sh --once --dry-run > "$RUNNER_TEMP/check.log" 2>&1 || echo "dry run exited $?" >> "$RUNNER_TEMP/check.log"
+            grep -E "would (push|settle)|read failed|settle failed|mirror failed|exited" "$RUNNER_TEMP/check.log" || true
+          }
+          deadline=$(( $(date +%s) + LOOP_MINUTES * 60 ))
+          pass=0
+          failed=0
+          while :; do
+            pass=$((pass + 1))
+            started=$(date +%s)
+            echo "::group::Pass $pass on $CHAIN_ID at $(date -u +%T) UTC"
+            scripts/keeper.sh --once 2>&1 | tee "$RUNNER_TEMP/keeper.log" || true
+            todo=$(left)
+            if [ -n "$todo" ]; then
+              printf 'Left after the pass (a new mainnet print, a lost race or a failure):\n%s\nRunning the keeper once more.\n' "$todo"
+              scripts/keeper.sh --once || true
+              todo=$(left)
+            fi
+            cat "$RUNNER_TEMP/check.log"
+            echo "::endgroup::"
+            if [ -n "$todo" ]; then
+              failed=1
+              echo "::warning::Pass $pass on $CHAIN_ID left work: $(echo "$todo" | tr '\n' ';')"
+              { echo "Pass $pass at $(date -u +%T) UTC left work:"; echo '```'; echo "$todo"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            else
+              failed=0
+              echo "Pass $pass on $CHAIN_ID: nothing left to push or settle."
+            fi
+            next=$((started + 600))
+            [ "$next" -lt "$deadline" ] || break
+            sleep $((next - $(date +%s) > 0 ? next - $(date +%s) : 0))
+          done
+          # The run fails only when its last pass still left work; an earlier pass that recovered is a warning above.
+          if [ "$failed" = 1 ]; then
+            echo "::error::The last pass on $CHAIN_ID still left work to push or settle"
+            exit 1
+          fi
+          echo "$pass passes on $CHAIN_ID; the last left nothing to push or settle." | tee -a "$GITHUB_STEP_SUMMARY"
+
+  next:
+    name: Start the next run
+    needs: [gate, keep]
+    # Not after a cancelled run: cancelling is how a person stops the chain.
+    if: ${{ !cancelled() && needs.gate.outputs.ready == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          AGENT_ENABLED: ${{ vars.AGENT_ENABLED }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            // The next keeper run and a smoke test, retried: the chain is what keeps the keeper going.
+            for (const workflow_id of ["keeper.yml", "live-smoke.yml"]) {
+              for (let attempt = 1; ; attempt++) {
+                try {
+                  await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id, ref: "main" });
+                  core.info(`Dispatched ${workflow_id} on main`);
+                  break;
+                } catch (e) {
+                  if (attempt === 3) throw e;
+                  core.warning(`Dispatching ${workflow_id} failed (${e.message}); retrying`);
+                  await new Promise((r) => setTimeout(r, 15000 * attempt));
+                }
+              }
+            }
+            // The weekly agent, when its slot has passed and no run since then is under way or has succeeded:
+            // Monday 15:20 to 19:00 UTC (propose, inside the NYSE session) and Friday from 21:35 UTC (settle).
+            // Its own skips make a second run a no-op, so a dispatch after a failed run is a retry.
+            const now = new Date();
+            const at = (h, m) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m));
+            const day = now.getUTCDay();
+            let due = null;
+            if (day === 1 && now >= at(15, 20) && now < at(19, 0)) due = { mode: "propose", since: at(15, 0) };
+            if (day === 5 && now >= at(21, 35)) due = { mode: "settle", since: at(21, 15) };
+            if (due && process.env.AGENT_ENABLED === "true") {
+              try {
+                const { data } = await github.rest.actions.listWorkflowRuns({ owner, repo, workflow_id: "agent.yml", per_page: 20 });
+                const done = data.workflow_runs.some(
+                  (r) => new Date(r.created_at) >= due.since && (r.status !== "completed" || ["success", "skipped"].includes(r.conclusion)),
+                );
+                if (done) core.info(`agent.yml has run (or is running) since ${due.since.toISOString()}`);
+                else {
+                  await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: "agent.yml", ref: "main", inputs: { mode: due.mode } });
+                  core.notice(`Dispatched agent.yml (${due.mode}): no successful run since ${due.since.toISOString()}`);
+                }
+              } catch (e) {
+                core.warning(`Could not check or start agent.yml: ${e.message}`);
+              }
+            }
+
+  report:
+    name: Open or close the failure issue
+    needs: [gate, keep]
+    # Only a finished keeper run counts: a cancelled one says nothing either way.
+    if: ${{ !cancelled() && needs.gate.outputs.ready == 'true' && github.ref == 'refs/heads/main' && (needs.keep.result == 'success' || needs.keep.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: scripts/ci-issue.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/github-script@v9
+        env:
+          RESULT: ${{ needs.keep.result }}
+        with:
+          script: |
+            const { syncIssue } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/ci-issue.mjs`);
+            await syncIssue({ github, context, core }, {
+              title: "Keeper failing",
+              failed: process.env.RESULT === "failure",
+              minIntervalMinutes: 60,
+              body: [
+                "A keeper job (Robinhood Chain testnet 46630 or Arbitrum Sepolia 421614) ended with work left: after",
+                "its last pass and one retry a price was still not mirrored or an expired epoch still not settled, or a",
+                "feed could not be read. The run's job summary says which chain and what was left.",
+                "",
+                "Check by hand, read only: `CHAIN_ID=46630 scripts/keeper.sh --once --dry-run` and the same for 421614.",
+                "Settlement is permissionless, so anyone can also run `scripts/keeper.sh --once` with any funded key.",
+              ].join("\n"),
+            });

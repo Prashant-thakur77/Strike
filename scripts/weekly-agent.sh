@@ -8,17 +8,23 @@
 # A deployment other than the primary (46630-v3.json) is reached through the SDK's STRIKE_* address overrides.
 #
 # Signer: each deployment's agent #1 signer is `agentSigner` in its -vaults.json. The run signs with whichever of
-# KEEPER_PRIVATE_KEY (the deployer: agent #1's signer on 46630 v2) and AGENT_SIGNER_KEY (agent #1's separate v3
-# signer, 0x4fd9…AC6f, on 46630 v3 and 421614) has that address; a deployment whose key is not set is skipped with a
-# warning. Records go to LOG_DIR (default docs/agent-log on 46630, docs/agent-log/arbitrum-sepolia on 421614), and
-# each anchor's URL points at that folder on main. Two deployments on one chain share the folder, so the second
-# deployment's record of a vault symbol gets the agent's `-2` suffix (v3 on 46630).
+# PRIVATE_KEY (the deployer: agent #1's signer on 46630 v2), AGENT_SIGNER_KEY (agent #1's separate v3 signer,
+# 0x4fd9…AC6f, on 46630 v3 and 421614) and KEEPER_PRIVATE_KEY (read too for laptop runs that put the deployer there;
+# in GitHub Actions it is the CI keeper key, which is no agent's signer) has that address; a deployment whose key is
+# not set is skipped with a warning. Records go to LOG_DIR (default docs/agent-log on 46630,
+# docs/agent-log/arbitrum-sepolia on 421614), and each anchor's URL points at that folder on main. Two deployments
+# on one chain share the folder, so the second deployment's record of a vault symbol gets the agent's `-2` suffix
+# (v3 on 46630).
 #
 # Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com scripts/weekly-agent.sh propose|settle [--dry-run]
 #   RPC_URL defaults to the chain's public RPC (strike.config.json). With ALCHEMY_API_KEY set, the agent reads and sends through Alchemy
 #   first (the SDK's rpcEndpointsFor: the key in a header, RPC_URL as the fallback); a loopback RPC_URL is used alone.
 #   --dry-run  read only, no key needed: propose runs the agent with --dry-run (no --anchor, records to a temporary
 #              folder), settle runs --status; both print the signer, overrides, record folder and anchor URL.
+# Propose skips a vault that is still selling its series (state Selling: nothing to propose until it settles) with a
+# notice, without running the agent, so no "skipped" record is written or anchored. Settle skips a vault that already
+# has a record dated today (UTC) in LOG_DIR whose result is "settled", so a second run on the same day (one that
+# keeper.yml dispatched) records nothing twice; a stopped attempt does not count, so it is retried.
 # Exits 3 when at least one vault's run stopped (its decision record says why), after trying every vault.
 # Needs Foundry (cast), jq, python3 and the workspace's pnpm install.
 set -euo pipefail
@@ -64,11 +70,12 @@ if isinstance(d.get("block"), int):
 PY
 }
 
-# key_for <address>: the private key (of KEEPER_PRIVATE_KEY, AGENT_SIGNER_KEY) whose address it is, or nothing.
+# key_for <address>: the private key (of PRIVATE_KEY, AGENT_SIGNER_KEY, KEEPER_PRIVATE_KEY) whose address it is, or
+# nothing.
 key_for() {
   local want key addr
   want=$(echo "$1" | tr '[:upper:]' '[:lower:]')
-  for key in "${KEEPER_PRIVATE_KEY:-}" "${AGENT_SIGNER_KEY:-}"; do
+  for key in "${PRIVATE_KEY:-}" "${AGENT_SIGNER_KEY:-}" "${KEEPER_PRIVATE_KEY:-}"; do
     [ -n "$key" ] || continue
     addr=$(cast wallet address --private-key "$key" | tr '[:upper:]' '[:lower:]')
     [ "$addr" = "$want" ] && { echo "$key"; return 0; }
@@ -112,9 +119,9 @@ for deploy in $DEPLOYS; do
     continue
   fi
   signer=$(jq -r '.agentSigner' "$vaults")
-  # The deployer is the keeper key; any other signer is agent #1's separate signer key.
+  # The deployer's key is PRIVATE_KEY; any other signer is agent #1's separate signer key.
   secret=AGENT_SIGNER_KEY
-  [ "$(jq -r '.deployer' "$deploy" | tr '[:upper:]' '[:lower:]')" = "$(echo "$signer" | tr '[:upper:]' '[:lower:]')" ] && secret=KEEPER_PRIVATE_KEY
+  [ "$(jq -r '.deployer' "$deploy" | tr '[:upper:]' '[:lower:]')" = "$(echo "$signer" | tr '[:upper:]' '[:lower:]')" ] && secret=PRIVATE_KEY
   key=$(key_for "$signer")
   overrides=""
   [ "$deploy" != "$PRIMARY" ] && overrides=$(sdk_overrides "$deploy")
@@ -127,6 +134,21 @@ for deploy in $DEPLOYS; do
   for vkey in TSLA_covered_call TSLA_cash_secured_put; do
     vault=$(jq -r ".$vkey // empty" "$vaults")
     [ -n "$vault" ] || continue
+    if [ "$MODE" = propose ]; then
+      # EpochManager.epochs(vault) is (state, epoch, seriesId); state 2 is Selling. A failed read runs the agent.
+      epoch=$(cast call "$(jq -r .epochManager "$deploy")" "epochs(address)(uint8,uint64,uint256)" "$vault" \
+        --rpc-url "$RPC_URL" 2>/dev/null || true)
+      if [ "$(echo "$epoch" | sed -n 1p | awk '{print $1}')" = 2 ]; then
+        echo "::notice::$name $vkey ($vault) is still selling series $(echo "$epoch" | sed -n 3p | awk '{print $1}');" \
+          "nothing to propose until it settles"
+        continue
+      fi
+    elif jq -s -e --arg v "$(echo "$vault" | tr '[:upper:]' '[:lower:]')" --arg d "$(date -u +%F)" \
+      'any(.[]; .action == "settle" and .result.status == "settled" and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
+      "$ROOT/$LOG_DIR"/*.json >/dev/null 2>&1; then
+      echo "::notice::$name $vkey ($vault): its settlement is already recorded today in $LOG_DIR"
+      continue
+    fi
     if [ "$DRY_RUN" = 1 ]; then
       run_flags=(--vault "$vault")
       if [ "$MODE" = settle ]; then run_flags+=(--status); else run_flags+=(--log "$LOG_PATH" --dry-run "${flags[@]}"); fi
@@ -142,7 +164,7 @@ for deploy in $DEPLOYS; do
       unset STRIKE_AGENT_PRIVATE_KEY
       [ -n "$key" ] && [ "$DRY_RUN" = 0 ] && export STRIKE_AGENT_PRIVATE_KEY="$key"
       [ -n "$overrides" ] && eval "$overrides"
-      unset KEEPER_PRIVATE_KEY AGENT_SIGNER_KEY
+      unset PRIVATE_KEY KEEPER_PRIVATE_KEY AGENT_SIGNER_KEY
       pnpm --silent --filter @strike/agent-example start "${run_flags[@]}"
     ); then
       failed=1

@@ -7,20 +7,26 @@ name: Weekly agent
 #   Arbitrum Sepolia (421614): v3 (421614.json), records in docs/agent-log/arbitrum-sepolia.
 # scripts/weekly-agent.sh does one chain: every active deployment file (the keeper's rule) and the TSLA covered-call and
 # cash-secured-put vaults in each -vaults.json.
-#   Monday: check the NYSE session, refresh prices with the keeper, then propose this week's option on each vault
-#           (Claude picks the delta with --llm when ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN is set, else the
-#           default rule: 0.20 delta at fair value).
-#   Friday after the close: the keeper settles the expired series (it also does so every 10 minutes in keeper.yml);
-#           the agent then records each settlement, and settles itself only if nothing has yet.
-# Agent #2 (sTSLA-CSP-A2 on 46630 v2, its own key) runs after them with --profile conservative when AGENT2_PRIVATE_KEY
-# is set.
-# Switches: variable AGENT_ENABLED = true; secret KEEPER_PRIVATE_KEY (the deployer: the keeper key and agent #1's
-# signer on 46630 v2); secret AGENT_SIGNER_KEY (agent #1's v3 signer 0x4fd9…AC6f on 46630 v3 and 421614; without it
-# those deployments are skipped with a warning); optionally one Claude credential, secret ANTHROPIC_API_KEY (the
-# Claude API, billed per token) or CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`: the Claude Code CLI on a
-# Pro/Max subscription, counted against its usage limits; the API key wins when both are set); optionally
-# AGENT2_PRIVATE_KEY (agent #2's signer); optionally ALCHEMY_API_KEY (the keeper, the agents and the market check read
-# and send through Alchemy first, the public RPCs as fallback).
+#   Monday: check the NYSE session, then propose this week's option on each vault (prices are kept fresh by
+#           keeper.yml). A vault still selling its series is skipped with a notice.
+#           Planner: the default rule (0.20 delta at fair value) unless a Claude credential secret is set, in which
+#           case Claude plans with --llm (ANTHROPIC_API_KEY: the Claude API; CLAUDE_CODE_OAUTH_TOKEN: the job installs
+#           the Claude Code CLI and runs it on a Pro/Max subscription; the API key wins when both are set).
+#   Friday after the close: keeper.yml settles the expired series; the agent then records each settlement, and
+#           settles itself only if nothing has yet. A vault whose settlement record of the day exists is skipped.
+# Agent #2 (sTSLA-CSP-A2 on 46630 v2, its own key) runs after them, with --profile conservative on Monday.
+# GitHub may drop a scheduled run when it is busy (keeper.yml's 10-minute cron ran every 2.7 to 6.8 hours), so while the
+# keeper runs, its chain dispatches this workflow when a slot has passed without a successful run (Monday until 19:00
+# UTC, Friday evening); the skips above make a second run a no-op once the first has done the work.
+# Switches: the repository variable AGENT_ENABLED = true (without it every run is skipped, which the app's liveness card
+# reads as off) and at least one agent key below; with the variable and no agent key every run stops at a notice.
+# Secrets (docs/operations.md):
+#   AGENT_SIGNER_KEY    agent #1's signer on 46630 v3 and 421614 (0x4fd9…AC6f); without it those are skipped
+#   PRIVATE_KEY         the deployer key, agent #1's signer on 46630 v2 (0x26b2…13Ff). Optional: it is also every
+#                       contract's admin, so without it v2 is skipped with a warning
+#   AGENT2_PRIVATE_KEY  agent #2's signer (0x4501…B79b); without it the agent #2 job is skipped
+#   ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN (optional planner), ALCHEMY_API_KEY (optional RPC)
+# A failed run opens a "Weekly agent failing" issue (or comments on it); the next passing run closes it.
 on:
   schedule:
     # 15:00 UTC is 11:00 New York in summer (EDT) and 10:00 in winter (EST): inside the 09:30-16:00 session all year,
@@ -39,58 +45,88 @@ on:
 permissions:
   contents: write
 
+# One run at a time: a second run (one the keeper's chain dispatched) starts after the first has committed its records,
+# and so sees them.
+concurrency:
+  group: strike-agent
+  cancel-in-progress: false
+
 jobs:
   plan:
-    name: Mode and NYSE session
+    name: Keys, mode and NYSE session
     if: ${{ vars.AGENT_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     outputs:
       mode: ${{ steps.mode.outputs.mode }}
       date: ${{ steps.mode.outputs.date }}
       go: ${{ steps.gate.outputs.go }}
+      agent1: ${{ steps.mode.outputs.agent1 }}
       agent2: ${{ steps.mode.outputs.agent2 }}
     env:
       STRIKE_CHAIN_ID: "46630"
     steps:
-      - uses: actions/checkout@v6
-      - name: RPC from strike.config.json
-        run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-
-      - name: Mode
+      - name: Keys and mode
         id: mode
         env:
           SCHEDULE: ${{ github.event.schedule }}
           INPUT_MODE: ${{ inputs.mode }}
-          KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
           SIGNER_KEY: ${{ secrets.AGENT_SIGNER_KEY }}
+          DEPLOYER_KEY: ${{ secrets.PRIVATE_KEY }}
           AGENT2_KEY: ${{ secrets.AGENT2_PRIVATE_KEY }}
         run: |
-          if [ -z "$KEY" ]; then
-            echo "::error::Set the repository secret KEEPER_PRIVATE_KEY (the deployer: keeper key and agent #1's v2 signer)."
-            exit 1
+          agent1=false
+          agent2=false
+          if [ -n "$SIGNER_KEY" ] || [ -n "$DEPLOYER_KEY" ]; then agent1=true; fi
+          if [ -n "$AGENT2_KEY" ]; then agent2=true; fi
+          if [ "$agent1" = false ] && [ "$agent2" = false ]; then
+            echo "::notice title=No agent key::AGENT_ENABLED is true but no agent key is a repository secret (AGENT_SIGNER_KEY, AGENT2_PRIVATE_KEY or PRIVATE_KEY; see docs/operations.md). Nothing was run."
+          else
+            if [ "$agent1" = true ] && [ -z "$SIGNER_KEY" ]; then
+              echo "::warning::AGENT_SIGNER_KEY is not set: agent #1's v3 vaults (46630-v3, 421614) will be skipped."
+            fi
+            if [ "$agent1" = true ] && [ -z "$DEPLOYER_KEY" ]; then
+              echo "::notice::PRIVATE_KEY (the deployer, agent #1's v2 signer) is not set: agent #1's v2 vaults on 46630 are skipped."
+            fi
           fi
-          if [ -z "$SIGNER_KEY" ]; then
-            echo "::warning::AGENT_SIGNER_KEY is not set: agent #1's v3 vaults (46630-v3, 421614) will be skipped."
-          fi
-          if [ "$SCHEDULE" = "15 21 * * 5" ]; then mode=settle; else mode="${INPUT_MODE:-propose}"; fi
-          if [ -n "$AGENT2_KEY" ]; then agent2=true; else agent2=false; fi
+          # Friday's cron settles, Monday's proposes; a dispatch (by hand or by keeper.yml) says which.
+          case "$SCHEDULE" in
+            *" * * 5") mode=settle ;;
+            "") mode="${INPUT_MODE:-propose}" ;;
+            *) mode=propose ;;
+          esac
+          # The NYSE check below runs only for a propose run that has an agent to run.
+          market=false
+          if [ "$mode" = propose ] && { [ "$agent1" = true ] || [ "$agent2" = true ]; }; then market=true; fi
           {
             echo "mode=$mode"
+            echo "market=$market"
             echo "date=$(date -u +%F)"
+            echo "agent1=$agent1"
             echo "agent2=$agent2"
           } >> "$GITHUB_OUTPUT"
-          echo "Mode: $mode; agent #2: $agent2"
+          echo "Mode: $mode; agent #1: $agent1; agent #2: $agent2"
+
+      - uses: actions/checkout@v6
+        if: steps.mode.outputs.market == 'true'
+      - name: RPC from strike.config.json
+        if: steps.mode.outputs.market == 'true'
+        run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
+      - uses: pnpm/action-setup@v4
+        if: steps.mode.outputs.market == 'true'
+      - uses: actions/setup-node@v6
+        if: steps.mode.outputs.market == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - if: steps.mode.outputs.market == 'true'
+        run: pnpm install --frozen-lockfile
 
       - name: NYSE session check (propose only; uses the SDK's marketOpen())
         id: market
-        if: steps.mode.outputs.mode == 'propose'
+        if: steps.mode.outputs.market == 'true'
         env:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: pnpm --silent --filter @strike/agent-example market-open
@@ -100,18 +136,21 @@ jobs:
         env:
           MODE: ${{ steps.mode.outputs.mode }}
           OPEN: ${{ steps.market.outputs.open }}
+          ANY: ${{ steps.mode.outputs.agent1 == 'true' || steps.mode.outputs.agent2 == 'true' }}
         run: |
-          if [ "$MODE" = settle ] || [ "$OPEN" = true ]; then
+          if [ "$ANY" != true ]; then
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          elif [ "$MODE" = settle ] || [ "$OPEN" = true ]; then
             echo "go=true" >> "$GITHUB_OUTPUT"
           else
             echo "go=false" >> "$GITHUB_OUTPUT"
-            echo "The NYSE is closed (holiday?): epochs open only during regular hours. Nothing to do this week."
+            echo "::notice::The NYSE is closed (holiday?): epochs open only during regular hours. Nothing to do this week."
           fi
 
   agent:
     name: Agent 1 on ${{ matrix.name }}
     needs: plan
-    if: ${{ needs.plan.outputs.go == 'true' }}
+    if: ${{ needs.plan.outputs.go == 'true' && needs.plan.outputs.agent1 == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     strategy:
@@ -124,18 +163,13 @@ jobs:
           - chain: 421614
             name: Arbitrum Sepolia (v3)
             log: docs/agent-log/arbitrum-sepolia
-    # One signer, one nonce: never send at the same time as the keeper on this chain (keeper.yml's job for the chain
-    # uses the same group, strike-signer-<chainId>).
-    concurrency:
-      group: strike-signer-${{ matrix.chain }}
-      cancel-in-progress: false
     env:
       CHAIN_ID: ${{ matrix.chain }}
       LOG_DIR: ${{ matrix.log }}
       STRIKE_CHAIN_ID: ${{ matrix.chain }}
     steps:
       - uses: actions/checkout@v6
-      # The chain's public RPC from strike.config.json, for the keeper (RPC_URL) and the agent (STRIKE_RPC_URL).
+      # The chain's public RPC from strike.config.json, for the script's reads (RPC_URL) and the agent (STRIKE_RPC_URL).
       - name: RPC from strike.config.json
         run: |
           rpc=$(jq -er --arg c "$CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)
@@ -163,24 +197,19 @@ jobs:
           npm install -g @anthropic-ai/claude-code@2.1.263
           claude --version
 
-      - name: Refresh prices (keeper, once; also settles the expired series of every deployment on the chain)
-        env:
-          PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-        run: scripts/keeper.sh --once
-
       - name: Run agent 1 on each deployment and vault
         id: agent
         env:
           MODE: ${{ needs.plan.outputs.mode }}
-          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+          # Agent #1's signers: the deployer on 46630 v2, AGENT_SIGNER_KEY on 46630 v3 and 421614. The script signs
+          # each deployment with the key whose address is its -vaults.json agentSigner, and skips it if none is.
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
           AGENT_SIGNER_KEY: ${{ secrets.AGENT_SIGNER_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
-          # Signs each deployment with the key whose address is its -vaults.json agentSigner; --anchor sends each
-          # record's keccak256 hash and GitHub URL to that deployment's DecisionLog.
+          # --anchor sends each record's keccak256 hash and GitHub URL to that deployment's DecisionLog.
           if scripts/weekly-agent.sh "$MODE"; then failed=0; else failed=1; fi
           echo "failed=$failed" >> "$GITHUB_OUTPUT"
 
@@ -217,15 +246,11 @@ jobs:
 
   agent2:
     name: Agent 2 on Robinhood Chain testnet (v2, conservative)
-    # After agent #1's jobs: on Friday the keeper there has settled sTSLA-CSP-A2 first, and the commits do not race.
+    # After agent #1's jobs, so the two commits to main do not race.
     needs: [plan, agent]
     if: ${{ !cancelled() && needs.plan.outputs.go == 'true' && needs.plan.outputs.agent2 == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # Its own signer and nonce, so it stays out of strike-signer-46630 (a queued keeper run there would replace it).
-    concurrency:
-      group: strike-agent2-46630
-      cancel-in-progress: false
     env:
       STRIKE_CHAIN_ID: "46630"
       VAULT: "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969"
@@ -234,6 +259,9 @@ jobs:
       - uses: actions/checkout@v6
       - name: RPC from strike.config.json
         run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v6
         with:
@@ -248,6 +276,25 @@ jobs:
           STRIKE_AGENT_PRIVATE_KEY: ${{ secrets.AGENT2_PRIVATE_KEY }}
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
+          # A vault still selling its series (state 2) has nothing to propose: a notice, not a stopped run (its series
+          # runs Friday to Friday, so on a Monday it is often mid-series). A failed read runs the agent anyway.
+          # On Friday, a record of today for this vault whose result is "settled" means an earlier run has recorded it.
+          if [ "$MODE" = settle ] && jq -s -e --arg v "${VAULT,,}" --arg d "$(date -u +%F)" \
+            'any(.[]; .action == "settle" and .result.status == "settled" and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
+            "$LOG_DIR"/*.json >/dev/null 2>&1; then
+            echo "::notice::sTSLA-CSP-A2's settlement is already recorded today; nothing to do"
+            echo "failed=0" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$MODE" = propose ]; then
+            manager=$(cast call "$VAULT" "manager()(address)" --rpc-url "$STRIKE_RPC_URL" 2>/dev/null || true)
+            state=$( [ -z "$manager" ] || cast call "$manager" "epochs(address)(uint8,uint64,uint256)" "$VAULT" --rpc-url "$STRIKE_RPC_URL" 2>/dev/null | sed -n 1p | awk '{print $1}')
+            if [ "$state" = 2 ]; then
+              echo "::notice::sTSLA-CSP-A2 is still selling its series; nothing to propose until it settles"
+              echo "failed=0" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          fi
           # --anchor: into the v2 DecisionLog, which accepts AgentRegistry.signerOf(2), this key.
           flags=(--vault "$VAULT" --log "$GITHUB_WORKSPACE/$LOG_DIR" --anchor)
           if [ "$MODE" = settle ]; then flags+=(--settle); else flags+=(--profile conservative); fi
@@ -284,3 +331,43 @@ jobs:
         run: |
           echo "::error::Agent #2's run stopped; see its decision record in $LOG_DIR."
           exit 1
+
+  report:
+    name: Open or close the failure issue
+    needs: [plan, agent, agent2]
+    if: ${{ !cancelled() && needs.plan.result != 'skipped' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          sparse-checkout: scripts/ci-issue.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/github-script@v9
+        env:
+          PLAN: ${{ needs.plan.result }}
+          GO: ${{ needs.plan.outputs.go }}
+          MODE: ${{ needs.plan.outputs.mode }}
+          AGENT1: ${{ needs.agent.result }}
+          AGENT2: ${{ needs.agent2.result }}
+        with:
+          script: |
+            const { PLAN, GO, MODE, AGENT1, AGENT2 } = process.env;
+            const results = { plan: PLAN, "agent #1": AGENT1, "agent #2": AGENT2 };
+            const failed = Object.values(results).includes("failure");
+            // A week with nothing to run (no key yet, or the NYSE closed) neither opens nor closes the issue.
+            if (!failed && (GO !== "true" || ![AGENT1, AGENT2].includes("success"))) return;
+            const { syncIssue } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/ci-issue.mjs`);
+            await syncIssue({ github, context, core }, {
+              title: "Weekly agent failing",
+              failed,
+              body: [
+                `Mode: ${MODE || "unknown"}. Jobs: ${Object.entries(results).map(([k, v]) => `${k} ${v}`).join(", ")}.`,
+                "",
+                "A stopped vault run writes a decision record that says why (docs/agent-log). Read-only rehearsal:",
+                "`CHAIN_ID=46630 scripts/weekly-agent.sh propose --dry-run` (or `settle --dry-run`, or chain 421614).",
+              ].join("\n"),
+            });
