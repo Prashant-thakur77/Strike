@@ -151,8 +151,10 @@ for (const c of CASES) {
     await expect(anchor).toContainText(`${c.decisionLog.slice(0, 6)}…${c.decisionLog.slice(-4)}`);
     const tx = anchor.getByRole("link", { name: /anchor tx/ });
     await expect(tx).toHaveAttribute("href", /\/tx\/0x[0-9a-fA-F]{64}$/);
-    // The full hash is there for hover and for screen readers, the short form for everyone else.
-    const full = await anchor.locator("[title^='0x']").first().getAttribute("title");
+    // The full hash is there for hover and for screen readers, the short form for everyone else. Once a later record
+    // for the epoch is anchored (the settlement's), latestHash is named first with a title of its own, so pick the
+    // record's hash: the short form hidden from screen readers, whose full form follows as text.
+    const full = await anchor.locator("[title^='0x'][aria-hidden='true']").first().getAttribute("title");
     expect(full).toMatch(/^0x[0-9a-f]{64}$/);
     await expect(anchor).toContainText(full!);
 

@@ -2,15 +2,6 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
-  decodeFunctionData,
-  decodeFunctionResult,
-  encodeAbiParameters,
-  encodeFunctionResult,
-  multicall3Abi,
-  toFunctionSelector,
-  type Hex,
-} from "viem";
-import {
   fmtCountdown,
   fmtLocal,
   fmtUtc,
@@ -19,7 +10,18 @@ import {
   type CalendarDay,
 } from "../src/lib/marketHours";
 import { isTradingDay, sessionOf } from "../src/lib/monitor";
-import { acknowledge, horizontalOverflow, rpcTraffic, settle } from "./helpers";
+import { acknowledge, horizontalOverflow, settle } from "./helpers";
+import {
+  PHASE_SELECTORS,
+  feedStatus,
+  marketClosed,
+  patchEthCalls,
+  quoteAt,
+  quoteReverts,
+  unsold,
+  vaultPhase,
+  type CallPatch,
+} from "./lifecycle";
 
 // NYSE hours where they bite. `openEpoch` and `buy` revert with MarketClosed outside a session, so the buy panel, the
 // idle vault, the playground and the vault list say whether the market is open and when it reopens, read from the
@@ -123,16 +125,6 @@ test.describe("market hours wording", () => {
 /* ------------------------------------------------------------------ the pages, live, with the market forced closed */
 
 const TESTNET_RPC = process.env.E2E_TESTNET_RPC ?? "https://rpc.testnet.chain.robinhood.com";
-const IS_OPEN = toFunctionSelector("isMarketOpen()");
-const QUOTE_BUY = toFunctionSelector("quoteBuy(uint256,uint256)");
-const STATUS = toFunctionSelector("status(address)");
-const STALE_PRICE = toFunctionSelector("StalePrice(uint256,uint256)");
-const GET_SERIES = toFunctionSelector("getSeries(uint256)");
-/** `EpochManager.Series` is 16 static words; `sold` is the 11th. */
-const SERIES_WORDS = 16;
-const SOLD_WORD = 10;
-const FALSE = encodeAbiParameters([{ type: "bool" }], [false]);
-
 async function testnetUp(): Promise<boolean> {
   try {
     const res = await fetch(TESTNET_RPC, {
@@ -147,78 +139,29 @@ async function testnetUp(): Promise<boolean> {
   }
 }
 
-interface Rpc {
-  id: number;
-  method: string;
-  params?: { data?: Hex; input?: Hex }[];
-}
-type Answer = { id: number; jsonrpc?: string; result?: Hex; error?: unknown };
+/** The v2 call vault and its series of 2 October: the fixtures below put it on sale whatever the week is doing. */
+const CALL_VAULT = "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e";
+const CALL_SERIES = 8614008145645214741184698995285385951692715470493509368088435356950067027964n;
 
 /**
  * Pass the page's Robinhood Chain testnet reads through, answering `StockOracle.isMarketOpen()` with false (direct and
- * inside Multicall3 batches). With `stale`, also make the feed stale: `status(token)` says StalePrice and `quoteBuy`
- * reverts with StalePrice, as SafeStockFeed does once the last print is older than its limit. With `unsold`, every
- * series reads as nothing sold yet, so the buy panel shows even when this week's real series sold out.
+ * inside Multicall3 batches), through lifecycle.ts. With `selling`, the v2 call vault's series is on sale (expiry three
+ * days ahead), its feed fresh and `quoteBuy` answering, so the buy panel shows whatever state the week is in. With
+ * `stale`, the feed is past its limit: `status(token)` says StalePrice (last print 27 hours ago) and `quoteBuy` reverts
+ * with StalePrice, as SafeStockFeed does. With `unsold`, every series reads as nothing sold yet.
  */
-async function forceClosed(page: Page, { stale = false, unsold = false } = {}) {
-  const touches = (d: string | undefined) =>
-    !!d &&
-    (d.includes(IS_OPEN.slice(2)) ||
-      (unsold && d.includes(GET_SERIES.slice(2))) ||
-      (stale && (d.includes(QUOTE_BUY.slice(2)) || d.includes(STATUS.slice(2)))));
-  const patchCall = (data: Hex, result: Hex): Hex | "revert" => {
-    if (data.startsWith(IS_OPEN)) return FALSE;
-    if (unsold && data.startsWith(GET_SERIES) && result.length === 2 + 64 * SERIES_WORDS) {
-      const words = result.slice(2).match(/.{64}/g)!;
-      words[SOLD_WORD] = "0".repeat(64);
-      return `0x${words.join("")}` as Hex;
-    }
-    if (stale && data.startsWith(QUOTE_BUY)) return "revert";
-    if (stale && data.startsWith(STATUS) && result.length >= 2 + 64 * 3) {
-      // Status.StalePrice, the same price, printed 27 hours ago (past the 25-hour limit).
-      const printed = (Math.floor(Date.now() / 1000) - 27 * 3600).toString(16).padStart(64, "0");
-      return `0x${"2".padStart(64, "0")}${result.slice(2 + 64, 2 + 128)}${printed}` as Hex;
-    }
-    return result;
-  };
-  await page.route(rpcTraffic(46630, TESTNET_RPC), async (route) => {
-    const post = route.request().postData() ?? "";
-    if (route.request().method() !== "POST" || !touches(post)) return route.continue();
-    const body = JSON.parse(post) as Rpc | Rpc[];
-    const calls = Array.isArray(body) ? body : [body];
-    const res = await route.fetch();
-    const json = (await res.json()) as Answer | Answer[];
-    const answers = (Array.isArray(json) ? json : [json]).map((a): Answer => {
-      const call = calls.find((c) => c.id === a.id);
-      const data = call?.params?.[0]?.data ?? call?.params?.[0]?.input;
-      if (!call || call.method !== "eth_call" || !data || !a.result) return a;
-      if (data.startsWith(toFunctionSelector("aggregate3((address,bool,bytes)[])"))) {
-        const decoded = decodeFunctionData({ abi: multicall3Abi, data });
-        if (decoded.functionName !== "aggregate3") return a;
-        const args = decoded.args;
-        const out = decodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", data: a.result });
-        const patched = out.map((r, i) => {
-          const p = patchCall(args[0][i]!.callData, r.returnData);
-          return p === "revert" ? { success: false, returnData: STALE_PRICE } : { ...r, returnData: p };
-        });
-        return {
-          ...a,
-          result: encodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", result: patched }),
-        };
-      }
-      const p = patchCall(data, a.result);
-      if (p === "revert") {
-        const { result: _drop, ...rest } = a;
-        void _drop;
-        return {
-          ...rest,
-          error: { code: 3, message: "execution reverted", data: `${STALE_PRICE}${"0".repeat(128)}` },
-        };
-      }
-      return { ...a, result: p };
-    });
-    await route.fulfill({ response: res, json: Array.isArray(json) ? answers : answers[0] });
-  });
+async function forceClosed(page: Page, { stale = false, unsold: noneSold = false, selling = false } = {}) {
+  const now = Math.floor(Date.now() / 1000);
+  const patches: CallPatch[] = [marketClosed];
+  if (noneSold) patches.push(unsold);
+  if (selling)
+    patches.push(
+      vaultPhase({ vault: CALL_VAULT, seriesId: CALL_SERIES, phase: "selling" }),
+      feedStatus(0, now - 600),
+      quoteAt(2_440_240n),
+    );
+  if (stale) patches.push(feedStatus(2, now - 27 * 3600), quoteReverts);
+  await patchEthCalls(page, 46630, TESTNET_RPC, PHASE_SELECTORS, patches);
 }
 
 /** The next session open after the wall clock, from the calendar's TypeScript copy (the page reads the contract). */
@@ -251,7 +194,8 @@ async function findVault(page: Page, testId: string): Promise<string | null> {
     const states = page
       .getByTestId(testId)
       .or(page.getByText(/^(No option on sale|Waiting for the agent)\.$/))
-      .or(page.getByText("Sold out."));
+      .or(page.getByText("Sold out."))
+      .or(page.getByTestId("settlement-wait"));
     await expect(states.first()).toBeVisible({ timeout: 45_000 });
     const shows = await page
       .getByTestId(testId)
@@ -295,10 +239,10 @@ test("buy panel: closed market keeps a read-only quote; a stale feed explains wh
   page,
 }) => {
   test.skip(!(await testnetUp()), "Robinhood Chain testnet RPC unreachable");
-  await forceClosed(page, { unsold: true });
-  const found = await findVault(page, "buy-panel");
-  test.skip(!found, "no 46630 vault is selling a series right now");
+  await forceClosed(page, { unsold: true, selling: true });
+  await page.goto(`/app/vault/${CALL_VAULT}?chain=46630`);
   const buy = page.getByTestId("buy-panel");
+  await expect(buy).toBeVisible({ timeout: 45_000 });
   await expect(buy.getByTestId("market-hours")).toHaveAttribute("data-open", "false");
   await expect(buy.getByText("Quote now (read-only)")).toBeVisible();
   await expect(buy.getByTestId("buy-quote")).toHaveText(/^[\d,.]+ USDG$/, { timeout: 30_000 });
@@ -310,8 +254,8 @@ test("buy panel: closed market keeps a read-only quote; a stale feed explains wh
 
   // The same page with the feed past its limit: no quote, and the reason.
   await page.unrouteAll({ behavior: "ignoreErrors" });
-  await forceClosed(page, { stale: true, unsold: true });
-  await page.goto(`/app/vault/${found}?chain=46630`);
+  await forceClosed(page, { stale: true, unsold: true, selling: true });
+  await page.goto(`/app/vault/${CALL_VAULT}?chain=46630`);
   const buy2 = page.getByTestId("buy-panel");
   await expect(buy2.getByTestId("buy-quote")).toHaveText("No quote", { timeout: 60_000 });
   await expect(buy2.getByTestId("no-quote")).toContainText(
@@ -324,14 +268,11 @@ test("buy panel: closed market keeps a read-only quote; a stale feed explains wh
   await shot(page, buy2, "buy-stale");
 });
 
-test("sold-out or selling series: the price steps call the live quote read-only while closed", async ({
-  page,
-}) => {
+test("a selling series: the price steps call the live quote read-only while closed", async ({ page }) => {
   test.skip(!(await testnetUp()), "Robinhood Chain testnet RPC unreachable");
   test.skip(test.info().project.name !== "desktop", "one project is enough");
-  await forceClosed(page);
-  const found = await findVault(page, "price-note");
-  test.skip(!found, "no 46630 vault is selling right now");
+  await forceClosed(page, { selling: true });
+  await page.goto(`/app/vault/${CALL_VAULT}?chain=46630`);
   await expect(page.getByTestId("price-note")).toContainText(
     "quoteBuy for one option, read-only while the market is closed",
     { timeout: 30_000 },

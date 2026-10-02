@@ -86,12 +86,13 @@ test("the v3 covered-call vault page reads its own deployment: series, risk via 
   await expect(page.getByText("There is no Strike vault at this address")).toHaveCount(0);
   await expect(page.locator("[data-version='v3']").first()).toBeVisible();
 
-  // This week's option: the Claude-planned $369.36 call (or, once settled, the vault between epochs).
+  // This week's option: a series card (selling, or expired and waiting for its settlement price; on 2 October the
+  // Claude-planned $369.36 call), or the vault between epochs or waiting for the agent.
   const series = page
     .locator("section")
     .filter({ has: page.getByRole("heading", { name: "This week's option" }) });
   await expect(series).toBeVisible();
-  const strike = series.getByText("$369.36").first();
+  const strike = series.getByTestId("series-clock");
   const between = series.getByText(/^(Waiting for the agent|No option on sale)\.$/).first();
   await expect(strike.or(between).first()).toBeVisible({ timeout: 60_000 });
   const live = await strike.isVisible();

@@ -1,9 +1,19 @@
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { Address } from "viem";
 import { acknowledge, horizontalOverflow, settle } from "./helpers";
+import {
+  PHASE_SELECTORS,
+  feedStatus,
+  livePhase,
+  patchEthCalls,
+  vaultPhase,
+  type LivePhase,
+} from "./lifecycle";
 
-// The Risk panel on the live TSLA covered-call vaults: v2 on Robinhood Chain testnet (46630), where the SDK calls the
+// The Risk panel on the live TSLA covered-call vaults, in whatever state the week is in (live), and in each state on
+// demand (fixtures): v2 on Robinhood Chain testnet (46630), where the SDK calls the
 // v3 Stylus risk engine directly, and v3 on Arbitrum Sepolia (421614), where it reads RiskLens. The footnote must say
 // which contracts computed the numbers, on which chain, and which version the series belongs to. Each case skips when
 // its RPC is unreachable. Set RISK_SHOTS=<dir> to save the panel as <project>-vault-risk.png (46630) and
@@ -73,70 +83,104 @@ async function rpcUp(rpc: string, chainId: number): Promise<boolean> {
   }
 }
 
+/** Four greeks with a number and a plain-words line each (a series before expiry). */
+async function expectGreeks(panel: Locator) {
+  for (const [greek, line] of [
+    ["delta", /the vault loses about \$\d+\.\d{2} for every \$1 TSLA (rises|falls)/i],
+    ["gamma", /losses speed up/i],
+    ["vega", /volatility point/i],
+    ["theta", /time decay earns the vault about \$\d+\.\d{2} a day/i],
+  ] as const) {
+    const cell = panel.locator(`[data-greek="${greek}"]`);
+    await expect(cell).toContainText(/[−+]?\d+\.\d{2}/);
+    await expect(cell).toContainText(line);
+  }
+  await expect(panel.getByTestId("risk-expired")).toHaveCount(0);
+}
+
+/** Past expiry: no greeks (no time value is left), and why, in place of four zeros. */
+async function expectExpired(panel: Locator) {
+  await expect(panel).toHaveAttribute("data-expired", "true");
+  await expect(panel.getByTestId("risk-expired")).toContainText("No greeks after expiry.");
+  await expect(panel.getByTestId("risk-expired")).toContainText("the first print at or after expiry");
+  await expect(panel.locator("[data-greek]")).toHaveCount(0);
+  await expect(panel).toContainText(
+    /Depositors' side, at expiry.*expired \w{3} \d{1,2} \w{3}, \d{2}:\d{2} UTC/,
+  );
+}
+
+/** The stress test (chart and table) and the footnote naming the contracts, chain and version. */
+async function expectStressAndSource(panel: Locator, c: Case, expired: boolean) {
+  const figure = panel.getByRole("figure");
+  await expect(figure.locator("svg")).toBeVisible();
+  await expect(figure).toContainText(
+    expired
+      ? "Vault result at settlement by TSLA move from the last print"
+      : "Vault result at expiry by TSLA move",
+  );
+  await expect(figure).toContainText(/Worst case on this grid|No move on this grid/);
+  await expect(figure).toContainText(/TSLA locked/);
+  await panel.getByRole("button", { name: "Table" }).click();
+  const rows = panel.getByTestId("risk-table").locator("tbody tr");
+  await expect(rows).toHaveCount(13);
+  await expect(rows.first()).toContainText("−30%");
+  await expect(rows.last()).toContainText("+30%");
+  await expect(rows.nth(6)).toContainText(expired ? "last print" : "now");
+  await panel.getByRole("button", { name: "Chart" }).click();
+
+  // Which contracts computed it, on which chain, for which version: derived, not a fixed sentence.
+  const foot = panel.getByTestId("risk-source");
+  await expect(foot).toHaveAttribute("data-chain", String(c.chainId));
+  await expect(foot).toHaveAttribute("data-version", c.version);
+  await expect(foot).toContainText(`Computed live on ${c.chain}`);
+  await expect(foot).toContainText(`A ${c.version} series`);
+  await expect(foot).not.toContainText(c.version === "v2" ? "A v3 series" : "A v2 series");
+  await expect(foot.locator(`a[href$="/address/${c.engine}" i]`)).toBeVisible();
+  await expect(foot.locator(`a[href$="/address/${c.epochManager}" i]`)).toBeVisible();
+  await expect(foot).toContainText("Stylus (Rust) risk engine");
+  if (c.lens) {
+    await expect(foot).toHaveAttribute("data-source", "riskLens");
+    await expect(foot).toContainText("through RiskLens (v3)");
+    await expect(foot.locator(`a[href$="/address/${c.lens}" i]`)).toBeVisible();
+  } else {
+    await expect(foot).toHaveAttribute("data-source", "riskEngine");
+    await expect(foot).toContainText("called directly");
+    await expect(foot).not.toContainText("RiskLens (v3) at");
+  }
+}
+
+/** The risk rail in `phase`: greeks while selling, the expired note after expiry, "No live series." otherwise. */
+async function expectRiskPhase(page: Page, c: Case, phase: LivePhase) {
+  const rail = page.locator("section#risk");
+  await expect(rail).toBeVisible({ timeout: 60_000 });
+  await rail.scrollIntoViewIfNeeded();
+  const panel = rail.getByTestId("risk-panel");
+  if (phase === "settled" || phase === "open") {
+    await expect(rail.getByText("No live series.")).toBeVisible({ timeout: 60_000 });
+    await expect(panel).toHaveCount(0);
+  } else {
+    await expect(panel).toBeVisible({ timeout: 60_000 });
+    if (phase === "selling") await expectGreeks(panel);
+    else await expectExpired(panel);
+    await expectStressAndSource(panel, c, phase === "expired");
+  }
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+}
+
 for (const c of CASES) {
-  test(`vault risk panel on ${c.chain}: live greeks, stress test and where they came from (${c.version}, ${c.shot})`, async ({
+  test(`vault risk panel on ${c.chain}, in the state the series is in now: greeks or why there are none, stress test, sources (${c.version}, ${c.shot})`, async ({
     page,
   }, info) => {
     test.skip(!(await rpcUp(c.rpc, c.chainId)), `${c.chain} RPC unreachable`);
+    const phase = await livePhase(c.rpc, c.epochManager as Address, c.vault as Address);
+    info.annotations.push({ type: "phase", description: phase });
     await acknowledge(page);
     await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}`);
-    const rail = page.locator("section#risk");
-    await expect(rail).toBeVisible({ timeout: 60_000 });
-    await rail.scrollIntoViewIfNeeded();
-
-    const noSeries = rail.getByText("No live series.");
-    const panel = rail.getByTestId("risk-panel");
-    await expect(panel.or(noSeries)).toBeVisible({ timeout: 60_000 });
-    test.skip(await noSeries.isVisible(), "the vault has no live series (between epochs)");
-
-    // Four greeks with a number and a plain-words line each.
-    for (const [greek, line] of [
-      ["delta", /the vault loses about \$\d+\.\d{2} for every \$1 TSLA (rises|falls)/i],
-      ["gamma", /losses speed up/i],
-      ["vega", /volatility point/i],
-      ["theta", /time decay earns the vault about \$\d+\.\d{2} a day/i],
-    ] as const) {
-      const cell = panel.locator(`[data-greek="${greek}"]`);
-      await expect(cell).toContainText(/[−+]?\d+\.\d{2}/);
-      await expect(cell).toContainText(line);
-    }
-
-    // The stress-test chart and its table twin, with the worst case and the collateral stated.
-    const figure = panel.getByRole("figure");
-    await expect(figure.locator("svg")).toBeVisible();
-    await expect(figure).toContainText(/Worst case on this grid|No move on this grid/);
-    await expect(figure).toContainText(/TSLA locked/);
-    await panel.getByRole("button", { name: "Table" }).click();
-    const rows = panel.getByTestId("risk-table").locator("tbody tr");
-    await expect(rows).toHaveCount(13);
-    await expect(rows.first()).toContainText("−30%");
-    await expect(rows.last()).toContainText("+30%");
-    await panel.getByRole("button", { name: "Chart" }).click();
-
-    // Which contracts computed it, on which chain, for which version: derived, not a fixed sentence.
-    const foot = panel.getByTestId("risk-source");
-    await expect(foot).toHaveAttribute("data-chain", String(c.chainId));
-    await expect(foot).toHaveAttribute("data-version", c.version);
-    await expect(foot).toContainText(`Computed live on ${c.chain}`);
-    await expect(foot).toContainText(`A ${c.version} series`);
-    await expect(foot).not.toContainText(c.version === "v2" ? "A v3 series" : "A v2 series");
-    await expect(foot.locator(`a[href$="/address/${c.engine}" i]`)).toBeVisible();
-    await expect(foot.locator(`a[href$="/address/${c.epochManager}" i]`)).toBeVisible();
-    await expect(foot).toContainText("Stylus (Rust) risk engine");
-    if (c.lens) {
-      await expect(foot).toHaveAttribute("data-source", "riskLens");
-      await expect(foot).toContainText("through RiskLens (v3)");
-      await expect(foot.locator(`a[href$="/address/${c.lens}" i]`)).toBeVisible();
-    } else {
-      await expect(foot).toHaveAttribute("data-source", "riskEngine");
-      await expect(foot).toContainText("called directly");
-      await expect(foot).not.toContainText("RiskLens (v3) at");
-    }
-
-    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    await expectRiskPhase(page, c, phase);
 
     const dir = process.env.RISK_SHOTS;
     if (dir) {
+      const rail = page.locator("section#risk");
       mkdirSync(dir, { recursive: true });
       await settle(page, 800);
       // A clip of the full page, so the sticky navigation does not cover the top of the rail.
@@ -148,5 +192,28 @@ for (const c of CASES) {
         clip: { x: 0, y: box.y + scrollY - 16, width: page.viewportSize()!.width, height: box.height + 32 },
       });
     }
+  });
+}
+
+// Each state on demand, on the v2 call vault (the SDK calls the Stylus engine directly there, so a fixture's expiry in
+// the future gets real greeks from the engine at that tenor). Its series of 2 October; reads rewritten by lifecycle.ts.
+const V2 = CASES[0]!;
+const V2_SERIES = 8614008145645214741184698995285385951692715470493509368088435356950067027964n;
+
+for (const phase of ["selling", "expired", "settled", "open"] as const) {
+  test(`vault risk panel, ${phase} (fixture, v2 on Robinhood Chain testnet)`, async ({ page }) => {
+    if (phase !== "expired")
+      test.skip(
+        test.info().project.name !== "desktop",
+        "the expired state runs on both; the rest on desktop",
+      );
+    test.skip(!(await rpcUp(V2.rpc, V2.chainId)), `${V2.chain} RPC unreachable`);
+    await acknowledge(page);
+    await patchEthCalls(page, V2.chainId, V2.rpc, PHASE_SELECTORS, [
+      vaultPhase({ vault: V2.vault as Address, seriesId: V2_SERIES, phase }),
+      feedStatus(0, Math.floor(Date.now() / 1000) - 600),
+    ]);
+    await page.goto(`/app/vault/${V2.vault}?chain=${V2.chainId}`);
+    await expectRiskPhase(page, V2, phase);
   });
 }
