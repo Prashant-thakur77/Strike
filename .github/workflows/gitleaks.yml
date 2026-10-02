@@ -4,7 +4,8 @@ name: Secret scan
 # (GITLEAKS_CONFIG_TOML below) for what is public by design: 20-byte contract and wallet addresses (flagged by
 # generic-api-key next to words like "token"), and the well-known, publicly documented dev keys of anvil and the
 # Arbitrum nitro devnode that the local demo scripts use, and the two made-up Alchemy keys the RPC unit tests used in
-# 70e7d67 (the tests now use "test-alchemy-key", which the default rules do not flag). Transaction hashes do not trip the default rules and are
+# 70e7d67 (the tests now use "test-alchemy-key", which the default rules do not flag), and the two made-up
+# secret-shaped values the config loader's test feeds it to prove it rejects them. Transaction hashes do not trip the default rules and are
 # not allowlisted, since a 32-byte private key looks the same. Anything else that looks like a secret fails the job.
 # Locally: export GITLEAKS_CONFIG_TOML with the block below, then run `gitleaks git .`.
 on:
@@ -49,6 +50,11 @@ jobs:
         description = "Made-up Alchemy keys in the RPC unit tests of commit 70e7d67 (no real key is ever in the repo)"
         regexTarget = "secret"
         regexes = ['^test_key_0123456789$', '^test_KEY-0123456789abcdef$']
+
+        [[allowlists]]
+        description = "Made-up secret-shaped values in sdk/test/config.test.ts, which checks that the config loader rejects them"
+        regexTarget = "secret"
+        regexes = ['^abcdefgh12345678$', '^ghp_0123456789abcdefghijABCDEFGHIJ012345$']
     steps:
       - uses: actions/checkout@v6
         with:
