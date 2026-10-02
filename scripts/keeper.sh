@@ -4,23 +4,26 @@
 #     Chainlink stock feeds). Only newer rounds are pushed, with their original timestamps.
 #  2. Settles expired epochs (settle is permissionless; the first round at or after expiry is found automatically).
 #
-# Both steps cover every active deployment file for the chain: contracts/deployments/<chainId>.json and
-# <chainId>-<name>.json (for example 46630-v3.json, v3 next to v2), skipping *-vaults.json and files whose `status`
-# starts with "superseded" (46630-v1.json). A MirrorFeed shared by two deployments is pushed once.
+# Both steps cover every deployment file strike.config.json lists for the chain (chains.<id>.deployments, the primary
+# first: 46630.json, then 46630-v3.json, v3 next to v2), skipping files whose `status` starts with "superseded". A
+# MirrorFeed shared by two deployments is pushed once. The mainnet feeds are those of the chain's mainnetFeedsChain
+# (chains.4663.stocks), and every RPC default is the config's public RPC (docs/configuration.md).
 #
 # Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com PRIVATE_KEY=0x... scripts/keeper.sh [--once] [--dry-run]
 #   --dry-run  read only: print what would be pushed or settled and send nothing (PRIVATE_KEY not needed).
 # RPC_URL and MAINNET_RPC default to the public RPCs. With ALCHEMY_API_KEY set, cast reads and sends through Alchemy
 # instead (scripts/rpc.sh: checked once, the public RPC if Alchemy does not answer); a loopback RPC_URL (a fork) is
 # always used as given.
-# Needs Foundry (cast) and python3.
+# Needs Foundry (cast), python3, and jq or node (scripts/config.sh).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=scripts/rpc.sh
 . "$ROOT/scripts/rpc.sh"
-CHAIN_ID="${CHAIN_ID:-46630}"
-RPC_URL="${RPC_URL:-$(rpc_public_url "$CHAIN_ID" || echo https://rpc.testnet.chain.robinhood.com)}"
-MAINNET_RPC="${MAINNET_RPC:-https://rpc.mainnet.chain.robinhood.com}"
+CHAIN_ID="${CHAIN_ID:-$(strike_config_get defaultChainId)}"
+RPC_URL="${RPC_URL:-$(rpc_public_url "$CHAIN_ID" || rpc_public_url "$(strike_config_get defaultChainId)")}"
+# The chain whose Chainlink rounds the MirrorFeeds copy (Robinhood Chain mainnet, 4663) and its public RPC.
+FEEDS_CHAIN="$(strike_config_get chains "$CHAIN_ID" mainnetFeedsChain || true)"
+MAINNET_RPC="${MAINNET_RPC:-$( [ -z "$FEEDS_CHAIN" ] || rpc_public_url "$FEEDS_CHAIN")}"
 ONCE=0
 DRY_RUN="${DRY_RUN:-0}"
 for arg in "$@"; do
@@ -32,34 +35,26 @@ for arg in "$@"; do
 done
 [ "$DRY_RUN" = "1" ] || : "${PRIVATE_KEY:?PRIVATE_KEY is required (keeper role on the MirrorFeeds)}"
 
-# The active deployment files for this chain, the primary <chainId>.json first.
-deploy_files() {
-  local f
-  for f in "$ROOT/contracts/deployments/$CHAIN_ID.json" "$ROOT"/contracts/deployments/"$CHAIN_ID"-*.json; do
-    [ -f "$f" ] || continue
-    case "$f" in *-vaults.json) continue ;; esac
-    python3 -c "import json,sys; sys.exit(1 if str(json.load(open(sys.argv[1])).get('status','')).startswith('superseded') else 0)" "$f" || continue
-    echo "$f"
-  done
-}
-DEPLOYS=$(deploy_files)
+# The active deployment files for this chain, the primary first (the SDK's default deployment of the chain).
+DEPLOYS=$(strike_deployment_files "$CHAIN_ID")
 [ -n "$DEPLOYS" ] || { echo "no deployment file for chain $CHAIN_ID" >&2; exit 1; }
+PRIMARY=$(echo "$DEPLOYS" | head -n 1)
 
 # What cast uses: Alchemy when ALCHEMY_API_KEY is set (the key is in these URLs: print them only through rpc_label).
 # The SDK settle path below still gets RPC_URL as STRIKE_RPC_URL and adds Alchemy itself, with the key in a header.
 CAST_RPC=$(rpc_url_for "$CHAIN_ID" "$RPC_URL")
-CAST_MAINNET_RPC=$(rpc_url_for 4663 "$MAINNET_RPC")
-echo "RPC: $(rpc_label "$CAST_RPC"); mainnet feeds: $(rpc_label "$CAST_MAINNET_RPC")"
+CAST_MAINNET_RPC=""
+[ -z "$FEEDS_CHAIN" ] || CAST_MAINNET_RPC=$(rpc_url_for "$FEEDS_CHAIN" "$MAINNET_RPC")
+echo "RPC: $(rpc_label "$CAST_RPC"); mainnet feeds: $(rpc_label "${CAST_MAINNET_RPC:-none}")"
 
-# Robinhood Chain mainnet Chainlink feeds (docs.chain.link, see docs/research.md). NFLX has none.
-declare -A MAINNET_FEED=(
-  [TSLA]=0x4A1166a659A55625345e9515b32adECea5547C38
-  [NVDA]=0x379EC4f7C378F34a1B47E4F3cbeBCbAC3E8E9F15
-  [AMZN]=0xD5a1508ceD74c084eBf3cBe853e2C968fB2a651C
-  [PLTR]=0x820ABedFF239034956B7A9d2F0a331f9F075eB4c
-  [AMD]=0x943A29E7ae51A4798823ca9eEd2ed533B2A22C72
-  [SPY]=0x319724394D3A0e3669269846abE664Cd621f9f6A
-)
+# The mainnet Chainlink feeds by symbol (docs.chain.link, see docs/research.md): strike.config.json
+# chains.<mainnetFeedsChain>.stocks. NFLX has none. A chain without a mainnetFeedsChain mirrors nothing.
+declare -A MAINNET_FEED=()
+if [ -n "$FEEDS_CHAIN" ]; then
+  for sym in $(strike_config_keys chains "$FEEDS_CHAIN" stocks || true); do
+    MAINNET_FEED[$sym]=$(strike_config_get chains "$FEEDS_CHAIN" stocks "$sym" feed)
+  done
+fi
 
 # json <file> <python expression over d>
 json() { python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(eval(sys.argv[2]))" "$1" "$2"; }
@@ -151,10 +146,10 @@ settle_expired() {
     else
       # One round is not enough after a Chainlink phase change or a corporate action at expiry: the SDK finds every
       # hint (findSettlementHints), records the price with recordSettlementPriceWithHints, then settles. For a
-      # deployment other than <chainId>.json (the SDK's entry), its addresses go in as the SDK's STRIKE_* overrides.
+      # deployment other than the primary (the SDK's entry), its addresses go in as the SDK's STRIKE_* overrides.
       echo "$(date -u +%FT%TZ) $sym: single-round settle failed; settling through the SDK with hints"
       (cd "$ROOT" && export STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_AGENT_PRIVATE_KEY="$PRIVATE_KEY" STRIKE_RPC_URL="$RPC_URL" &&
-        if [ "$deploy" != "$ROOT/contracts/deployments/$CHAIN_ID.json" ]; then eval "$(sdk_overrides "$deploy")"; fi &&
+        if [ "$deploy" != "$PRIMARY" ]; then eval "$(sdk_overrides "$deploy")"; fi &&
         pnpm -s --filter @strike/agent-example start -- --settle --vault "$vault") || echo "settle failed for $vault"
     fi
   done

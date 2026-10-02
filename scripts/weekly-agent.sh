@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Agent #1's weekly run on one chain (GitHub Actions agent.yml, one job per chain): every active deployment file of
-# CHAIN_ID, with the keeper's rule (scripts/keeper.sh: <chainId>.json first, then <chainId>-<name>.json, skipping
-# *-vaults.json and files whose `status` starts with "superseded"), and on each the vaults in its -vaults.json
-# (TSLA_covered_call, TSLA_cash_secured_put).
+# CHAIN_ID, with the keeper's rule (strike.config.json's chains.<id>.deployments, the primary first, skipping files
+# whose `status` starts with "superseded"), and on each the vaults in its -vaults.json (TSLA_covered_call,
+# TSLA_cash_secured_put).
 #   propose: --vault <v> --log <dir> --anchor, plus --llm --planner api|claude-code when a Claude credential is set
 #   settle:  --vault <v> --log <dir> --anchor --settle (records the keeper's settlement; settles only if nothing has)
-# A deployment other than <chainId>.json (46630-v3.json) is reached through the SDK's STRIKE_* address overrides.
+# A deployment other than the primary (46630-v3.json) is reached through the SDK's STRIKE_* address overrides.
 #
 # Signer: each deployment's agent #1 signer is `agentSigner` in its -vaults.json. The run signs with whichever of
 # KEEPER_PRIVATE_KEY (the deployer: agent #1's signer on 46630 v2) and AGENT_SIGNER_KEY (agent #1's separate v3
@@ -15,7 +15,7 @@
 # deployment's record of a vault symbol gets the agent's `-2` suffix (v3 on 46630).
 #
 # Usage: CHAIN_ID=46630 RPC_URL=https://rpc.testnet.chain.robinhood.com scripts/weekly-agent.sh propose|settle [--dry-run]
-#   RPC_URL defaults to the chain's public RPC. With ALCHEMY_API_KEY set, the agent reads and sends through Alchemy
+#   RPC_URL defaults to the chain's public RPC (strike.config.json). With ALCHEMY_API_KEY set, the agent reads and sends through Alchemy
 #   first (the SDK's rpcEndpointsFor: the key in a header, RPC_URL as the fallback); a loopback RPC_URL is used alone.
 #   --dry-run  read only, no key needed: propose runs the agent with --dry-run (no --anchor, records to a temporary
 #              folder), settle runs --status; both print the signer, overrides, record folder and anchor URL.
@@ -37,19 +37,12 @@ case "$CHAIN_ID" in
   421614) LOG_DIR="${LOG_DIR:-docs/agent-log/arbitrum-sepolia}" ;;
   *) LOG_DIR="${LOG_DIR:-docs/agent-log/$CHAIN_ID}" ;;
 esac
-REPO="${GITHUB_REPOSITORY:-Prashant-thakur77/Strike}"
+REPO="${GITHUB_REPOSITORY:-$(strike_config_get services repository | sed -E 's#^https://github\.com/##')}"
 BASE_URL="https://github.com/$REPO/blob/main/$LOG_DIR/"
 
-# The active deployment files for this chain, the primary <chainId>.json first (the same rule as keeper.sh).
-deploy_files() {
-  local f
-  for f in "$ROOT/contracts/deployments/$CHAIN_ID.json" "$ROOT"/contracts/deployments/"$CHAIN_ID"-*.json; do
-    [ -f "$f" ] || continue
-    case "$f" in *-vaults.json) continue ;; esac
-    python3 -c "import json,sys; sys.exit(1 if str(json.load(open(sys.argv[1])).get('status','')).startswith('superseded') else 0)" "$f" || continue
-    echo "$f"
-  done
-}
+# The active deployment files for this chain, the primary first (the same rule as keeper.sh: scripts/config.sh).
+DEPLOYS=$(strike_deployment_files "$CHAIN_ID")
+PRIMARY=$(echo "$DEPLOYS" | head -n 1)
 
 # export lines for the SDK's address overrides (sdk/src/deployments.ts DEPLOYMENT_ENV) from a deployment file.
 sdk_overrides() {
@@ -111,7 +104,7 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 
 failed=0
-for deploy in $(deploy_files); do
+for deploy in $DEPLOYS; do
   name=$(basename "$deploy" .json)
   vaults="${deploy%.json}-vaults.json"
   if [ ! -f "$vaults" ]; then
@@ -124,7 +117,7 @@ for deploy in $(deploy_files); do
   [ "$(jq -r '.deployer' "$deploy" | tr '[:upper:]' '[:lower:]')" = "$(echo "$signer" | tr '[:upper:]' '[:lower:]')" ] && secret=KEEPER_PRIVATE_KEY
   key=$(key_for "$signer")
   overrides=""
-  [ "$deploy" != "$ROOT/contracts/deployments/$CHAIN_ID.json" ] && overrides=$(sdk_overrides "$deploy")
+  [ "$deploy" != "$PRIMARY" ] && overrides=$(sdk_overrides "$deploy")
   echo "== $name: agent #$(jq -r '.agentId' "$vaults"), signer $signer (secret $secret), records in $LOG_DIR, anchor URL $BASE_URL<file>"
   [ -n "$overrides" ] && echo "   SDK overrides: $(echo "$overrides" | sed 's/^export //' | tr '\n' ' ')"
   if [ -z "$key" ] && [ "$DRY_RUN" = 0 ]; then

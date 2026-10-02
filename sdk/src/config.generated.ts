@@ -69,6 +69,7 @@ export const bundledStrikeConfig: StrikeConfig = {
       "deployments": [
         "contracts/deployments/31337.json"
       ],
+      "mainnetFeedsChain": "4663",
       "confirmations": 0
     },
     "42161": {

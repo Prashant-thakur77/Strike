@@ -306,3 +306,53 @@ describe("loadStrikeConfig", () => {
     }
   });
 });
+
+describe("scripts/config.sh and scripts/rpc.sh (what keeper.sh and weekly-agent.sh read)", () => {
+  const cp = proc.getBuiltinModule("node:child_process") as {
+    execFileSync(
+      cmd: string,
+      args: string[],
+      o: { env: Record<string, string | undefined>; encoding: "utf8" },
+    ): string;
+  };
+  const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env;
+  const script = [
+    `. "${ROOT}scripts/rpc.sh"`,
+    'for c in 46630 421614 4663 42161 31337; do echo "$c $(rpc_public_url $c) $(rpc_alchemy_network $c || echo none)"; done',
+    "rpc_public_url 1 || echo 'no chain 1'",
+    "strike_config_get defaultChainId",
+    "strike_config_get chains 46630 mainnetFeedsChain",
+    'for s in $(strike_config_keys chains 4663 stocks); do echo "$s $(strike_config_get chains 4663 stocks $s feed)"; done',
+    "strike_deployment_files 46630",
+    "strike_config_get services repository",
+  ].join("\n");
+  const run = (reader: string) =>
+    cp.execFileSync("bash", ["-c", script], {
+      env: { ...env, STRIKE_CONFIG_READER: reader },
+      encoding: "utf8",
+    });
+
+  it("prints the config's values, the same with jq and with node", async () => {
+    const { publicRpcUrl, ALCHEMY_NETWORKS } = await import("../src/rpc.js");
+    const byNode = run("node");
+    const lines = byNode.trim().split("\n");
+    for (const id of [46630, 421614, 4663, 42161, 31337])
+      expect(lines).toContain(`${id} ${publicRpcUrl(id)} ${ALCHEMY_NETWORKS[id] ?? "none"}`);
+    expect(lines).toContain("no chain 1");
+    expect(lines).toContain(String(config.defaultChainId));
+    for (const [sym, { feed }] of Object.entries(config.chains["4663"]!.stocks!))
+      expect(lines).toContain(`${sym} ${feed}`);
+    expect(lines).toContain(`${ROOT}contracts/deployments/46630.json`);
+    expect(lines).toContain(`${ROOT}contracts/deployments/46630-v3.json`);
+    expect(lines.indexOf(`${ROOT}contracts/deployments/46630.json`)).toBeLessThan(
+      lines.indexOf(`${ROOT}contracts/deployments/46630-v3.json`),
+    );
+    let hasJq = true;
+    try {
+      cp.execFileSync("bash", ["-c", "command -v jq"], { env, encoding: "utf8" });
+    } catch {
+      hasJq = false;
+    }
+    if (hasJq) expect(run("jq")).toBe(byNode);
+  });
+});
