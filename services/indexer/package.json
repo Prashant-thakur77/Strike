@@ -1,0 +1,29 @@
+{
+  "name": "@strike/indexer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Event indexer for Strike: every deployment's logs into Postgres, idempotent and reorg-safe, with /stats, /events, /agents and /epochs",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@strike/sdk": "workspace:*",
+    "fastify": "^5.12.5",
+    "pg": "^8.23.1",
+    "pino": "^10.3.1",
+    "undici": "^7.16.0",
+    "viem": "^2.56.9"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.0",
+    "@types/pg": "^8.23.1",
+    "embedded-postgres": "17.10.0-beta.17",
+    "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.2"
+  }
+}

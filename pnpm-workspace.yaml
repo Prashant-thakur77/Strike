@@ -5,3 +5,4 @@ packages:
   - agents/*
   - bots/*
   - subgraph
+  - services/*
