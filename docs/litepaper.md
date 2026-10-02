@@ -268,7 +268,7 @@ Settlement uses the **first** round with `updatedAt ≥ expiry`. The caller supp
 6. the vault can pay all premium owed;
 7. deposits and withdrawals never lower the share price.
 
-**Threat model.** [threat-model.md](threat-model.md) lists 21 threats, each with a mitigation and the tests that cover it. The ones specific to this design:
+**Threat model.** [threat-model.md](threat-model.md) lists 25 threats, each with a mitigation and the tests that cover it. The ones specific to this design:
 
 - oracle manipulation (T1), stale weekend prices (T2), a double-counted multiplier (T3) and corporate actions mid-epoch (T4);
 - reckless or compromised agents (T6, T7), and an agent that withdraws its bond before punishment (T8, handled by the 8-day unbonding period, during which unbonding funds can still be slashed);

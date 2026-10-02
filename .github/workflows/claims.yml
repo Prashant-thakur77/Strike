@@ -3,7 +3,8 @@ name: Claims
 # The evidence gate. claims: every transaction the README, docs/ and the app cite is fetched from its chain and checked
 # against what the docs say about it (scripts/check-claims.mjs, read-only, the public RPCs in strike.config.json); a
 # chain whose RPC does not answer is skipped with a warning. It runs on a schedule too, because a cited transaction is
-# only as good as the chain that serves it.
+# only as good as the chain that serves it. numbers and numbers-foundry: the figures the docs state against
+# docs/evidence/facts.json, and facts.json's Foundry counts against a real run (scripts/check-numbers.mjs).
 on:
   push:
     branches: [main]
@@ -44,3 +45,39 @@ jobs:
             tail -n 40 "$RUNNER_TEMP/claims.txt" 2>/dev/null || echo "no output"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  numbers:
+    # The numbers gate: every figure the docs list in scripts/check-numbers.mjs (test counts, coverage, contract
+    # counts, threats, addresses) must equal docs/evidence/facts.json, and the facts read from the repository
+    # (deployment files, Halmos proofs, Rust and subgraph tests, threats) must still hold. No install.
+    name: Doc figures against facts.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Check every listed figure
+        run: node scripts/check-numbers.mjs
+
+  numbers-foundry:
+    # facts.json's Foundry counts against a real run: the main suite's passing and skipped tests per folder, and the
+    # fork and differential tests from forge test --list. The TypeScript and Playwright counts are measured with
+    # `node scripts/check-numbers.mjs --measure --write` (docs/evidence/README.md); ci.yml runs those suites.
+    name: Foundry counts against facts.json
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - name: Count the Foundry suite and compare
+        run: node scripts/check-numbers.mjs --measure foundry

@@ -82,7 +82,7 @@ The `MirrorFeed`s were the one input a depositor had to take on our word. The pr
 | Off-chain code              | The SDK (including the mirror audit), MCP server, example agent, Telegram bot and indexer (against a real Postgres); the app in Playwright        | [README, Tests](../README.md#tests), [indexer tests](../services/indexer/README.md#tests)                          |
 | Whole system                | `scripts/demo-local.sh` runs a full week on anvil, once out of the money and once in the money, in CI                                             | [`demo-local.sh`](../scripts/demo-local.sh)                                                                        |
 
-Counts, rerun on 2 October after the adversarial suite, the mirror audit and the indexer were added: the Foundry suite without fork, differential and formal tests has 515 passing and 7 skipped; the SDK 203 passing and 2 skipped; the MCP server 61; the example agent 68; the Telegram bot 61; the indexer 46. Line coverage of the contracts is 99.32% (1,173 of 1,181 lines, rerun on 2 October; [coverage](../README.md#coverage)). The README's test totals were counted before those suites landed.
+Counts on 2 October, from [`evidence/facts.json`](evidence/facts.json) (CI fails when this note states a different figure): the Foundry suite without fork, differential and formal tests has 527 passing and 7 skipped; the SDK 252 passing and 2 skipped; the MCP server 84; the example agents 71; the indexer 47; the Telegram bot 62; Playwright 216 per viewport. Line coverage of the contracts is 99.32% (1,173 of 1,181 lines; [coverage](../README.md#coverage)).
 
 ## 5. Path to production
 

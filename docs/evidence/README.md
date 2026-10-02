@@ -2,15 +2,16 @@
 
 Machine-readable evidence that scripts write and CI checks, so the docs can link a figure instead of retyping it.
 
-| File                                                     | What it is                                                                                                                     | Written by                | Checked by                                                                                     |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------- | ---------------------------------------------------------------------------------------------- |
-| [`46630-v2-2026-10-02.json`](46630-v2-2026-10-02.json)   | The week ending Friday 2 October on v2, Robinhood Chain testnet: the TSLA covered-call and cash-secured-put vaults of agent #1 | `scripts/proven-week.mjs` | `scripts/check-claims.mjs` (every tx and block), `scripts/proven-week.mjs --check` (the chain) |
-| [`46630-v3-2026-10-02.json`](46630-v3-2026-10-02.json)   | The same week on v3, Robinhood Chain testnet                                                                                   | `scripts/proven-week.mjs` | as above                                                                                       |
-| [`421614-v3-2026-10-02.json`](421614-v3-2026-10-02.json) | The same week on v3, Arbitrum Sepolia                                                                                          | `scripts/proven-week.mjs` | as above                                                                                       |
+| File                                                     | What it is                                                                                                                                                               | Written by                                    | Checked by                                                                                     |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [`46630-v2-2026-10-02.json`](46630-v2-2026-10-02.json)   | The week ending Friday 2 October on v2, Robinhood Chain testnet: the TSLA covered-call and cash-secured-put vaults of agent #1                                           | `scripts/proven-week.mjs`                     | `scripts/check-claims.mjs` (every tx and block), `scripts/proven-week.mjs --check` (the chain) |
+| [`46630-v3-2026-10-02.json`](46630-v3-2026-10-02.json)   | The same week on v3, Robinhood Chain testnet                                                                                                                             | `scripts/proven-week.mjs`                     | as above                                                                                       |
+| [`421614-v3-2026-10-02.json`](421614-v3-2026-10-02.json) | The same week on v3, Arbitrum Sepolia                                                                                                                                    | `scripts/proven-week.mjs`                     | as above                                                                                       |
+| [`facts.json`](facts.json)                               | The canonical figures the docs state: test counts per suite, coverage, contract counts, threats and the deployed addresses, each count with the command that measured it | `scripts/check-numbers.mjs --measure --write` | `scripts/check-numbers.mjs` (every doc figure it lists must equal the fact)                    |
 
 ## A week record
 
-One file per deployment and week, named `<chainId>-<version>-<expiry date>.json`. It is read from the chain only (no key) and lists each vault whose proposals expire that Friday, with its epoch's lifecycle in order:
+One file per deployment and week, named `<chainId>-<version>-<expiry date>.json`. It is read from the chain only (no key) and lists each vault whose proposals expire that Friday, with its epoch's `lifecycle` keyed in order (`1 deposit` to `8 redemptions and claims`):
 
 1. `deposit`: the deposits made before the epoch opened.
 2. `open`: `openEpoch`, with the spot it snapshotted.
@@ -32,3 +33,16 @@ node scripts/check-claims.mjs                               # every tx and block
 ```
 
 The week of 2 October settles after 20:00 UTC; the [settlement runbook](../operations.md#8-proven-week-records) reruns the first command once the three settlements and the two put-vault aborts are on chain. Until then the settlement and claim steps read `pending`.
+
+## The facts file
+
+`facts.json` holds every figure the docs state about the code: tests per suite (Foundry by folder, fork, differential, Halmos, Rust, each TypeScript package, subgraph, Playwright per viewport), the totals the docs quote, coverage, the v2 contract count, the threat model's threats and the address of every contract in the deployment files `strike.config.json` lists. `measured` names the commit and date. TypeScript counts are each suite's size (tests that ran); `failingWhenMeasured` records any that failed at that commit.
+
+```bash
+node scripts/check-numbers.mjs                     # every doc figure against facts.json (CI: claims.yml)
+node scripts/check-numbers.mjs --measure           # rerun every count and compare (Foundry, Node and the app's packages)
+node scripts/check-numbers.mjs --measure --write   # ...and rewrite facts.json and the chart data, then:
+python3 scripts/charts/build_charts.py tests coverage
+```
+
+The check lists the doc patterns it reads (`CHECKS` in the script): the README's badges, evidence row, tests and coverage tables and chart text, the judge's tour, testing.md, the technical note, the proof page's `proof.ts`, the submission texts, the audit-readiness, risk-model and litepaper lines, and the README's address tables. A pattern that stops matching fails too, so a reworded sentence cannot drop out of the gate. Every shortened address in the README and `docs/` (`` `0x5A3b…9C99` ``) must match the address it links to. Measure with Foundry on the path so the SDK's and the MCP server's devnet suites run, as CI's `devnet-ts` job does.

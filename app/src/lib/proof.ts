@@ -337,15 +337,16 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Sources: README.md "Tests" and docs/testing.md (477 Foundry passing and 7 skipped, 15 Rust, 259 TypeScript
-// = SDK 140 + MCP 59 + agents 60, 60 Telegram bot, 10 subgraph, 151 Playwright). Re-count (2026-10-02) with
-// `forge test --no-match-path "test/{fork,differential,formal}/*"` (the fork, differential and Halmos suites are
-// counted under CHECKS), `cargo test --manifest-path stylus/pricer/Cargo.toml`, `pnpm -r test`, the `test(` calls in
-// subgraph/tests and `npx playwright test --list` in app (tests per viewport).
+// Source: docs/evidence/facts.json (527 Foundry passing and 7 skipped, 15 Rust, 454 TypeScript = SDK 252 + MCP 84 +
+// agents 71 + indexer 47, 62 Telegram bot, 10 subgraph, 216 Playwright); scripts/check-numbers.mjs fails CI when a
+// count here differs from it. Re-count with `node scripts/check-numbers.mjs --measure --write`, which runs
+// `forge test --no-match-path "test/{fork,differential,formal}/*" --summary` (the fork, differential and Halmos suites
+// are counted under CHECKS), vitest in each TypeScript package and `npx playwright test --list` in app (tests per
+// viewport), and counts the `#[test]` functions in stylus/pricer and the `test(` calls in subgraph/tests.
 export const TESTS: readonly TestFact[] = [
   {
     label: "Foundry",
-    count: "477",
+    count: "527",
     detail:
       "Unit, integration, fuzz, invariant, conformance and audit-regression suites (fork, differential and formal below); 7 more are skipped: settlement rules the StockCollateral example has no use for",
     evidence: [
@@ -364,18 +365,19 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "259",
+    count: "454",
     detail:
-      "SDK 140, MCP server 59, example agents 60; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
+      "SDK 252, MCP server 84, example agents 71, indexer 47; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
       { label: "agents/example/test", href: ghTree("agents/example/test") },
+      { label: "services/indexer/test", href: ghTree("services/indexer/test") },
     ],
   },
   {
     label: "Telegram bot",
-    count: "60",
+    count: "62",
     detail: "Log scanning with range back-off, message formatting, commands, store",
     evidence: [{ label: "bots/telegram/test", href: ghTree("bots/telegram/test") }],
   },
@@ -387,7 +389,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "151",
+    count: "216",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 32 of them are the opt-in UI audit at five widths",
     evidence: [
@@ -398,7 +400,8 @@ export const TESTS: readonly TestFact[] = [
 ];
 
 // Source: docs/testing.md "Coverage" (make coverage, Foundry --ir-minimum, production code only) and README.md
-// "Safety evidence". Re-run 2026-09-30: 99.31% lines, 99.42% statements, 98.76% branches, 100% functions.
+// "Safety evidence". Re-run 2026-10-02 (docs/evidence/facts.json): 99.32% lines, 99.43% statements, 98.77% branches,
+// 100% functions.
 // CI fails below 95% lines (.github/workflows/ci.yml).
 export const COVERAGE = {
   lines: "99.3%",
@@ -547,9 +550,9 @@ export const SLITHER = {
   ci: gh(".github/workflows/ci.yml", 121),
 } as const;
 
-// Source: docs/threat-model.md, "Threats" table (T1–T21), each with its mitigation and covering test.
+// Source: docs/threat-model.md, "Threats" table (T1–T25), each with its mitigation and covering test.
 export const THREAT_MODEL = {
-  threats: 21,
+  threats: 25,
   doc: gh("docs/threat-model.md"),
 } as const;
 

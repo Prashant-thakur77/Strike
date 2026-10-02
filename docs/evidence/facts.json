@@ -1,0 +1,192 @@
+{
+  "about": "The canonical figures the docs state, measured by `node scripts/check-numbers.mjs --measure --write` at the commit in `measured`; `node scripts/check-numbers.mjs` (CI: claims.yml) fails when a doc states a different figure. Each count names the command that produced it.",
+  "contracts": {
+    "v2MirrorFeeds": 5,
+    "v2Protocol": 9,
+    "v2VerifiedOnBlockscout": 14
+  },
+  "coverage": {
+    "branches": 98.77,
+    "branchesHit": 240,
+    "branchesTotal": 243,
+    "command": "make coverage (forge coverage --ir-minimum --report summary --no-match-coverage \"(test|script|lib)/\")",
+    "files": 20,
+    "filesAt100": 16,
+    "functions": 100,
+    "lines": 99.32,
+    "linesHit": 1173,
+    "linesTotal": 1181,
+    "statements": 99.43
+  },
+  "deployments": {
+    "421614-v3": {
+      "addresses": {
+        "activePricer": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+        "agentRegistry": "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+        "decisionLog": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+        "epochManager": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
+        "feeManager": "0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569",
+        "marketCalendar": "0xefD1121ef13F1187F9ac9A54076DFa09A586d31D",
+        "optionToken": "0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7",
+        "pricer": "0x79A4158900579FA0eE5b413B4724D010C8a0A8E2",
+        "riskEngine": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+        "riskLens": "0x94aC10fF1A71ceBfD825079aaf897858a9953ecE",
+        "stockOracle": "0x8B89A4dE3d8E74888e0135CCBeE5eE00Df36bA9F",
+        "stylusPricer": "0x57cfa61b190c1e80d6e8b1549b8acf1bc505a531",
+        "usdg": "0xFFC95faa3d63Cde504a05B567C600B78C0b41892",
+        "vaultFactory": "0x9DbaFfD488FC591947149E2b27189A201C0a74f4",
+        "vaultImplementation": "0x5Fe632C9F6Df4ECb11dfef5a6112154379BCd197",
+        "vault_TSLA_cash_secured_put": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+        "vault_TSLA_covered_call": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311"
+      },
+      "block": 314350623,
+      "file": "contracts/deployments/421614.json"
+    },
+    "46630-v2": {
+      "addresses": {
+        "activePricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
+        "agentRegistry": "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+        "decisionLog": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+        "epochManager": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+        "feeManager": "0x6b23819bC44EEbE1BD004208c0F00f2ed002B621",
+        "marketCalendar": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
+        "optionToken": "0x557060266F4aE09ae723541AC8E7E27A99B0c9DB",
+        "pricer": "0x4261d47E6487e2533EdB9D5F91242F28121d5A1A",
+        "riskEngine": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+        "stockOracle": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89",
+        "stylusPricer": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
+        "usdg": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+        "usdgDrip": "0x1f3778BfC474419f154AD543625A711d90985632",
+        "vaultFactory": "0x5665E02878fA592513C1633af2F07b08cF606beC",
+        "vaultImplementation": "0x900e7C78598C3AbC38FDD411756c38CF7931797D",
+        "vault_TSLA_cash_secured_put": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+        "vault_TSLA_covered_call": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e"
+      },
+      "block": 125880607,
+      "file": "contracts/deployments/46630.json"
+    },
+    "46630-v3": {
+      "addresses": {
+        "activePricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+        "agentRegistry": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+        "decisionLog": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+        "epochManager": "0x256D4546486368dCb23E94758b4cb500c215929F",
+        "feeManager": "0x8DBE22eAa3CEFC367C435ce2b6F779fabe7D2Fa7",
+        "marketCalendar": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
+        "optionToken": "0xfbeb6cf8350C182c7895165A8Fdd3D9884aB46B6",
+        "pricer": "0x2B6A2A51bd802Ed11bE7c0B954a7Ec9287c362d0",
+        "riskLens": "0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D",
+        "stockOracle": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A",
+        "stylusPricer": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+        "usdg": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+        "vaultFactory": "0x97ab9ed707758Fc23b4e59132d97Ab7cb9fb215e",
+        "vaultImplementation": "0x2E67F1Cf23eAAeecaee36d248d76e8366DA076D9",
+        "vault_TSLA_cash_secured_put": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+        "vault_TSLA_covered_call": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285"
+      },
+      "block": 126713718,
+      "file": "contracts/deployments/46630-v3.json"
+    }
+  },
+  "measured": {
+    "commit": "efdab02",
+    "date": "2026-10-02"
+  },
+  "tests": {
+    "agents": {
+      "command": "vitest run --reporter=json (in agents/example, Foundry on PATH so devnet suites run)",
+      "failingWhenMeasured": 0,
+      "skipped": 0,
+      "tests": 71
+    },
+    "bot": {
+      "command": "vitest run --reporter=json (in bots/telegram, Foundry on PATH so devnet suites run)",
+      "failingWhenMeasured": 0,
+      "skipped": 0,
+      "tests": 62
+    },
+    "differential": {
+      "command": "forge test --list --json: test/differential",
+      "tests": 3
+    },
+    "fork": {
+      "command": "forge test --list --json: test/fork",
+      "tests": 9
+    },
+    "foundry": {
+      "audit": 19,
+      "byFolder": {
+        "adversarial": 30,
+        "agents": 36,
+        "audit": 19,
+        "conformance": 35,
+        "core": 33,
+        "examples": 14,
+        "governance": 12,
+        "integration": 28,
+        "invariant": 18,
+        "oracle": 34,
+        "pricing": 21,
+        "root": 1,
+        "testnet": 13,
+        "unit": 233
+      },
+      "command": "forge test --no-match-path \"test/{fork,differential,formal}/*\" --summary (in contracts)",
+      "passing": 527,
+      "skipped": 7
+    },
+    "halmos": {
+      "command": "check_* and unproven_* functions in contracts/test/formal",
+      "proven": 9,
+      "unproven": 16
+    },
+    "indexer": {
+      "command": "vitest run --reporter=json (in services/indexer, Foundry on PATH so devnet suites run)",
+      "failingWhenMeasured": 0,
+      "skipped": 0,
+      "tests": 47
+    },
+    "mcp": {
+      "command": "vitest run --reporter=json (in mcp, Foundry on PATH so devnet suites run)",
+      "failingWhenMeasured": 0,
+      "skipped": 0,
+      "tests": 84
+    },
+    "playwright": {
+      "byDefault": 184,
+      "command": "npx playwright test --list --reporter=json (in app)",
+      "files": 25,
+      "runs": 432,
+      "tests": 216,
+      "uiAudit": 32
+    },
+    "rust": {
+      "command": "#[test] in stylus/pricer/src (cargo test runs them)",
+      "tests": 15
+    },
+    "sdk": {
+      "command": "vitest run --reporter=json (in sdk, Foundry on PATH so devnet suites run)",
+      "failingWhenMeasured": 1,
+      "skipped": 2,
+      "tests": 252
+    },
+    "subgraph": {
+      "command": "test( cases in subgraph/tests (matchstick runs them)",
+      "tests": 10
+    },
+    "v3Contracts": {
+      "audit": 40,
+      "command": "the same forge test and #[test] count on a worktree of the v3-contracts branch",
+      "foundryPassing": 531,
+      "foundrySkipped": 1,
+      "rust": 28
+    }
+  },
+  "threats": 25,
+  "totals": {
+    "about": "typescript = SDK + MCP + example agents + indexer (the proof page's TypeScript card); pnpm = typescript + the Telegram bot (corepack pnpm -r test); testsAndProofs = Foundry main suite + fork + differential + Halmos proofs + Rust + pnpm + subgraph + Playwright per viewport",
+    "pnpm": 516,
+    "testsAndProofs": 1305,
+    "typescript": 454
+  }
+}

@@ -1,56 +1,68 @@
 Ran 1 test for test/StrikeVersion.t.sol:StrikeVersionTest
 Suite result: ok. 1 passed; 0 failed; 0 skipped
-Ran 5 tests for test/testnet/TestnetContracts.t.sol:TestnetContractsTest
-Suite result: ok. 5 passed; 0 failed; 0 skipped
-Ran 5 tests for test/audit/AuditSettlement.t.sol:AuditSettlementTest
-Suite result: ok. 5 passed; 0 failed; 0 skipped
-Ran 7 tests for test/agents/Reputation.t.sol:ReputationTest
-Suite result: ok. 7 passed; 0 failed; 0 skipped
-Ran 25 tests for test/core/EpochManager.t.sol:EpochManagerTest
-Suite result: ok. 25 passed; 0 failed; 0 skipped
-Ran 6 tests for test/audit/AuditPricing.t.sol:AuditPricingTest
-Suite result: ok. 6 passed; 0 failed; 0 skipped
-Ran 21 tests for test/oracle/StockOracle.t.sol:StockOracleTest
-Suite result: ok. 21 passed; 0 failed; 0 skipped
-Ran 8 tests for test/audit/AuditVault.t.sol:AuditVaultTest
-Suite result: ok. 8 passed; 0 failed; 0 skipped
-Ran 22 tests for test/unit/VaultFactory.t.sol:VaultFactoryTest
-Suite result: ok. 22 passed; 0 failed; 0 skipped
-Ran 19 tests for test/unit/Decimals.t.sol:DecimalsTest
-Suite result: ok. 19 passed; 0 failed; 0 skipped
-Ran 13 tests for test/integration/Lifecycle.t.sol:LifecycleTest
-Suite result: ok. 13 passed; 0 failed; 0 skipped
+Ran 1 test for test/pricing/BlackScholesVectors.t.sol:BlackScholesVectorsTest
+Suite result: ok. 1 passed; 0 failed; 0 skipped
 Ran 1 test for test/unit/VaultFactory.t.sol:VaultFactoryWiringTest
 Suite result: ok. 1 passed; 0 failed; 0 skipped
 Ran 10 tests for test/agents/DecisionLog.t.sol:DecisionLogTest
 Suite result: ok. 10 passed; 0 failed; 0 skipped
-Ran 20 tests for test/unit/OptionToken.t.sol:OptionTokenTest
-Suite result: ok. 20 passed; 0 failed; 0 skipped
-Ran 19 tests for test/agents/AgentRegistry.t.sol:AgentRegistryTest
-Suite result: ok. 19 passed; 0 failed; 0 skipped
-Ran 1 test for test/pricing/BlackScholesVectors.t.sol:BlackScholesVectorsTest
-Suite result: ok. 1 passed; 0 failed; 0 skipped
-Ran 35 tests for test/unit/FeeManager.t.sol:FeeManagerTest
-Suite result: ok. 35 passed; 0 failed; 0 skipped
-Ran 21 tests for test/conformance/StockCollateralConformance.t.sol:StockCollateralConformanceTest
-Suite result: ok. 14 passed; 0 failed; 7 skipped
-Ran 42 tests for test/unit/MandateGuard.t.sol:MandateGuardTest
-Suite result: ok. 42 passed; 0 failed; 0 skipped
-Ran 14 tests for test/examples/StockCollateral.t.sol:StockCollateralTest
-Suite result: ok. 14 passed; 0 failed; 0 skipped
-Ran 94 tests for test/unit/StrikeVault.t.sol:StrikeVaultTest
-Suite result: ok. 94 passed; 0 failed; 0 skipped
-Ran 21 tests for test/conformance/StockOracleConformance.t.sol:StockOracleConformanceTest
-Suite result: ok. 21 passed; 0 failed; 0 skipped
-Ran 8 tests for test/core/EdgeBranches.t.sol:EdgeBranchesTest
-Suite result: ok. 8 passed; 0 failed; 0 skipped
-Ran 20 tests for test/pricing/BlackScholesLib.t.sol:BlackScholesLibTest
-Suite result: ok. 20 passed; 0 failed; 0 skipped
-Ran 15 tests for test/integration/AgentMandate.t.sol:AgentMandateTest
-Suite result: ok. 15 passed; 0 failed; 0 skipped
+Ran 12 tests for test/governance/AdminTimelock.t.sol:AdminTimelockTest
+Suite result: ok. 12 passed; 0 failed; 0 skipped
+Ran 13 tests for test/integration/Lifecycle.t.sol:LifecycleTest
+Suite result: ok. 13 passed; 0 failed; 0 skipped
 Ran 13 tests for test/oracle/MarketCalendar.t.sol:MarketCalendarTest
 Suite result: ok. 13 passed; 0 failed; 0 skipped
-Ran 9 tests for test/invariant/StrikeInvariants.t.sol:PutVaultInvariantTest
-Suite result: ok. 9 passed; 0 failed; 0 skipped
+Ran 14 tests for test/adversarial/Cheat.t.sol:AdversarialCheatTest
+Suite result: ok. 14 passed; 0 failed; 0 skipped
+Ran 14 tests for test/examples/StockCollateral.t.sol:StockCollateralTest
+Suite result: ok. 14 passed; 0 failed; 0 skipped
+Ran 15 tests for test/integration/AgentMandate.t.sol:AgentMandateTest
+Suite result: ok. 15 passed; 0 failed; 0 skipped
+Ran 19 tests for test/agents/AgentRegistry.t.sol:AgentRegistryTest
+Suite result: ok. 19 passed; 0 failed; 0 skipped
+Ran 19 tests for test/unit/Decimals.t.sol:DecimalsTest
+Suite result: ok. 19 passed; 0 failed; 0 skipped
+Ran 20 tests for test/pricing/BlackScholesLib.t.sol:BlackScholesLibTest
+Suite result: ok. 20 passed; 0 failed; 0 skipped
+Ran 20 tests for test/unit/OptionToken.t.sol:OptionTokenTest
+Suite result: ok. 20 passed; 0 failed; 0 skipped
+Ran 21 tests for test/conformance/StockCollateralConformance.t.sol:StockCollateralConformanceTest
+Suite result: ok. 14 passed; 0 failed; 7 skipped
+Ran 21 tests for test/conformance/StockOracleConformance.t.sol:StockOracleConformanceTest
+Suite result: ok. 21 passed; 0 failed; 0 skipped
+Ran 21 tests for test/oracle/StockOracle.t.sol:StockOracleTest
+Suite result: ok. 21 passed; 0 failed; 0 skipped
+Ran 22 tests for test/unit/VaultFactory.t.sol:VaultFactoryTest
+Suite result: ok. 22 passed; 0 failed; 0 skipped
+Ran 25 tests for test/core/EpochManager.t.sol:EpochManagerTest
+Suite result: ok. 25 passed; 0 failed; 0 skipped
+Ran 35 tests for test/unit/FeeManager.t.sol:FeeManagerTest
+Suite result: ok. 35 passed; 0 failed; 0 skipped
+Ran 4 tests for test/adversarial/Replay.t.sol:AdversarialReplayTest
+Suite result: ok. 4 passed; 0 failed; 0 skipped
+Ran 42 tests for test/unit/MandateGuard.t.sol:MandateGuardTest
+Suite result: ok. 42 passed; 0 failed; 0 skipped
+Ran 5 tests for test/adversarial/Offline.t.sol:AdversarialOfflineTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 5 tests for test/audit/AuditSettlement.t.sol:AuditSettlementTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 5 tests for test/testnet/TestnetContracts.t.sol:TestnetContractsTest
+Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 6 tests for test/audit/AuditPricing.t.sol:AuditPricingTest
+Suite result: ok. 6 passed; 0 failed; 0 skipped
+Ran 7 tests for test/adversarial/DoubleSpend.t.sol:AdversarialDoubleSpendTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped
+Ran 7 tests for test/agents/Reputation.t.sol:ReputationTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped
+Ran 8 tests for test/audit/AuditVault.t.sol:AuditVaultTest
+Suite result: ok. 8 passed; 0 failed; 0 skipped
+Ran 8 tests for test/core/EdgeBranches.t.sol:EdgeBranchesTest
+Suite result: ok. 8 passed; 0 failed; 0 skipped
+Ran 8 tests for test/testnet/UsdgDrip.t.sol:UsdgDripTest
+Suite result: ok. 8 passed; 0 failed; 0 skipped
 Ran 9 tests for test/invariant/StrikeInvariants.t.sol:CallVaultInvariantTest
 Suite result: ok. 9 passed; 0 failed; 0 skipped
+Ran 9 tests for test/invariant/StrikeInvariants.t.sol:PutVaultInvariantTest
+Suite result: ok. 9 passed; 0 failed; 0 skipped
+Ran 94 tests for test/unit/StrikeVault.t.sol:StrikeVaultTest
+Suite result: ok. 94 passed; 0 failed; 0 skipped

@@ -37,23 +37,28 @@
       "items": [
         {
           "label": "SDK",
-          "count": 140,
-          "source": "sdk: vitest run, 140 passed (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
+          "count": 252,
+          "source": "sdk: vitest run --reporter=json, 252 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
         },
         {
           "label": "Telegram bot",
-          "count": 60,
-          "source": "bots/telegram: vitest run, 60 passed"
+          "count": 62,
+          "source": "bots/telegram: vitest run --reporter=json, 62 tests"
         },
         {
           "label": "MCP server",
-          "count": 59,
-          "source": "mcp: vitest run, 59 passed"
+          "count": 84,
+          "source": "mcp: vitest run --reporter=json, 84 tests (the devnet suites need Foundry on PATH)"
         },
         {
           "label": "Example agents",
-          "count": 60,
-          "source": "agents/example: vitest run, 60 passed"
+          "count": 71,
+          "source": "agents/example: vitest run --reporter=json, 71 tests"
+        },
+        {
+          "label": "Indexer",
+          "count": 47,
+          "source": "services/indexer: vitest run --reporter=json, 47 tests (embedded Postgres)"
         },
         {
           "label": "Subgraph (matchstick)",
@@ -67,8 +72,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 151,
-          "source": "app: npx playwright test --list reports 302 runs in 17 files = 151 tests x 2 viewports (desktop 1440x900, mobile 390x844), 32 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
+          "count": 216,
+          "source": "app: npx playwright test --list reports 432 runs in 25 files = 216 tests x 2 viewports (desktop 1440x900, mobile 390x844), 32 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
         }
       ]
     }
