@@ -197,13 +197,31 @@ For another price S above the strike: 4 × (S − K) / S TSLA to the buyer, and 
 | Suspected bug                                         |                                                                                                                                                                                                                                         | Guardian `pause()`: stops new epochs, proposals and buys; settlement, claims and idle withdrawals keep working                                                                                                                                                  |
 | Sequencer down (where a sequencer feed is configured) | Reads revert `SequencerDown` / `SequencerGracePeriod`                                                                                                                                                                                   | None                                                                                                                                                                                                                                                            |
 
+## Telegram bot
+
+The bot ([`bots/telegram`](../bots/telegram/README.md)) is read-only: no key, no transactions, one long-polling process per token. It runs on the owner's laptop today; [`infra/aws`](../infra/aws/README.md) moves it to one EC2 instance (template ready; deployment pending). Commands from the repository root:
+
+| Task                         | Command                                                                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Move it to AWS               | Stop the local bot (`kill -TERM <pid>`; it saves its state), then `infra/aws/deploy-bot.sh --i-stopped-the-local-bot`                        |
+| Follow the logs              | `aws logs tail /strike/telegram-bot --region ap-southeast-1 --follow`                                                                        |
+| Deploy new code              | `infra/aws/update-bot.sh` (git pull on the instance, `pnpm install`, restart; waits for the startup line). `--ref <tag>` for a pinned commit |
+| Restart, re-read the secrets | `infra/aws/update-bot.sh --restart-only`                                                                                                     |
+| Rotate the token             | BotFather `/revoke`, new token in `bots/telegram/.env`, `infra/aws/deploy-bot.sh --update-secrets`, `infra/aws/update-bot.sh --restart-only` |
+| Amazon Linux updates         | `infra/aws/update-bot.sh --os-updates`                                                                                                       |
+| Shell on the instance        | `aws ssm start-session --region ap-southeast-1 --target <instance-id>`, then `sudo systemctl status strike-bot`                              |
+| Back to the laptop           | `infra/aws/destroy-bot.sh --save-state bots/telegram/data/state-46630.json`, then `pnpm --filter @strike/telegram-bot start`                 |
+
+Watch the log for `409 Conflict` (a second copy is polling the token) and for `alert pass failed` lines that keep repeating (the RPC is down or rate-limited; set `ALCHEMY_API_KEY`).
+
 ## Keys
 
-| Key              | Where                                      | Mainnet requirement                                        |
-| ---------------- | ------------------------------------------ | ---------------------------------------------------------- |
-| Admin / guardian | `contracts/.env` on testnet                | A Safe multisig; guardian may be a faster 2-of-3           |
-| Keeper           | GitHub Actions secret `KEEPER_PRIVATE_KEY` | Separate hot key with `KEEPER_ROLE` only                   |
-| Agent signer     | Agent operator                             | Separate from the agent owner key; rotate with `setSigner` |
+| Key                | Where                                                                              | Mainnet requirement                                                          |
+| ------------------ | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Admin / guardian   | `contracts/.env` on testnet                                                        | A Safe multisig; guardian may be a faster 2-of-3                             |
+| Keeper             | GitHub Actions secret `KEEPER_PRIVATE_KEY`                                         | Separate hot key with `KEEPER_ROLE` only                                     |
+| Agent signer       | Agent operator                                                                     | Separate from the agent owner key; rotate with `setSigner`                   |
+| Telegram bot token | `bots/telegram/.env` (laptop); SSM SecureString `/strike/telegram-bot-token` (AWS) | Same; rotate with BotFather `/revoke`, then `deploy-bot.sh --update-secrets` |
 
 ## Monitoring
 

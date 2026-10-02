@@ -141,6 +141,19 @@ The bot is a single long-running process with outbound HTTPS only (no inbound po
 `DATA_DIR` on persistent storage and run one instance per token (two instances polling one token make Telegram
 return 409 Conflict).
 
+### AWS (EC2, CloudFormation)
+
+[`infra/aws`](../../infra/aws/README.md) runs the bot on one `t4g.nano` instance: no SSH key and no inbound port
+(Session Manager for access), the token and the optional `ALCHEMY_API_KEY` in SSM Parameter Store SecureStrings, logs
+in CloudWatch Logs, `DATA_DIR` on the instance's disk, about $8.29 a month in ap-southeast-1. Template ready;
+deployment pending. Stop the local bot first (it saves its state on SIGTERM), then from the repository root:
+
+```sh
+infra/aws/deploy-bot.sh --i-stopped-the-local-bot   # token from .env into SSM, state file carried over, waits for the bot
+infra/aws/update-bot.sh                             # later: git pull on the instance and restart
+aws logs tail /strike/telegram-bot --region ap-southeast-1 --follow
+```
+
 ### Small VPS (systemd)
 
 ```sh
