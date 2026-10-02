@@ -253,3 +253,221 @@ jobs:
         run: pip install halmos==0.3.3
       - name: Prove properties (test/formal; 9 proven properties, about 1 minute)
         run: halmos --root contracts --match-contract Formal --solver-timeout-assertion 300s
+
+  playwright:
+    name: App browser tests (Playwright, ${{ matrix.project }}, anvil devnet)
+    runs-on: ubuntu-latest
+    # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
+    timeout-minutes: 30
+    # One job per playwright.config.ts project (viewport), each with its own devnet: about 5 minutes of tests each.
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [desktop, mobile]
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # The devnet sits where the app build (NEXT_PUBLIC_LOCAL_RPC) and the specs (E2E_RPC) look for it by default.
+      E2E_RPC: http://127.0.0.1:8545
+      NEXT_PUBLIC_LOCAL_RPC: http://127.0.0.1:8545
+      # Mon 2026-10-05 15:00 UTC, NYSE open: the start time of sdk/test/devnet.mjs and scripts/demo-local.sh.
+      DEVNET_TIMESTAMP: "1791212400"
+      # anvil's account 0, a well-known public dev key (allowlisted in gitleaks.yml); the devnet's deployer.
+      DEPLOYER_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      # proof.spec.ts checks the proof page's v3 links against this branch; the v3 devnet below deploys from it.
+      - name: Fetch the v3-contracts branch
+        run: git fetch --no-tags --depth=1 origin +refs/heads/v3-contracts:refs/remotes/origin/v3-contracts
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: v1.7.1
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Playwright version
+        id: playwright
+        working-directory: app
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Cache the browser
+        id: browser-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
+      # playwright.config.ts runs headless Chromium only (desktop and mobile projects), so only its shell is installed.
+      - name: Install headless Chromium and its system libraries
+        working-directory: app
+        env:
+          CACHED: ${{ steps.browser-cache.outputs.cache-hit }}
+        run: |
+          if [ "$CACHED" = "true" ]; then
+            pnpm exec playwright install-deps chromium
+          else
+            pnpm exec playwright install --with-deps --only-shell chromium
+          fi
+      - name: Start a v2 devnet (anvil, then Deploy, Seed, DeployUsdgDrip and the demo history)
+        run: |
+          anvil --port 8545 --timestamp "$DEVNET_TIMESTAMP" --silent > "$RUNNER_TEMP/anvil-v2.log" 2>&1 &
+          echo "ANVIL_PID=$!" >> "$GITHUB_ENV"
+          for _ in $(seq 1 50); do cast chain-id --rpc-url "$E2E_RPC" > /dev/null 2>&1 && break; sleep 0.2; done
+          # The same scripts, in the same order, as sdk/test/devnet.mjs: the addresses on 31337 are deterministic
+          # and match the SDK's deployments map, which the app and the specs read.
+          cd contracts
+          for s in Deploy Seed DeployUsdgDrip; do
+            PRIVATE_KEY="$DEPLOYER_KEY" forge script "script/$s.s.sol" --rpc-url "$E2E_RPC" --broadcast --silent --skip test
+          done
+          # Deposits, a settled epoch per vault, live series, agent rejections and slashes, queued requests.
+          cd ../app
+          RPC_URL="$E2E_RPC" node scripts/demo-chain.mjs
+      - name: Cache the Next.js build cache
+        uses: actions/cache@v5
+        with:
+          path: app/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('app/src/**', 'sdk/src/**', 'mcp/src/**', 'docs/STRIKE_SKILL.md') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+      - name: Build the app
+        run: pnpm --filter @strike/app build
+      - name: Playwright, every spec (v2 devnet)
+        working-directory: app
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-v2.json
+          PROJECT: ${{ matrix.project }}
+        # Some specs read the public testnets (and skip when an RPC is unreachable); one retry absorbs a slow answer.
+        run: pnpm exec playwright test --project "$PROJECT" --forbid-only --retries=1 --trace=retain-on-failure --reporter=list,json
+      # register.spec.ts runs its three v3 tests (desktop only) against v3's AgentRegistry (EIP-712 signer consent).
+      # The core addresses on 31337 are the same in v3, so the same app build reads it.
+      - name: Switch to a v3 devnet (Deploy and Seed from the v3-contracts branch)
+        if: ${{ !cancelled() && matrix.project == 'desktop' }}
+        run: |
+          kill "$ANVIL_PID" || true
+          for _ in $(seq 1 50); do cast chain-id --rpc-url "$E2E_RPC" > /dev/null 2>&1 || break; sleep 0.2; done
+          git worktree add --detach "$RUNNER_TEMP/v3" origin/v3-contracts
+          git -C "$RUNNER_TEMP/v3" submodule update --init --recursive --depth 1
+          anvil --port 8545 --timestamp "$DEVNET_TIMESTAMP" --silent > "$RUNNER_TEMP/anvil-v3.log" 2>&1 &
+          for _ in $(seq 1 50); do cast chain-id --rpc-url "$E2E_RPC" > /dev/null 2>&1 && break; sleep 0.2; done
+          cd "$RUNNER_TEMP/v3/contracts"
+          for s in Deploy Seed; do
+            PRIVATE_KEY="$DEPLOYER_KEY" forge script "script/$s.s.sol" --rpc-url "$E2E_RPC" --broadcast --silent --skip test
+          done
+      - name: Playwright, register.spec.ts on the v3 devnet
+        if: ${{ !cancelled() && matrix.project == 'desktop' }}
+        working-directory: app
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: ${{ runner.temp }}/playwright-v3.json
+        run: pnpm exec playwright test e2e/register.spec.ts --project desktop --forbid-only --retries=1 --trace=retain-on-failure --reporter=list,json
+      - name: Summary (results, and why each skipped test skipped)
+        if: ${{ !cancelled() }}
+        working-directory: app
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: |
+          node scripts/e2e-summary.mjs "$RUNNER_TEMP/playwright-v2.json" "Playwright ($PROJECT): every spec, v2 devnet" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PROJECT" = desktop ]; then
+            node scripts/e2e-summary.mjs "$RUNNER_TEMP/playwright-v3.json" "Playwright ($PROJECT): register.spec.ts, v3 devnet" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload traces of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: playwright-results-${{ matrix.project }}
+          path: app/node_modules/.cache/playwright/results
+          if-no-files-found: ignore
+
+  indexer-postgres:
+    name: Indexer tests (Postgres 17 service container)
+    runs-on: ubuntu-latest
+    # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
+    timeout-minutes: 15
+    # The js job runs the same suite on an embedded Postgres; this one runs it on a real server.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    env:
+      # A throwaway server that lives only for this job. Each test file creates and drops its own database on it.
+      TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Server version
+        run: psql "$TEST_DATABASE_URL" -tAc "select version()"
+      - name: Indexer tests against the service container
+        run: pnpm --filter @strike/indexer test
+
+  docker:
+    name: Docker images and compose stack (indexer, bot)
+    runs-on: ubuntu-latest
+    # A hung step (e.g. a stalled image pull) fails here instead of holding CI for 6 hours.
+    timeout-minutes: 20
+    env:
+      # docker-compose.yml requires a Postgres password. This one exists only inside this job's containers.
+      POSTGRES_PASSWORD: ci-throwaway
+    steps:
+      - uses: actions/checkout@v6
+      - name: hadolint, services/indexer/Dockerfile
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: services/indexer/Dockerfile
+      - name: hadolint, bots/telegram/Dockerfile
+        uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: bots/telegram/Dockerfile
+      - name: Compose file is valid (with and without the bot profile)
+        run: docker compose config -q && docker compose --profile bot config -q
+      # The bot's image is built, never started: it needs a Telegram token, and one process per token may poll.
+      - name: Build both images from the contexts docker-compose.yml uses
+        run: |
+          docker compose build indexer
+          docker compose --profile bot build telegram-bot
+          docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep '^strike-'
+      - name: Start postgres and the indexer, and wait for the indexer's healthcheck
+        run: docker compose up -d --no-build --wait --wait-timeout 180 postgres indexer
+      - name: /health answers 200 and the migrations are applied
+        run: |
+          curl -fsS http://127.0.0.1:8787/health
+          echo
+          applied=$(docker compose exec -T postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select count(*) from schema_migrations"')
+          files=$(find services/indexer/migrations -name '*.sql' | wc -l)
+          echo "migrations applied: $applied of $files"
+          test "$applied" -eq "$files"
+      # /ready also needs both public testnet RPCs to answer from CI and the indexer to catch up with them, so a 503
+      # after two minutes is reported as a warning, not a failure.
+      - name: /ready (a warning if it is not 200 within 2 minutes)
+        run: |
+          for _ in $(seq 1 24); do
+            code=$(curl -s -o "$RUNNER_TEMP/ready.json" -w '%{http_code}' http://127.0.0.1:8787/ready || true)
+            if [ "$code" = 200 ]; then echo "/ready: 200"; exit 0; fi
+            sleep 5
+          done
+          echo "::warning::indexer /ready answered $code after 2 minutes (it depends on the public testnet RPCs)"
+          head -c 2000 "$RUNNER_TEMP/ready.json" || true
+      - name: SIGTERM stops the indexer with exit code 0
+        run: |
+          docker compose stop indexer
+          code=$(docker inspect -f '{{.State.ExitCode}}' "$(docker compose ps -a -q indexer)")
+          echo "indexer exit code: $code"
+          test "$code" = 0
+      - name: Indexer logs
+        if: ${{ !cancelled() }}
+        run: docker compose logs --no-color --tail 200 indexer
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v
