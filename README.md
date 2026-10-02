@@ -910,6 +910,7 @@ forge script script/Seed.s.sol --rpc-url robinhood_testnet --broadcast
 | [`research/`](research/)             | Backtest code, data sources and results                                                                                                                                                                   |
 | [`scripts/`](scripts/)               | Local demo, testnet deploy, keeper, live epoch, gas measurement, [charts](scripts/charts/README.md)                                                                                                       |
 | [`video/`](video/)                   | Automated demo-video recorder: screen capture, three.js scenes, narration and mix                                                                                                                         |
+| `strike.config.json`                 | The config every component reads: chains, RPCs, explorers, deployment files, services and secret variable names, never values ([configuration.md](docs/configuration.md))                                 |
 | [`docs/`](docs/README.md)            | Design, security, research, deployments, operations and submission documents ([index](docs/README.md))                                                                                                    |
 
 ## Contributing, security, license

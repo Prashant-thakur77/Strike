@@ -48,7 +48,7 @@ CHAIN_ID=421614 RPC_URL=https://sepolia-rollup.arbitrum.io/rpc scripts/weekly-ag
 
 ## Keeper: which vaults it covers
 
-`scripts/keeper.sh` reads every active deployment file for its `CHAIN_ID` in [`contracts/deployments`](../contracts/deployments): `<chainId>.json` and any `<chainId>-<name>.json`, skipping `*-vaults.json` and files whose `status` starts with "superseded" (`46630-v1.json`). For each one it walks the `EpochManager`'s `allVaults` and settles every epoch that is past expiry.
+`scripts/keeper.sh` reads every deployment file [`strike.config.json`](configuration.md) lists for its `CHAIN_ID` (`chains.<id>.deployments`, the primary first), skipping files whose `status` starts with "superseded"; the superseded `46630-v1.json` is not listed. For each one it walks the `EpochManager`'s `allVaults` and settles every epoch that is past expiry.
 
 | Chain                         | Deployment files read                               | Vaults settled                                               |
 | ----------------------------- | --------------------------------------------------- | ------------------------------------------------------------ |

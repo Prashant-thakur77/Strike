@@ -46,6 +46,7 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 | [Agent skill file](STRIKE_SKILL.md)                   | Everything an AI agent needs to use Strike through MCP                                                |
 | [Agent registration file](agents/strike-agent-1.json) | Agent #1's ERC-8004 registration (identity #114 on Robinhood Chain testnet, #253 on Arbitrum Sepolia) |
 | [Operations runbook](operations.md)                   | Weekly schedule, incidents and the right response, keys, alerts                                       |
+| [Configuration](configuration.md)                     | `strike.config.json`: each field, who reads it, how secrets are provided                              |
 | [Deploying the app](deploy-app.md)                    | The two-minute Vercel setup                                                                           |
 | [Indexing](indexing.md)                               | The subgraph: hosts, deployment, example queries                                                      |
 | [Telegram bot](../bots/telegram/README.md)            | Alerts and commands, setup and hosting                                                                |
