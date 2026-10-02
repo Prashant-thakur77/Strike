@@ -41,11 +41,11 @@ describe("strikeMcpCommand", () => {
   it("passes STRIKE_* and ALCHEMY_API_KEY to the server, nothing else", () => {
     const { env } = strikeMcpCommand({
       STRIKE_CHAIN_ID: "46630",
-      ALCHEMY_API_KEY: "test_key_0123456789",
+      ALCHEMY_API_KEY: "test-alchemy-key",
       STRIKE_MCP_COMMAND: "node mcp/dist/index.js",
       ANTHROPIC_API_KEY: "sk-test",
       HOME: "/home/x",
     });
-    expect(env).toEqual({ STRIKE_CHAIN_ID: "46630", ALCHEMY_API_KEY: "test_key_0123456789" });
+    expect(env).toEqual({ STRIKE_CHAIN_ID: "46630", ALCHEMY_API_KEY: "test-alchemy-key" });
   });
 });

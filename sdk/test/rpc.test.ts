@@ -13,7 +13,7 @@ import {
 } from "../src/index.js";
 
 // A made-up key: the tests never need a real one.
-const KEY = "test_KEY-0123456789abcdef";
+const KEY = "test-alchemy-key";
 const PUBLIC = {
   4663: "https://rpc.mainnet.chain.robinhood.com",
   46630: "https://rpc.testnet.chain.robinhood.com",

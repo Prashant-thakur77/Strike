@@ -3,7 +3,8 @@ name: Secret scan
 # gitleaks over the whole git history on every push and pull request, with the default rules plus an allowlist
 # (GITLEAKS_CONFIG_TOML below) for what is public by design: 20-byte contract and wallet addresses (flagged by
 # generic-api-key next to words like "token"), and the well-known, publicly documented dev keys of anvil and the
-# Arbitrum nitro devnode that the local demo scripts use. Transaction hashes do not trip the default rules and are
+# Arbitrum nitro devnode that the local demo scripts use, and the two made-up Alchemy keys the RPC unit tests used in
+# 70e7d67 (the tests now use "test-alchemy-key", which the default rules do not flag). Transaction hashes do not trip the default rules and are
 # not allowlisted, since a 32-byte private key looks the same. Anything else that looks like a secret fails the job.
 # Locally: export GITLEAKS_CONFIG_TOML with the block below, then run `gitleaks git .`.
 on:
@@ -43,6 +44,11 @@ jobs:
           '^0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d$',
           '^0xb6b15c8cb491557369f3c7d2c287b053eb229daa9c22138887752191c9520659$',
         ]
+
+        [[allowlists]]
+        description = "Made-up Alchemy keys in the RPC unit tests of commit 70e7d67 (no real key is ever in the repo)"
+        regexTarget = "secret"
+        regexes = ['^test_key_0123456789$', '^test_KEY-0123456789abcdef$']
     steps:
       - uses: actions/checkout@v6
         with:

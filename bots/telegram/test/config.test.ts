@@ -37,12 +37,12 @@ describe("configFromEnv", () => {
 
   it("reads through Alchemy first when ALCHEMY_API_KEY is set, the key in a header only", () => {
     const c = configFromEnv({
-      ALCHEMY_API_KEY: "test_key_0123456789",
+      ALCHEMY_API_KEY: "test-alchemy-key",
       STRIKE_RPC_URL: "https://rpc.example",
     });
     expect(c.rpcEndpoints.map((e) => e.provider)).toEqual(["alchemy", "custom", "public"]);
     expect(c.rpcUrl).toBe("https://robinhood-testnet.g.alchemy.com/v2");
-    expect(c.rpcEndpoints[0]?.headers).toEqual({ Authorization: "Bearer test_key_0123456789" });
+    expect(c.rpcEndpoints[0]?.headers).toEqual({ Authorization: "Bearer test-alchemy-key" });
   });
 
   it("rejects bad values without echoing a token", () => {
