@@ -73,6 +73,8 @@ make test               # 477 Foundry tests
 
 `scripts/demo-local.sh` takes about 15 seconds once the contracts are compiled. `SETTLE_PRICE=400 scripts/demo-local.sh` settles in the money instead. CI runs both.
 
+No clone is needed to check the chain: [verify-yourself.md](verify-yourself.md) re-derives a buy, a rejection and its slash, a decision record's hash against its anchor, a mirrored price against mainnet Chainlink, the settlement price and a vault's mandate with `cast`, `jq` and `curl` only, no Strike code, each with the output we got.
+
 Formal proofs ([formal-verification.md](security/formal-verification.md)): 9 properties proven with Halmos, 16 more written down and marked unproven.
 
 ```bash
@@ -99,6 +101,12 @@ Internal security review ([review-2026-09-29.md](security/review-2026-09-29.md))
 forge test --root contracts --match-path "test/audit/*" -vv
 ```
 
+Admin timelock ([D43](decisions.md#d43--on-mainnet-the-admin-is-a-safe-behind-a-73-day-timelock-2026-10-02), [staged path](trust-model.md#staged-path-for-the-admin-keys)): on mainnet a feed, oracle or pricer change waits 73 days, longer than the longest epoch plus the settlement grace, so it cannot land inside a running epoch. 12 tests, including the worst case the contracts allow and a control that shows the swap landing under any shorter delay.
+
+```bash
+forge test --root contracts --match-path "test/governance/*"
+```
+
 Other numbers, from [testing.md](testing.md) and the README's [safety evidence](../README.md#safety-evidence): 99.3% line and 98.8% branch coverage (`make coverage`), 3 differential tests (Stylus against Solidity), 15 Rust tests, 259 TypeScript tests (SDK 140, MCP 59, agents 60; 2 more SDK tests are opt-in live checks), 60 Telegram bot tests, 10 subgraph tests, 151 Playwright tests per viewport (119 run by default; 32 are the opt-in UI audit). The [threat model](threat-model.md) lists 25 threats, each with the test that covers it. These counts predate the adversarial suite, the mirror audit and the indexer; the [technical note](technical-note.md#4-what-is-tested-and-how) has the counts rerun on 2 October.
 
 ## What each step shows
@@ -121,11 +129,12 @@ USDG is the premium, the put collateral, the fee currency and the agent bond, so
 
 ## Further reading
 
-| Document                                                                 | What it covers                                                                                                                                                 |
-| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Technical note](technical-note.md)                                      | The problem, the design, the trust model, what is tested and the path to production, every figure linked                                                       |
-| [Sponsor technology](sponsor-tech.md)                                    | Each Arbitrum, Robinhood Chain, Chainlink, Paxos, OpenZeppelin, Alchemy and AWS feature: why, what breaks without it, code, transaction, status                |
-| [Endpoints](ENDPOINTS.md)                                                | The app's API, `/skill.md` and `/llms.txt`, both MCP servers' tools, the indexer, the Telegram bot and the SDK                                                 |
-| [Hard questions](submission/qa-prep.md)                                  | Twenty-two likely judge questions (buyers, liquidity, malicious agents, weekend oracles, regulation, money)                                                    |
-| [Milestones](MILESTONES.md)                                              | The milestone plan for the grant: v3 on two chains and the Stylus risk engine (both done), then v3 on `main`, eight settled weeks, audit and mainnet, adoption |
-| [Why only here](../README.md#why-only-here-robinhood-chain-and-arbitrum) | Why Strike needs Robinhood Chain and Arbitrum: stock tokens, equity feeds, USDG, ERC-8004, Stylus                                                              |
+| Document                                                                 | What it covers                                                                                                                                                               |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Verify it yourself](verify-yourself.md)                                 | Six checks with `cast`, `jq` and `curl` only, no Strike code: a buy, a rejection and its slash, a decision record, a mirrored price, the settlement price, a vault's mandate |
+| [Technical note](technical-note.md)                                      | The problem, the design, the trust model, what is tested and the path to production, every figure linked                                                                     |
+| [Sponsor technology](sponsor-tech.md)                                    | Each Arbitrum, Robinhood Chain, Chainlink, Paxos, OpenZeppelin, Alchemy and AWS feature: why, what breaks without it, code, transaction, status                              |
+| [Endpoints](ENDPOINTS.md)                                                | The app's API, `/skill.md` and `/llms.txt`, both MCP servers' tools, the indexer, the Telegram bot and the SDK                                                               |
+| [Hard questions](submission/qa-prep.md)                                  | Twenty-two likely judge questions (buyers, liquidity, malicious agents, weekend oracles, regulation, money)                                                                  |
+| [Milestones](MILESTONES.md)                                              | The milestone plan for the grant: v3 on two chains and the Stylus risk engine (both done), then v3 on `main`, eight settled weeks, audit and mainnet, adoption               |
+| [Why only here](../README.md#why-only-here-robinhood-chain-and-arbitrum) | Why Strike needs Robinhood Chain and Arbitrum: stock tokens, equity feeds, USDG, ERC-8004, Stylus                                                                            |
