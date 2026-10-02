@@ -8,7 +8,7 @@ The Strike repo lives in `~/projects/strike`. The folder we started in held anot
 
 ## D2 · MIT license (2026-09-28)
 
-**Why:** judges and integrators can read and reuse `SafeStockFeed`, `MarketCalendar` and the SDK freely, which is the point of ecosystem tooling.
+**Why:** auditors and integrators can read and reuse `SafeStockFeed`, `MarketCalendar` and the SDK freely, which is the point of ecosystem tooling.
 
 ## D3 · Node 22 LTS, TypeScript 5.9 (2026-09-28)
 
@@ -144,7 +144,7 @@ The weekly agent publishes a decision record per vault in `docs/agent-log`, but 
 
 ## D36 · v3 is deployed next to v2; `main` switches after v2's Friday settlement (2026-09-30)
 
-v3 (the `v3-contracts` branch: fee high-water mark, EIP-712 signer consent, active-agent check, `InvalidMandate(reason)`, the Stylus risk engine with `SeriesRisk` and `RiskLens`) is deployed on Robinhood Chain testnet as a second, independent set of contracts, with its own AgentRegistry, EpochManager, vaults and DecisionLog. This changes D34's order (v3 after the testnet run): an epoch opened on Wednesday expires on the same Friday as v2's, so both versions settle before the 4 October deadline and v3 is judged live instead of as branch code. v2 is not touched: its covered-call series settles on Friday 2026-10-02 at 20:00 UTC as planned. After that settlement `main` merges `v3-contracts` and the SDK, MCP, app and subgraph switch to `46630-v3.json`; v2 stays readable as an archived version and its source stays at tag `v0.8.0`, which the verified Blockscout code matches. v3 reuses v2's `MarketCalendar` (identical source) and its five `MirrorFeed`s, so one keeper serves both. Agent #1 on v3 signs with its own key, registered through the new consent path. **Why:** the v3 changes are the strongest contract and innovation work, and only a live deployment shows them. **Affects:** `contracts/deployments/46630-v3.json` (branch), DEPLOYMENTS.md, `docs/testnet-epochs/2026-09-30-v3.md`, the cycle 9 plan (9.4 after Friday).
+v3 (the `v3-contracts` branch: fee high-water mark, EIP-712 signer consent, active-agent check, `InvalidMandate(reason)`, the Stylus risk engine with `SeriesRisk` and `RiskLens`) is deployed on Robinhood Chain testnet as a second, independent set of contracts, with its own AgentRegistry, EpochManager, vaults and DecisionLog. This changes D34's order (v3 after the testnet run): an epoch opened on Wednesday expires on the same Friday as v2's, so both versions settle in the same week and v3 runs live instead of as branch code. v2 is not touched: its covered-call series settles on Friday 2026-10-02 at 20:00 UTC as planned. After that settlement `main` merges `v3-contracts` and the SDK, MCP, app and subgraph switch to `46630-v3.json`; v2 stays readable as an archived version and its source stays at tag `v0.8.0`, which the verified Blockscout code matches. v3 reuses v2's `MarketCalendar` (identical source) and its five `MirrorFeed`s, so one keeper serves both. Agent #1 on v3 signs with its own key, registered through the new consent path. **Why:** the v3 changes are the main contract work since v2, and only a live deployment shows them working. **Affects:** `contracts/deployments/46630-v3.json` (branch), DEPLOYMENTS.md, `docs/testnet-epochs/2026-09-30-v3.md`, the cycle 9 plan (9.4 after Friday).
 
 ## D37 · v3 also runs on Arbitrum Sepolia, with test stock tokens (2026-09-30)
 
