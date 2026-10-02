@@ -4,7 +4,7 @@ The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (122.6
 
 The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): 264 words in 123 s (129 words a minute). Every number is read from README.md at render time. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
 
-The quotes below are what the rendered video says, so they keep the figures of its render on the morning of 1 October (UTC), before the third epoch ran. Since then: the count of tests and proofs is 1,373 (the video says 891); Robinhood Chain testnet also ran a v3 epoch on 1 October in which Claude planned the accepted proposal again, so Claude has planned two accepted proposals (Arbitrum Sepolia at a $364.29 strike, Robinhood Chain v3 at $369.36); and the buyers in the three epochs paid 10.01, 8.91 and 7.38 USDG. None of the three epochs has settled yet (expiry Friday 2 October, 20:00 UTC).
+The quotes below are what the rendered video says, so they keep the figures of its render on the morning of 1 October (UTC), before the third epoch ran. Since then: the count of tests and proofs is 1,385 (the video says 891); Robinhood Chain testnet also ran a v3 epoch on 1 October in which Claude planned the accepted proposal again, so Claude has planned two accepted proposals (Arbitrum Sepolia at a $364.29 strike, Robinhood Chain v3 at $369.36); and the buyers in the three epochs paid 10.01, 8.91 and 7.38 USDG. None of the three epochs has settled yet (expiry Friday 2 October, 20:00 UTC).
 
 ## 0:00 to 0:09 · Slide 1: Strike
 
