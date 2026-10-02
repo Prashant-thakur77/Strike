@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-02",
+  "chainTimeIso": "2026-10-02T22:48:08.000Z",
+  "chain": {
+    "id": 421614,
+    "name": "Arbitrum Sepolia",
+    "explorer": "https://sepolia.arbiscan.io"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "30",
+    "collateralAsset": "USDG",
+    "epochState": "Open",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "350.23",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-09-30T17:32:15.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "DecisionLog.record",
+      "hash": "0x2a7686397a90b23a5ff1864ca216d6cff4ae344d67e0e9b5c1bfc6806b137d11",
+      "url": "https://sepolia.arbiscan.io/tx/0x2a7686397a90b23a5ff1864ca216d6cff4ae344d67e0e9b5c1bfc6806b137d11"
+    }
+  ],
+  "result": {
+    "status": "skipped",
+    "summary": "sTSLA-CSP has no live series (epoch Open) and no settlement in the last 7 days: nothing to settle."
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 1,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "50",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+    "recordHash": "0x065de1266c197402aaf2281bf2e6a9535b78200faf36807361ccdcb04652fcd7",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/arbitrum-sepolia/2026-10-02-sTSLA-CSP-2.json",
+    "epoch": 1,
+    "txHash": "0x2a7686397a90b23a5ff1864ca216d6cff4ae344d67e0e9b5c1bfc6806b137d11"
+  }
+}
