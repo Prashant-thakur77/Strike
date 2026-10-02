@@ -1,7 +1,10 @@
-// What the SDK derives from strike.config.json (chains, RPC endpoints, the deployments map) must not change when its
-// source moves into the config: this snapshot was written from the code before the move (sdk/src/chains.ts and rpc.ts
-// with viem's chain list and the hard-coded Alchemy networks) and every value is compared after it.
-// Regenerate only on purpose: STRIKE_UPDATE_SNAPSHOT=1 pnpm --filter @strike/sdk test configSnapshot
+// What the SDK derives from strike.config.json (chains, public and Alchemy RPCs, endpoint selection) must not change
+// when its source moves into the config: this snapshot was written from the code before the move (sdk/src/chains.ts
+// and rpc.ts with viem's chain list and the hard-coded Alchemy networks) and every value is compared after it. The
+// deployments map was in it too while the move was proven (commit 26fd410); it is left out now because deployment
+// files change with every deployment, and config.test.ts checks the map against the files the config lists.
+// A deliberate change to a chain's RPC or explorer in strike.config.json changes this snapshot: regenerate it with
+// STRIKE_UPDATE_SNAPSHOT=1 pnpm --filter @strike/sdk test configSnapshot
 import { describe, expect, it } from "vitest";
 import * as sdk from "../src/index.js";
 import fixture from "./fixtures/config-snapshot.json?raw";
@@ -59,10 +62,6 @@ function snapshot() {
     rpcEndpointsFor: perChainEnv((id, env) => sdk.rpcEndpointsFor(id, env)),
     rpcUrlFor: perChainEnv((id, env) => sdk.rpcUrlFor(id, env)),
     describeRpc: perChainEnv((id, env) => sdk.describeRpc(sdk.rpcEndpointsFor(id, env))),
-    deployments: plain(sdk.deployments),
-    secondaryDeployments: plain(sdk.secondaryDeployments),
-    deploymentsFor: perChain((id) => sdk.deploymentsFor(id)),
-    getDeployment: perChain((id) => sdk.getDeployment(id, {})),
     DEPLOYMENT_ENV: plain(sdk.DEPLOYMENT_ENV),
   };
 }
