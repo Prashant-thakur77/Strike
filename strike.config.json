@@ -123,6 +123,8 @@
     "alchemyKey": "ALCHEMY_API_KEY",
     "telegramToken": "TELEGRAM_BOT_TOKEN",
     "databaseUrl": "DATABASE_URL",
+    "testDatabaseUrl": "TEST_DATABASE_URL",
+    "postgresPassword": "POSTGRES_PASSWORD",
     "keeperKey": "KEEPER_PRIVATE_KEY",
     "agentKey": "STRIKE_AGENT_PRIVATE_KEY",
     "agent2Key": "AGENT2_PRIVATE_KEY",

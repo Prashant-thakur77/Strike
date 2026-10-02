@@ -142,6 +142,9 @@ describe("strike.config.json", () => {
       "STRIKE_OPTION_TOKEN",
       "FAKE_TOKEN",
       "PER_TOKEN",
+      // the indexer's Postgres advisory-lock ids (services/indexer/src/db.ts)
+      "MIGRATION_LOCK_KEY",
+      "WRITER_LOCK_KEY",
     ]);
     const dirs = [
       "sdk/src",

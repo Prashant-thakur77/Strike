@@ -49,6 +49,8 @@ export type StrikeSecretRole =
   | "alchemyKey"
   | "telegramToken"
   | "databaseUrl"
+  | "testDatabaseUrl"
+  | "postgresPassword"
   | "keeperKey"
   | "agentKey"
   | "agent2Key"

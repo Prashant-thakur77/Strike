@@ -103,19 +103,21 @@ Contract addresses are not in this file. They stay in the deployment files `cont
 
 ### `secrets`
 
-| Role              | Variable                   | Read by                                                                | Where the value lives                                                                       |
-| ----------------- | -------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| `deployerKey`     | `PRIVATE_KEY`              | Deploy scripts, `scripts/keeper.sh` (its signing key)                  | `contracts/.env` (laptop); the keeper job maps the GitHub secret `KEEPER_PRIVATE_KEY` to it |
-| `keeperKey`       | `KEEPER_PRIVATE_KEY`       | `scripts/weekly-agent.sh` (agent #1's v2 signer)                       | GitHub Actions secret                                                                       |
-| `agentSignerKey`  | `AGENT_SIGNER_KEY`         | `scripts/weekly-agent.sh` (agent #1's v3 signer)                       | GitHub Actions secret, `contracts/.env`                                                     |
-| `agentKey`        | `STRIKE_AGENT_PRIVATE_KEY` | The MCP server and the example agent                                   | The agent operator's environment; set per run by the scripts                                |
-| `agent2Key`       | `AGENT2_PRIVATE_KEY`       | `agent.yml` (agent #2's job, passed on as `STRIKE_AGENT_PRIVATE_KEY`)  | GitHub Actions secret                                                                       |
-| `alchemyKey`      | `ALCHEMY_API_KEY`          | The SDK (every Node component), `scripts/rpc.sh`, the app's `/api/rpc` | Vercel (server only), GitHub secret, `.env` files, SSM for the bot                          |
-| `anthropicKey`    | `ANTHROPIC_API_KEY`        | The example agent's Claude planner (API)                               | GitHub Actions secret, the operator's environment                                           |
-| `claudeCodeToken` | `CLAUDE_CODE_OAUTH_TOKEN`  | The example agent's Claude planner (Claude Code CLI)                   | GitHub Actions secret                                                                       |
-| `telegramToken`   | `TELEGRAM_BOT_TOKEN`       | The Telegram bot                                                       | `bots/telegram/.env` (laptop), SSM SecureString (AWS)                                       |
-| `databaseUrl`     | `DATABASE_URL`             | The indexer                                                            | The indexer's environment (Docker Compose `.env`, the host's secret store)                  |
-| `arbiscanKey`     | `ARBISCAN_API_KEY`         | Contract verification on Arbiscan                                      | `contracts/.env`                                                                            |
+| Role               | Variable                   | Read by                                                                | Where the value lives                                                                       |
+| ------------------ | -------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `deployerKey`      | `PRIVATE_KEY`              | Deploy scripts, `scripts/keeper.sh` (its signing key)                  | `contracts/.env` (laptop); the keeper job maps the GitHub secret `KEEPER_PRIVATE_KEY` to it |
+| `keeperKey`        | `KEEPER_PRIVATE_KEY`       | `scripts/weekly-agent.sh` (agent #1's v2 signer)                       | GitHub Actions secret                                                                       |
+| `agentSignerKey`   | `AGENT_SIGNER_KEY`         | `scripts/weekly-agent.sh` (agent #1's v3 signer)                       | GitHub Actions secret, `contracts/.env`                                                     |
+| `agentKey`         | `STRIKE_AGENT_PRIVATE_KEY` | The MCP server and the example agent                                   | The agent operator's environment; set per run by the scripts                                |
+| `agent2Key`        | `AGENT2_PRIVATE_KEY`       | `agent.yml` (agent #2's job, passed on as `STRIKE_AGENT_PRIVATE_KEY`)  | GitHub Actions secret                                                                       |
+| `alchemyKey`       | `ALCHEMY_API_KEY`          | The SDK (every Node component), `scripts/rpc.sh`, the app's `/api/rpc` | Vercel (server only), GitHub secret, `.env` files, SSM for the bot                          |
+| `anthropicKey`     | `ANTHROPIC_API_KEY`        | The example agent's Claude planner (API)                               | GitHub Actions secret, the operator's environment                                           |
+| `claudeCodeToken`  | `CLAUDE_CODE_OAUTH_TOKEN`  | The example agent's Claude planner (Claude Code CLI)                   | GitHub Actions secret                                                                       |
+| `telegramToken`    | `TELEGRAM_BOT_TOKEN`       | The Telegram bot                                                       | `bots/telegram/.env` (laptop), SSM SecureString (AWS)                                       |
+| `databaseUrl`      | `DATABASE_URL`             | The indexer                                                            | The indexer's environment (Docker Compose `.env`, the host's secret store)                  |
+| `testDatabaseUrl`  | `TEST_DATABASE_URL`        | The indexer's tests (a Postgres they may drop tables in)               | CI's service container, your shell                                                          |
+| `postgresPassword` | `POSTGRES_PASSWORD`        | Docker Compose's Postgres                                              | The Compose `.env` (gitignored)                                                             |
+| `arbiscanKey`      | `ARBISCAN_API_KEY`         | Contract verification on Arbiscan                                      | `contracts/.env`                                                                            |
 
 TypeScript components look the name up (`strikeSecretName("alchemyKey")` in the SDK); shell scripts use the same
 names literally. The SDK's test `names every secret variable the code reads` scans the sources, scripts and
