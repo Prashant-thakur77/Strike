@@ -4,13 +4,15 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 
 ## Understand the protocol
 
-| Document                                | What it covers                                                                                    |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| [Litepaper](litepaper.md)               | The model, mechanism, agent incentives and backtest results in one read                           |
-| [Design spec](design.md)                | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates |
-| [SafeStockFeed guide](safestockfeed.md) | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them               |
-| [Gas: Stylus vs Solidity](gas.md)       | Measured costs of the pricer and of real protocol transactions, including where Stylus loses      |
-| [Decisions](decisions.md)               | Every design decision with its reason (D1–D40)                                                    |
+| Document                                | What it covers                                                                                        |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [Technical note](technical-note.md)     | The problem, the design, the trust model, what is tested and the path to production, in 2 to 4 pages  |
+| [Sponsor technology](sponsor-tech.md)   | Each sponsor feature Strike uses: why, what breaks without it, code, transaction or live link, status |
+| [Litepaper](litepaper.md)               | The model, mechanism, agent incentives and backtest results in one read                               |
+| [Design spec](design.md)                | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates     |
+| [SafeStockFeed guide](safestockfeed.md) | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them                   |
+| [Gas: Stylus vs Solidity](gas.md)       | Measured costs of the pricer and of real protocol transactions, including where Stylus loses          |
+| [Decisions](decisions.md)               | Every design decision with its reason and the alternative it rejected (D1–D41)                        |
 
 ## Check that it is safe
 
@@ -44,15 +46,17 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 
 ## Build on it or run it
 
-| Document                                              | What it covers                                                                                        |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [Agent skill file](STRIKE_SKILL.md)                   | Everything an AI agent needs to use Strike through MCP                                                |
-| [Agent registration file](agents/strike-agent-1.json) | Agent #1's ERC-8004 registration (identity #114 on Robinhood Chain testnet, #253 on Arbitrum Sepolia) |
-| [Operations runbook](operations.md)                   | Weekly schedule, incidents and the right response, keys, alerts                                       |
-| [Deploying the app](deploy-app.md)                    | The two-minute Vercel setup                                                                           |
-| [Indexing](indexing.md)                               | The subgraph: hosts, deployment, example queries                                                      |
-| [Telegram bot](../bots/telegram/README.md)            | Alerts and commands, setup and hosting                                                                |
-| [Builder feedback](FEEDBACK.md)                       | What we would improve in Robinhood Chain and Arbitrum tooling                                         |
+| Document                                              | What it covers                                                                                                           |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| [Endpoints](ENDPOINTS.md)                             | Every HTTP route, `/skill.md` and `/llms.txt`, the remote and stdio MCP tools, the indexer, the Telegram bot and the SDK |
+| [Event indexer](../services/indexer/README.md)        | The Postgres indexer: endpoints, schema, reorg handling, tests, the live check                                           |
+| [Agent skill file](STRIKE_SKILL.md)                   | Everything an AI agent needs to use Strike through MCP                                                                   |
+| [Agent registration file](agents/strike-agent-1.json) | Agent #1's ERC-8004 registration (identity #114 on Robinhood Chain testnet, #253 on Arbitrum Sepolia)                    |
+| [Operations runbook](operations.md)                   | Weekly schedule, incidents and the right response, keys, alerts                                                          |
+| [Deploying the app](deploy-app.md)                    | The two-minute Vercel setup                                                                                              |
+| [Indexing](indexing.md)                               | The subgraph: hosts, deployment, example queries                                                                         |
+| [Telegram bot](../bots/telegram/README.md)            | Alerts and commands, setup and hosting                                                                                   |
+| [Builder feedback](FEEDBACK.md)                       | What we would improve in Robinhood Chain and Arbitrum tooling                                                            |
 
 ## Project history and hackathon
 

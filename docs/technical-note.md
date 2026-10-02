@@ -82,7 +82,7 @@ The `MirrorFeed`s were the one input a depositor had to take on our word. The pr
 | Off-chain code              | The SDK (including the mirror audit), MCP server, example agent, Telegram bot and indexer (against a real Postgres); the app in Playwright        | [README, Tests](../README.md#tests), [indexer tests](../services/indexer/README.md#tests)                          |
 | Whole system                | `scripts/demo-local.sh` runs a full week on anvil, once out of the money and once in the money, in CI                                             | [`demo-local.sh`](../scripts/demo-local.sh)                                                                        |
 
-Counts, rerun on 2 October after the adversarial suite, the mirror audit and the indexer were added: the Foundry suite without fork, differential and formal tests has 515 passing and 7 skipped; the SDK 203 passing and 2 skipped; the MCP server 61; the example agent 68; the Telegram bot 61; the indexer 46. Line coverage of the contracts was 99.3% when last measured, on 30 September ([coverage](../README.md#coverage)). The README's test totals were counted before those suites landed.
+Counts, rerun on 2 October after the adversarial suite, the mirror audit and the indexer were added: the Foundry suite without fork, differential and formal tests has 515 passing and 7 skipped; the SDK 203 passing and 2 skipped; the MCP server 61; the example agent 68; the Telegram bot 61; the indexer 46. Line coverage of the contracts is 99.32% (1,173 of 1,181 lines, rerun on 2 October; [coverage](../README.md#coverage)). The README's test totals were counted before those suites landed.
 
 ## 5. Path to production
 
@@ -94,6 +94,6 @@ The order is in [MILESTONES.md](MILESTONES.md):
 4. **One capped vault on Robinhood Chain mainnet**: a TSLA covered-call vault with an agreed `depositCap`, admin and guardian roles held by a Safe multisig, and the real Chainlink feed read directly through `SafeStockFeed`, with no `MirrorFeed` and no keeper in the price path. The 4663 configuration already sits in [`Deploy.s.sol`](../contracts/script/Deploy.s.sol#L141) with the mainnet feed addresses. The sequencer uptime check is wired and will be set once Chainlink publishes an uptime feed for Robinhood Chain ([research.md §7](research.md#7-chainlink-l2-sequencer-uptime-feeds)).
 5. **Outside agents and integrators**: agents registered by owners outside the team, and a repository outside Strike that uses `SafeStockFeed` or its conformance suite.
 
-Operational work that is written but not running yet is listed in the README's [Not yet](../README.md#not-yet) list: the Alchemy key, AWS hosting for the Telegram bot, a hosted indexer and subgraph, and the scheduled keeper and agent in GitHub Actions.
+Work that is planned, or written and not running, is listed in the README's [Not built yet](../README.md#not-built-yet) table: the Alchemy key, AWS hosting for the Telegram bot, a hosted indexer and subgraph, and the scheduled keeper and agent in GitHub Actions.
 
 Known limits that stay after these steps are in the [litepaper §8](litepaper.md#8-limitations-and-future-work): demand at the model price is unproven, one volatility per underlying ignores skew, and the 10 USDG slash is small next to the capital an agent steers.
