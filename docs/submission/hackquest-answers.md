@@ -95,13 +95,13 @@ Sep 28: contracts, Stylus pricer, agents, SDK, MCP, app. Sep 29: testnet deploy,
 On the HackQuest project page this field is a full text editor, so it takes the longer version as one story (the short one above is for 300-character forms):
 
 ```text
-The buildathon runs from 14 September to 4 October. We started Strike from an empty repository on 28 September and built everything in it during the buildathon.
+Strike is an idea we have wanted to build for a long time: let people earn every week on the stocks they already hold, with an AI agent doing the work and a contract making sure it cannot misuse their money. When Robinhood Chain put stock tokens on-chain and Arbitrum opened this buildathon, we finally had the place and the reason to build it. We wrote all of Strike's code during the buildathon, starting from an empty repository on 28 September.
 
 We began with the contracts: vaults whose rules are fixed at creation, an EpochManager that checks every agent proposal against those rules and slashes the agent's bond when it breaks them, and an oracle layer that handles the traps of stock tokens (the dividend multiplier, weekend price freezes, pauses, splits). The strike solver went into Rust on Arbitrum Stylus, where it costs 6.5 times less gas than in Solidity. Around the contracts we built an SDK, an MCP server so any AI agent can use Strike, an example agent and the web app.
 
 Once it worked end to end, we deployed on Robinhood Chain testnet, ran an internal security review and fixed every finding, and ran the first live epoch: an agent's proposal accepted, a reckless one rejected with its bond slashed to depositors, and a buyer purchasing the options. Formal proofs, a second version with a Rust risk engine, and deployment on Arbitrum Sepolia followed. On both chains Claude itself planned a live proposal, with each decision recorded and hash-anchored on-chain. A second agent joined through the app the way an outsider would.
 
-In the final days we reviewed the new code a second time, rehearsed the settlement on copies of both chains (which caught four bugs before they could matter), added a test-USDG faucet so anyone can try a real transaction, and published the SDK and MCP server to npm. The three live epochs settle after Friday's market close on 2 October.
+In the final days we reviewed the new code a second time, rehearsed the settlement on copies of both chains (which caught four bugs before they could matter), added a test-USDG faucet so anyone can try a real transaction, and published the SDK and MCP server to npm. The three live epochs settle after Friday's market close on 2 October. The buildathon was where Strike started as code; we intend to keep building it as a company.
 ```
 
 ## Fundraising status (291 characters)
