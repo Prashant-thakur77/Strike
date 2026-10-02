@@ -226,7 +226,7 @@ function RiskBody({ vault, r, stale }: { vault: VaultSummary; r: SeriesRisk; sta
               worst={worst}
               premium={premium}
               titleId={titleId}
-              axisLabel={expired ? `${sym} settlement price, as a move from the last print` : undefined}
+              axisLabel={expired ? `${sym} move from the last print` : undefined}
             />
           </>
         ) : (
