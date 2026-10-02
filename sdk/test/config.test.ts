@@ -164,7 +164,10 @@ describe("strike.config.json", () => {
     for (const dir of dirs) {
       if (!fs.existsSync(ROOT + dir)) continue;
       for (const f of fs.readdirSync(ROOT + dir, { recursive: true })) {
-        if (!/\.(ts|tsx|mjs|js|sh|ya?ml|json)$/.test(f) || /(^|\/)(abi|node_modules|test|data)\//.test(f))
+        if (
+          !/\.(ts|tsx|mjs|js|sh|ya?ml|json)$/.test(f) ||
+          /(^|\/)(abi|node_modules|test|data|dist|build)\//.test(f)
+        )
           continue;
         if (/generated/.test(f)) continue;
         const text = fs.readFileSync(`${ROOT}${dir}/${f}`, "utf8");

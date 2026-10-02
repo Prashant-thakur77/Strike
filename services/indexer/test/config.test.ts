@@ -21,8 +21,16 @@ const summary = (s: IndexerSpec) =>
     })),
   }));
 
+// A root with the deployment records and no strike.config.json, for the fallback path (the repository has the file).
+const bare = mkdtempSync(join(scratch, "bare-"));
+afterAll(() => rmSync(bare, { recursive: true, force: true }));
+mkdirSync(join(bare, "contracts/deployments"), { recursive: true });
+for (const f of ["46630", "46630-vaults", "46630-v3", "46630-v3-vaults", "421614", "421614-vaults"]) {
+  copyFileSync(join(ROOT, `contracts/deployments/${f}.json`), join(bare, `contracts/deployments/${f}.json`));
+}
+
 describe("config", () => {
-  const fallback = loadIndexerSpec({ root: ROOT, env: {} });
+  const fallback = loadIndexerSpec({ root: bare, env: {} });
 
   it("without strike.config.json, reads the three deployment records the app counts", () => {
     expect(fallback.source).toBe("contracts/deployments");
@@ -114,6 +122,14 @@ describe("config", () => {
     ]);
     expect(settingsFromEnv({}, spec).port).toBe(8899);
     expect(settingsFromEnv({ PORT: "9000" }, spec).port).toBe(9000);
+  });
+
+  it("the repository's strike.config.json gives the same deployments, without the local devnet unless asked", () => {
+    const repo = loadIndexerSpec({ root: ROOT, env: {} });
+    expect(repo.source).toBe("strike.config.json");
+    expect(summary(repo)).toEqual(summary(fallback));
+    const local = loadIndexerSpec({ root: ROOT, env: {}, chains: [31337] });
+    expect(local.chains.map((c) => c.chainId)).toEqual([31337]);
   });
 
   it("limits the chains to INDEXER_CHAINS", () => {

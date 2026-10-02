@@ -196,6 +196,8 @@ export function loadIndexerSpec(
         .map((f) => readDeployment(root, f, chainId))
         .filter((d) => d.chainId === chainId);
       if (!deployments.length) continue; // e.g. 4663: the mainnet feeds chain, no Strike deployment
+      // A local devnet (31337, `local: true`) only when asked for by INDEXER_CHAINS: a hosted indexer cannot reach it.
+      if (raw.local === true && !wanted?.has(chainId)) continue;
       chains.push({
         chainId,
         name: typeof raw.name === "string" ? raw.name : (CHAIN_LABELS[chainId]?.name ?? `Chain ${chainId}`),
