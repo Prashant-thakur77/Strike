@@ -109,14 +109,14 @@ jobs:
           } >> "$GITHUB_OUTPUT"
           echo "Mode: $mode; agent #1: $agent1; agent #2: $agent2"
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: steps.mode.outputs.market == 'true'
       - name: RPC from strike.config.json
         if: steps.mode.outputs.market == 'true'
         run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
         if: steps.mode.outputs.market == 'true'
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@v7
         if: steps.mode.outputs.market == 'true'
         with:
           node-version-file: .nvmrc
@@ -168,7 +168,7 @@ jobs:
       LOG_DIR: ${{ matrix.log }}
       STRIKE_CHAIN_ID: ${{ matrix.chain }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # The chain's public RPC from strike.config.json, for the script's reads (RPC_URL) and the agent (STRIKE_RPC_URL).
       - name: RPC from strike.config.json
         run: |
@@ -177,8 +177,8 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -256,14 +256,14 @@ jobs:
       VAULT: "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969"
       LOG_DIR: docs/agent-log
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: RPC from strike.config.json
         run: echo "STRIKE_RPC_URL=$(jq -er --arg c "$STRIKE_CHAIN_ID" '.chains[$c].rpc.public' strike.config.json)" >> "$GITHUB_ENV"
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -342,7 +342,7 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           sparse-checkout: scripts/ci-issue.mjs
           sparse-checkout-cone-mode: false

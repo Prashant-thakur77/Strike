@@ -18,7 +18,7 @@ jobs:
     env:
       FOUNDRY_PROFILE: ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
@@ -43,7 +43,7 @@ jobs:
       run:
         working-directory: stylus/pricer
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.91.0
@@ -65,9 +65,9 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -91,7 +91,7 @@ jobs:
     env:
       FOUNDRY_PROFILE: ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@master
@@ -116,7 +116,7 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       # Robinhood Chain mainnet's public RPC and Alchemy base URL (no key) from strike.config.json.
@@ -158,10 +158,10 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: crytic/slither-action@v0.4.1
+      - uses: crytic/slither-action@v0.4.2
         with:
           target: contracts
           slither-args: --filter-paths "lib/|test/|script/" --exclude-dependencies
@@ -173,9 +173,9 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -198,14 +198,14 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -221,7 +221,7 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
@@ -248,13 +248,13 @@ jobs:
       # Lets halmos fetch its pinned SMT solver binaries (cvc5, yices) on first use.
       HALMOS_ALLOW_DOWNLOAD: "1"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install halmos
@@ -282,7 +282,7 @@ jobs:
       # anvil's account 0, a well-known public dev key (allowlisted in gitleaks.yml); the devnet's deployer.
       DEPLOYER_KEY: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       # proof.spec.ts checks the proof page's v3 links against this branch; the v3 devnet below deploys from it.
@@ -291,8 +291,8 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -303,7 +303,7 @@ jobs:
         run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
       - name: Cache the browser
         id: browser-cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-headless-shell
@@ -333,7 +333,7 @@ jobs:
           cd ../app
           RPC_URL="$E2E_RPC" node scripts/demo-chain.mjs
       - name: Cache the Next.js build cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: app/.next/cache
           key: next-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('app/src/**', 'sdk/src/**', 'mcp/src/**', 'docs/STRIKE_SKILL.md') }}
@@ -381,7 +381,7 @@ jobs:
           fi
       - name: Upload traces of failed tests
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-results-${{ matrix.project }}
           path: app/node_modules/.cache/playwright/results
@@ -409,9 +409,9 @@ jobs:
       # A throwaway server that lives only for this job. Each test file creates and drops its own database on it.
       TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -430,7 +430,7 @@ jobs:
       # docker-compose.yml requires a Postgres password. This one exists only inside this job's containers.
       POSTGRES_PASSWORD: ci-throwaway
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # Every rule at the default threshold (info), except DL3066 (new in hadolint 2.15, info): both images run as
       # `USER node`, the node base image's own unprivileged user (uid 1000), which the image's /etc/passwd resolves.
       - name: hadolint, services/indexer/Dockerfile
@@ -493,7 +493,7 @@ jobs:
     # The js job has no Foundry and no v3 checkout, so these suites skip there (describe.skipIf). Each test file
     # starts its own anvil and deploys with sdk/test/devnet.mjs: this checkout for v2, v3-contracts for v3.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: Check out the v3-contracts branch beside it
@@ -504,8 +504,8 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
