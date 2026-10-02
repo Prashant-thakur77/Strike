@@ -5,7 +5,7 @@ import { isAddress } from "viem";
 import { CHAIN_LABELS } from "./meta.js";
 
 // What to index: chains and their deployments. Read from strike.config.json at the repository root when it exists
-// (the shared config of docs/plans/2026-10-02-cycle13.md), else from the deployment records the app counts:
+// (the shared config every component is moving to), else from the deployment records the app counts:
 // contracts/deployments/{46630,46630-v3,421614}.json and their -vaults.json files.
 
 /** The deployment records /api/stats counts, in its order, used when there is no strike.config.json. */

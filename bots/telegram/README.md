@@ -154,6 +154,18 @@ infra/aws/update-bot.sh                             # later: git pull on the ins
 aws logs tail /strike/telegram-bot --region ap-southeast-1 --follow
 ```
 
+### Docker
+
+[`Dockerfile`](Dockerfile) builds from the repository root and runs the bot the way the AWS unit does (node with
+`tsx` on the sources), as the unprivileged `node` user, with `DATA_DIR=/data` on a volume. The token is never in
+the image; it comes from the environment. The root `docker-compose.yml` has it behind the `bot` profile, reading
+`TELEGRAM_BOT_TOKEN` (and the optional `ALCHEMY_API_KEY`, `STRIKE_CHAIN_ID`) from the root `.env`:
+
+```sh
+docker compose --profile bot up -d --build telegram-bot   # only where no other copy of the bot runs
+docker compose logs -f telegram-bot
+```
+
 ### Small VPS (systemd)
 
 ```sh
