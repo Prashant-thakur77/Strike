@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
 import { createPublicClient, http, parseAbi, type Address } from "viem";
 import { RPC, acknowledge, connectWallet, devnetUp, horizontalOverflow, installMockWallet } from "./helpers";
 
@@ -27,10 +27,22 @@ test.beforeEach(async ({ page }) => {
   await acknowledge(page);
 });
 
+/**
+ * The decision log on /app/agents lists its records through the GitHub API from the browser. Unauthenticated, that is
+ * 60 requests an hour per IP, and CI runners share IPs. A refusal (403 or 429) shows the folder link instead, which
+ * agentLog.spec.ts covers, but the browser still logs the refused request. That message alone is not an app error.
+ */
+function githubApiRefusal(msg: ConsoleMessage): boolean {
+  return (
+    /^Failed to load resource: the server responded with a status of (403|429)\b/.test(msg.text()) &&
+    msg.location().url.startsWith("https://api.github.com/")
+  );
+}
+
 function watchErrors(page: Page) {
   const errors: string[] = [];
   page.on("console", (msg) => {
-    if (msg.type() === "error") errors.push(msg.text());
+    if (msg.type() === "error" && !githubApiRefusal(msg)) errors.push(msg.text());
   });
   page.on("pageerror", (err) => errors.push(err.message));
   return errors;
