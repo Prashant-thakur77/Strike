@@ -82,7 +82,7 @@ Each one goes into `decision.candidates` in the JSON (and a section "Alternative
 | `explanation`                                                             | The risk check's plain-words text                                                                                                               |
 | `error`                                                                   | Only on an entry whose dry run could not be read (`ok: false`, `reason: null`, no measured values). URLs in the message are replaced by `<url>` |
 
-`decision.candidates` is part of the hashed JSON, so `--anchor` commits it with everything else. The field is optional: records written before it, or a run where nothing was dry-run, have no `candidates` key and keep their hash. The app's parser (`app/src/lib/agentLog.ts`) reads `targetDeltaBps`, `premiumBps`, `ok`, `reason`, `strike`, `fairValue` and `yieldBps` and ignores the rest.
+`decision.candidates` is part of the hashed JSON, so `--anchor` commits it with everything else. The field is optional: records written before it, or a run where nothing was dry-run, have no `candidates` key and keep their hash. The app's parser (`app/src/lib/agentLog.ts`) reads every field above (all optional, so older records parse as before); the vault page's "Why this strike" panel and the decision page `/app/decision/<chain>/<record>` show them, with `failedRule` as the measured value against its limit and error entries as "could not be read".
 
 The records of the live testnet vaults are published in [docs/agent-log](../../docs/agent-log/).
 
