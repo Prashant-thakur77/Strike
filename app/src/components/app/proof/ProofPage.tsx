@@ -30,6 +30,7 @@ import { PageHero } from "../PageHero";
 import { PageIndex } from "../PageIndex";
 import { Rail } from "../Rail";
 import appStyles from "../app.module.css";
+import { MirrorAuditPanel } from "../mirror/MirrorAuditPanel";
 import { ActivePricer } from "./ActivePricer";
 import styles from "./proof.module.css";
 
@@ -38,6 +39,7 @@ const testCount = (label: string) => TESTS.find((t) => t.label === label)?.count
 
 const SECTIONS = [
   { id: "live", label: "Deployment" },
+  { id: "mirror", label: "Price audit" },
   { id: "stylus", label: "Stylus" },
   { id: "tests", label: "Tests" },
   { id: "checks", label: "Invariants" },
@@ -97,9 +99,9 @@ export function ProofPage() {
               Each claim Strike makes, next to the contract, transaction, test or document that backs it.
             </p>
             <p className={styles.leadNote}>
-              Figures are taken from the repository and link to their source. The active pricer and the
-              activity feed are read from the chain when the page loads. Strike is unaudited: the review below
-              is internal.
+              Figures are taken from the repository and link to their source. The active pricer, the price
+              mirror audit and the activity feed are read from the chains when the page loads. Strike is
+              unaudited: the review below is internal.
             </p>
           </>
         }
@@ -266,9 +268,26 @@ export function ProofPage() {
           </div>
         </Rail>
 
-        {/* ------------------------------------------------------------ 02 stylus */}
+        {/* ------------------------------------------------------------ 02 price mirror audit */}
         <Rail
           index="02"
+          id="mirror"
+          label="Price mirror audit"
+          note={
+            <>
+              The testnets have no Chainlink stock feeds, so a keeper copies Robinhood Chain mainnet Chainlink
+              rounds into MirrorFeeds. This checks every copied round against mainnet, from{" "}
+              <code className="mono">/api/mirror-audit</code>. What is trusted and what is checked across
+              Strike: <Out href={gh("docs/trust-model.md")}>trust-model.md</Out>.
+            </>
+          }
+        >
+          <MirrorAuditPanel />
+        </Rail>
+
+        {/* ------------------------------------------------------------ 03 stylus */}
+        <Rail
+          index="03"
           id="stylus"
           label="Stylus"
           note={
@@ -370,9 +389,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 03 tests */}
+        {/* ------------------------------------------------------------ 04 tests */}
         <Rail
-          index="03"
+          index="04"
           id="tests"
           label="Tests"
           note={
@@ -424,9 +443,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 04 deeper checks */}
+        {/* ------------------------------------------------------------ 05 deeper checks */}
         <Rail
-          index="04"
+          index="05"
           id="checks"
           label="Invariants, forks, differential"
           note="Checks that go beyond example-based tests: random call sequences, deliberately broken code, real mainnet state and two independent pricer implementations."
@@ -451,9 +470,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 05 security */}
+        {/* ------------------------------------------------------------ 06 security */}
         <Rail
-          index="05"
+          index="06"
           id="security"
           label="Security"
           note="Static analysis, an internal adversarial review and a threat model. None of this replaces an external audit."
@@ -513,9 +532,9 @@ export function ProofPage() {
           </Fold>
         </Rail>
 
-        {/* ------------------------------------------------------------ 06 testnet usage */}
+        {/* ------------------------------------------------------------ 07 testnet usage */}
         <Rail
-          index="06"
+          index="07"
           id="usage"
           label="Testnet usage"
           note={
@@ -529,9 +548,9 @@ export function ProofPage() {
           <UsageTable teamFileHref={gh("app/src/lib/usage/team.ts")} />
         </Rail>
 
-        {/* ------------------------------------------------------------ 07 live activity */}
+        {/* ------------------------------------------------------------ 08 live activity */}
         <Rail
-          index="07"
+          index="08"
           id="activity"
           label="Live activity"
           note={
@@ -544,8 +563,8 @@ export function ProofPage() {
           <ActivityFeed />
         </Rail>
 
-        {/* ------------------------------------------------------------ 08 research */}
-        <Rail index="08" id="research" label="Research">
+        {/* ------------------------------------------------------------ 09 research */}
+        <Rail index="09" id="research" label="Research">
           <Fold summary="Show research" openSummary="Hide section">
             <ul className={styles.research}>
               {RESEARCH.map((r) => (

@@ -20,6 +20,7 @@ import { Skeleton } from "../Skeleton";
 import { StateTag } from "../StateTag";
 import { VersionTag, strategyName } from "../VaultList";
 import { DripNudge } from "../faucet/UsdgDrip";
+import { MirrorBadge } from "../mirror/MirrorBadge";
 import { DepositPanel } from "./DepositPanel";
 import { MandatePanel } from "./MandatePanel";
 import { OptionsPanel } from "./OptionsPanel";
@@ -34,7 +35,7 @@ import styles from "../app.module.css";
 export function VaultDetail({ address }: { address: Address }) {
   const vault = useVault(address);
   const history = useVaultHistory(vault.data);
-  const { deployments } = useStrike();
+  const { deployments, chainId } = useStrike();
   const v = vault.data;
   // Where a chain runs more than one deployment (v2 and v3 on Robinhood Chain testnet), say which one this vault is.
   const showVersion = deployments.length > 1 && !!v?.version;
@@ -91,6 +92,7 @@ export function VaultDetail({ address }: { address: Address }) {
                     <span className={styles.metaLine}>
                       Price feed: {FEED_STATUS[v.spot.status] ?? "unknown"}
                     </span>
+                    <MirrorBadge chainId={chainId} symbol={v.underlying.symbol} />
                   </>
                 ),
               },

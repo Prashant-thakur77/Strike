@@ -1,0 +1,268 @@
+/* The price mirror audit on /app/proof and its badge on vault pages. */
+
+.panel {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.chains {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.verdict {
+  display: grid;
+  gap: 8px;
+  padding: clamp(20px, 2.4vw, 32px);
+  border-radius: 10px;
+  background: var(--ink-bg);
+  color: var(--paper);
+  --fg: var(--paper);
+  --fg-muted: var(--muted-ink);
+  --rule: rgba(233, 233, 231, 0.18);
+  --rule-strong: rgba(233, 233, 231, 0.34);
+  --ghost: rgba(233, 233, 231, 0.06);
+}
+
+.headline {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.7vw, 1.6rem);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.verdict[data-state="ok"] .headline {
+  color: var(--gain-ink);
+}
+
+.verdict[data-state="mismatch"] .headline,
+.verdict[data-state="error"] .headline {
+  color: var(--loss-ink);
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted-ink);
+  overflow-wrap: anywhere;
+}
+
+.trust {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.trust > div {
+  padding: 16px 20px 16px 0;
+}
+
+.trust > div + div {
+  padding-left: 20px;
+  border-left: 1px solid var(--rule);
+}
+
+.trust dt {
+  margin-bottom: 8px;
+}
+
+.trust dd {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 820px) {
+  .trust {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .trust > div,
+  .trust > div + div {
+    padding: 14px 0;
+    border-left: 0;
+  }
+  .trust > div + div {
+    border-top: 1px solid var(--rule);
+  }
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.table th,
+.table td {
+  padding: 12px 16px 12px 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 0;
+}
+
+.table thead th {
+  padding-top: 0;
+  border-bottom-color: var(--rule-strong);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.table tbody th {
+  font-weight: 600;
+}
+
+.table tr[data-status="deploy-seed"] td,
+.table tr[data-status="unchecked"] td {
+  color: var(--fg-muted);
+}
+
+.table tr[data-status="no-mainnet-round"] td,
+.table tr[data-status="answer-differs"] td,
+.table tr[data-status="future-timestamp"] td,
+.table tr[data-ok="false"] td {
+  color: var(--loss);
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.since {
+  color: var(--fg-muted);
+}
+
+.addrs {
+  font-size: 0.82rem;
+}
+
+.addr,
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  color: inherit;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule-strong);
+  transition: border-color 0.2s var(--ease-ui);
+}
+
+.link {
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.addr svg,
+.link svg {
+  flex: none;
+}
+
+.link:hover,
+.addr:hover {
+  border-color: currentColor;
+}
+
+.mismatches ul {
+  margin: 0;
+  padding-left: 1.1em;
+  color: var(--loss);
+  line-height: 1.6;
+}
+
+.bad {
+  color: var(--loss);
+}
+
+.notes {
+  display: grid;
+  gap: 8px;
+}
+
+.small {
+  margin: 0;
+  max-width: 60em;
+  font-size: var(--fs-small);
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+.run {
+  display: grid;
+  gap: 8px;
+}
+
+.cmd {
+  max-width: 100%;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--ink-bg);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.cmd code {
+  font-family: inherit;
+}
+
+.cmd:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------- vault badge */
+
+.badge {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--rule-strong);
+  text-underline-offset: 3px;
+}
+
+.badge[data-ok="true"] {
+  color: var(--gain-ink);
+}
+
+.badge[data-ok="false"] {
+  color: var(--loss-ink);
+}
+
+.badge:hover {
+  text-decoration-color: currentColor;
+}
