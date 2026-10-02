@@ -20,6 +20,7 @@ import {
   type LogRecord,
 } from "@/lib/agentLog";
 import { CHAIN_META } from "@/lib/chains";
+import { decisionPath } from "@/lib/decision";
 import { shortAddr } from "@/lib/format";
 import { REASONS } from "@/lib/labels";
 import type { VaultSummary } from "@/lib/reads";
@@ -112,6 +113,7 @@ export function WhyStrikePanel({ vault }: { vault: VaultSummary }) {
       jsonUrl={w.jsonUrl}
       anchor={w.anchor}
       chainId={chainId}
+      decisionHref={decisionPath(chainId, w.name)}
     />
   );
 }
@@ -130,6 +132,7 @@ function RecordBody({
   jsonUrl,
   anchor,
   chainId,
+  decisionHref,
 }: {
   vault: VaultSummary;
   record: LogRecord;
@@ -137,6 +140,7 @@ function RecordBody({
   jsonUrl: string;
   anchor: AnchorCheck;
   chainId: number;
+  decisionHref: string;
 }) {
   const d = r.decision;
   const v = verdictOf(r.result);
@@ -328,6 +332,9 @@ function RecordBody({
       <AnchorLine anchor={anchor} chainId={chainId} />
 
       <div className={styles.whyLinks}>
+        <Link href={decisionHref} className="text-link" data-testid="why-decision-link">
+          Open the full decision: why not the other strikes
+        </Link>
         <a href={recordUrl} target="_blank" rel="noreferrer" className="text-link">
           Full record on GitHub <ArrowUpRight size={12} aria-hidden />
         </a>
@@ -460,7 +467,7 @@ const TX_PROBLEM: Record<string, string> = {
  * keccak256 of the record against its own anchoring transaction on the vault's chain (the DecisionRecorded event of a
  * deployed DecisionLog for this agent, vault and epoch), with DecisionLog.latestHash as secondary information.
  */
-function AnchorLine({ anchor: a, chainId }: { anchor: AnchorCheck; chainId: number }) {
+export function AnchorLine({ anchor: a, chainId }: { anchor: AnchorCheck; chainId: number }) {
   const chain = CHAIN_META[chainId as keyof typeof CHAIN_META]?.label ?? `chain ${chainId}`;
   const Icon =
     a.status === "match" ? Check : a.status === "mismatch" || a.status === "bad-tx" ? Ban : CircleAlert;
@@ -571,7 +578,7 @@ function AnchorLine({ anchor: a, chainId }: { anchor: AnchorCheck; chainId: numb
 }
 
 /** The agent's reasoning, quoted and clamped to about four lines, with a toggle when it overflows. */
-function Reasoning({ text, who }: { text: string; who: string }) {
+export function Reasoning({ text, who }: { text: string; who: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const [open, setOpen] = useState(false);
   const [overflows, setOverflows] = useState(false);

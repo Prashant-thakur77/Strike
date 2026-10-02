@@ -2,10 +2,12 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, RotateCw } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useStrike } from "@/hooks/useStrike";
 import { errorMessage } from "@/hooks/useTx";
 import type { EpochTraceJson, TraceEpochJson, TraceStepJson } from "@/lib/epochTrace";
+import { decisionPathFromUri } from "@/lib/decision";
 import { isMirrorChain } from "@/lib/mirrorAudit";
 import type { VaultSummary } from "@/lib/reads";
 import { settlementLine, type SettlementAuditJson } from "@/lib/settlementAudit";
@@ -118,6 +120,13 @@ function EpochBlock({
 }) {
   const check = audit?.series.find((s) => s.seriesId === e.seriesId) ?? null;
   const tx = (h: string) => (trace.explorer ? `${trace.explorer}/tx/${h}` : null);
+  // The epoch's decision page, from the anchored record's published URL (the last record anchored for the epoch).
+  const decision =
+    e.steps
+      .filter((s) => s.kind === "record")
+      .map((s) => decisionPathFromUri(trace.chainId, s.record?.uri))
+      .filter((p): p is string => p !== null)
+      .pop() ?? null;
   return (
     <section
       className={styles.epoch}
@@ -141,6 +150,7 @@ function EpochBlock({
             step={s}
             txUrl={s.tx ? tx(s.tx) : null}
             current={e.current}
+            decision={decision}
             audit={
               (s.kind === "settle" || s.kind === "pending") && needsAudit ? (
                 <AuditLine check={check} state={auditState} loaded={!!audit} />
@@ -157,13 +167,23 @@ function Step({
   step: s,
   txUrl,
   current,
+  decision,
   audit,
 }: {
   step: TraceStepJson;
   txUrl: string | null;
   current: boolean;
+  decision: string | null;
   audit: ReactNode;
 }) {
+  const decisionText =
+    s.kind === "record"
+      ? "Open the decision"
+      : s.kind === "accepted" || s.kind === "rejected"
+        ? "Why this strike, and why not the others"
+        : s.kind === "settle"
+          ? "Graded the ladder: open the decision"
+          : null;
   return (
     <li className={styles.step} data-kind={s.kind} data-tone={s.tone} data-testid="trace-step">
       <span className={styles.dot} aria-hidden />
@@ -198,6 +218,11 @@ function Step({
             <a href="#why" className={styles.link} data-testid="trace-why">
               Check its hash in Why this strike
             </a>
+          ) : null}
+          {decision && decisionText ? (
+            <Link href={decision} className={styles.link} data-testid="trace-decision">
+              {decisionText}
+            </Link>
           ) : null}
         </p>
       </div>

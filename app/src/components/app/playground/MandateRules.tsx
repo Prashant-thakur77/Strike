@@ -18,8 +18,17 @@ function MarkIcon({ mark }: { mark: RuleMark }) {
   return <CircleDashed aria-hidden />;
 }
 
-/** The vault's mandate as plain rules, in `MandateGuard.check` order, marked against the current verdict. */
-export function MandateRules({ rules }: { rules: MandateRule[] }) {
+/** A rule with its limit and the headroom left on it (the decision page's scorecard). */
+export type ScoredMandateRule = MandateRule & {
+  limit?: string;
+  headroom?: { text: string; tone: "room" | "tight" | "over" } | null;
+};
+
+/**
+ * The vault's mandate as plain rules, in `MandateGuard.check` order, marked against the current verdict. With a
+ * limit and headroom per rule, each also shows the bound and how far the measured value sits from it.
+ */
+export function MandateRules({ rules }: { rules: ScoredMandateRule[] }) {
   return (
     <ol className={styles.rules} aria-label="Mandate rules in the order the contract checks them">
       {rules.map((r, i) => (
@@ -38,6 +47,21 @@ export function MandateRules({ rules }: { rules: MandateRule[] }) {
               {MARK_TEXT[r.mark]}
             </span>
             {r.measured ? <span className={styles.measured}>{r.measured}</span> : null}
+            {r.limit && r.mark !== "skip" ? (
+              <span className={styles.measured} data-testid="rule-limit">
+                limit {r.limit}
+              </span>
+            ) : null}
+            {r.headroom ? (
+              <span className={styles.headroom} data-tone={r.headroom.tone} data-testid="rule-headroom">
+                {r.headroom.tone === "over"
+                  ? "Over: "
+                  : r.headroom.tone === "tight"
+                    ? "No headroom: "
+                    : "Headroom: "}
+                {r.headroom.text}
+              </span>
+            ) : null}
           </div>
         </li>
       ))}

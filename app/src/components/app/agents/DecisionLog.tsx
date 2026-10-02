@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Ban, Check, ChevronDown, Minus } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { useAgentLog } from "@/hooks/queries";
 import {
@@ -28,6 +29,7 @@ import {
   type LogEntry,
   type LogRecord,
 } from "@/lib/agentLog";
+import { decisionPath, isRecordName } from "@/lib/decision";
 import { REASONS } from "@/lib/labels";
 import { Skeleton } from "../Skeleton";
 import styles from "../app.module.css";
@@ -297,6 +299,19 @@ function LogCard({ entry }: { entry: LogEntry }) {
             </ul>
           )}
         </div>
+        {r.decision && isRecordName(entry.name) ? (
+          <Link
+            href={decisionPath(r.chain.id, entry.name)}
+            className="text-link"
+            data-testid="log-decision-link"
+          >
+            Open the decision
+            <span className="sr-only">
+              {" "}
+              for {r.vault.symbol} on {r.date}
+            </span>
+          </Link>
+        ) : null}
         <a href={entry.recordUrl} target="_blank" rel="noreferrer" className="text-link">
           Full record
           <span className="sr-only">

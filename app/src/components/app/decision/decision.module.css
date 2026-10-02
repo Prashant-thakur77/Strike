@@ -1,0 +1,153 @@
+/* The decision page: one anchored decision record, what it chose, why not the other strikes, and how it went. */
+
+.state {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+  padding-top: clamp(32px, 4vw, 56px);
+}
+
+.block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  min-width: 0;
+}
+
+.block + .block {
+  margin-top: 36px;
+}
+
+.verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.verdict[data-tone="good"] {
+  color: var(--gain-c);
+}
+
+.verdict[data-tone="bad"] {
+  color: var(--loss-c);
+}
+
+.label {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.check {
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 52em;
+}
+
+.check svg {
+  margin-right: 6px;
+  vertical-align: -2px;
+}
+
+.check[data-ok="true"] svg {
+  color: var(--gain-c);
+}
+
+.check[data-ok="false"] {
+  color: var(--loss-c);
+}
+
+.ladder td,
+.ladder th[scope="row"] {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.ladder th[scope="row"] {
+  padding-right: 16px;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.ladder tr[data-sent] {
+  background: color-mix(in srgb, var(--accent, var(--fg)) 9%, transparent);
+}
+
+.ladder tr[data-sent] th[scope="row"] {
+  box-shadow: inset 3px 0 0 var(--fg);
+  padding-left: 10px;
+}
+
+.ladder td[data-sign="gain"] {
+  color: var(--gain-c);
+}
+
+.ladder td[data-sign="loss"] {
+  color: var(--loss-c);
+}
+
+.rowVerdict {
+  font-size: 0.82rem;
+}
+
+.rowVerdict[data-ok="false"] {
+  color: var(--loss-c);
+}
+
+.rowVerdict[data-ok="true"] {
+  color: var(--gain-c);
+}
+
+.sent {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.direct {
+  font-family: var(--font-sans, inherit);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--fg-muted);
+}
+
+.big {
+  font-size: clamp(1.05rem, 1.6vw, 1.3rem);
+  font-weight: 600;
+  line-height: 1.4;
+  max-width: 40em;
+  overflow-wrap: break-word;
+}
+
+.para {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  max-width: 48em;
+  color: var(--fg-muted);
+}
+
+.context {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px dashed var(--rule-strong);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 52em;
+}
+
+.verdictCell {
+  min-width: 11rem;
+  white-space: normal !important;
+}

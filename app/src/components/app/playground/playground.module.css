@@ -748,6 +748,21 @@
   opacity: 0.6;
 }
 
+.headroom {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gain-c);
+  overflow-wrap: break-word;
+}
+
+.headroom[data-tone="tight"] {
+  color: var(--fg);
+}
+
+.headroom[data-tone="over"] {
+  color: var(--loss-c);
+}
+
 .measured {
   font-family: var(--font-mono);
   font-size: 0.78rem;

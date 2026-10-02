@@ -473,3 +473,68 @@ export async function loadWhyStrike(
   }
   return { kind: "none", reason: "not-found" };
 }
+
+/* ================================================================ one record, by name (the decision page) */
+
+export type NamedRecord =
+  | { kind: "not-found" }
+  | { kind: "invalid"; why: string }
+  | {
+      kind: "record";
+      record: LogRecord;
+      name: string;
+      folder: string;
+      recordUrl: string;
+      jsonUrl: string;
+      anchor: AnchorCheck;
+    };
+
+/**
+ * A decision record by its file name in the chain's folder (`<YYYY-MM-DD>-<vault symbol>[-N]`), fetched from GitHub
+ * and checked against its own anchoring transaction like `loadWhyStrike` does. Throws a `WhyStrikeError` only when
+ * GitHub cannot be reached.
+ */
+export async function loadRecordByName(
+  client: PublicClient,
+  chainId: number,
+  name: string,
+  fetchImpl: Fetch = fetch,
+  signal?: AbortSignal,
+): Promise<NamedRecord> {
+  const folder = RECORD_FOLDERS[chainId];
+  if (!folder) return { kind: "not-found" };
+  const text = await fetchRepoFile(`${folder}/${name}.json`, fetchImpl, signal);
+  if (text === null) return { kind: "not-found" };
+  const record = parseRecordText(text);
+  if (!record) return { kind: "invalid", why: "The file is not a decision record this page can read." };
+  if (record.chain.id !== chainId) {
+    return { kind: "invalid", why: `The record is from chain ${record.chain.id}, not ${chainId}.` };
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(record.vault.address)) {
+    return { kind: "invalid", why: "The record names no vault address." };
+  }
+  const agentId = record.agentId && /^\d+$/.test(record.agentId) ? BigInt(record.agentId) : 0n;
+  const anchor = await checkAnchor(client, chainId, decisionRecordHash(text), {
+    vault: getAddress(record.vault.address),
+    agentId,
+    epoch: record.anchor?.epoch ?? 0,
+    claimed: (record.anchor?.recordHash as Hex | undefined) ?? null,
+    contract: record.anchor?.contract ?? null,
+    txHash:
+      record.anchor?.txHash ??
+      record.transactions.find((t) => t.label === "DecisionLog.record")?.hash ??
+      null,
+  });
+  const md = await fetchRepoFile(`${folder}/${name}.md`, fetchImpl, signal).catch(() => null);
+  const page = (file: string) =>
+    folder === AGENT_LOG_DIR ? recordPageUrl(file) : `${BLOB_BASE}${folder}/${encodeURIComponent(file)}`;
+  return {
+    kind: "record",
+    record,
+    name,
+    folder,
+    recordUrl: page(md ? `${name}.md` : `${name}.json`),
+    jsonUrl: page(`${name}.json`),
+    anchor,
+  };
+}
