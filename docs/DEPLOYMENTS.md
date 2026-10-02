@@ -246,6 +246,39 @@ Verified on Blockscout (`https://arbitrum-sepolia.blockscout.com/api/v2/smart-co
 
 **Vaults and the live epoch (2026-09-30).** The two TSLA vaults (5 test TSLA and 30 USDG, the v2 mandate) are in [`421614-vaults.json`](../contracts/deployments/421614-vaults.json). The epoch ran from 17:29 to 17:34 UTC. Claude (claude-opus-5, through the Claude Code CLI, `--llm --planner claude-code`, read-only Strike tools) planned a 0.20-delta call at 105% of fair value, and `proposeByDelta` was accepted at strike 364.29 for 4 options expiring 2026-10-02 20:00 UTC, with a `SeriesRisk` event ([tx `0xf26315b3…`](https://sepolia.arbiscan.io/tx/0xf26315b33df93548bfa31d68b7d9964792ef88184cb154796180e19b9365b5f4)). An at-the-money put was rejected with `DeltaOutOfBand` and 10 USDG was slashed ([tx `0x4813b108…`](https://sepolia.arbiscan.io/tx/0x4813b1089c8e6a3f3e728c74b9b6bb2d79ec73fb36ab0b5142abc72aa333756d)); the same transaction posted a −10 feedback (value −10,000,000, 6 decimals, tag `strike.mandate.rejection`) for ERC-8004 identity #253 on the official Reputation Registry `0x8004B663…8713`. A separate buyer bought all 4 calls for 8.905435 USDG ([tx `0x82e2d5b4…`](https://sepolia.arbiscan.io/tx/0x82e2d5b4e476edec205c80daca431a8becdd5fbdb1f84e3ca0dea8d7d49265f4)). Both decision records are anchored in the 421614 DecisionLog. The full log is in [testnet-epochs/2026-09-30-arbitrum-sepolia.md §6](testnet-epochs/2026-09-30-arbitrum-sepolia.md#6-the-epoch-1729-to-1734-utc-nyse-open); the series' settlement will be added here after Friday 2026-10-02 20:00 UTC.
 
+## CI keeper key
+
+The key that GitHub Actions' keeper signs with (the repository secret `KEEPER_PRIVATE_KEY`; [what runs where](operations.md#what-runs-where-during-judging-4-to-12-october)). It was generated on 2 October 2026 for this job alone, so the deployer key, which is admin of every contract, does not have to be stored in GitHub. Address on both chains: `0x317a604e853af6C124a0C871783FAd2d797AfF76` ([Robinhood Chain testnet](https://explorer.testnet.chain.robinhood.com/address/0x317a604e853af6C124a0C871783FAd2d797AfF76), [Arbitrum Sepolia](https://sepolia.arbiscan.io/address/0x317a604e853af6C124a0C871783FAd2d797AfF76)).
+
+What [`scripts/keeper.sh`](../scripts/keeper.sh) sends, and the role each call needs:
+
+- `MirrorFeed.push`: `KEEPER_ROLE` on that feed ([`MirrorFeed.sol`](../contracts/src/testnet/MirrorFeed.sol)). Granted on every MirrorFeed whose symbol has a mainnet Chainlink feed: AMD, AMZN, PLTR and TSLA on Robinhood Chain testnet (one set of feeds for v2 and v3) and NVDA and TSLA on Arbitrum Sepolia. NFLX on 46630 has no mainnet feed, so the keeper never pushes it and the key has no role there.
+- `EpochManager.settle`, `StockOracle.recordSettlementPrice` and `recordSettlementPriceWithHints`: permissionless, no role.
+- Not granted: the EpochManagers' `KEEPER_ROLE` (it allows `setSigma` and `openEpoch`, which the keeper never calls), `GUARDIAN_ROLE` and `DEFAULT_ADMIN_ROLE`. An `eth_call` of the admin setter `setSpotBuffer` from the key reverts on all three EpochManagers.
+
+Every grant was sent by the deployer `0x26b2…13Ff`, which holds `DEFAULT_ADMIN_ROLE` on each feed:
+
+| Chain                           | What                                                                                                                                                  | Transaction (block)                                                                                                                               |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Robinhood Chain testnet (46630) | `KEEPER_ROLE` on the AMD MirrorFeed [`0xf7f6…fA4E`](https://explorer.testnet.chain.robinhood.com/address/0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E)  | [`0x7d41e022…`](https://explorer.testnet.chain.robinhood.com/tx/0x7d41e02285b791fb5ac91e39fe0b61a8c2c65953b9001605c15994f6f6121978) (127,773,237) |
+| Robinhood Chain testnet (46630) | `KEEPER_ROLE` on the AMZN MirrorFeed [`0x698a…6877`](https://explorer.testnet.chain.robinhood.com/address/0x698a624940DdAfA8380dbF933AbC1c2908796877) | [`0xb744d270…`](https://explorer.testnet.chain.robinhood.com/tx/0xb744d270fad2690774336866721f260254fd2372f33b9f91631e55b6d58c6a78) (127,773,265) |
+| Robinhood Chain testnet (46630) | `KEEPER_ROLE` on the PLTR MirrorFeed [`0x2992…5291`](https://explorer.testnet.chain.robinhood.com/address/0x2992a2661f4eb802EFF63a985914a80D262c5291) | [`0x958368a4…`](https://explorer.testnet.chain.robinhood.com/tx/0x958368a4402c551def55f220d228450e5d35b06c4244da8755b705caf3fdc858) (127,773,293) |
+| Robinhood Chain testnet (46630) | `KEEPER_ROLE` on the TSLA MirrorFeed [`0x5476…1230`](https://explorer.testnet.chain.robinhood.com/address/0x5476cb08769f406dE95F6171AcC1F5FE88431230) | [`0xdbae1bb9…`](https://explorer.testnet.chain.robinhood.com/tx/0xdbae1bb9ba98081da3547e590a65e43a836da0ed99e3739b476f89b3857e3603) (127,773,316) |
+| Robinhood Chain testnet (46630) | 0.002 ETH for gas                                                                                                                                     | [`0xc5e474d6…`](https://explorer.testnet.chain.robinhood.com/tx/0xc5e474d6cd4247e6ad3161871a60c8b3c22f34bbd83973935ef8b7ed41c9c8cc) (127,773,329) |
+| Arbitrum Sepolia (421614)       | `KEEPER_ROLE` on the NVDA MirrorFeed [`0x1B13…9aA1`](https://sepolia.arbiscan.io/address/0x1B137e5CB2c0153B4B3f1cbBC78DdECBa5569aA1)                  | [`0xcde1cd04…`](https://sepolia.arbiscan.io/tx/0xcde1cd040058c940505388c18e8497327488c5c07c3aec446b269ee05b586f6f) (315,105,295)                  |
+| Arbitrum Sepolia (421614)       | `KEEPER_ROLE` on the TSLA MirrorFeed [`0x85B9…0FFA`](https://sepolia.arbiscan.io/address/0x85B92cF975E3cf9Ad44c0664d6aF67f358360FFA)                  | [`0xd80ce44c…`](https://sepolia.arbiscan.io/tx/0xd80ce44c1d699cd0316f5abb7166e9e55546908dac9d1c7402acd6fd245b3db5) (315,105,319)                  |
+| Arbitrum Sepolia (421614)       | 0.005 ETH for gas                                                                                                                                     | [`0x25803ff6…`](https://sepolia.arbiscan.io/tx/0x25803ff60a08feae2350c4f7d672d0aa618fa4e6a1c68d7a5da09c04996decbf) (315,105,334)                  |
+
+Sent on 2 October 2026 between 21:01 and 21:03 UTC, after a dry run of the keeper on both chains showed nothing to push or settle, so no keeper transaction of the deployer's was in flight. Read back afterwards with `scripts/keeper-role.sh check`: `KEEPER_ROLE` true and `DEFAULT_ADMIN_ROLE` false on all six feeds; `KEEPER_ROLE`, `GUARDIAN_ROLE` and `DEFAULT_ADMIN_ROLE` false on all three EpochManagers; balance 0.002 ETH on 46630 and 0.005 ETH on 421614. At the gas prices of that day (0.01 gwei on 46630, about 0.04 gwei on 421614) a push costs about 100,000 gas, so either balance lasts for hundreds of pushes.
+
+Re-check with no key, and rotate by revoking the old address and granting a new one (with the deployer's `PRIVATE_KEY`), then replacing the secret:
+
+```bash
+CHAIN_ID=46630 scripts/keeper-role.sh check 0x317a604e853af6C124a0C871783FAd2d797AfF76
+CHAIN_ID=421614 scripts/keeper-role.sh check 0x317a604e853af6C124a0C871783FAd2d797AfF76
+CHAIN_ID=46630 scripts/keeper-role.sh revoke <old address>   # then: grant <new address>
+```
+
 ## Reviewer's checklist
 
 Each claim above, with the command that checks it. No keys needed.
