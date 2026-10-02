@@ -16,7 +16,7 @@ All routes run on Node.js on Vercel. "Cache" is what the route sends; on 2 Octob
 | GET    | [`/api/option/{id}/image`](../app/src/app/api/option/%5Bid%5D/image/route.ts#L6) | as above                                                                                                                                                                                                                                                                                                                                                                                                             | `image/svg+xml`, a 600×600 card of the series                                                                                                                                                                                                                                                 | as above on 200                                                                                                                               | None | `curl -s "https://strike-options.vercel.app/api/option/12213a7c8fce06dc524d6b13b0ad85c719845b038a004bf5259fc8587c9ef919/image?chainId=421614"`                             |
 | GET    | [`/api/rpc/{chainId}`](../app/src/app/api/rpc/%5BchainId%5D/route.ts#L92)        | `chainId`: 46630, 421614 or 4663                                                                                                                                                                                                                                                                                                                                                                                     | `{chainId, provider}`, where `provider` is `alchemy` or `public`. 404 for another chain                                                                                                                                                                                                       | `public, max-age=60, s-maxage=60`                                                                                                             | None | `curl -s https://strike-options.vercel.app/api/rpc/46630` (2 October: `"provider":"public"`, because no Alchemy key is set)                                                |
 | POST   | [`/api/rpc/{chainId}`](../app/src/app/api/rpc/%5BchainId%5D/route.ts#L50)        | A JSON-RPC call or batch (at most 100 calls, 256 KiB). Read methods only: `eth_call`, `eth_getLogs`, `eth_blockNumber`, `eth_getBlockByNumber`, `eth_chainId`, `eth_getTransactionReceipt`, `eth_getBalance`, `eth_getCode`, `eth_estimateGas`, `eth_gasPrice`, `eth_feeHistory`, `eth_maxPriorityFeePerGas`, `eth_getTransactionByHash`, `eth_getStorageAt`, `net_version` ([list](../app/src/lib/rpc/proxy.ts#L9)) | The JSON-RPC answer; header `X-Strike-Rpc` is `alchemy`, `public`, `alchemy+public`, `cache` or `none`. Any other method gets error -32601. 413 over the limits, 400 on a parse error, 502 if no upstream answers                                                                             | `no-store`; calls pinned to a block are reused for 30 s per instance. No CORS headers, so other sites' pages cannot use it                    | None | `curl -s -X POST -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' https://strike-options.vercel.app/api/rpc/46630` |
-| POST   | [`/api/mcp`](../app/src/app/api/mcp/route.ts#L30)                                | MCP JSON-RPC (see [Remote MCP](#remote-mcp))                                                                                                                                                                                                                                                                                                                                                                         | MCP JSON-RPC answers as JSON. GET and DELETE return 405 with `Allow: POST`; OPTIONS returns the CORS headers                                                                                                                                                                                  | `no-store`                                                                                                                                    | None | See [Remote MCP](#remote-mcp)                                                                                                                                              |
+| POST   | [`/api/mcp`](../app/src/app/api/mcp/route.ts#L32)                                | MCP JSON-RPC (see [Remote MCP](#remote-mcp)); query `chainId` (optional): 46630 or 421614; `version` (optional): `v2` or `v3`                                                                                                                                                                                                                                                                                        | MCP JSON-RPC answers as JSON. GET and DELETE return 405 with `Allow: POST`; OPTIONS returns the CORS headers                                                                                                                                                                                  | `no-store`                                                                                                                                    | None | See [Remote MCP](#remote-mcp)                                                                                                                                              |
 
 Known limits, found while writing this page:
 
@@ -32,20 +32,32 @@ Known limits, found while writing this page:
 
 ## Remote MCP
 
-`POST https://strike-options.vercel.app/api/mcp` is a stateless Streamable HTTP MCP server ([`mcp/src/http.ts`](../mcp/src/http.ts#L135)): a fresh server per request, JSON answers, no session id. It is read-only twice over: only tools marked `readOnlyHint` are registered ([`server.ts`](../mcp/src/server.ts#L628)), and its RPC transport refuses every method except `eth_chainId`, `eth_blockNumber`, `eth_call`, `eth_getBlockByNumber`, `eth_getLogs`, `eth_getBalance` and `eth_getCode` ([`http.ts`](../mcp/src/http.ts#L35)). It holds no key. It reads Robinhood Chain testnet (46630) through the SDK's default deployment for that chain, which is v2: on 2 October `list_vaults` returned the three v2 vaults (`0xADFF…1D4e`, `0xE33E…67d7` and agent #2's `0x8aEb…6969`). Clients that send only `Accept: application/json` are accepted. Resource: `strike://skill`. No prompts.
+`POST https://strike-options.vercel.app/api/mcp` is a stateless Streamable HTTP MCP server ([`mcp/src/http.ts`](../mcp/src/http.ts#L203)): a fresh server per request, JSON answers, no session id. It is read-only twice over: only tools marked `readOnlyHint` are registered ([`server.ts`](../mcp/src/server.ts#L662)), and its RPC transport refuses every method except `eth_chainId`, `eth_blockNumber`, `eth_call`, `eth_getBlockByNumber`, `eth_getLogs`, `eth_getBalance` and `eth_getCode` ([`http.ts`](../mcp/src/http.ts#L55)). It holds no key. Clients that send only `Accept: application/json` are accepted. Resource: `strike://skill`. No prompts.
+
+Each request picks what it reads with the URL's query ([`mcpTarget`](../mcp/src/http.ts#L174)):
+
+| Query                       | Reads                                                                         |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| none                        | Robinhood Chain testnet (46630), every deployment: v2 (the default) and v3    |
+| `?version=v3` or `v2`       | One deployment on 46630                                                       |
+| `?chainId=421614`           | Arbitrum Sepolia, v3                                                          |
+| `?chainId=46630&version=v3` | v3 on 46630 only                                                              |
+| another chain or version    | 400 with a JSON-RPC error (`-32602`) that names the chains or versions it has |
+
+With several deployments, `list_vaults` lists them all: a `deployments` array (version, `EpochManager`, vault count, and an error if one could not be read) and every vault labelled with `chainId` and `version`. A tool given a vault address reads it through the deployment its `manager()` names, `quote` and `series_risk` find a series id in the deployment that has it, and `hedge_plan` considers every deployment's vaults on the stock. A share symbol that two deployments share (`sTSLA-CC` is a v2 and a v3 vault on 46630) means the default deployment's vault; pass the address for the other. Agent ids are per deployment: `agent_stats` reads the default one's registry unless given `version` or a vault.
 
 | Tool                                        | What it returns                                                                                           | Required input |
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------- | -------------- |
-| [`strike_info`](../mcp/src/server.ts#L660)  | The protocol, the connected chain, the mode, the known chains                                             | none           |
-| [`list_vaults`](../mcp/src/server.ts#L705)  | Every vault with its state, mandate and live series                                                       | none           |
-| [`vault_state`](../mcp/src/server.ts#L722)  | One vault: spot and oracle status, market hours, next expiry, agent, next step                            | `vault`        |
-| [`quote`](../mcp/src/server.ts#L795)        | The USDG premium for N options of the live series or a given series                                       | `amount`       |
-| [`hedge_plan`](../mcp/src/server.ts#L861)   | The puts or calls that hedge a stock-token position; sends nothing                                        | `position`     |
-| [`risk_check`](../mcp/src/server.ts#L1290)  | A dry run of a proposal through the contract's `previewProposal`                                          | `vault`        |
-| [`agent_stats`](../mcp/src/server.ts#L1516) | An agent's bond, strikes, proposals and track record                                                      | none           |
-| [`series_risk`](../mcp/src/server.ts#L1570) | Greeks, exposure, the ±30% stress test and the last buy's implied volatility, from the Stylus risk engine | none           |
+| [`strike_info`](../mcp/src/server.ts#L775)  | The protocol, the connected chain and the deployments it reads, the mode, the known chains                | none           |
+| [`list_vaults`](../mcp/src/server.ts#L828)  | Every vault of every deployment read, with its chain, version, state, mandate and live series             | none           |
+| [`vault_state`](../mcp/src/server.ts#L864)  | One vault: spot and oracle status, market hours, next expiry, agent, next step                            | `vault`        |
+| [`quote`](../mcp/src/server.ts#L938)        | The USDG premium for N options of the live series or a given series                                       | `amount`       |
+| [`hedge_plan`](../mcp/src/server.ts#L1008)  | The puts or calls that hedge a stock-token position; sends nothing                                        | `position`     |
+| [`risk_check`](../mcp/src/server.ts#L1461)  | A dry run of a proposal through the contract's `previewProposal`                                          | `vault`        |
+| [`agent_stats`](../mcp/src/server.ts#L1691) | An agent's bond, strikes, proposals and track record; `version` picks the deployment for an `agentId`     | none           |
+| [`series_risk`](../mcp/src/server.ts#L1756) | Greeks, exposure, the ±30% stress test and the last buy's implied volatility, from the Stylus risk engine | none           |
 
-On 2 October `tools/list` returned exactly these eight, all marked `readOnlyHint: true`, and a GET returned 405.
+On 2 October `tools/list` returned exactly these eight, all marked `readOnlyHint: true`, and a GET returned 405. At about 15:08 UTC that day `list_vaults` on the default URL returned the three v2 vaults (`0xADFF…1D4e`, `0xE33E…67d7` and agent #2's `0x8aEb…6969`) and the two v3 vaults (`0x478E…6285`, `0x1bc7…3690`); `?chainId=46630&version=v3` returned the two v3 vaults alone, `?chainId=421614` the two Arbitrum Sepolia vaults (`0x5655…7311`, `0x02B7…9bbe`), and `?chainId=421614&version=v2` a 400.
 
 ```bash
 curl -s -X POST https://strike-options.vercel.app/api/mcp \
@@ -54,31 +66,35 @@ curl -s -X POST https://strike-options.vercel.app/api/mcp \
 curl -s -X POST https://strike-options.vercel.app/api/mcp \
   -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
   --data '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"list_vaults","arguments":{}}}'
+curl -s -X POST 'https://strike-options.vercel.app/api/mcp?chainId=46630&version=v3' \
+  -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+  --data '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_vaults","arguments":{}}}'
 ```
 
 ## Stdio MCP server
 
-`npx -y @strike-options/mcp` (in the repository: `pnpm --filter @strike/mcp dev`), from [`mcp/src/index.ts`](../mcp/src/index.ts). Settings ([`config.ts`](../mcp/src/config.ts#L32)):
+`npx -y @strike-options/mcp` (in the repository: `pnpm --filter @strike/mcp dev`), from [`mcp/src/index.ts`](../mcp/src/index.ts). Settings ([`config.ts`](../mcp/src/config.ts#L41)):
 
 | Variable                                             | Effect                                                                                                      |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `STRIKE_CHAIN_ID`                                    | Chain to use; default 46630 (`421614` for Arbitrum Sepolia)                                                 |
+| `STRIKE_DEPLOYMENT_VERSION`                          | `v2` or `v3`: which of the chain's deployments to use (v3 on 46630); default the SDK's default deployment   |
 | `STRIKE_AGENT_PRIVATE_KEY`                           | The agent's signer key (0x and 64 hex characters). Without it the write tools are listed but refuse to send |
 | `STRIKE_MCP_READ_ONLY`                               | `1` or `true`: only the eight read tools are registered and the key is never loaded                         |
-| `ALCHEMY_API_KEY`, `STRIKE_RPC_URL`                  | RPC choice through the SDK's [`rpcEndpointsFor`](../sdk/src/rpc.ts#L93); the public RPC otherwise           |
-| `STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, ... | Address overrides, for example to point at v3 on 46630 ([list](../sdk/src/deployments.ts#L75))              |
+| `ALCHEMY_API_KEY`, `STRIKE_RPC_URL`                  | RPC choice through the SDK's [`rpcEndpointsFor`](../sdk/src/rpc.ts#L101); the public RPC otherwise          |
+| `STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, ... | Address overrides of the default deployment ([list](../sdk/src/deployments.ts#L75))                         |
 
 The eight read tools above, plus seven write tools:
 
 | Tool                                           | What it does                                                                                                 | Main input                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
-| [`buy_options`](../mcp/src/server.ts#L1045)    | Approves USDG and buys options with a slippage bound                                                         | `vault`, `amount`, `maxSlippageBps` (default 100)           |
-| [`redeem_options`](../mcp/src/server.ts#L1174) | Redeems settled or cancelled options                                                                         | `vault` or `seriesId`                                       |
-| [`propose_epoch`](../mcp/src/server.ts#L1303)  | Opens the epoch if idle, then `proposeByDelta` or `proposeSeries`; refuses a failing proposal unless `force` | `vault`, `targetDeltaBps` or `strike`, `premiumBps`, `size` |
-| [`settle_epoch`](../mcp/src/server.ts#L1455)   | Settles an expired series, finding the settlement round itself                                               | `vault`, optional `roundId`                                 |
-| [`register_agent`](../mcp/src/server.ts#L1607) | Registers this wallet as an agent and optionally bonds (v2 and v3)                                           | `payout`, `erc8004Id`, `bond`, `dryRun`                     |
-| [`set_signer`](../mcp/src/server.ts#L1791)     | Rotates an agent's signer key; on v3 with the new key's EIP-712 consent                                      | `agentId`, `signer`, `consentSignature`                     |
-| [`create_vault`](../mcp/src/server.ts#L1947)   | `VaultFactory.createVault` with a mandate, checked against the protocol floors first                         | `underlying`, `kind` (`call` or `put`), `mandate`           |
+| [`buy_options`](../mcp/src/server.ts#L1216)    | Approves USDG and buys options with a slippage bound                                                         | `vault`, `amount`, `maxSlippageBps` (default 100)           |
+| [`redeem_options`](../mcp/src/server.ts#L1345) | Redeems settled or cancelled options                                                                         | `vault` or `seriesId`                                       |
+| [`propose_epoch`](../mcp/src/server.ts#L1478)  | Opens the epoch if idle, then `proposeByDelta` or `proposeSeries`; refuses a failing proposal unless `force` | `vault`, `targetDeltaBps` or `strike`, `premiumBps`, `size` |
+| [`settle_epoch`](../mcp/src/server.ts#L1630)   | Settles an expired series, finding the settlement round itself                                               | `vault`, optional `roundId`                                 |
+| [`register_agent`](../mcp/src/server.ts#L1797) | Registers this wallet as an agent and optionally bonds (v2 and v3)                                           | `payout`, `erc8004Id`, `bond`, `dryRun`                     |
+| [`set_signer`](../mcp/src/server.ts#L1981)     | Rotates an agent's signer key; on v3 with the new key's EIP-712 consent                                      | `agentId`, `signer`, `consentSignature`                     |
+| [`create_vault`](../mcp/src/server.ts#L2137)   | `VaultFactory.createVault` with a mandate, checked against the protocol floors first                         | `underlying`, `kind` (`call` or `put`), `mandate`           |
 
 ```bash
 STRIKE_MCP_READ_ONLY=1 npx -y @strike-options/mcp                        # read tools only, no key

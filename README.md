@@ -264,7 +264,7 @@ Checked against this repository and the chains on 2026-10-01. The milestone plan
 - A `SafeStockFeed` conformance suite of 21 rules that any oracle wrapper can inherit and run ([`contracts/test/conformance`](contracts/test/conformance)).
 - The app at [strike-options.vercel.app](https://strike-options.vercel.app), including the mandate playground (no wallet), the mainnet stock-token monitor, the proof page and a glossary of 27 terms ([`/app/glossary`](https://strike-options.vercel.app/app/glossary)), each also shown on hover or tap where the term appears. It reads Robinhood Chain testnet (v2 and v3) and Arbitrum Sepolia (v3).
 - Self-serve agent onboarding (register, bond, create a vault) from the app, the SDK, the MCP server and the example agent. There is no allow-list ([how](#run-your-own-agent), [agent #2 joined this way](docs/testnet-epochs/2026-10-01-agent2.md)).
-- Agent onboarding by URL: a read-only MCP endpoint at `https://strike-options.vercel.app/api/mcp`, and the skill file at [`/skill.md`](https://strike-options.vercel.app/skill.md) and [`/llms.txt`](https://strike-options.vercel.app/llms.txt) ([every endpoint](docs/ENDPOINTS.md)).
+- Agent onboarding by URL: a read-only MCP endpoint at `https://strike-options.vercel.app/api/mcp` that reads v2 and v3 on Robinhood Chain testnet (`?chainId=421614` for Arbitrum Sepolia, `?version=v3` for one deployment), and the skill file at [`/skill.md`](https://strike-options.vercel.app/skill.md) and [`/llms.txt`](https://strike-options.vercel.app/llms.txt) ([every endpoint](docs/ENDPOINTS.md)).
 - [`scripts/demo-local.sh`](scripts/demo-local.sh): a full week on a local anvil chain. CI runs it once out of the money and once in the money.
 - The test suites in [Evidence in numbers](#evidence-in-numbers). The [claims table](#claims-and-the-tests-that-check-them) maps each headline claim to one test and one command.
 
@@ -924,7 +924,7 @@ STRIKE_MCP_READ_ONLY=1 npx -y @strike-options/mcp             # MCP over stdio: 
 STRIKE_CHAIN_ID=421614 STRIKE_MCP_READ_ONLY=1 npx -y @strike-options/mcp   # the same on Arbitrum Sepolia
 ```
 
-The MCP server reads Robinhood Chain testnet (46630) by default and needs no key: without `STRIKE_AGENT_PRIVATE_KEY` the write tools are listed but refuse to send, and `STRIKE_MCP_READ_ONLY=1` leaves them out. Claude Code: `claude mcp add strike -e STRIKE_MCP_READ_ONLY=1 -- npx -y @strike-options/mcp`. The [SDK README](sdk/README.md) reads the TSLA covered-call vault and a quote in ten lines; the [MCP README](mcp/README.md) has the Claude Desktop config for both chains.
+The MCP server reads Robinhood Chain testnet (46630) by default and needs no key: without `STRIKE_AGENT_PRIVATE_KEY` the write tools are listed but refuse to send, and `STRIKE_MCP_READ_ONLY=1` leaves them out. `STRIKE_DEPLOYMENT_VERSION=v3` picks v3 on 46630 (default v2); the hosted endpoint reads both, and its query picks a chain or deployment ([how](docs/ENDPOINTS.md#remote-mcp)). Claude Code: `claude mcp add strike -e STRIKE_MCP_READ_ONLY=1 -- npx -y @strike-options/mcp`. The [SDK README](sdk/README.md) reads the TSLA covered-call vault and a quote in ten lines; the [MCP README](mcp/README.md) has the Claude Desktop config for both chains.
 
 ## Run your own agent
 

@@ -14,14 +14,15 @@ npx -y @strike-options/mcp
 
 It speaks MCP over stdio. With no configuration it reads Strike v2 on Robinhood Chain testnet (46630) through the chain's public RPC, and needs no key.
 
-| Variable                   | Default                       | What it does                                                                                   |
-| -------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| `STRIKE_CHAIN_ID`          | `46630`                       | `46630` (Robinhood Chain testnet, v2) or `421614` (Arbitrum Sepolia, v3)                       |
-| `STRIKE_RPC_URL`           | the chain's public RPC        | Your own RPC endpoint                                                                          |
-| `ALCHEMY_API_KEY`          | unset                         | Read and send through Alchemy (key sent in a header), with the public RPC as fallback          |
-| `STRIKE_MCP_READ_ONLY`     | unset                         | `1`: register only the read tools and never load a key                                         |
-| `STRIKE_AGENT_PRIVATE_KEY` | unset                         | The agent signer's key (0x + 64 hex). Without it the write tools are listed but refuse to send |
-| `STRIKE_SKILL_PATH`        | the bundled `STRIKE_SKILL.md` | Another file for the `strike://skill` resource                                                 |
+| Variable                    | Default                       | What it does                                                                                   |
+| --------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| `STRIKE_CHAIN_ID`           | `46630`                       | `46630` (Robinhood Chain testnet, v2) or `421614` (Arbitrum Sepolia, v3)                       |
+| `STRIKE_DEPLOYMENT_VERSION` | the chain's default           | `v2` or `v3`: one of the chain's deployments (`v3` reads v3 on Robinhood Chain testnet)        |
+| `STRIKE_RPC_URL`            | the chain's public RPC        | Your own RPC endpoint                                                                          |
+| `ALCHEMY_API_KEY`           | unset                         | Read and send through Alchemy (key sent in a header), with the public RPC as fallback          |
+| `STRIKE_MCP_READ_ONLY`      | unset                         | `1`: register only the read tools and never load a key                                         |
+| `STRIKE_AGENT_PRIVATE_KEY`  | unset                         | The agent signer's key (0x + 64 hex). Without it the write tools are listed but refuse to send |
+| `STRIKE_SKILL_PATH`         | the bundled `STRIKE_SKILL.md` | Another file for the `strike://skill` resource                                                 |
 
 Read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats`, `series_risk`. Write tools (need `STRIKE_AGENT_PRIVATE_KEY`): `propose_epoch`, `settle_epoch`, `buy_options`, `redeem_options`, `register_agent`, `set_signer`, `create_vault`. The `strike://skill` resource is [STRIKE_SKILL.md](https://strike-options.vercel.app/skill.md): the mandate rules, slashing and a safe proposal loop. Read it first.
 
@@ -57,10 +58,11 @@ To act as a vault agent, drop `STRIKE_MCP_READ_ONLY` and set `STRIKE_AGENT_PRIVA
 
 ## Nothing to install
 
-A hosted read-only server (Streamable HTTP, stateless, no keys) runs at `https://strike-options.vercel.app/api/mcp`:
+A hosted read-only server (Streamable HTTP, stateless, no keys) runs at `https://strike-options.vercel.app/api/mcp`. It reads every deployment on Robinhood Chain testnet (v2 and v3; `list_vaults` labels each vault with `chainId` and `version`). The query picks one chain or deployment: `?chainId=421614` for Arbitrum Sepolia, `?version=v3` for v3 alone.
 
 ```bash
 claude mcp add --transport http strike https://strike-options.vercel.app/api/mcp
+claude mcp add --transport http strike-arbitrum 'https://strike-options.vercel.app/api/mcp?chainId=421614'
 ```
 
 ## As a library

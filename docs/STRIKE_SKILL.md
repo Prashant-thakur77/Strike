@@ -17,11 +17,11 @@ The MCP server exposes this skill as the resource `strike://skill`.
 
 Strike runs on two testnets. The deployment is chosen with environment variables, and every tool works on each; `register_agent` and `set_signer` read the registry's version and send v2's or v3's call (see below).
 
-| Network                         | Deployment                                                                                                                                  | How to reach it                                                                                                                                   | Agent #1 on ERC-8004 |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| Robinhood Chain testnet (46630) | v2, block 125,880,607, `EpochManager` `0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99`                                                          | The default (`STRIKE_CHAIN_ID=46630`, the SDK's `46630` entry). The remote MCP endpoint reads this one                                            | #114                 |
-| Robinhood Chain testnet (46630) | v3, block 126,713,718, `EpochManager` `0x256D4546486368dCb23E94758b4cb500c215929F`, `RiskLens` `0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D` | `STRIKE_CHAIN_ID=46630` plus the SDK's address overrides (`STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, … and `STRIKE_DEPLOY_BLOCK=126713718`) | #114                 |
-| Arbitrum Sepolia (421614)       | v3, block 314,350,623, `EpochManager` `0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0`, `RiskLens` `0x94aC10fF1A71ceBfD825079aaf897858a9953ecE` | `STRIKE_CHAIN_ID=421614` (the SDK's `421614` entry). TSLA and NVDA there are test tokens with a faucet; USDG is Paxos's Sepolia USDG              | #253                 |
+| Network                         | Deployment                                                                                                                                  | How to reach it                                                                                                                                                 | Agent #1 on ERC-8004 |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| Robinhood Chain testnet (46630) | v2, block 125,880,607, `EpochManager` `0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99`                                                          | The default (`STRIKE_CHAIN_ID=46630`, the SDK's `46630` entry). The remote MCP endpoint reads it and v3 (below)                                                 | #114                 |
+| Robinhood Chain testnet (46630) | v3, block 126,713,718, `EpochManager` `0x256D4546486368dCb23E94758b4cb500c215929F`, `RiskLens` `0xFDb8Ba33f4aAF1A699f1D5877E8ee5b6eDeDCc6D` | MCP server: `STRIKE_DEPLOYMENT_VERSION=v3`; remote: `?version=v3`. SDK: the address overrides (`STRIKE_EPOCH_MANAGER`, … `STRIKE_DEPLOY_BLOCK=126713718`)       | #114                 |
+| Arbitrum Sepolia (421614)       | v3, block 314,350,623, `EpochManager` `0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0`, `RiskLens` `0x94aC10fF1A71ceBfD825079aaf897858a9953ecE` | `STRIKE_CHAIN_ID=421614` (the SDK's `421614` entry); remote: `?chainId=421614`. TSLA and NVDA there are test tokens with a faucet; USDG is Paxos's Sepolia USDG | #253                 |
 
 The full override list for v3 on Robinhood Chain testnet is in the [v3 epoch log](https://github.com/Prashant-thakur77/Strike/blob/main/docs/testnet-epochs/2026-09-30-v3.md#7-live-epoch-1-october), and every address is in [`contracts/deployments`](https://github.com/Prashant-thakur77/Strike/tree/main/contracts/deployments) (`46630.json`, `46630-v3.json`, `421614.json`). The SDK's `46630` entry switches to v3 after v2's series settles on Friday 2 October.
 
@@ -133,7 +133,12 @@ This skill is served at `https://strike-options.vercel.app/skill.md`, with an in
 https://strike-options.vercel.app/api/mcp
 ```
 
-It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It reads the v2 deployment on Robinhood Chain testnet (46630) and exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats` and `series_risk`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
+It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats` and `series_risk`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
+
+By default it reads every deployment on Robinhood Chain testnet (46630), v2 and v3. `list_vaults` labels each vault with its `chainId` and `version`, and a tool given a vault address reads it in that vault's own deployment. The URL's query narrows it: `?chainId=421614` reads Arbitrum Sepolia, `?version=v3` (or `v2`) one deployment, for example `https://strike-options.vercel.app/api/mcp?chainId=46630&version=v3`. Two things differ between deployments:
+
+- Share symbols repeat: `sTSLA-CC` is both a v2 and a v3 vault on 46630. A symbol means the default (v2) deployment's vault, so pass the address for the v3 one, or use `?version=v3`.
+- Agent ids are per deployment: `agent_stats { "agentId": 2 }` reads v2's registry, `agent_stats { "agentId": 2, "version": "v3" }` v3's.
 
 Claude Desktop (`claude_desktop_config.json`, through the `mcp-remote` bridge; or add the URL as a custom connector under Settings → Connectors):
 
@@ -158,7 +163,7 @@ curl -s https://strike-options.vercel.app/api/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_vaults","arguments":{}}}'
 ```
 
-To register, bond, propose, settle or buy, run the MCP server over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY`: `npx -y @strike-options/mcp` from npm ([package](https://www.npmjs.com/package/@strike-options/mcp)), or from the repository `pnpm --filter @strike/mcp dev` (or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there; without a key they are listed but refuse to send. The same server with `STRIKE_MCP_READ_ONLY=1` registers only the read tools and never loads a key; with `STRIKE_CHAIN_ID=421614`, or the v3 overrides above, it reads v3 instead. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
+To register, bond, propose, settle or buy, run the MCP server over stdio with your own key in `STRIKE_AGENT_PRIVATE_KEY`: `npx -y @strike-options/mcp` from npm ([package](https://www.npmjs.com/package/@strike-options/mcp)), or from the repository `pnpm --filter @strike/mcp dev` (or `node mcp/dist/index.js` after a build). The write tools in the table below exist only there; without a key they are listed but refuse to send. The same server with `STRIKE_MCP_READ_ONLY=1` registers only the read tools and never loads a key; with `STRIKE_CHAIN_ID=421614`, or `STRIKE_DEPLOYMENT_VERSION=v3` on 46630, it reads v3 instead. `node mcp/scripts/remote-check.mjs [url]` checks a remote endpoint with the official MCP client.
 
 ## Tools
 
