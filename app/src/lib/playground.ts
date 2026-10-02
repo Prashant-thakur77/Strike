@@ -19,16 +19,8 @@ import {
   type StrikeClient,
   type VaultState,
 } from "@strike/sdk";
-import {
-  createPublicClient,
-  formatUnits,
-  getAddress,
-  http,
-  type Abi,
-  type Address,
-  type PublicClient,
-} from "viem";
-import { RPC_OVERRIDES } from "@/lib/chains";
+import { createPublicClient, formatUnits, getAddress, type Abi, type Address, type PublicClient } from "viem";
+import { readTransport } from "@/lib/rpc/client";
 import {
   decodeRevertWith,
   parseDecimal,
@@ -96,7 +88,7 @@ export function playgroundClient(): StrikeClient {
   if (!strike) {
     const publicClient = createPublicClient({
       chain: PLAYGROUND_CHAIN,
-      transport: http(RPC_OVERRIDES[PLAYGROUND_CHAIN_ID] ?? PLAYGROUND_RPC, {
+      transport: readTransport(PLAYGROUND_CHAIN_ID, {
         timeout: 20_000,
         retryCount: 2,
       }),

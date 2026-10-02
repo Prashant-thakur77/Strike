@@ -1,6 +1,7 @@
 import { epochManagerAbi } from "@strike/sdk";
-import { createPublicClient, erc20Abi, http, zeroAddress, type Address } from "viem";
-import { DEFAULT_CHAIN_ID, RPC_OVERRIDES, getAppChain, isAppChainId, type AppChainId } from "./chains";
+import { createPublicClient, erc20Abi, zeroAddress, type Address } from "viem";
+import { DEFAULT_CHAIN_ID, getAppChain, isAppChainId, type AppChainId } from "./chains";
+import { serverReadTransport } from "./rpc/server";
 import { findDeployment } from "./deployment";
 import { toNumber } from "./format";
 
@@ -49,7 +50,7 @@ export async function loadOption(chainId: AppChainId, raw: string): Promise<Opti
   const { id, hex } = parseOptionId(raw);
   const dep = findDeployment(chainId);
   if (!dep) throw new OptionMetaError(`Strike is not deployed on chain ${chainId}`, 404);
-  const client = createPublicClient({ chain: getAppChain(chainId), transport: http(RPC_OVERRIDES[chainId]) });
+  const client = createPublicClient({ chain: getAppChain(chainId), transport: serverReadTransport(chainId) });
   let series;
   try {
     series = await client.readContract({

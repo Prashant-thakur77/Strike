@@ -8,6 +8,7 @@ import { errorMessage } from "@/hooks/useTx";
 import { DEPLOYMENT, explorerAddress } from "@/lib/proof";
 import { Skeleton } from "../Skeleton";
 import { testnetClient } from "../activity/client";
+import { RpcSource } from "./RpcSource";
 import styles from "./proof.module.css";
 
 /** Reads `EpochManager.pricer()` on Robinhood Chain testnet and says which pricer it is. */
@@ -45,6 +46,7 @@ export function ActivePricer() {
       <div className={styles.pricerCall}>
         <span className="micro micro-muted">Read on-chain now</span>
         <code className={`mono ${styles.pricerFn}`}>EpochManager.pricer()</code>
+        <RpcSource chainId={46630} />
       </div>
       <div className={styles.pricerResult}>
         {q.data ? (

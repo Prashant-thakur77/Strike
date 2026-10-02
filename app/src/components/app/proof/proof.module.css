@@ -169,6 +169,23 @@
   overflow-wrap: anywhere;
 }
 
+.rpcSource {
+  justify-self: start;
+  padding: 2px 8px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  color: var(--fg-muted);
+  font-size: var(--fs-label);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.rpcSource[data-provider="alchemy"] {
+  border-color: var(--mint);
+  color: var(--mint);
+}
+
 .pricerResult {
   display: grid;
   gap: 10px;

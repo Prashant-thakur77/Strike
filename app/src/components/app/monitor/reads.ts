@@ -1,14 +1,13 @@
-import { createPublicClient, http, parseAbi, type Address, type PublicClient } from "viem";
+import { createPublicClient, parseAbi, type Address, type PublicClient } from "viem";
 import { robinhood } from "viem/chains";
-import { RPC_OVERRIDES } from "@/lib/chains";
 import {
   MONITOR_CHAIN_ID,
-  MONITOR_RPC,
   MONITOR_TOKENS,
   type MonitorToken,
   type RoundData,
   type TokenReads,
 } from "@/lib/monitor";
+import { readTransport } from "@/lib/rpc/client";
 
 // Own mainnet client: the monitor never follows the app's selected chain (wagmi), it always reads chain 4663.
 let client: PublicClient | null = null;
@@ -16,7 +15,7 @@ let client: PublicClient | null = null;
 export function monitorClient(): PublicClient {
   client ??= createPublicClient({
     chain: robinhood,
-    transport: http(RPC_OVERRIDES[MONITOR_CHAIN_ID] ?? MONITOR_RPC, { timeout: 20_000, retryCount: 2 }),
+    transport: readTransport(MONITOR_CHAIN_ID, { timeout: 20_000, retryCount: 2 }),
   }) as PublicClient;
   return client;
 }

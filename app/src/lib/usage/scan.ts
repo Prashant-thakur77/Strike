@@ -5,9 +5,9 @@ import {
   strikeVaultAbi,
   vaultFactoryAbi,
 } from "@strike/sdk";
-import { createPublicClient, decodeEventLog, erc20Abi, http, type Abi, type Address, type Log } from "viem";
+import { createPublicClient, decodeEventLog, erc20Abi, type Abi, type Address, type Log } from "viem";
 import { scanLogs } from "../activity";
-import { CHAIN_META, RPC_OVERRIDES, getAppChain, isAppChainId, type AppChainId } from "../chains";
+import { CHAIN_META, getAppChain, isAppChainId, type AppChainId } from "../chains";
 import {
   chainDeployments,
   deployedChainIds,
@@ -15,6 +15,7 @@ import {
   fromBlock,
   type Deployment,
 } from "../deployment";
+import { serverReadTransport } from "../rpc/server";
 import { vaultSummary } from "../reads";
 import {
   aggregateUsage,
@@ -79,7 +80,9 @@ function decode(log: Log, source: UsageSource): UsageLog | null {
 /** Logs, value locked and USDG decimals of one deployment, read up to the chain head. */
 export async function readDeployment(chainId: AppChainId, dep: Deployment): Promise<DeploymentInput> {
   const chain = getAppChain(chainId);
-  const client = createPublicClient({ chain, transport: http(RPC_OVERRIDES[chainId], { retryCount: 2 }) });
+  // Alchemy first when the server has ALCHEMY_API_KEY (its free tier refuses 500k-block log ranges, so those calls
+  // fall back to the public RPC on their own), else the public RPC or NEXT_PUBLIC_RPC_<chainId>.
+  const client = createPublicClient({ chain, transport: serverReadTransport(chainId, { retryCount: 2 }) });
   const from = fromBlock(dep);
   const head = await client.getBlockNumber();
 

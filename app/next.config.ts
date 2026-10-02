@@ -3,6 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@strike/sdk", "@strike/mcp"],
+  // Whether browsers read through /api/rpc, the server-side Alchemy proxy: on when the build sees ALCHEMY_API_KEY
+  // (Vercel exposes its env vars to builds), or forced with NEXT_PUBLIC_STRIKE_RPC_PROXY=1/0. Only this flag is
+  // inlined into the bundle; the key itself is read by the server at request time (src/lib/rpc/server.ts).
+  env: {
+    NEXT_PUBLIC_STRIKE_RPC_PROXY:
+      process.env.NEXT_PUBLIC_STRIKE_RPC_PROXY ?? (process.env.ALCHEMY_API_KEY?.trim() ? "1" : "0"),
+  },
   // The workspace SDK is consumed from source through its "strike-source" export condition, and its ESM imports
   // use ".js" specifiers for ".ts" files. Turbopack supports neither, so the app builds with webpack.
   webpack: (config) => {

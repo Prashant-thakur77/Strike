@@ -8,7 +8,7 @@ import {
   multicall3Abi,
   type Hex,
 } from "viem";
-import { acknowledge, horizontalOverflow, settle } from "./helpers";
+import { acknowledge, horizontalOverflow, rpcTraffic, settle } from "./helpers";
 
 // "Why this strike" on the live TSLA covered-call vaults: v2 on Robinhood Chain testnet (46630), whose first epoch
 // was run by hand and whose epoch log is anchored in the v2 DecisionLog, and v3 on Arbitrum Sepolia (421614), whose
@@ -259,7 +259,7 @@ test("a later record for the same epoch (the settlement's) does not break the ch
     );
     return encodeFunctionResult({ abi: multicall3Abi, functionName: "aggregate3", result: patched });
   };
-  await page.route(c.rpc, async (route) => {
+  await page.route(rpcTraffic(c.chainId, c.rpc), async (route) => {
     if (!route.request().postData()?.includes(LATEST_HASH.slice(2))) return route.continue();
     const body = route.request().postDataJSON() as Rpc | Rpc[];
     const calls = Array.isArray(body) ? body : [body];

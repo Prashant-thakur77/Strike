@@ -127,3 +127,12 @@ export async function revealAll(page: Page) {
 export async function settle(page: Page, ms = 900) {
   await page.waitForTimeout(ms);
 }
+
+/**
+ * Matches a chain's RPC traffic from the page: the public RPC, and /api/rpc/<chainId> when the build reads through
+ * the server-side proxy (NEXT_PUBLIC_STRIKE_RPC_PROXY=1, on whenever the build sees ALCHEMY_API_KEY).
+ */
+export const rpcTraffic =
+  (chainId: number, rpcUrl: string) =>
+  (url: URL): boolean =>
+    url.href.startsWith(rpcUrl) || url.pathname === `/api/rpc/${chainId}`;

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, statSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { expect, test } from "@playwright/test";
-import { acknowledge, horizontalOverflow, revealAll, settle } from "./helpers";
+import { acknowledge, horizontalOverflow, revealAll, rpcTraffic, settle } from "./helpers";
 
 // /app/proof and the live ActivityFeed. The live checks read Robinhood Chain testnet (46630) and skip when its RPC
 // is unreachable. Set PROOF_SHOTS=<dir> to also save full-page screenshots of the page.
@@ -123,6 +123,18 @@ test("proof: layout fits the viewport with no horizontal scroll", async ({ page 
   expect(unnamed).toBe(0);
 });
 
+test("proof: says which RPC the live reads use", async ({ page }) => {
+  await page.goto("/app/proof");
+  const note = page.getByTestId("rpc-source");
+  await expect(note).toBeVisible();
+  // "public" unless the build had ALCHEMY_API_KEY and /api/rpc reports that Alchemy answers.
+  await expect(note).not.toHaveAttribute("data-provider", "checking", { timeout: 30_000 });
+  const provider = await note.getAttribute("data-provider");
+  expect(["alchemy", "public"]).toContain(provider);
+  await expect(note).toHaveText(provider === "alchemy" ? "RPC: Alchemy" : "RPC: public");
+  await expect(note).toHaveAttribute("title", /.+/);
+});
+
 test("proof: live feed shows the known transactions and the Stylus pricer is active", async ({
   page,
 }, info) => {
@@ -171,7 +183,7 @@ test("activity: the scan halves its range when the RPC refuses wide getLogs rang
   let refused = 0;
   let served = 0;
   // Pass every RPC call through, but answer eth_getLogs over more than LIMIT blocks with a range error.
-  await page.route(/rpc\.testnet\.chain\.robinhood\.com/, async (route) => {
+  await page.route(rpcTraffic(46630, "https://rpc.testnet.chain.robinhood.com"), async (route) => {
     const req = route.request();
     if (req.method() !== "POST") return route.continue();
     const body = JSON.parse(req.postData() ?? "null") as unknown;
@@ -216,7 +228,9 @@ test("activity: the scan halves its range when the RPC refuses wide getLogs rang
 
 test("activity: shows an error with a retry when the RPC is down, without a wallet", async ({ page }) => {
   desktopOnly();
-  await page.route(/rpc\.testnet\.chain\.robinhood\.com/, (route) => route.abort("connectionrefused"));
+  await page.route(rpcTraffic(46630, "https://rpc.testnet.chain.robinhood.com"), (route) =>
+    route.abort("connectionrefused"),
+  );
   await page.goto("/app/proof");
   const feed = page.getByRole("region", { name: "Live activity" });
   await expect(feed.getByRole("alert")).toContainText("Couldn't read Robinhood Chain testnet", {
