@@ -29,7 +29,7 @@ Two calls check the market: `EpochManager.openEpoch` and `buy` revert with `Mark
 
 - The mandate playground: `previewProposal` is a view with no market check.
 - The proof page: the evidence, the "Running by itself" status (each mirrored price's age against mainnet, each vault's epoch and last settlement, whether the scheduled keeper and agent are switched on), the price mirror audit and the live activity feed.
-- The vault page's record check ("Why this strike" rebuilds the decision record's hash and finds it in its `DecisionLog` anchor), the risk panel and the payoff chart.
+- The vault page's record check ("Why this strike" rebuilds the decision record's hash and finds it in its `DecisionLog` anchor), the epoch trace (every step of the current and the last epoch with its transaction: the opening snapshot, the anchored record, the proposal or the rejection and its slash, each buy, the settlement round checked against mainnet Chainlink, redemptions and claims), the risk panel and the payoff chart.
 - The quote: `quoteBuy` is a view, so the buy panel shows a read-only quote while the market is closed, as long as the price feed is fresh (25 hours on these deployments). Past that limit the panel says why there is no quote.
 - The faucet page, agent registration on `/app/agents`, deposits and withdrawal requests (they queue while an epoch runs).
 - The monitor, and every Blockscout and Arbiscan link below.

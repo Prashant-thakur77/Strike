@@ -1,0 +1,200 @@
+/* The epoch trace on the vault page: each epoch's steps as a hairline timeline, each step with its transaction. */
+
+.trace {
+  display: grid;
+  gap: clamp(28px, 3vw, 44px);
+  min-width: 0;
+}
+
+.epoch {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.status {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.status[data-status="settled"] {
+  color: var(--gain-c);
+}
+
+.status[data-status="selling"] {
+  color: var(--accent-text, var(--accent));
+}
+
+.steps {
+  position: relative;
+  display: grid;
+  margin: 0;
+  padding: 0 0 0 26px;
+  list-style: none;
+}
+
+.steps::before {
+  content: "";
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 5px;
+  width: 1px;
+  background: var(--rule-strong);
+}
+
+.step {
+  position: relative;
+  padding: 10px 0 14px;
+  min-width: 0;
+}
+
+.step + .step {
+  border-top: 1px solid var(--rule);
+}
+
+.dot {
+  position: absolute;
+  top: 16px;
+  left: -26px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 1px solid var(--ink);
+  background: var(--ink);
+}
+
+.step[data-tone="good"] .dot {
+  border-color: var(--gain-c);
+  background: var(--gain-c);
+}
+
+.step[data-tone="bad"] .dot {
+  border-color: var(--loss-c);
+  background: var(--loss-c);
+}
+
+.step[data-kind="pending"] .dot {
+  background: var(--bg);
+  border-color: var(--accent-bright);
+}
+
+.body {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stepHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 14px;
+}
+
+.stepTitle {
+  font-size: 0.98rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.step[data-tone="bad"] .stepTitle {
+  color: var(--loss-c);
+}
+
+.time {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--fg-muted);
+  white-space: nowrap;
+}
+
+.fact {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.audit {
+  margin: 4px 0 0;
+  padding: 8px 12px;
+  border-left: 2px solid var(--rule-strong);
+  font-size: 0.86rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.audit[data-tone="good"] {
+  border-left-color: var(--gain-c);
+  color: var(--gain-c);
+}
+
+.audit[data-tone="bad"] {
+  border-left-color: var(--loss-c);
+  color: var(--loss-c);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 4px 0 0;
+  font-size: 0.82rem;
+}
+
+.links:empty {
+  display: none;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  border-bottom: 1px solid var(--rule-strong);
+  overflow-wrap: anywhere;
+}
+
+.link:hover {
+  border-color: currentColor;
+}
+
+.link svg {
+  flex: none;
+}
+
+.empty {
+  font-size: 0.95rem;
+  color: var(--fg-muted);
+}
+
+.error {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}

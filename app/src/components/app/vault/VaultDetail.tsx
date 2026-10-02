@@ -22,6 +22,7 @@ import { VersionTag, strategyName } from "../VaultList";
 import { DripNudge } from "../faucet/UsdgDrip";
 import { MirrorBadge } from "../mirror/MirrorBadge";
 import { DepositPanel } from "./DepositPanel";
+import { EpochTrace } from "./EpochTrace";
 import { MandatePanel } from "./MandatePanel";
 import { OptionsPanel } from "./OptionsPanel";
 import { PositionPanel } from "./PositionPanel";
@@ -176,13 +177,21 @@ export function VaultDetail({ address }: { address: Address }) {
             </Rail>
             <Rail
               index="07"
+              id="trace"
+              label="Epoch trace"
+              note="Every step of this epoch and the last, each with its transaction and the evidence it carries: the opening snapshot, the anchored decision record, proposals and slashes, buys, the settlement round checked against mainnet Chainlink, redemptions and claims. Times are UTC."
+            >
+              <EpochTrace vault={v} />
+            </Rail>
+            <Rail
+              index="08"
               label="Your options"
               note="Option tokens you hold from this vault. Redeem them once the series settles."
             >
               <OptionsPanel vault={v} seriesIds={history.data?.seriesIds} />
             </Rail>
             <Rail
-              index="08"
+              index="09"
               label="Mandate"
               note="Fixed when the vault was created. The contract rejects any proposal outside it."
             >

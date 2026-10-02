@@ -112,6 +112,24 @@ async function readFeeds(
             : Promise.resolve(null),
           m ?? Promise.resolve(null),
         ]);
+        // When mainnet has printed since, how long the oldest unmirrored print we can see has waited: mainnet's
+        // previous round too if it is also newer than the testnet's (the keeper then missed at least two prints).
+        let unmirroredSince: number | null = null;
+        if (mRound && round[3] < mRound[3]) {
+          unmirroredSince = Number(mRound[3]);
+          const aggregatorRound = mRound[0] & ((1n << 64n) - 1n);
+          if (aggregatorRound > 1n && t.mainnetFeed) {
+            const prev = await mainnet
+              .readContract({
+                address: t.mainnetFeed,
+                abi: aggregatorProxyAbi,
+                functionName: "getRoundData",
+                args: [mRound[0] - 1n],
+              })
+              .catch(() => null);
+            if (prev && prev[3] > round[3]) unmirroredSince = Number(prev[3]);
+          }
+        }
         return {
           ...base,
           roundId: round[0].toString(),
@@ -127,6 +145,7 @@ async function readFeeds(
             : null,
           // The testnet's latest round is mainnet's latest print (the keeper copies updatedAt and answer as they are).
           mirrored: mRound ? round[3] >= mRound[3] : null,
+          unmirroredSince,
         };
       } catch (err) {
         return {
@@ -137,6 +156,7 @@ async function readFeeds(
           maxPriceAge: null,
           mainnet: null,
           mirrored: null,
+          unmirroredSince: null,
           error: short(err),
         };
       }

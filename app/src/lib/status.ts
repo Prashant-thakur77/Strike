@@ -31,6 +31,9 @@ export interface FeedStatusJson {
   mainnet: { roundId: string; price: string; updatedAt: number } | null;
   /** The testnet's latest round is mainnet's latest print (same time, same answer); null without a mainnet read. */
   mirrored: boolean | null;
+  /** When mainnet has printed since: the time of the oldest unmirrored print seen (mainnet's latest, or the one
+   *  before it when that is also newer than the testnet's round). */
+  unmirroredSince: number | null;
   error?: string;
 }
 
@@ -227,18 +230,18 @@ export function feedVerdict(f: FeedStatusJson, now: number, tradingDay: boolean 
     };
   }
   if (f.mirrored === false && f.mainnet) {
-    const unmirrored = now - f.mainnet.updatedAt;
-    if (unmirrored > LAG_GRACE) {
+    const waiting = now - (f.unmirroredSince ?? f.mainnet.updatedAt);
+    if (waiting > LAG_GRACE) {
       return {
         tone: "warn",
         label: "Behind mainnet",
-        detail: `Mainnet printed ${f.mainnet.price} at ${fmtUtc(f.mainnet.updatedAt)}; not mirrored after ${fmtAge(unmirrored)}. The testnet's last round is ${fmtAge(age)} old.`,
+        detail: `Mainnet has printed since (latest ${f.mainnet.price} at ${fmtUtc(f.mainnet.updatedAt)}); a print has waited ${fmtAge(waiting)} to be mirrored. The testnet's last round is ${fmtAge(age)} old.`,
       };
     }
     return {
       tone: "good",
       label: "In step",
-      detail: `Mainnet printed ${fmtAge(unmirrored)} ago; the keeper's next run mirrors it.`,
+      detail: `Mainnet printed ${fmtAge(now - f.mainnet.updatedAt)} ago, not mirrored yet: within the ${LAG_GRACE / 60}-minute grace.`,
     };
   }
   if (f.mirrored === true) {

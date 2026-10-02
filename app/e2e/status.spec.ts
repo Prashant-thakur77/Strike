@@ -48,6 +48,7 @@ function feed(
         ? null
         : { roundId: "18446744073709553056", price: "370.705", updatedAt: NOW - mainnetAge },
     mirrored: mainnetAge === null ? null : NOW - age >= NOW - mainnetAge,
+    unmirroredSince: mainnetAge !== null && mainnetAge < age ? NOW - mainnetAge : null,
     ...over,
   };
 }
@@ -71,7 +72,11 @@ test.describe("liveness judgments", () => {
     expect(feedVerdict(feed("TSLA", 2 * H, LAG_GRACE - 60), NOW, true)).toMatchObject({ tone: "good" });
     const behind = feedVerdict(feed("AMD", 3 * H, 2 * H), NOW, true);
     expect(behind).toMatchObject({ tone: "warn", label: "Behind mainnet" });
-    expect(behind.detail).toContain("not mirrored after 2h 00m");
+    expect(behind.detail).toContain("a print has waited 2h 00m to be mirrored");
+    // The latest print is fresh, but the one before it is also unmirrored and old: behind, not in step.
+    const missed = feedVerdict(feed("TSLA", 15 * H, 10 * 60, { unmirroredSince: NOW - 14 * H }), NOW, true);
+    expect(missed).toMatchObject({ tone: "warn", label: "Behind mainnet" });
+    expect(missed.detail).toContain("a print has waited 14h 00m to be mirrored");
     const stale = feedVerdict(feed("PLTR", 30 * H, H), NOW, true);
     expect(stale).toMatchObject({ tone: "bad", label: "Stale" });
     expect(stale.detail).toContain("Last mirrored 1d 6h ago, past 26 h on a trading day");
@@ -298,7 +303,7 @@ test("proof: the liveness card shows each chain's mirrored prices, epochs, settl
   await expect(rh.getByTestId("liveness-age")).toHaveText("10m old");
   await expect(rh.locator('li[data-symbol="TSLA"]')).toContainText("In step");
   await expect(rh.locator('li[data-symbol="AMD"]')).toContainText("Behind mainnet");
-  await expect(rh.locator('li[data-symbol="AMD"]')).toContainText("not mirrored after 2h 00m");
+  await expect(rh.locator('li[data-symbol="AMD"]')).toContainText("a print has waited 2h 00m to be mirrored");
   await expect(rh.locator('li[data-symbol="PLTR"]')).toContainText("Stale");
   await expect(rh.locator('li[data-symbol="PLTR"]')).toContainText("past 26 h on a trading day");
   await expect(rh.locator('li[data-symbol="NFLX"]')).toContainText("No mainnet feed");
