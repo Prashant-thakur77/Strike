@@ -629,3 +629,42 @@ export function hindsightTakeaway(graded: GradedRow[], settlement: number): stri
 
 export const HINDSIGHT_CAVEAT =
   "Per option sold. One week is noise, not a measure of skill, and other strikes would have sold differently: another number of options, to other buyers or none.";
+
+/* ================================================================ the agent's own ladder (decision.candidates) */
+
+/**
+ * The ladder the agent itself dry-ran (`decision.candidates` with source "ladder"), as ladder rows: the contract's own
+ * numbers and verdicts, part of the anchored record. Entries whose dry run could not be read are left out. Empty for
+ * records written before the field.
+ */
+export function recordedLadder(r: LogRecord, spot: number | null): LadderRow[] {
+  const cands = (r.decision?.candidates ?? []).filter((c) => c.source === "ladder");
+  return cands.flatMap((c): LadderRow[] => {
+    if (c.error !== null || c.strike === null || c.fairValue === null) return [];
+    const strike = Number(c.strike);
+    const fairValue = Number(c.fairValue);
+    const premium = c.premium !== null ? Number(c.premium) : (fairValue * (c.premiumBps ?? BPS)) / BPS;
+    return [
+      {
+        target: c.targetDeltaBps !== null ? c.targetDeltaBps / BPS : null,
+        strike,
+        distance: spot ? strike / spot - 1 : NaN,
+        delta: c.delta ?? NaN,
+        fairValue,
+        premium,
+        yieldBps: c.yieldBps ?? NaN,
+        size: c.size !== null ? Number(c.size) : NaN,
+        capacity: c.capacity !== null ? Number(c.capacity) : NaN,
+        verdict: c.ok
+          ? { ok: true, reason: null, measured: null, bound: null }
+          : {
+              ok: false,
+              reason: c.failedRule?.rule ?? c.reason,
+              measured: c.failedRule?.measured ?? null,
+              bound: c.failedRule?.limit ?? null,
+            },
+        sent: c.chosen,
+      },
+    ];
+  });
+}

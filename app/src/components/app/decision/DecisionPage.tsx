@@ -9,6 +9,7 @@ import type { PublicClient } from "viem";
 import { usePublicClient } from "wagmi";
 import {
   AGENT_LOG_FOLDER_URL,
+  candidateVerdict,
   fmtDeltaBps,
   fmtFactor,
   fmtLogDate,
@@ -29,6 +30,7 @@ import {
   decisionInputs,
   gradeLadder,
   hindsightTakeaway,
+  recordedLadder,
   lossLine,
   recordReasonCode,
   scorecard,
@@ -194,6 +196,9 @@ function DecisionBody({
     } as const;
   }, [r, code]);
   const isCall = r.vault.kind === "covered-call";
+  // The ladder the agent dry-ran itself, when the record carries one; else the recomputed one stands in.
+  const recorded = useMemo(() => recordedLadder(r, r.market?.spot ? Number(r.market.spot) : null), [r]);
+  const sentLabel = r.result.status === "accepted" || r.result.status === "rejected" ? "sent" : "chosen";
   const strike = r.result.strike ?? r.dryRun?.strike ?? null;
   const target = r.decision?.targetDeltaBps ?? null;
   const vaultHref = `/app/vault/${r.vault.address}?chain=${chainId}`;
@@ -304,8 +309,10 @@ function DecisionBody({
           label="Why not the other strikes"
           note="The same proposal at other target deltas, from just below the mandate's band to just above it, each judged by the mandate's rules."
         >
-          <Candidates record={r} />
-          {derived.inp ? (
+          <PlannerCalls record={r} />
+          {recorded.length > 0 ? (
+            <RecordedLadder record={r} rows={recorded} sentLabel={sentLabel} />
+          ) : derived.inp ? (
             <LadderView
               inp={derived.inp}
               ladder={derived.ladder}
@@ -338,7 +345,14 @@ function DecisionBody({
             chainId={chainId}
             record={r}
             inp={derived.inp}
-            ladder={derived.ladder && derived.ladder.check.ok ? derived.ladder : null}
+            rows={
+              recorded.length > 0
+                ? recorded
+                : derived.ladder && derived.ladder.check.ok
+                  ? derived.ladder.rows
+                  : null
+            }
+            source={recorded.length > 0 ? "recorded" : "recomputed"}
           />
         </Rail>
         <Rail
@@ -508,42 +522,101 @@ function reasonText(name: string | null): string {
   return REASONS.find((r) => r.name === name)?.text ?? "";
 }
 
-/** The planner's own dry runs, when the record carries them (`decision.candidates`). */
-function Candidates({ record: r }: { record: LogRecord }) {
-  const cands = r.decision?.candidates ?? [];
+/** Claude's own `risk_check` calls while planning (`decision.candidates` with source "planner"), in call order. */
+function PlannerCalls({ record: r }: { record: LogRecord }) {
+  const cands = (r.decision?.candidates ?? []).filter((c) => c.source === "planner");
   if (cands.length === 0) return null;
   return (
-    <div className={styles.block} data-testid="decision-candidates">
+    <div className={styles.block} data-testid="decision-planner-calls">
       <h3 className="micro micro-muted">
-        The agent&apos;s own dry runs · <code className="mono">risk_check</code>, the contract&apos;s{" "}
-        <code className="mono">previewProposal</code>, part of the anchored record
+        Claude&apos;s own dry runs while planning · <code className="mono">risk_check</code>, the
+        contract&apos;s <code className="mono">previewProposal</code>, in call order, part of the anchored
+        record
       </h3>
       <div className={appStyles.tableWrap}>
         <table className={`${appStyles.table} ${styles.ladder}`}>
           <thead>
             <tr>
-              <th scope="col">Target Δ</th>
-              <th scope="col">Premium</th>
+              <th scope="col">Asked</th>
               <th scope="col">Strike</th>
+              <th scope="col">Contract</th>
               <th scope="col">Fair value</th>
               <th scope="col">Yield</th>
-              <th scope="col">Contract</th>
             </tr>
           </thead>
           <tbody>
             {cands.map((c, i) => (
-              <tr key={i} data-ok={c.ok}>
-                <td className="mono">{fmtDeltaBps(c.targetDeltaBps)}</td>
-                <td className="mono">{fmtFactor(c.premiumBps)}</td>
+              <tr key={i} data-ok={c.ok} data-sent={c.chosen || undefined} data-testid="planner-call">
+                <th scope="row" className="mono">
+                  {c.targetDeltaBps !== null ? `${fmtDeltaBps(c.targetDeltaBps)} Δ` : "strike"} ·{" "}
+                  {fmtFactor(c.premiumBps)}
+                </th>
                 <td className="mono">{fmtPrice(c.strike)}</td>
+                <td className={styles.verdictCell}>
+                  <span
+                    className={styles.rowVerdict}
+                    data-ok={c.ok}
+                    data-error={c.error !== null || undefined}
+                  >
+                    {candidateVerdict(c)}
+                  </span>
+                  {c.chosen ? <span className={styles.sent}>chosen</span> : null}
+                </td>
                 <td className="mono">{fmtPrice(c.fairValue)}</td>
                 <td className="mono">{c.yieldBps === null ? "—" : fmtFactor(c.yieldBps)}</td>
-                <td>
-                  <span className={styles.rowVerdict} data-ok={c.ok}>
-                    {c.ok ? "inside" : `outside: ${c.reason ?? "rejected"}`}
-                  </span>
-                </td>
               </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** The ladder the agent dry-ran itself (`decision.candidates` with source "ladder"): the contract's own verdicts. */
+function RecordedLadder({
+  record: r,
+  rows,
+  sentLabel,
+}: {
+  record: LogRecord;
+  rows: LadderRow[];
+  sentLabel: string;
+}) {
+  const unread = (r.decision?.candidates ?? []).filter(
+    (c) => c.source === "ladder" && (c.error !== null || c.strike === null || c.fairValue === null),
+  ).length;
+  return (
+    <div className={styles.block} data-testid="decision-ladder" data-check="recorded">
+      <p className={styles.label} data-testid="ladder-label">
+        The agent&apos;s own dry runs, part of the anchored record.
+      </p>
+      <p className={styles.check} data-ok="true" data-testid="ladder-check">
+        <Check size={13} aria-hidden />
+        Each rung went through <code className="mono">risk_check</code>, the contract&apos;s own{" "}
+        <code className="mono">previewProposal</code>, at the chosen premium factor and the largest size the
+        mandate allows, before the agent proposed; the verdicts are the contract&apos;s.
+        {unread > 0
+          ? ` ${unread} rung${unread === 1 ? "" : "s"} could not be read and ${unread === 1 ? "is" : "are"} left out.`
+          : ""}
+      </p>
+      <div className={appStyles.tableWrap}>
+        <table className={`${appStyles.table} ${styles.ladder}`} aria-label="Strike ladder the agent dry-ran">
+          <thead>
+            <tr>
+              <th scope="col">Target Δ</th>
+              <th scope="col">Strike</th>
+              <th scope="col">First rule it breaks</th>
+              <th scope="col">From spot</th>
+              <th scope="col">Fair value</th>
+              <th scope="col">Premium</th>
+              <th scope="col">Yield</th>
+              <th scope="col">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <LadderTr key={i} row={row} mark={sentLabel} />
             ))}
           </tbody>
         </table>
@@ -642,32 +715,47 @@ function LadderView({
   );
 }
 
-function LadderTr({ row }: { row: LadderRow }) {
+const dash = (x: number, f: (n: number) => string) => (Number.isFinite(x) ? f(x) : "—");
+
+function LadderTr({ row, mark = "sent" }: { row: LadderRow; mark?: string }) {
   const v = row.verdict;
   return (
     <tr data-sent={row.sent || undefined} data-ok={v.ok} data-testid="ladder-row">
       <th scope="row" className="mono">
-        {row.target !== null ? row.target.toFixed(2) : `${row.delta.toFixed(4)}`}
+        {row.target !== null ? row.target.toFixed(2) : dash(row.delta, (x) => x.toFixed(4))}
         {row.target === null ? <span className={styles.direct}> set by strike</span> : null}
       </th>
       <td className="mono">{usd(row.strike)}</td>
       <td className={styles.verdictCell}>
         <span className={styles.rowVerdict} data-ok={v.ok} title={v.ok ? undefined : reasonText(v.reason)}>
-          {v.ok ? "none: inside the mandate" : `${v.reason}: ${v.measured} vs ${v.bound}`}
+          {v.ok
+            ? "none: inside the mandate"
+            : v.measured
+              ? `${v.reason}: ${v.measured} against ${v.bound}`
+              : `${v.reason ?? "rejected"}`}
         </span>
         {row.sent ? (
           <span className={styles.sent} data-testid="ladder-sent">
-            sent
+            {mark}
           </span>
         ) : null}
       </td>
-      <td className="mono">{pct(row.distance)}</td>
+      <td className="mono">{dash(row.distance, (x) => pct(x))}</td>
       <td className="mono">{usd(row.fairValue, 4)}</td>
       <td className="mono">{usd(row.premium, 4)}</td>
-      <td className="mono">{pct(row.yieldBps / 10_000, 3)}</td>
-      <td className="mono">{opts(row.size)}</td>
+      <td className="mono">{dash(row.yieldBps, (x) => pct(x / 10_000, 3))}</td>
+      <td className="mono">{dash(row.size, opts)}</td>
     </tr>
   );
+}
+
+/** Why a record sold nothing, in a few words. */
+function notSoldWhy(r: LogRecord): string {
+  return r.result.status === "rejected"
+    ? "the contract rejected the proposal"
+    : r.result.status === "not-sent"
+      ? "this run did not send a proposal"
+      : "no proposal was accepted";
 }
 
 /* ================================================================ 04 what would make it lose */
@@ -687,8 +775,8 @@ function LossView({
     <div className={styles.block} data-testid="decision-loss">
       {!sold ? (
         <p className={appStyles.hint} data-testid="loss-hypothetical">
-          Nothing was sold: the contract rejected the proposal, so no option can lose. Had it been accepted,
-          these are the numbers it would have carried.
+          Nothing was sold: {notSoldWhy(r)}, so no option can lose. Had it been accepted, these are the
+          numbers it would have carried.
         </p>
       ) : null}
       <p className={styles.big} data-testid="loss-breakeven">
@@ -728,12 +816,14 @@ function Hindsight({
   chainId,
   record: r,
   inp,
-  ladder,
+  rows,
+  source,
 }: {
   chainId: number;
   record: LogRecord;
   inp: DecisionInputs | null;
-  ladder: Ladder | null;
+  rows: LadderRow[] | null;
+  source: "recorded" | "recomputed";
 }) {
   const sold = r.result.status === "accepted";
   const epoch = r.anchor?.epoch ?? null;
@@ -753,15 +843,13 @@ function Hindsight({
   if (!sold) {
     state = "not-sold";
     body = (
-      <p className={appStyles.hint}>
-        Nothing was sold (the contract rejected the proposal), so there is nothing to grade.
-      </p>
+      <p className={appStyles.hint}>Nothing was sold ({notSoldWhy(r)}), so there is nothing to grade.</p>
     );
-  } else if (!inp || !ladder) {
+  } else if (!inp || !rows || rows.length === 0) {
     state = "no-ladder";
     body = (
       <p className={appStyles.hint}>
-        Grading needs the recomputed ladder, which is not shown for this record.
+        Grading needs a ladder: this record has no dry runs of its own and the recomputed one is not shown.
       </p>
     );
   } else if (trace.isPending) {
@@ -797,7 +885,7 @@ function Hindsight({
       );
     } else {
       state = "graded";
-      body = <Graded inp={inp} ladder={ladder} price={price} />;
+      body = <Graded inp={inp} rows={rows} price={price} source={source} />;
     }
   }
   return (
@@ -807,11 +895,26 @@ function Hindsight({
   );
 }
 
-function Graded({ inp, ladder, price }: { inp: DecisionInputs; ladder: Ladder; price: number }) {
-  const graded = gradeLadder(ladder.rows, price, inp.isCall, inp.spot);
-  const sent = graded.find((g) => g.row.sent)!;
+function Graded({
+  inp,
+  rows,
+  price,
+  source,
+}: {
+  inp: DecisionInputs;
+  rows: LadderRow[];
+  price: number;
+  source: "recorded" | "recomputed";
+}) {
+  const graded = gradeLadder(rows, price, inp.isCall, inp.spot);
+  const sent = graded.find((g) => g.row.sent) ?? null;
   return (
     <>
+      <p className={styles.label} data-testid="hindsight-source">
+        {source === "recorded"
+          ? "Rows: the agent's own dry runs from the record."
+          : "Rows: the ladder recomputed from the anchored inputs, not part of the agent's record."}
+      </p>
       <p className={styles.big} data-testid="hindsight-takeaway">
         {hindsightTakeaway(graded, price)}
       </p>
@@ -837,7 +940,7 @@ function Graded({ inp, ladder, price }: { inp: DecisionInputs; ladder: Ladder; p
           <tbody>
             {graded.map((g) => (
               <tr
-                key={`${g.row.target ?? "direct"}-${g.row.strike}`}
+                key={`${g.row.target ?? "direct"}-${g.row.strike}-${g.row.sent}`}
                 data-sent={g.row.sent || undefined}
                 data-ok={g.row.verdict.ok}
                 data-testid="graded-row"
@@ -865,10 +968,11 @@ function Graded({ inp, ladder, price }: { inp: DecisionInputs; ladder: Ladder; p
         </table>
       </div>
       <p className={appStyles.hint}>
-        The sent row: {opts(sent.row.size)} options at {usd(sent.net, 4)} each is about{" "}
-        {usd(sent.net * sent.row.size)} for the vault before fees, if every option was bought. The settlement
-        price is the one the vault&apos;s EpochManager settled at, read from its EpochSettled event (the epoch
-        trace on the vault page checks its round against mainnet Chainlink).
+        {sent
+          ? `The proposal sent: ${opts(inp.dry.size)} options at ${usd(sent.net, 4)} each is about ${usd(sent.net * inp.dry.size)} for the vault before fees, if every option was bought. `
+          : ""}
+        The settlement price is the one the vault&apos;s EpochManager settled at, read from its EpochSettled
+        event (the epoch trace on the vault page checks its round against mainnet Chainlink).
       </p>
     </>
   );

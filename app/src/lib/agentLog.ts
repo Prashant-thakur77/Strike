@@ -75,15 +75,36 @@ export interface LogPlanner {
   label: string;
 }
 
-/** A candidate the planner dry-ran before choosing (records written so far carry only the final dry run). */
+/**
+ * An alternative the agent dry-ran through `risk_check` (the contract's own `previewProposal`), from
+ * `decision.candidates` (agents/example README, "Alternatives in the record"). Records written before the field have
+ * none; every field past `yieldBps` is optional in the file and null here when absent.
+ */
 export interface LogCandidate {
+  /** "ladder": the agent's own sweep of target deltas; "planner": a call Claude made while planning; null: unstated. */
+  source: "ladder" | "planner" | null;
   targetDeltaBps: number | null;
   premiumBps: number | null;
   ok: boolean;
+  /** The MandateGuard reason ("None" when accepted); null on an entry whose dry run could not be read. */
   reason: string | null;
   strike: string | null;
   fairValue: string | null;
   yieldBps: number | null;
+  /** Premium per option in USD (fair value × the premium factor). */
+  premium: string | null;
+  delta: number | null;
+  size: string | null;
+  capacity: string | null;
+  /** The rung at the chosen delta, or the planner call that asked for exactly the chosen delta and premium. */
+  chosen: boolean;
+  /** For a rejected candidate: the first rule it fails, its measured value and the limit. */
+  failedRule: { rule: string; measured: string; limit: string } | null;
+  explanation: string | null;
+  /** Set only when the dry run could not be read. */
+  error: string | null;
+  /** A planner call's arguments, as recorded. */
+  inputs: Record<string, unknown> | null;
 }
 
 export interface LogDecision {
@@ -283,11 +304,19 @@ function parsePlanner(v: unknown): LogPlanner | null {
   };
 }
 
+function parseFailedRule(v: unknown): LogCandidate["failedRule"] {
+  if (!isObj(v)) return null;
+  const rule = nonEmpty(v.rule);
+  if (!rule) return null;
+  return { rule, measured: str(v.measured) ?? "", limit: str(v.limit) ?? "" };
+}
+
 function parseCandidate(v: unknown): LogCandidate | null {
   if (!isObj(v)) return null;
   const ok = bool(v.ok);
   if (ok === null) return null;
   return {
+    source: oneOf(v.source, ["ladder", "planner"] as const),
     targetDeltaBps: num(v.targetDeltaBps),
     premiumBps: num(v.premiumBps),
     ok,
@@ -295,7 +324,25 @@ function parseCandidate(v: unknown): LogCandidate | null {
     strike: decimal(v.strike),
     fairValue: decimal(v.fairValue),
     yieldBps: num(v.yieldBps),
+    premium: decimal(v.premium),
+    delta: num(v.delta),
+    size: decimal(v.size),
+    capacity: decimal(v.capacity),
+    chosen: bool(v.chosen) ?? false,
+    failedRule: parseFailedRule(v.failedRule),
+    explanation: nonEmpty(v.explanation),
+    error: nonEmpty(v.error),
+    inputs: isObj(v.inputs) ? v.inputs : null,
   };
+}
+
+/** What a candidate's verdict says, in a few words: inside, outside with the rule and its numbers, or unread. */
+export function candidateVerdict(c: LogCandidate): string {
+  if (c.error !== null || (!c.ok && c.reason === null)) return "could not be read";
+  if (c.ok) return "inside the mandate";
+  const f = c.failedRule;
+  if (f) return `outside: ${f.rule}, ${f.measured}${f.limit ? ` against ${f.limit}` : ""}`;
+  return `outside: ${c.reason ?? "rejected"}`;
 }
 
 function parseDecision(v: unknown): LogDecision | null {

@@ -124,8 +124,9 @@ for (const c of CASES) {
     if ((await panel.getAttribute("data-kind")) === "record") {
       const cands = panel.getByTestId("why-candidates").locator("li");
       expect(await cands.count()).toBeGreaterThan(0);
-      await expect(cands.last()).toContainText(/inside the mandate|outside:/);
-      await expect(cands.last()).toContainText("sent");
+      // The row that was sent: the last one in older records, the chosen rung of the agent's ladder in newer ones.
+      const sent = cands.filter({ hasText: "sent" }).first();
+      await expect(sent).toContainText(/inside the mandate|outside:/);
       await expect(panel.getByRole("link", { name: /The JSON the hash covers/ })).toHaveAttribute(
         "href",
         /^https:\/\/github\.com\/Prashant-thakur77\/Strike\/blob\/main\/docs\/agent-log\/.+\.json$/,

@@ -3,7 +3,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import * as pricing from "../../sdk/src/pricing";
-import { parseRecordText, type LogRecord } from "../src/lib/agentLog";
+import { candidateVerdict, parseRecordText, type LogRecord } from "../src/lib/agentLog";
 import {
   buildLadder,
   decisionInputs,
@@ -14,6 +14,7 @@ import {
   ladderTargets,
   lossLine,
   recordReasonCode,
+  recordedLadder,
   scorecard,
   type DecisionInputs,
 } from "../src/lib/decision";
@@ -443,4 +444,143 @@ test("the epoch trace links its proposal, record and settlement steps to the dec
   await expect(links).toHaveCount(2, { timeout: 60_000 });
   await expect(links.first()).toHaveAttribute("href", `/app/decision/46630/${rec.name}`);
   await expect(links.nth(1)).toHaveText("Why this strike, and why not the others");
+});
+
+/* ================================================================ records that carry decision.candidates */
+
+// Two dry-run records written by the agent with its ladder (e2e/fixtures/decision, copied from the agent's own output:
+// the default profile at 0.20 and the conservative one at 0.15). A synthetic variant adds a planner call and an entry
+// whose dry run could not be read, and one marks the run accepted and anchored to test the grading.
+const FIXTURES = join(__dirname, "fixtures", "decision");
+const CSP2 = "2026-10-02-sTSLA-CSP-2";
+const CSP3 = "2026-10-02-sTSLA-CSP-3";
+const fixture = (name: string) => readFileSync(join(FIXTURES, `${name}.json`), "utf8");
+
+function withPlannerAndError(text: string): string {
+  const j = JSON.parse(text);
+  j.decision.candidates.unshift(
+    {
+      source: "planner",
+      targetDeltaBps: 2500,
+      premiumBps: 10000,
+      ok: true,
+      reason: "None",
+      strike: "340.12",
+      fairValue: "3.1",
+      premium: "3.1",
+      yieldBps: 91.1,
+      delta: 0.25,
+      chosen: false,
+      failedRule: null,
+      inputs: { targetDelta: 0.25 },
+    },
+    {
+      source: "ladder",
+      targetDeltaBps: 4500,
+      premiumBps: 10000,
+      ok: false,
+      reason: null,
+      error: "RPC timed out at <url>",
+    },
+  );
+  return JSON.stringify(j, null, 2);
+}
+
+function asAccepted(text: string): string {
+  const j = JSON.parse(text);
+  j.result.status = "accepted";
+  j.anchor = {
+    contract: "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+    recordHash: `0x${"11".repeat(32)}`,
+    uri: null,
+    epoch: 7,
+    txHash: null,
+  };
+  return JSON.stringify(j, null, 2);
+}
+
+test.describe("recorded candidates", () => {
+  test("the parser reads the agent's ladder and stays compatible with older records", () => {
+    const r = parseRecordText(fixture(CSP2))!;
+    const c = r.decision!.candidates;
+    expect(c).toHaveLength(8);
+    expect(c.every((x) => x.source === "ladder")).toBe(true);
+    expect(c.filter((x) => x.chosen).map((x) => x.targetDeltaBps)).toEqual([2000]);
+    expect(c[0]!.failedRule).toEqual({
+      rule: "DeltaOutOfBand",
+      measured: "|delta| 0.05",
+      limit: "0.10 to 0.35",
+    });
+    expect(candidateVerdict(c[0]!)).toBe("outside: DeltaOutOfBand, |delta| 0.05 against 0.10 to 0.35");
+    expect(candidateVerdict(c[1]!)).toBe("inside the mandate");
+    expect(c[1]!.premium).toBe("1.4679");
+    // An entry whose dry run could not be read is not a rejection.
+    const v = parseRecordText(withPlannerAndError(fixture(CSP2)))!.decision!.candidates;
+    expect(v[0]!.source).toBe("planner");
+    expect(v[0]!.inputs).toEqual({ targetDelta: 0.25 });
+    expect(candidateVerdict(v[1]!)).toBe("could not be read");
+    // Older records: no candidates.
+    expect(load(RECORDS[0]!).decision!.candidates).toEqual([]);
+    // The recorded ladder as rows: the unread entry and the planner call are left out, the chosen rung is marked.
+    const rows = recordedLadder(parseRecordText(withPlannerAndError(fixture(CSP2)))!, 358.5505);
+    expect(rows).toHaveLength(8);
+    expect(rows.filter((x) => x.sent).map((x) => x.target)).toEqual([0.2]);
+  });
+
+  test("decision page: the agent's own ladder replaces the recomputed one", async ({ page }) => {
+    await serveRaw(page, (path, text) => text);
+    await page.route(`${RAW}docs/agent-log/${CSP2}.json`, (route) =>
+      route.fulfill({ status: 200, body: withPlannerAndError(fixture(CSP2)), contentType: "text/plain" }),
+    );
+    await page.route(`${RAW}docs/agent-log/${CSP3}.json`, (route) =>
+      route.fulfill({ status: 200, body: fixture(CSP3), contentType: "text/plain" }),
+    );
+    await page.route("**/api/epoch-trace?**", (route) => route.abort());
+    for (const name of [CSP2, CSP3]) {
+      await acknowledge(page);
+      await page.goto(`/app/decision/46630/${name}`);
+      const ladder = page.getByTestId("decision-ladder");
+      await expect(ladder).toHaveAttribute("data-check", "recorded", { timeout: 60_000 });
+      await expect(page.getByTestId("ladder-label")).toHaveText(
+        "The agent's own dry runs, part of the anchored record.",
+      );
+      await expect(ladder.locator("tr[data-sent]")).toHaveCount(1);
+      await expect(ladder.locator("tr[data-sent]").getByTestId("ladder-sent")).toHaveText("chosen");
+      await expect(ladder.locator("tr[data-sent] th")).toHaveText(name === CSP2 ? "0.20" : "0.15");
+      await expect(ladder.locator("tr[data-ok=false]").first()).toContainText(
+        "DeltaOutOfBand: |delta| 0.05 against 0.10 to 0.35",
+      );
+      await expect(page.getByTestId("decision-hindsight")).toHaveAttribute("data-state", "not-sold");
+      expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+    }
+    // The synthetic planner call and the unread rung.
+    await page.goto(`/app/decision/46630/${CSP2}`);
+    await expect(page.getByTestId("planner-call")).toHaveCount(1);
+    await expect(page.getByTestId("decision-planner-calls")).toContainText(
+      "Claude's own dry runs while planning",
+    );
+    await expect(page.getByTestId("ladder-check")).toContainText("1 rung could not be read");
+  });
+
+  test("in hindsight with the agent's own ladder: its rungs are graded", async ({ page }) => {
+    await serveRaw(page);
+    const text = asAccepted(fixture(CSP3));
+    const r = parseRecordText(text)!;
+    await page.route(`${RAW}docs/agent-log/${CSP3}.json`, (route) =>
+      route.fulfill({ status: 200, body: text, contentType: "text/plain" }),
+    );
+    const rec: Rec = { chainId: 46630, path: "docs/agent-log", name: CSP3, status: "accepted", rpc: RH_RPC };
+    await page.route("**/api/epoch-trace?**", (route) =>
+      route.fulfill({ json: traceFixture(rec, r, "325") }),
+    );
+    await acknowledge(page);
+    await page.goto(`/app/decision/46630/${CSP3}`);
+    const h = page.getByTestId("decision-hindsight");
+    await expect(h).toHaveAttribute("data-state", "graded", { timeout: 60_000 });
+    await expect(page.getByTestId("hindsight-source")).toHaveText(
+      "Rows: the agent's own dry runs from the record.",
+    );
+    await expect(h.getByTestId("graded-row")).toHaveCount(8);
+    await expect(page.getByTestId("hindsight-takeaway")).toContainText("At the $325.00 settlement");
+  });
 });

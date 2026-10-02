@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useWhyStrike } from "@/hooks/useWhyStrike";
 import {
   AGENT_LOG_FOLDER_URL,
+  candidateVerdict,
   fmtDecimal,
   fmtDeltaBps,
   fmtFactor,
@@ -151,12 +152,21 @@ function RecordBody({
   const chosenPremium = d?.premiumBps ?? dry?.premiumBps ?? null;
   // The planner is named above; a note that only repeats it is dropped.
   const notes = (d?.notes ?? []).filter((n) => n.replace(/\.$/, "") !== d?.planner?.label);
-  // The candidates the planner dry-ran, with the final dry run (the exact proposal) last and marked as sent.
-  const candidates: (LogCandidate & { final: boolean; delta: number | null })[] = [
-    ...(d?.candidates ?? []).map((c) => ({ ...c, final: false, delta: null })),
-    ...(dry
+  // The candidates the agent dry-ran: Claude's own calls first (in call order), then the agent's ladder (by delta).
+  // Older records have none, so the final dry run (the exact proposal) is appended and marked as sent; a record that
+  // marks its chosen candidates already shows that row.
+  const recorded = d?.candidates ?? [];
+  const ordered = [
+    ...recorded.filter((c) => c.source === "planner"),
+    ...recorded.filter((c) => c.source !== "planner"),
+  ];
+  const hasChosen = recorded.some((c) => c.chosen);
+  const candidates: (LogCandidate & { final: boolean })[] = [
+    ...ordered.map((c) => ({ ...c, final: c.chosen })),
+    ...(dry && !hasChosen
       ? [
           {
+            source: null,
             targetDeltaBps: chosenDelta,
             premiumBps: dry.premiumBps,
             ok: dry.ok,
@@ -164,8 +174,16 @@ function RecordBody({
             strike: dry.strike,
             fairValue: dry.fairValue,
             yieldBps: dry.yieldBps,
-            final: true,
+            premium: null,
             delta: dry.delta,
+            size: dry.size,
+            capacity: dry.capacity,
+            chosen: true,
+            failedRule: null,
+            explanation: null,
+            error: null,
+            inputs: null,
+            final: true,
           },
         ]
       : []),
@@ -263,7 +281,11 @@ function RecordBody({
       {candidates.length > 0 ? (
         <div className={styles.whyBlock}>
           <h3 className="micro micro-muted">
-            {candidates.length === 1 ? "Dry run before sending" : "Candidates it dry-ran"}
+            {candidates.length === 1
+              ? "Dry run before sending"
+              : hasChosen
+                ? "Alternatives it dry-ran"
+                : "Candidates it dry-ran"}
             <span className={styles.whyNote}>
               {" "}
               · <code className="mono">risk_check</code>, the contract&apos;s own{" "}
@@ -272,8 +294,15 @@ function RecordBody({
           </h3>
           <ul className={styles.whyCands} data-testid="why-candidates">
             {candidates.map((c, i) => (
-              <li key={i} className={styles.whyCand} data-ok={c.ok} data-final={c.final || undefined}>
+              <li
+                key={i}
+                className={styles.whyCand}
+                data-ok={c.ok}
+                data-final={c.final || undefined}
+                data-source={c.source ?? undefined}
+              >
                 <span className={styles.whyCandTarget}>
+                  {c.source === "planner" ? <span className={styles.cellMuted}>Claude · </span> : null}
                   <span className="mono">
                     {c.targetDeltaBps !== null
                       ? fmtDeltaBps(c.targetDeltaBps)
@@ -302,13 +331,13 @@ function RecordBody({
                     </>
                   ) : null}
                   {c.yieldBps !== null ? ` · yield ${fmtFactor(c.yieldBps)} of collateral` : ""}
-                  {c.final && dry?.size
-                    ? ` · ${fmtDecimal(dry.size)}${dry.capacity ? ` of ${fmtDecimal(dry.capacity)}` : ""} options`
+                  {c.final && c.size
+                    ? ` · ${fmtDecimal(c.size)}${c.capacity ? ` of ${fmtDecimal(c.capacity)}` : ""} options`
                     : ""}
                 </span>
                 <span className={styles.whyCandVerdict} data-ok={c.ok}>
                   {c.ok ? <Check size={12} aria-hidden /> : <Ban size={12} aria-hidden />}
-                  {c.ok ? "inside the mandate" : `outside: ${c.reason ?? "rejected"}`}
+                  {candidateVerdict(c)}
                   {c.final ? <span className={styles.whyCandSent}> · sent</span> : null}
                 </span>
               </li>
