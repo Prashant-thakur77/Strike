@@ -18,7 +18,7 @@ jobs:
     env:
       FOUNDRY_PROFILE: ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
@@ -43,7 +43,7 @@ jobs:
       run:
         working-directory: stylus/pricer
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.91.0
@@ -65,9 +65,9 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -91,7 +91,7 @@ jobs:
     env:
       FOUNDRY_PROFILE: ci
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@master
@@ -118,7 +118,7 @@ jobs:
     env:
       ROBINHOOD_RPC_URL: https://rpc.mainnet.chain.robinhood.com
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
@@ -150,10 +150,10 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: crytic/slither-action@v0.4.1
+      - uses: crytic/slither-action@v0.4.2
         with:
           target: contracts
           slither-args: --filter-paths "lib/|test/|script/" --exclude-dependencies
@@ -165,9 +165,9 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -190,14 +190,14 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -213,7 +213,7 @@ jobs:
     # A hung step (e.g. a stalled compiler download) fails here instead of holding CI for 6 hours.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
@@ -240,13 +240,13 @@ jobs:
       # Lets halmos fetch its pinned SMT solver binaries (cvc5, yices) on first use.
       HALMOS_ALLOW_DOWNLOAD: "1"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: v1.7.1
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install halmos
