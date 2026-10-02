@@ -1,0 +1,153 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Prashant-thakur77/Strike/blob/main/strike.config.schema.json",
+  "title": "Strike configuration",
+  "description": "strike.config.json: the chains, endpoints, deployment files, services and secret names every Strike component reads (docs/configuration.md). Secrets are named, never stored.",
+  "type": "object",
+  "required": ["version", "defaultChainId", "chains", "services", "secrets"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "const": 1, "description": "Schema version. A breaking change to this file bumps it." },
+    "defaultChainId": {
+      "type": "integer",
+      "description": "The chain a component uses when STRIKE_CHAIN_ID is unset (the app's default network). Must be a key of `chains`."
+    },
+    "chains": {
+      "type": "object",
+      "description": "Every chain Strike reads or deploys to, by chain id.",
+      "propertyNames": { "pattern": "^[1-9][0-9]*$" },
+      "additionalProperties": { "$ref": "#/definitions/chain" },
+      "minProperties": 1
+    },
+    "services": {
+      "type": "object",
+      "required": ["app", "mcp", "indexer", "telegramBot", "repository"],
+      "additionalProperties": false,
+      "properties": {
+        "app": { "$ref": "#/definitions/httpsUrl", "description": "The public web app." },
+        "mcp": { "$ref": "#/definitions/httpsUrl", "description": "The remote, read-only MCP endpoint." },
+        "indexer": {
+          "type": "object",
+          "required": ["port"],
+          "additionalProperties": false,
+          "properties": {
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "description": "The indexer's HTTP port."
+            }
+          }
+        },
+        "telegramBot": { "$ref": "#/definitions/httpsUrl", "description": "The Telegram bot's t.me link." },
+        "repository": {
+          "$ref": "#/definitions/httpsUrl",
+          "description": "The GitHub repository (links, decision-record URLs)."
+        }
+      }
+    },
+    "secrets": {
+      "type": "object",
+      "description": "Environment variable NAMES of the secrets, by role. Never values: the validation test fails on anything that looks like a key, token or credentialed URL.",
+      "required": ["deployerKey", "agentSignerKey", "alchemyKey", "telegramToken", "databaseUrl"],
+      "properties": {
+        "deployerKey": { "$ref": "#/definitions/envName" },
+        "agentSignerKey": { "$ref": "#/definitions/envName" },
+        "alchemyKey": { "$ref": "#/definitions/envName" },
+        "telegramToken": { "$ref": "#/definitions/envName" },
+        "databaseUrl": { "$ref": "#/definitions/envName" }
+      },
+      "additionalProperties": { "$ref": "#/definitions/envName" }
+    }
+  },
+  "definitions": {
+    "httpsUrl": { "type": "string", "pattern": "^https://[^\\s/?#@]+(/[^\\s?#@]*)?$" },
+    "rpcUrl": { "type": "string", "pattern": "^https?://[^\\s/?#@]+(/[^\\s?#@]*)?$" },
+    "address": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+    "envName": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+    "chainIdString": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+    "chain": {
+      "type": "object",
+      "required": ["name", "shortName", "testnet", "explorer", "rpc", "deployments", "confirmations"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "description": "Display name (the app's network menu)." },
+        "shortName": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Short display name (badges, the bot)."
+        },
+        "testnet": { "type": "boolean" },
+        "local": {
+          "type": "boolean",
+          "description": "A local devnet: its deployment files are written by scripts/demo-local.sh and are not in git."
+        },
+        "explorer": {
+          "oneOf": [{ "$ref": "#/definitions/httpsUrl" }, { "type": "null" }],
+          "description": "Block explorer base URL (links to /tx/<hash> and /address/<address>); null where there is none."
+        },
+        "verifierUrl": {
+          "$ref": "#/definitions/httpsUrl",
+          "description": "Blockscout API that contracts are verified against (forge --verifier blockscout --verifier-url)."
+        },
+        "faucet": {
+          "$ref": "#/definitions/httpsUrl",
+          "description": "Where testers get the chain's gas token."
+        },
+        "rpc": {
+          "type": "object",
+          "required": ["public", "alchemy"],
+          "additionalProperties": false,
+          "properties": {
+            "public": {
+              "$ref": "#/definitions/rpcUrl",
+              "description": "The keyless public RPC (the fallback)."
+            },
+            "alchemy": {
+              "oneOf": [
+                { "type": "string", "pattern": "^https://[a-z0-9-]+\\.g\\.alchemy\\.com/v2$" },
+                { "type": "null" }
+              ],
+              "description": "Alchemy's base URL without the key (the key is ALCHEMY_API_KEY, sent in a header); null where Alchemy does not serve the chain."
+            }
+          }
+        },
+        "deployments": {
+          "type": "array",
+          "description": "Deployment files (repository paths), the primary first; each has a <file>-vaults.json next to it.",
+          "items": { "type": "string", "pattern": "^contracts/deployments/[0-9]+(-[a-z0-9]+)?\\.json$" },
+          "uniqueItems": true
+        },
+        "mainnetFeedsChain": {
+          "$ref": "#/definitions/chainIdString",
+          "description": "The chain whose Chainlink rounds the testnet MirrorFeeds copy (scripts/keeper.sh). Must be a key of `chains` with `stocks`."
+        },
+        "confirmations": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Blocks after which an event is treated as final (the indexer's reorg-safe cursor)."
+        },
+        "subgraphNetworks": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+          "description": "The Graph network names for this chain (subgraph/scripts/set-network.mjs)."
+        },
+        "stocks": {
+          "type": "object",
+          "description": "Stock tokens and their Chainlink feeds on this chain, by symbol: what the keeper mirrors and the app's monitor reads.",
+          "propertyNames": { "pattern": "^[A-Z][A-Z0-9.]*$" },
+          "additionalProperties": {
+            "type": "object",
+            "required": ["token", "feed"],
+            "additionalProperties": false,
+            "properties": {
+              "token": { "$ref": "#/definitions/address" },
+              "feed": { "$ref": "#/definitions/address" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

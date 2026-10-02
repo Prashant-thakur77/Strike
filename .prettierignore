@@ -14,6 +14,7 @@ docs/PLAN.md
 contracts/test/vectors
 sdk/src/abi
 sdk/src/deployments.generated.ts
+sdk/src/config.generated.ts
 subgraph/tests/.bin
 subgraph/tests/.latest.json
 contracts/deployments
