@@ -1,8 +1,8 @@
 import { epochManagerAbi } from "@strike/sdk";
 import { createPublicClient, erc20Abi, zeroAddress, type Address } from "viem";
-import { DEFAULT_CHAIN_ID, getAppChain, isAppChainId, type AppChainId } from "./chains";
+import { DEFAULT_CHAIN_ID, getAppChain, isAppChainId, localChain, type AppChainId } from "./chains";
 import { serverReadTransport } from "./rpc/server";
-import { findDeployment } from "./deployment";
+import { chainDeployments, deployedChainIds, type Deployment } from "./deployment";
 import { toNumber } from "./format";
 
 export interface OptionMeta {
@@ -39,36 +39,65 @@ export function parseOptionId(raw: string): { id: bigint; hex: string } {
   return { id: BigInt(`0x${hex}`), hex: hex.padStart(64, "0") };
 }
 
-export function parseChainId(raw: string | null): AppChainId {
-  if (raw === null || raw === "") return DEFAULT_CHAIN_ID;
+/** The `chainId` query parameter, or null when absent (then every deployed public chain is searched). */
+export function parseChainId(raw: string | null): AppChainId | null {
+  if (raw === null || raw === "") return null;
   const id = Number(raw);
   if (!isAppChainId(id)) throw new OptionMetaError(`Unsupported chain ${raw}`, 400);
   return id;
 }
 
-export async function loadOption(chainId: AppChainId, raw: string): Promise<OptionMeta> {
+/**
+ * The chains to search for a series: the one asked for, else the default chain and then every other public chain
+ * with a deployment. OptionToken's `uri()` carries no chain, so a wallet asks without one; series ids hash the vault
+ * address, so an id matches at most one deployment.
+ */
+function searchChains(chainId: AppChainId | null): AppChainId[] {
+  if (chainId !== null) return [chainId];
+  const others = deployedChainIds().filter(
+    (id): id is AppChainId => isAppChainId(id) && id !== DEFAULT_CHAIN_ID && id !== localChain.id,
+  );
+  return [DEFAULT_CHAIN_ID, ...others];
+}
+
+export async function loadOption(chainId: AppChainId | null, raw: string): Promise<OptionMeta> {
   const { id, hex } = parseOptionId(raw);
-  const dep = findDeployment(chainId);
-  if (!dep) throw new OptionMetaError(`Strike is not deployed on chain ${chainId}`, 404);
-  const client = createPublicClient({ chain: getAppChain(chainId), transport: serverReadTransport(chainId) });
-  let series;
-  try {
-    series = await client.readContract({
-      address: dep.epochManager,
-      abi: epochManagerAbi,
-      functionName: "getSeries",
-      args: [id],
-    });
-  } catch {
-    throw new OptionMetaError("Could not read the series from the chain", 502);
+  const targets: { chainId: AppChainId; dep: Deployment }[] = searchChains(chainId).flatMap((c) =>
+    chainDeployments(c).map((dep) => ({ chainId: c, dep })),
+  );
+  if (targets.length === 0) throw new OptionMetaError(`Strike is not deployed on chain ${chainId}`, 404);
+  // Every deployment (v2 and v3 on Robinhood Chain testnet, v3 on Arbitrum Sepolia) at once; the first hit wins.
+  const reads = await Promise.allSettled(
+    targets.map(async (t) => {
+      const client = createPublicClient({
+        chain: getAppChain(t.chainId),
+        transport: serverReadTransport(t.chainId),
+      });
+      const series = await client.readContract({
+        address: t.dep.epochManager,
+        abi: epochManagerAbi,
+        functionName: "getSeries",
+        args: [id],
+      });
+      return { ...t, client, series };
+    }),
+  );
+  const hit = reads.flatMap((r) =>
+    r.status === "fulfilled" && r.value.series.vault !== zeroAddress ? [r.value] : [],
+  )[0];
+  if (!hit) {
+    if (reads.some((r) => r.status === "rejected")) {
+      throw new OptionMetaError("Could not read the series from the chain", 502);
+    }
+    throw new OptionMetaError("Unknown option series", 404);
   }
-  if (series.vault === zeroAddress) throw new OptionMetaError("Unknown option series", 404);
+  const { client, series } = hit;
   const [symbol, decimals] = await Promise.all([
     client.readContract({ address: series.underlying, abi: erc20Abi, functionName: "symbol" }),
     client.readContract({ address: series.underlying, abi: erc20Abi, functionName: "decimals" }),
   ]);
   return {
-    chainId,
+    chainId: hit.chainId,
     hexId: hex,
     vault: series.vault,
     symbol,
@@ -135,6 +164,12 @@ export function optionMetadata(o: OptionMeta, origin: string) {
     ],
   };
 }
+
+/** Error answers: cached briefly, readable cross-origin like the metadata itself. */
+export const ERROR_HEADERS = {
+  "Cache-Control": "public, max-age=10",
+  "Access-Control-Allow-Origin": "*",
+} as const;
 
 export const CACHE_HEADERS = {
   "Cache-Control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",

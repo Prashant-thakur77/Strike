@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { optionSvg } from "@/lib/optionImage";
-import { CACHE_HEADERS, OptionMetaError, loadOption, parseChainId } from "@/lib/optionMeta";
+import { CACHE_HEADERS, ERROR_HEADERS, OptionMetaError, loadOption, parseChainId } from "@/lib/optionMeta";
 
 /** SVG card for an option series: GET /api/option/{id}/image[?chainId=46630] */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -14,6 +14,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   } catch (err) {
     const status = err instanceof OptionMetaError ? err.status : 500;
     const message = err instanceof Error ? err.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status, headers: ERROR_HEADERS });
   }
 }
