@@ -44,3 +44,23 @@ describe("configFromEnv", () => {
     expect(c.rpcEndpoints).toEqual([{ provider: "custom", url: "http://127.0.0.1:8545" }]);
   });
 });
+
+describe("configFromEnv and strike.config.json", () => {
+  it("defaults to the config's defaultChainId and its public RPC", async () => {
+    const { loadStrikeConfig } = await import("@strike/sdk");
+    const strike = loadStrikeConfig();
+    const c = configFromEnv({});
+    expect(c.chainId).toBe(strike.defaultChainId);
+    expect(c.rpcEndpoints).toEqual([
+      { provider: "public", url: strike.chains[String(strike.defaultChainId)]!.rpc.public },
+    ]);
+  });
+
+  it("reads the agent key from the variable the config names (secrets.agentKey)", async () => {
+    const { strikeSecretName } = await import("@strike/sdk");
+    expect(strikeSecretName("agentKey")).toBe("STRIKE_AGENT_PRIVATE_KEY");
+    expect(() => configFromEnv({ STRIKE_AGENT_PRIVATE_KEY: "0x12" })).toThrow(
+      /^STRIKE_AGENT_PRIVATE_KEY must be/,
+    );
+  });
+});

@@ -3,7 +3,9 @@ import {
   type StrikeClient,
   createStrikeClient,
   getStrikeChain,
+  loadStrikeConfig,
   rpcEndpointsFor,
+  strikeSecretName,
   transportFromEndpoints,
 } from "@strike/sdk";
 import { type Hex, createPublicClient, createWalletClient } from "viem";
@@ -11,7 +13,7 @@ import { privateKeyToAccount } from "viem/accounts";
 
 /** Server configuration from the environment. */
 export interface StrikeMcpConfig {
-  /** STRIKE_CHAIN_ID (default 46630, Robinhood Chain testnet). */
+  /** STRIKE_CHAIN_ID (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet). */
   chainId: number;
   /** The first RPC endpoint's URL, for display. Never carries an API key (Alchemy's goes in a header). */
   rpcUrl: string;
@@ -28,16 +30,17 @@ export interface StrikeMcpConfig {
   readOnly: boolean;
 }
 
-/** Read and validate the STRIKE_* environment variables. */
+/** Read and validate the STRIKE_* environment variables (defaults and the key's variable from strike.config.json). */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): StrikeMcpConfig {
-  const chainId = Number(env.STRIKE_CHAIN_ID ?? 46630);
+  const chainId = Number(env.STRIKE_CHAIN_ID ?? loadStrikeConfig().defaultChainId);
   if (!Number.isInteger(chainId) || chainId <= 0)
     throw new Error(`invalid STRIKE_CHAIN_ID: ${env.STRIKE_CHAIN_ID}`);
   const rpcEndpoints = rpcEndpointsFor(chainId, env);
   const readOnly = env.STRIKE_MCP_READ_ONLY === "1" || env.STRIKE_MCP_READ_ONLY === "true";
-  const key = readOnly ? undefined : env.STRIKE_AGENT_PRIVATE_KEY?.trim();
+  const keyEnv = strikeSecretName("agentKey"); // STRIKE_AGENT_PRIVATE_KEY
+  const key = readOnly ? undefined : env[keyEnv]?.trim();
   if (key && !/^0x[0-9a-fA-F]{64}$/.test(key)) {
-    throw new Error("STRIKE_AGENT_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key");
+    throw new Error(`${keyEnv} must be a 0x-prefixed 32-byte hex key`);
   }
   return {
     chainId,
