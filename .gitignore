@@ -62,3 +62,6 @@ docs/req-you.md
 docs/hackathon.md
 docs/research-winners.md
 docs/research-final-week.md
+
+# forge run from the repo root (fuzz failure cache)
+/cache/
