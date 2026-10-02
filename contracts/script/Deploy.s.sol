@@ -15,6 +15,8 @@ import {TestUSDG} from "../src/testnet/TestUSDG.sol";
 import {OptionToken} from "../src/tokens/OptionToken.sol";
 import {StrikeVault} from "../src/vaults/StrikeVault.sol";
 import {VaultFactory} from "../src/vaults/VaultFactory.sol";
+import {AdminTimelock} from "./AdminTimelock.sol";
+import {TimelockController} from "@openzeppelin/contracts/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {Script, console2} from "forge-std/Script.sol";
@@ -25,6 +27,13 @@ import {Script, console2} from "forge-std/Script.sol";
 ///     --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api/
 ///
 /// Env: PRIVATE_KEY (deployer = admin); optional GUARDIAN, KEEPER, TREASURY (default: deployer).
+///
+/// Admin timelock (D43, docs/trust-model.md "Staged path for the admin keys"): ADMIN_TIMELOCK=true|false, default true
+/// on 4663 (mainnet) and false elsewhere. When on, the deployer ends with no admin role: every DEFAULT_ADMIN_ROLE (and
+/// the calendar's CALENDAR_ROLE) goes to an OpenZeppelin TimelockController that only ADMIN_SAFE (required, a Safe)
+/// can schedule, cancel and execute calls on. Its delay, TIMELOCK_DELAY, defaults to AdminTimelock.MIN_DELAY (73 days:
+/// longer than the longest epoch plus the settlement grace) and cannot be set lower. GUARDIAN defaults to ADMIN_SAFE.
+/// Anything the deployer must still change as admin (for example the Stylus pricer) goes through the timelock after.
 ///
 /// Chains:
 ///   4663   Robinhood Chain mainnet: real USDG, real stock tokens, real Chainlink feeds, small deposit cap
@@ -60,16 +69,23 @@ contract Deploy is Script {
         address vaultImpl;
         address factory;
         address usdg;
+        address timelock; // zero unless ADMIN_TIMELOCK
     }
 
     address internal deployer;
     Deployed internal d;
     Stock[] internal stocks;
+    /// MirrorFeeds this run deployed (testnets): their admin moves to the timelock too.
+    address[] internal mirrorFeeds;
+    address internal adminSafe;
+    uint256 internal timelockDelay;
 
     function run() external returns (Deployed memory) {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         deployer = vm.addr(pk);
-        address guardian = vm.envOr("GUARDIAN", deployer);
+        bool timelocked = vm.envOr("ADMIN_TIMELOCK", block.chainid == 4663);
+        if (timelocked) adminSafe = vm.envAddress("ADMIN_SAFE");
+        address guardian = vm.envOr("GUARDIAN", timelocked ? adminSafe : deployer);
         address keeper = vm.envOr("KEEPER", deployer);
         address treasury = vm.envOr("TREASURY", deployer);
         Config memory cfg = _config();
@@ -111,6 +127,7 @@ contract Deploy is Script {
         for (uint256 i; i < stocks.length; ++i) {
             _listStock(stocks[i], cfg.maxPriceAge, keeper);
         }
+        if (timelocked) _handOverToTimelock(guardian);
         vm.stopBroadcast();
 
         _write();
@@ -126,12 +143,33 @@ contract Deploy is Script {
             f.grantRole(f.KEEPER_ROLE(), keeper);
             f.push(s.seedPrice8, uint64(block.timestamp));
             s.feed = address(f);
+            mirrorFeeds.push(address(f));
         }
         StockOracle(d.oracle).setFeed(s.token, IAggregatorV3(s.feed), maxPriceAge, 1 days);
         EpochManager(d.manager).setUnderlying(s.token, true);
         EpochManager(d.manager).setSigmaBounds(s.token, 0.2e18, 2e18, s.sigma);
         // Chainlink stock feeds print on a 0.5% move: price buys that far against the buyer (audit M-03).
         EpochManager(d.manager).setSpotBuffer(s.token, 50);
+    }
+
+    /// @dev D43: every admin role moves to a TimelockController that only the Safe proposes to; the guardian keeps
+    ///      its pause directly. `AdminTimelock.handOver` reverts if the deployer is left with any admin role.
+    function _handOverToTimelock(address guardian) internal {
+        timelockDelay = vm.envOr("TIMELOCK_DELAY", AdminTimelock.MIN_DELAY);
+        TimelockController timelock = AdminTimelock.deploy(adminSafe, timelockDelay);
+        d.timelock = address(timelock);
+        address[] memory admins = new address[](7 + mirrorFeeds.length);
+        (admins[0], admins[1], admins[2], admins[3]) = (d.calendar, d.oracle, d.fees, d.options);
+        (admins[4], admins[5], admins[6]) = (d.registry, d.manager, d.factory);
+        for (uint256 i; i < mirrorFeeds.length; ++i) {
+            admins[7 + i] = mirrorFeeds[i];
+        }
+        AdminTimelock.handOver(
+            timelock, deployer, MarketCalendar(d.calendar), EpochManager(d.manager), guardian, admins
+        );
+        console2.log("Admin: TimelockController", d.timelock);
+        console2.log("  proposer, canceller and executor", adminSafe);
+        console2.log("  delay (seconds)", timelockDelay);
     }
 
     // ------------------------------------------------------------------ chain configs (docs/research.md)
@@ -249,6 +287,11 @@ contract Deploy is Script {
         vm.serializeAddress(k, "epochManager", d.manager);
         vm.serializeAddress(k, "vaultImplementation", d.vaultImpl);
         vm.serializeAddress(k, "vaultFactory", d.factory);
+        if (d.timelock != address(0)) {
+            vm.serializeAddress(k, "timelock", d.timelock);
+            vm.serializeAddress(k, "adminSafe", adminSafe);
+            vm.serializeUint(k, "timelockDelay", timelockDelay);
+        }
 
         string memory sk = "stocks";
         string memory stocksJson;
