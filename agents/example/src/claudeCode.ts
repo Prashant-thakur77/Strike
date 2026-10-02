@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { z } from "zod";
+import { type PlannerCall, cleanError } from "./candidates.js";
 import { CLAUDE_MODEL, type Narrate, PLANNING_TOOLS, planSchema, planningSystem } from "./llm.js";
 import type { Plan } from "./strategy.js";
 
@@ -45,6 +46,8 @@ export interface ClaudeCodeOptions {
   claudePath?: string;
   /** Environment the CLI inherits (default process.env; secrets are removed, see {@link claudeCodeEnv}). */
   env?: NodeJS.ProcessEnv;
+  /** Called with each `risk_check` Claude Code made (arguments and result), for the decision record. */
+  capture?: (call: PlannerCall) => void;
   /** For tests. */
   spawn?: typeof nodeSpawn;
 }
@@ -178,6 +181,38 @@ interface StreamState {
   result: Record<string, unknown> | null;
   badLines: number;
   failure: string | null;
+  /** `risk_check` calls waiting for their result, by tool_use id. */
+  pending: Map<string, { input: Record<string, unknown> }>;
+  capture?: (call: PlannerCall) => void;
+}
+
+/** The JSON a `tool_result` block carries (a string, or a list of text blocks); null when it is not JSON. */
+function toolResultJson(content: unknown): { data: unknown; text: string } {
+  const text = Array.isArray(content)
+    ? (content as { type?: string; text?: string }[])
+        .map((c) => (c.type === "text" ? (c.text ?? "") : ""))
+        .join("")
+    : typeof content === "string"
+      ? content
+      : "";
+  try {
+    return { data: text ? JSON.parse(text) : null, text };
+  } catch {
+    return { data: null, text };
+  }
+}
+
+/** Report calls that never got a result (the run ended first) as errors: they were not dry-run. */
+function flushPending(state: StreamState): void {
+  for (const [, p] of state.pending) {
+    state.capture?.({
+      tool: "risk_check",
+      input: p.input,
+      result: null,
+      error: "no result came back before the run ended",
+    });
+  }
+  state.pending.clear();
 }
 
 /** Narrate one stream-json line and collect the init model and the final result. */
@@ -205,10 +240,46 @@ function handleLine(line: string, state: StreamState, narrate: Narrate): void {
   }
   if (msg.type === "assistant") {
     const content = (msg.message as { content?: unknown[] } | undefined)?.content ?? [];
-    for (const block of content as { type: string; text?: string; name?: string; input?: unknown }[]) {
+    for (const block of content as {
+      type: string;
+      text?: string;
+      name?: string;
+      input?: unknown;
+      id?: string;
+    }[]) {
       if (block.type === "text" && block.text?.trim()) narrate(`Claude: ${block.text.trim()}`);
-      else if (block.type === "tool_use" && block.name && block.name !== "StructuredOutput")
+      else if (block.type === "tool_use" && block.name && block.name !== "StructuredOutput") {
         narrate(`Claude calls ${shortTool(block.name)} ${JSON.stringify(block.input ?? {})}`);
+        if (shortTool(block.name) === "risk_check" && block.id) {
+          const input =
+            typeof block.input === "object" && block.input !== null && !Array.isArray(block.input)
+              ? (block.input as Record<string, unknown>)
+              : {};
+          state.pending.set(block.id, { input });
+        }
+      }
+    }
+    return;
+  }
+  if (msg.type === "user") {
+    const content = (msg.message as { content?: unknown } | undefined)?.content;
+    if (!Array.isArray(content)) return;
+    for (const block of content as {
+      type?: string;
+      tool_use_id?: string;
+      content?: unknown;
+      is_error?: boolean;
+    }[]) {
+      if (block.type !== "tool_result" || !block.tool_use_id) continue;
+      const call = state.pending.get(block.tool_use_id);
+      if (!call) continue;
+      state.pending.delete(block.tool_use_id);
+      const { data, text } = toolResultJson(block.content);
+      state.capture?.(
+        block.is_error === true
+          ? { tool: "risk_check", input: call.input, result: null, error: cleanError(text || "tool error") }
+          : { tool: "risk_check", input: call.input, result: data, error: null },
+      );
     }
     return;
   }
@@ -269,7 +340,14 @@ export function interpretResult(result: Record<string, unknown>): {
 export async function planWithClaudeCode(opts: ClaudeCodeOptions): Promise<ClaudeCodePlan> {
   const env = opts.env ?? process.env;
   const requested = opts.model ?? CLAUDE_MODEL;
-  const state: StreamState = { model: null, result: null, badLines: 0, failure: null };
+  const state: StreamState = {
+    model: null,
+    result: null,
+    badLines: 0,
+    failure: null,
+    pending: new Map(),
+    capture: opts.capture,
+  };
   const done = (plan: Plan | null, reason: string | null): ClaudeCodePlan => ({
     plan,
     reason,
@@ -352,6 +430,7 @@ export async function planWithClaudeCode(opts: ClaudeCodeOptions): Promise<Claud
       child.stdin?.end(prompt);
     });
 
+    flushPending(state);
     if (outcome.error) {
       if (outcome.error.code === "ENOENT") {
         return done(

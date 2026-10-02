@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { anchorRecord, chainAnchorSender, decisionLogAddress, readAnchorEpoch } from "./anchor.js";
 import { DEFAULT_BUDGET, DEFAULT_SLIPPAGE_BPS, buyOptions, redeemOptions } from "./buyer.js";
 import { epochSnapshot, lastSettlement, readClient } from "./chain.js";
+import { describeCandidate, type PlannerCall, plannerCandidates, runLadder } from "./candidates.js";
 import { Journal, marketInputs } from "./journal.js";
 import { type PlannerMcp, planWithClaudeCode } from "./claudeCode.js";
 import { CLAUDE_MODEL, describeClaudeError, planWithClaude } from "./llm.js";
@@ -182,6 +183,7 @@ async function planWithLlm(
   opts: DecideOptions,
   log: Narrator,
   notes: string[],
+  calls: PlannerCall[],
 ): Promise<{ plan: Plan; kind: PlannerKind; model: string } | null> {
   const choice = selectPlanner(opts.planner);
   if (!choice.kind) {
@@ -202,6 +204,7 @@ async function planWithLlm(
       narrate,
       mcp: plannerMcp(),
       model: process.env.STRIKE_CLAUDE_CODE_MODEL?.trim() || undefined,
+      capture: (c) => calls.push(c),
     });
     if (res.plan) return { plan: res.plan, kind, model: res.model };
     log.say(`Claude Code gave no plan (${res.reason}); using the default strategy.`);
@@ -209,7 +212,13 @@ async function planWithLlm(
     return null;
   }
   try {
-    const plan = await planWithClaude({ mcp: mcp.client, vault: state.vault.address, skill: text, narrate });
+    const plan = await planWithClaude({
+      mcp: mcp.client,
+      vault: state.vault.address,
+      skill: text,
+      narrate,
+      capture: (c) => calls.push(c),
+    });
     if (plan) return { plan, kind, model: CLAUDE_MODEL };
     log.say("Claude submitted no plan; using the default strategy.");
     notes.push("Claude submitted no plan; the agent used the default strategy.");
@@ -229,7 +238,10 @@ async function decide(
 ): Promise<Plan> {
   const mandate = state.vault.mandate;
   const notes: string[] = [];
-  const llm = opts.llm ? await planWithLlm(mcp, state, opts, log, notes) : null;
+  const calls: PlannerCall[] = [];
+  const llm = opts.llm ? await planWithLlm(mcp, state, opts, log, notes, calls) : null;
+  // Whatever Claude dry-ran is recorded, even when it then gave no plan: those reads happened.
+  if (calls.length > 0) journal.plannerDryRuns(plannerCandidates(calls, mandate, state.blockTimeIso));
   if (llm) {
     const { plan: enforced, adjustments } = enforceMandate(llm.plan, mandate);
     const label = plannerLabel(llm.kind, llm.model);
@@ -265,6 +277,29 @@ async function decide(
     planner: { kind: "rule", model: profile.name, label: profileLabel(profile) },
   });
   return plan;
+}
+
+/**
+ * Dry-run the ladder: the final plan's premium factor at several target deltas across the mandate's band and a little
+ * beyond each edge, through the read-only `risk_check`. The journal keeps the contract's verdict for each, so the
+ * record shows the strikes the agent passed over, not only the one it chose. Never stops the run.
+ */
+async function dryRunLadder(mcp: StrikeMcp, state: VaultState, plan: Plan, log: Narrator, journal: Journal) {
+  log.step("Dry-run the alternatives (ladder across the mandate's delta band)");
+  try {
+    const rungs = await runLadder({
+      call: (args) => mcp.call<RiskCheck>("risk_check", { vault: state.vault.address, ...args }),
+      mandate: state.vault.mandate,
+      blockTimeIso: state.blockTimeIso,
+      premiumBps: plan.premiumBps,
+      chosenDeltaBps: plan.targetDeltaBps,
+    });
+    journal.ladderDryRuns(rungs);
+    for (const c of rungs)
+      log.say(describeCandidate({ ...c, chosen: c.targetDeltaBps === plan.targetDeltaBps }));
+  } catch (err) {
+    log.say(`The ladder could not be dry-run (${String(err)}); the record keeps only the chosen dry run.`);
+  }
 }
 
 async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: Narrator, journal: Journal) {
@@ -309,6 +344,7 @@ async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: 
     journal.dryRan(check);
     journal.note(`The first dry run was not compliant (${check.reason}): ${check.explanation}`);
     if (!s?.ok) {
+      await dryRunLadder(mcp, state, plan, log, journal);
       journal.finish({
         status: "not-sent",
         summary: "No compliant proposal found, so the agent did not propose.",
@@ -334,6 +370,7 @@ async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: 
   log.say(`Verdict: ${check.reason}. ${check.explanation}`);
   journal.dryRan(check);
   if (!check.ok) {
+    await dryRunLadder(mcp, state, plan, log, journal);
     journal.finish({
       status: "not-sent",
       summary: `The dry run failed (${check.reason}); a careful agent does not propose.`,
@@ -341,6 +378,8 @@ async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: 
     });
     throw new Error("the dry run failed; a careful agent does not propose");
   }
+  journal.chose(plan);
+  await dryRunLadder(mcp, state, plan, log, journal);
   if (opts.dryRun) {
     log.say("--dry-run: stopping here; nothing was sent.");
     journal.finish({

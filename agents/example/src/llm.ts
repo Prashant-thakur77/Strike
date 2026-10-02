@@ -3,6 +3,7 @@ import { type MCPClientLike, mcpTools } from "@anthropic-ai/sdk/helpers/beta/mcp
 import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { z } from "zod";
+import { type PlannerCall, cleanError } from "./candidates.js";
 import type { Plan } from "./strategy.js";
 
 /** The Claude model that plans each epoch. */
@@ -44,6 +45,55 @@ The protocol's own guide for agents follows.
 ${skill}`;
 }
 
+/** The structured result of an MCP tool call, or the JSON in its text. Null when there is neither. */
+export function toolResultData(res: { structuredContent?: unknown; content?: unknown }): unknown {
+  if (res.structuredContent !== undefined && res.structuredContent !== null) return res.structuredContent;
+  const parts = Array.isArray(res.content) ? (res.content as { type?: string; text?: string }[]) : [];
+  const text = parts.map((c) => (c.type === "text" ? (c.text ?? "") : "")).join("");
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The text of an MCP tool error, for the record. */
+export function toolErrorText(res: { content?: unknown }): string {
+  const parts = Array.isArray(res.content) ? (res.content as { type?: string; text?: string }[]) : [];
+  return cleanError(parts.map((c) => (c.type === "text" ? (c.text ?? "") : "")).join(" ") || "tool error");
+}
+
+/**
+ * The MCP client Claude's tool loop calls through, reporting every `risk_check` call (its arguments and its result
+ * or error) to `capture` before handing the result back unchanged. The record keeps these as Claude's candidates.
+ */
+export function capturingClient(client: Client, capture: (call: PlannerCall) => void): MCPClientLike {
+  return {
+    listTools: () => client.listTools(),
+    callTool: async (params: { name: string; arguments?: Record<string, unknown> }) => {
+      const input = (params.arguments ?? {}) as Record<string, unknown>;
+      let res: Awaited<ReturnType<Client["callTool"]>>;
+      try {
+        res = await client.callTool(params);
+      } catch (err) {
+        if (params.name === "risk_check") {
+          capture({ tool: "risk_check", input, result: null, error: cleanError(err) });
+        }
+        throw err;
+      }
+      if (params.name === "risk_check") {
+        const r = res as { isError?: boolean; content?: unknown; structuredContent?: unknown };
+        capture(
+          r.isError
+            ? { tool: "risk_check", input, result: null, error: toolErrorText(r) }
+            : { tool: "risk_check", input, result: toolResultData(r), error: null },
+        );
+      }
+      return res;
+    },
+  } as unknown as MCPClientLike;
+}
+
 /** Where Claude's reasoning and tool calls are printed. */
 export type Narrate = (line: string) => void;
 
@@ -56,6 +106,8 @@ export async function planWithClaude(opts: {
   vault: string;
   skill: string;
   narrate: Narrate;
+  /** Called with each `risk_check` Claude makes (arguments and result), for the decision record. */
+  capture?: (call: PlannerCall) => void;
 }): Promise<Plan | null> {
   const anthropic = new Anthropic();
   const { tools } = await opts.mcp.listTools();
@@ -83,7 +135,13 @@ export async function planWithClaude(opts: {
       "Call submit_plan exactly once with a candidate that passed risk_check (ok: true).",
       opts.skill,
     ),
-    tools: [...mcpTools(readTools, opts.mcp as unknown as MCPClientLike), submitPlan],
+    tools: [
+      ...mcpTools(
+        readTools,
+        opts.capture ? capturingClient(opts.mcp, opts.capture) : (opts.mcp as unknown as MCPClientLike),
+      ),
+      submitPlan,
+    ],
     messages: [
       {
         role: "user",

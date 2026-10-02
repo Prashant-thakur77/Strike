@@ -12,6 +12,7 @@ import {
   planJsonSchema,
   planWithClaudeCode,
 } from "../src/claudeCode.js";
+import type { PlannerCall } from "../src/candidates.js";
 import { parsePlanner, plannerLabel, selectPlanner } from "../src/planner.js";
 
 // planWithClaudeCode against a scripted `claude` process (spawn is injected): the argv it builds, the files it hands
@@ -267,6 +268,79 @@ describe("planWithClaudeCode", () => {
     expect(interpretResult({ type: "result", subtype: "success", result: "I think 0.2" }).reason).toMatch(
       /no plan/,
     );
+  });
+});
+
+describe("planWithClaudeCode capture", () => {
+  const RISK = {
+    ok: true,
+    reason: "None",
+    explanation: "Inside the mandate.",
+    isCall: false,
+    spot: "369",
+    proposal: {
+      strike: "340.5",
+      targetDeltaBps: 1500,
+      expiryIso: "2026-10-09T20:00:00.000Z",
+      size: "1",
+      premiumBps: 10_500,
+    },
+    measured: { fairValue: "2.5", delta: 0.15, capacity: "2", yieldBps: 80 },
+  };
+  const use = (id: string, name: string, input: unknown) =>
+    assistant([{ type: "tool_use", id, name: `mcp__strike__${name}`, input }]);
+  const back = (id: string, content: unknown, isError = false) =>
+    JSON.stringify({
+      type: "user",
+      message: { content: [{ type: "tool_result", tool_use_id: id, content, is_error: isError }] },
+    });
+
+  it("captures each risk_check with its result from the stream, and ignores other tools", async () => {
+    const captured: PlannerCall[] = [];
+    const { res } = await run(
+      {
+        lines: [
+          init(),
+          use("t1", "vault_state", { vault: "0xVault" }),
+          back("t1", [{ type: "text", text: '{"spot":"369"}' }]),
+          use("t2", "risk_check", { vault: "0xVault", targetDeltaBps: 1500, premiumBps: 10_500 }),
+          back("t2", [{ type: "text", text: JSON.stringify(RISK) }]),
+          use("t3", "risk_check", { vault: "0xVault", targetDeltaBps: 7000 }),
+          back("t3", "feed down at https://rpc.example/key9", true),
+          result({ structured_output: PLAN }),
+        ],
+      },
+      { capture: (c) => captured.push(c) },
+    );
+    expect(res.plan).toEqual(PLAN);
+    expect(captured).toHaveLength(2);
+    expect(captured[0]).toMatchObject({
+      tool: "risk_check",
+      input: { vault: "0xVault", targetDeltaBps: 1500, premiumBps: 10_500 },
+      error: null,
+      result: { ok: true, measured: { delta: 0.15 } },
+    });
+    expect(captured[1]).toMatchObject({
+      input: { targetDeltaBps: 7000 },
+      result: null,
+      error: "feed down at <url>",
+    });
+  });
+
+  it("records a call that never got a result as an error: it was not dry-run", async () => {
+    const captured: PlannerCall[] = [];
+    await run(
+      { lines: [init(), use("t1", "risk_check", { vault: "0xVault", targetDeltaBps: 1500 })], code: 1 },
+      { capture: (c) => captured.push(c) },
+    );
+    expect(captured).toEqual([
+      {
+        tool: "risk_check",
+        input: { vault: "0xVault", targetDeltaBps: 1500 },
+        result: null,
+        error: "no result came back before the run ended",
+      },
+    ]);
   });
 });
 

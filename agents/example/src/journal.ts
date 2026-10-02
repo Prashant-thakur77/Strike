@@ -3,6 +3,7 @@ import {
   type MarketInputs,
   RECORD_VERSION,
   type RecordAction,
+  type RecordCandidate,
   type RecordDecision,
   type RecordDryRun,
   type RecordResult,
@@ -12,6 +13,7 @@ import {
   explorerUrl,
   txUrl,
 } from "./record.js";
+import { markChosen } from "./candidates.js";
 import type { AgentStats, ProposeResult, RiskCheck, VaultState } from "./types.js";
 
 /**
@@ -21,6 +23,11 @@ import type { AgentStats, ProposeResult, RiskCheck, VaultState } from "./types.j
 export class Journal {
   state: VaultState | null = null;
   decision: RecordDecision | null = null;
+  /** Claude's own `risk_check` calls, in order, and the ladder; both are attached to the decision when built. */
+  plannerCandidates: RecordCandidate[] = [];
+  ladderCandidates: RecordCandidate[] = [];
+  /** The delta and premium that became the proposal (set once the exact dry run passed). */
+  chosenPlan: { targetDeltaBps: number; premiumBps: number } | null = null;
   dryRun: RecordDryRun | null = null;
   market: MarketInputs | null = null;
   readonly transactions: RecordTx[] = [];
@@ -40,6 +47,30 @@ export class Journal {
 
   decided(decision: RecordDecision) {
     this.decision = decision;
+  }
+
+  /** Keep the `risk_check` calls Claude made while planning. */
+  plannerDryRuns(candidates: RecordCandidate[]) {
+    this.plannerCandidates = candidates;
+  }
+
+  /** Keep the ladder of dry runs across the mandate's delta band. */
+  ladderDryRuns(candidates: RecordCandidate[]) {
+    this.ladderCandidates = candidates;
+  }
+
+  /** Mark which candidate became the proposal. */
+  chose(plan: { targetDeltaBps: number; premiumBps: number }) {
+    this.chosenPlan = { targetDeltaBps: plan.targetDeltaBps, premiumBps: plan.premiumBps };
+  }
+
+  /** The decision with its candidates (Claude's calls, then the ladder), or the decision as it is. */
+  private decisionWithCandidates(): RecordDecision | null {
+    const d = this.decision;
+    if (!d) return null;
+    const all = [...this.plannerCandidates, ...this.ladderCandidates];
+    if (all.length === 0) return d;
+    return { ...d, candidates: this.chosenPlan ? markChosen(all, this.chosenPlan) : all };
   }
 
   /** Add a note to the decision (a mandate-guard correction, a fallback, a suggestion taken). */
@@ -98,7 +129,7 @@ export class Journal {
         mandate: s.vault.mandate,
       },
       market: this.market,
-      decision: this.decision,
+      decision: this.decisionWithCandidates(),
       dryRun: this.dryRun,
       transactions: this.transactions,
       result,

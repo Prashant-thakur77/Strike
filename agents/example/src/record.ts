@@ -36,6 +36,56 @@ export interface MarketInputs {
   marketOpen: boolean;
 }
 
+/** The first mandate rule a candidate fails, with the value the contract measured and the limit it breaks. */
+export interface RecordFailedRule {
+  /** The contract's MandateGuard reason, e.g. "DeltaOutOfBand". */
+  rule: string;
+  /** What was measured, in words with units, e.g. "|delta| 0.4928". */
+  measured: string;
+  /** The limit it breaks, e.g. "0.10 to 0.35". */
+  limit: string;
+}
+
+/**
+ * A proposal the agent dry-ran with `risk_check` (the contract's own `previewProposal`) while deciding. Read by the
+ * app (`app/src/lib/agentLog.ts` parseCandidate: targetDeltaBps, premiumBps, ok, reason, strike, fairValue,
+ * yieldBps); the other fields are extra detail it ignores. A dry run that could not be read is an error entry
+ * (`ok: false`, `reason: null`, `error` set, no measured values): nothing is recorded that was not dry-run.
+ */
+export interface RecordCandidate {
+  /** "ladder": a rung of the agent's own sweep across the mandate's delta band; "planner": a call Claude made. */
+  source: "ladder" | "planner";
+  /** The target |delta| in bps of 1 the dry run solved the strike from (null when Claude passed a strike). */
+  targetDeltaBps: number | null;
+  /** The premium factor asked, in bps of Black-Scholes fair value. */
+  premiumBps: number | null;
+  /** The contract's verdict: would it accept this proposal. False for an error entry. */
+  ok: boolean;
+  /** The contract's MandateGuard reason ("None" when accepted); null for an error entry. */
+  reason: string | null;
+  strike: string | null;
+  /** Black-Scholes fair value per option, USD. */
+  fairValue: string | null;
+  /** Fair value x premium factor: what one option sells for, USD. */
+  premium: string | null;
+  yieldBps: number | null;
+  /** Measured |delta| of the solved strike. */
+  delta: number | null;
+  /** Options offered and the vault's capacity at that strike. */
+  size: string | null;
+  capacity: string | null;
+  /** True for the candidate whose delta and premium became the proposal. */
+  chosen: boolean;
+  /** For a rejected candidate: the rule it fails, with the measured value and the limit. */
+  failedRule: RecordFailedRule | null;
+  /** The risk check's plain-words explanation (null for an error entry). */
+  explanation: string | null;
+  /** Why the dry run could not be read (error entries only). */
+  error?: string;
+  /** The arguments Claude passed to `risk_check` (planner entries only). */
+  inputs?: Record<string, unknown>;
+}
+
 export interface RecordDecision {
   strategy: "default" | "claude" | "reckless";
   targetDeltaBps: number | null;
@@ -49,6 +99,12 @@ export interface RecordDecision {
    * rule-based profile (`--profile`). Absent in older records.
    */
   planner?: RecordPlanner;
+  /**
+   * The alternatives the agent dry-ran while deciding: Claude's own `risk_check` calls (source "planner", in call
+   * order) then the ladder across the mandate's delta band (source "ladder", by delta). Absent in older records and
+   * when nothing was dry-run. The record hash covers it like every other field.
+   */
+  candidates?: RecordCandidate[];
 }
 
 /**
@@ -259,6 +315,50 @@ function dryRunSection(r: RecordDryRun | null): string[] {
   ];
 }
 
+/** A decimal string cut to six places (an 18-decimal token amount is unreadable in a sentence). */
+const shortDecimal = (s: string) => s.replace(/(\.\d{6})\d+$/, "$1");
+
+/** The alternatives the agent dry-ran, one list item each (empty when the record has none). */
+function candidatesSection(d: RecordDecision | null): string[] {
+  const cands = d?.candidates ?? [];
+  if (cands.length === 0) return [];
+  const lines: string[] = [];
+  const planner = cands.filter((c) => c.source === "planner");
+  const ladder = cands.filter((c) => c.source === "ladder");
+  const item = (c: RecordCandidate): string => {
+    const asked = c.targetDeltaBps !== null ? `${deltaText(c.targetDeltaBps)} delta` : "an explicit strike";
+    const head = `**${asked}${c.premiumBps !== null ? ` at ${pct(c.premiumBps)} of fair value` : ""}**${c.chosen ? " (chosen)" : ""}`;
+    if (c.error !== undefined) return `- ${head}: could not be dry-run (${oneLine(c.error)}).`;
+    const parts = [
+      c.strike ? `strike $${c.strike}` : null,
+      c.delta !== null ? `|delta| ${c.delta}` : null,
+      c.fairValue ? `fair value $${c.fairValue}` : null,
+      c.premium ? `premium $${c.premium} per option` : null,
+      c.yieldBps !== null ? `yield ${pct(c.yieldBps)} of collateral` : null,
+      c.size && c.capacity ? `${shortDecimal(c.size)} of ${shortDecimal(c.capacity)} options` : null,
+    ].filter((x): x is string => x !== null);
+    const verdict = c.ok
+      ? "inside the mandate"
+      : c.failedRule
+        ? `outside the mandate: ${code(c.failedRule.rule)}, ${c.failedRule.measured} against ${c.failedRule.limit}`
+        : `outside the mandate${c.reason ? ` (${code(c.reason)})` : ""}`;
+    return `- ${head}: ${parts.join(", ")}. ${verdict[0]?.toUpperCase()}${verdict.slice(1)}.`;
+  };
+  if (planner.length) {
+    lines.push("Claude's own `risk_check` calls, in order:", "", ...planner.map(item), "");
+  }
+  if (ladder.length) {
+    lines.push(
+      "The agent's ladder: the same dry run at several target deltas across the mandate's band and a little beyond each edge, all at the chosen premium factor and the largest size the mandate allows:",
+      "",
+      ...ladder.map(item),
+      "",
+    );
+  }
+  lines.pop();
+  return lines;
+}
+
 function resultSection(r: RecordResult): string[] {
   const lines = [`**${STATUS_TITLE[r.status]}.** ${oneLine(r.summary)}`];
   const facts: string[] = [];
@@ -319,6 +419,9 @@ export function formatRecordMarkdown(r: DecisionRecord): string {
     "",
     ...dryRunSection(r.dryRun),
     "",
+    ...(r.decision?.candidates?.length
+      ? ["## Alternatives it dry-ran", "", ...candidatesSection(r.decision), ""]
+      : []),
     "## Transactions",
     "",
     ...(r.transactions.length

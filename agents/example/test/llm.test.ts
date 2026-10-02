@@ -5,6 +5,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { type PlannerCall, plannerCandidates } from "../src/candidates.js";
 import { CLAUDE_MODEL, planWithClaude } from "../src/llm.js";
 
 // planWithClaude against a scripted local Messages API (no network, no key) and a small in-memory MCP server:
@@ -62,7 +63,34 @@ beforeAll(async () => {
       inputSchema: { vault: z.string(), targetDeltaBps: z.number() },
       annotations: ro,
     },
-    async () => ({ content: [{ type: "text", text: '{"ok":true,"reason":"None"}' }] }),
+    async ({ targetDeltaBps }) =>
+      targetDeltaBps === 9999
+        ? {
+            isError: true,
+            content: [{ type: "text" as const, text: "price feed down at https://rpc.example/key123" }],
+          }
+        : {
+            content: [
+              {
+                type: "text" as const,
+                text: JSON.stringify({
+                  ok: true,
+                  reason: "None",
+                  explanation: "Inside the mandate.",
+                  isCall: false,
+                  spot: "369",
+                  proposal: {
+                    strike: "340.5",
+                    targetDeltaBps,
+                    expiryIso: "2026-10-09T20:00:00.000Z",
+                    size: "1",
+                    premiumBps: 10_500,
+                  },
+                  measured: { fairValue: "2.5", delta: targetDeltaBps / 10_000, capacity: "2", yieldBps: 80 },
+                }),
+              },
+            ],
+          },
   );
   server.registerTool(
     "propose_epoch",
@@ -140,6 +168,71 @@ describe("planWithClaude", () => {
     expect(second).toContain('{\\"vault\\":\\"0xV\\",\\"spot\\":\\"369\\"}');
     expect(lines).toContain("Claude: Reading the vault first.");
     expect(lines.some((l) => l.startsWith("Claude calls submit_plan"))).toBe(true);
+  });
+
+  it("captures each risk_check Claude makes, with its inputs and result or error, and none of its other calls", async () => {
+    const call = (id: string, name: string, input: Record<string, unknown>) => ({
+      stop_reason: "tool_use",
+      content: [{ type: "tool_use", id, name, input }],
+    });
+    replies = [
+      call("a", "vault_state", { vault: "0xV" }),
+      call("b", "risk_check", { vault: "0xV", targetDeltaBps: 1500, premiumBps: 10_500 }),
+      call("c", "risk_check", { vault: "0xV", targetDeltaBps: 9999 }),
+      call("d", "risk_check", { vault: "0xV", targetDeltaBps: 2000, premiumBps: 10_500 }),
+      call("e", "submit_plan", { targetDeltaBps: 2000, premiumBps: 10_500, reasoning: "Balanced." }),
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Done." }] },
+    ];
+    const captured: PlannerCall[] = [];
+    const plan = await planWithClaude({
+      mcp,
+      vault: "0xV",
+      skill: "",
+      narrate: () => {},
+      capture: (c) => captured.push(c),
+    });
+    expect(plan).toMatchObject({ targetDeltaBps: 2000 });
+    expect(captured.map((c) => c.input.targetDeltaBps)).toEqual([1500, 9999, 2000]);
+    expect(captured[0]).toMatchObject({
+      tool: "risk_check",
+      input: { vault: "0xV", targetDeltaBps: 1500, premiumBps: 10_500 },
+      error: null,
+      result: { ok: true, reason: "None", measured: { delta: 0.15 } },
+    });
+    expect(captured[1]).toMatchObject({ result: null, error: expect.stringContaining("price feed down") });
+    expect(captured[1]?.error).not.toContain("key123");
+    // The captured calls become the record's planner candidates.
+    const mandate = {
+      minDeltaBps: 1000,
+      maxDeltaBps: 3500,
+      minPremiumBps: 9500,
+      minYieldBps: 5,
+      maxShareSoldBps: 8000,
+      minTenor: 86_400,
+      maxTenor: 691_200,
+      summary: "",
+    };
+    const cands = plannerCandidates(captured, mandate, "2026-10-05T15:00:00.000Z");
+    expect(cands.map((c) => [c.source, c.targetDeltaBps, c.ok, c.error === undefined])).toEqual([
+      ["planner", 1500, true, true],
+      ["planner", 9999, false, false],
+      ["planner", 2000, true, true],
+    ]);
+    // The tool loop itself is unchanged: Claude still got the results.
+    expect(JSON.stringify(requests.at(-1)?.body.messages)).toContain("tool_result");
+  });
+
+  it("works without a capture callback", async () => {
+    replies = [
+      {
+        stop_reason: "tool_use",
+        content: [
+          { type: "tool_use", id: "x", name: "risk_check", input: { vault: "0xV", targetDeltaBps: 1500 } },
+        ],
+      },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "No plan." }] },
+    ];
+    expect(await planWithClaude({ mcp, vault: "0xV", skill: "", narrate: () => {} })).toBeNull();
   });
 
   it("returns null when Claude declines", async () => {

@@ -270,3 +270,13 @@ When no suitable series is on sale, `hedge_plan` returns `hedgeable: false` and 
 - Do not propose when `spot.ok` is false (stale, paused, or a corporate action in progress) or the market is closed; the transaction reverts (no slash, but gas is wasted). The same holds for a strike live spot has already crossed (`StrikeInTheMoney`).
 - Keep your bond above `minBond` plus at least one `slashAmount`, and watch `rejectionsUntilInactive`.
 - The agent key can only propose. It never holds or moves vault funds; keep it separate from any funded wallet.
+
+## Decision records
+
+An agent can publish a decision record for each proposal and anchor its hash in `DecisionLog` (the example agent does: `--log`, `--anchor`). To show why a strike was chosen and not another, put the alternatives you dry-ran in the record as `decision.candidates`, one entry per `risk_check`:
+
+- `targetDeltaBps`, `premiumBps`, `ok` (the contract's verdict), `reason` (the `MandateGuard` reason, `None` when accepted), `strike`, `fairValue`, `yieldBps`: the fields the Strike app reads.
+- `source`: `ladder` for a sweep of deltas across the mandate's band and a little past each edge, or `planner` for a call a model made while planning. `chosen: true` marks the candidate that became the proposal. `failedRule` gives the first rule a rejected candidate fails, with the measured value and the limit.
+- A dry run you could not read is an entry with `ok: false`, `reason: null` and an `error`. Never record a result you did not get.
+
+The hash covers the whole file, so the candidates are anchored with the rest. A record without `candidates` is still valid.

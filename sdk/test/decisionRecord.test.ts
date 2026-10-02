@@ -64,6 +64,36 @@ describe("decision record hash", () => {
     expect(decisionRecordHash(tampered)).not.toBe(recordAnchorOf(record)!.recordHash);
   });
 
+  it("covers decision.candidates when present, and a record without the field keeps its hash", () => {
+    const record = JSON.parse(read(RH_CC)) as { decision: Record<string, unknown> };
+    expect(record.decision).not.toHaveProperty("candidates");
+    const withCandidates = {
+      ...record,
+      decision: {
+        ...record.decision,
+        candidates: [
+          {
+            source: "ladder",
+            targetDeltaBps: 2000,
+            premiumBps: 10_000,
+            ok: true,
+            reason: "None",
+            chosen: true,
+          },
+        ],
+      },
+    };
+    expect(decisionRecordHash(withCandidates)).not.toBe(recordAnchorOf(record)!.recordHash);
+    expect(unanchoredRecordJson(withCandidates)).toContain('"candidates"');
+    // A changed candidate changes the hash.
+    const edited = structuredClone(withCandidates);
+    (edited.decision.candidates as { ok: boolean }[])[0]!.ok = false;
+    expect(decisionRecordHash(edited)).not.toBe(decisionRecordHash(withCandidates));
+    // Without the field the hash is the anchored one (what the app's browser check rebuilds for old records).
+    const { candidates: _drop, ...decision } = withCandidates.decision;
+    expect(decisionRecordHash({ ...withCandidates, decision })).toBe(recordAnchorOf(record)!.recordHash);
+  });
+
   it("rejects what is not a record", () => {
     expect(() => unanchoredRecordJson(null)).toThrow(TypeError);
     expect(() => unanchoredRecordJson([])).toThrow(TypeError);
