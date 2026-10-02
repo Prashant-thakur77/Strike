@@ -281,7 +281,7 @@ The trust assumptions are stated plainly:
 
 - Chainlink publishes correct prices per raw token;
 - the issuer can pause tokens and change multipliers;
-- the admin can list tokens, set bounded parameters and pause, but cannot move user funds;
+- the admin can list tokens, set bounded parameters and pause; it has no function that moves user funds, but until a settlement price is recorded it could pick that price by swapping the feed or the oracle, so this holds only for an honest admin (a Safe on mainnet);
 - the guardian can only return funds to depositors and buyers;
 - USDG is treated as exactly $1.
 

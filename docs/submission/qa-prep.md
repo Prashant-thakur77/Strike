@@ -76,7 +76,7 @@ Anyone can call `settle` with a round id, and the contract checks that the round
 
 ### 17. What can the admin still do?
 
-List tokens and feeds, set volatility bounds, the spot buffer (at most 200 bps), fee parameters (at most 30%), timings within bounds, and the pricer ([audit-readiness.md](../audit-readiness.md#roles-and-trust)). The admin cannot move user funds or change a vault's mandate, and nothing is upgradeable. `setPricer` is the sharpest power: the deploy script checks the Stylus pricer against the Solidity reference before switching, but the setter itself does not, so on mainnet the admin must be a Safe multisig ([threat model T17](../threat-model.md)).
+List tokens and feeds, set volatility bounds, the spot buffer (at most 200 bps), fee parameters (at most 30%), timings within bounds, and the pricer ([audit-readiness.md](../audit-readiness.md#roles-and-trust)). The admin has no function that moves user funds and cannot change a vault's mandate, and nothing is upgradeable. It can, though, choose a settlement price before it is recorded by swapping the feed (`StockOracle.setFeed`) or the oracle (`EpochManager.setOracle`), so that holds only for an honest admin; a recorded price is final, and on the testnets the [price mirror audit](../trust-model.md) detects such a swap. `setPricer` is the sharpest power: the deploy script checks the Stylus pricer against the Solidity reference before switching, but the setter itself does not, so on mainnet the admin must be a Safe multisig ([threat model T17](../threat-model.md)).
 
 ### 18. How do you know the Rust pricer matches the Solidity one?
 
