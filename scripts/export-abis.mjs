@@ -29,6 +29,7 @@ const contracts = [
   "TestStockToken",
   "DecisionLog",
   "UsdgDrip",
+  "GasDrip",
 ];
 
 const camel = (name) => name[0].toLowerCase() + name.slice(1);

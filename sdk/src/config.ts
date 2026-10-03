@@ -61,7 +61,9 @@ export type StrikeSecretRole =
   | "blobToken"
   | "waitlistSalt"
   | "x402RelayerKey"
-  | "x402PayerKey";
+  | "x402PayerKey"
+  | "gasRelayerKey"
+  | "gasDripSalt";
 
 /** One token an x402 paid endpoint accepts (an EIP-3009 stablecoin) and its EIP-712 domain. */
 export interface StrikeX402Asset {

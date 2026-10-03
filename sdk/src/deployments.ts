@@ -21,6 +21,8 @@ export interface StrikeDeployment {
   riskLens?: Address;
   /** UsdgDrip (testnets only): the team's test-USDG faucet, 10 USDG per address per 24 h; absent elsewhere. */
   usdgDrip?: Address;
+  /** GasDrip (testnets only): the team's starter gas drip, sent by the app's relayer, once per address; absent elsewhere. */
+  gasDrip?: Address;
   /** The Stylus (Rust/WASM) program of this deployment, when it has one. */
   stylusPricer?: Address;
   /** Protocol version of this deployment's contracts ("v2", "v3"). */

@@ -84,6 +84,12 @@ export const generatedDeployments = {
     "usdgDripTx": "0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b",
     "usdgDripFundTx": "0x4a238e8a69c630f94df50fcea07d062519acc90d6f81a04dd60f32a3f7027629",
     "usdgDripNote": "Additive (testnet only, not part of v2): the team-funded test-USDG faucet, 10 USDG per address per 24 h (UsdgDrip, D38); serves v2 and v3, which use the same USDG",
+    "gasDrip": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+    "gasDripTx": "0x951279ff1a89a37af55a03380363ac28c0ad3e7119e6407bb1687738c134623f",
+    "gasDripFundTx": "0xd284e812e9aabd6d90805fc792524a0996eac332d8840a2655f8795421422219",
+    "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
+    "gasDripRelayerFundTx": "0x911a93dbece25b91d65d490fa2e69108223f482f95167e1792c910f5ac3e82c6",
+    "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D47). Deployed in block 128,261,147; serves every Strike deployment on this chain",
     "vaults": {
       "TSLA_cash_secured_put": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
       "TSLA_covered_call": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",
@@ -164,6 +170,12 @@ export const generatedDeployments = {
         "0x6ee65ef8a6fa002f4388f7cf279f6fd098c0a45ab2bff118c0fc0ab0ed266c8e"
       ]
     },
+    "gasDrip": "0x4fF10F0A6C1a9cC9c0a83ceC6c0C5e3dd2293EAd",
+    "gasDripTx": "0x27ce6d484a9da04aa6e7b6a09f680d81b58df2420908cd68a7e85096ba0d98ec",
+    "gasDripFundTx": "0x2994afe2df148715de0b92c9a4f659f54765d63a05cffe380c5a566c77039b0e",
+    "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
+    "gasDripRelayerFundTx": "0xe67614270edd829a1fb6f4d698aa79ccf60b663a52552927650e9e2ef113887f",
+    "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D47). Deployed in block 315,393,690; serves every Strike deployment on this chain",
     "vaults": {
       "TSLA_cash_secured_put": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
       "TSLA_covered_call": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",

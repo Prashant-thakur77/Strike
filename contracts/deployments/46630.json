@@ -49,5 +49,11 @@
   "usdgDrip": "0x1f3778BfC474419f154AD543625A711d90985632",
   "usdgDripTx": "0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b",
   "usdgDripFundTx": "0x4a238e8a69c630f94df50fcea07d062519acc90d6f81a04dd60f32a3f7027629",
-  "usdgDripNote": "Additive (testnet only, not part of v2): the team-funded test-USDG faucet, 10 USDG per address per 24 h (UsdgDrip, D38); serves v2 and v3, which use the same USDG"
+  "usdgDripNote": "Additive (testnet only, not part of v2): the team-funded test-USDG faucet, 10 USDG per address per 24 h (UsdgDrip, D38); serves v2 and v3, which use the same USDG",
+  "gasDrip": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+  "gasDripTx": "0x951279ff1a89a37af55a03380363ac28c0ad3e7119e6407bb1687738c134623f",
+  "gasDripFundTx": "0xd284e812e9aabd6d90805fc792524a0996eac332d8840a2655f8795421422219",
+  "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
+  "gasDripRelayerFundTx": "0x911a93dbece25b91d65d490fa2e69108223f482f95167e1792c910f5ac3e82c6",
+  "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D47). Deployed in block 128,261,147; serves every Strike deployment on this chain"
 }

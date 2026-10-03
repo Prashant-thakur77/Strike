@@ -188,6 +188,8 @@ export const bundledStrikeConfig: StrikeConfig = {
     "blobToken": "BLOB_READ_WRITE_TOKEN",
     "waitlistSalt": "WAITLIST_SALT",
     "x402RelayerKey": "X402_RELAYER_KEY",
-    "x402PayerKey": "STRIKE_PAYER_KEY"
+    "x402PayerKey": "STRIKE_PAYER_KEY",
+    "gasRelayerKey": "GAS_RELAYER_KEY",
+    "gasDripSalt": "GAS_DRIP_SALT"
   }
 };
