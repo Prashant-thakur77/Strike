@@ -65,6 +65,7 @@ const STATIC_PAGES = [
   { path: "/app/agents?chain=46630", heading: /agents/i },
   { path: "/app/faucet?chain=46630", heading: /faucet/i },
   { path: "/app/lessons", heading: /lessons/i },
+  { path: "/waitlist", heading: /strike on robinhood chain mainnet/i },
 ];
 
 for (const p of STATIC_PAGES) {

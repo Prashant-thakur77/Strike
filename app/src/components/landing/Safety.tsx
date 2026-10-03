@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/ui/Reveal";
 import styles from "./landing.module.css";
 
@@ -67,6 +69,9 @@ export function Safety() {
           <Reveal as="blockquote" className={styles.quote}>
             <span className="micro">Status</span>
             <p>Unaudited. Testnets first, then one small, capped mainnet vault.</p>
+            <Link href="/waitlist" className={`micro text-link ${styles.quoteLink}`}>
+              Join the mainnet waitlist <ArrowRight size={12} aria-hidden />
+            </Link>
           </Reveal>
         </div>
       </div>

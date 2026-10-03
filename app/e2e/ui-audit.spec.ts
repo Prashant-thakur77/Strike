@@ -104,6 +104,7 @@ const backtest =
 const STATES: State[] = [
   { name: "landing", path: "/", prepare: async (p) => settle(p, 2500), frames: true },
   { name: "not-found", path: "/no-such-page" },
+  { name: "waitlist", path: "/waitlist", prepare: (p) => settle(p, 1200) },
   { name: "vaults-46630", path: "/app?chain=46630", prepare: loaded },
   { name: "vaults-421614", path: "/app?chain=421614", prepare: loaded },
   { name: "vaults-4663", path: "/app?chain=4663", prepare: loaded },

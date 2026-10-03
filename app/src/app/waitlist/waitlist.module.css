@@ -1,0 +1,551 @@
+/* /waitlist, mobile first: phone styles are the base, wider screens add columns. Body copy never drops below 16px,
+   every tap target is at least 44px tall, and nothing is wider than the viewport. */
+
+/* ================================================================ hero */
+
+.hero {
+  padding-top: calc(var(--nav-h) + var(--sp-xs));
+  padding-bottom: var(--sp-xl);
+}
+
+.heroGrid {
+  display: grid;
+  gap: var(--sp-l);
+}
+
+.heroMain {
+  display: grid;
+  gap: var(--sp-s);
+  min-width: 0;
+}
+
+.heroMain > :global(.micro) {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.liveDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 4px rgba(23, 143, 157, 0.18);
+}
+
+.title {
+  font-size: clamp(2.5rem, 12vw, 4.4rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.06em;
+  overflow-wrap: break-word;
+}
+
+/* The outlined word: looser tracking so the stroked letters do not overlap. */
+.title :global(.outline-text) {
+  letter-spacing: -0.02em;
+}
+
+.pitch {
+  font-size: max(1rem, var(--fs-lead));
+  line-height: 1.4;
+  color: var(--fg-muted);
+  max-width: 34em;
+}
+
+.actions {
+  display: grid;
+  gap: 12px;
+  margin-top: var(--sp-xs);
+}
+
+/* Full-width, thumb-sized buttons on phones; their natural width from 560px. */
+.primary,
+.secondary {
+  width: 100%;
+  min-height: 52px;
+  font-size: 0.75rem;
+  white-space: normal;
+  text-align: center;
+}
+
+.note {
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+/* "Where it stands today": four rows on hairlines. */
+.status {
+  display: grid;
+  gap: 12px;
+  align-self: end;
+  padding: var(--sp-m) 0 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.status dl {
+  display: grid;
+}
+
+.statusRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 1rem;
+}
+
+.statusRow dt {
+  color: var(--fg-muted);
+}
+
+.statusRow dd {
+  font-weight: 650;
+  text-align: right;
+}
+
+.statusLink {
+  justify-self: start;
+  margin-top: 6px;
+}
+
+@media (min-width: 560px) {
+  .actions {
+    justify-items: start;
+  }
+  .primary,
+  .secondary {
+    width: auto;
+    padding-left: 26px;
+    padding-right: 26px;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 960px) {
+  .hero {
+    min-height: calc(100svh - var(--banner-h));
+    display: grid;
+    align-content: end;
+    padding-bottom: var(--sp-xl);
+  }
+  .heroGrid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    align-items: end;
+    column-gap: calc(var(--gutter) * 2);
+  }
+  .title {
+    font-size: clamp(4.4rem, 8.4vw, 9.5rem);
+    line-height: 0.86;
+  }
+  .heroMain {
+    gap: var(--sp-m);
+  }
+}
+
+/* ================================================================ sections */
+
+.section {
+  padding: var(--section-pad-top) 0 var(--section-pad-bottom);
+}
+
+.h2 {
+  margin-top: var(--sp-l);
+  max-width: 14em;
+}
+
+.subhead {
+  margin-top: var(--sp-xl);
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-strong);
+}
+
+/* ---------------------------------------------------------------- 01: the staged plan */
+
+.stages {
+  display: grid;
+  margin-top: var(--sp-l);
+  border-top: 1px solid var(--rule-strong);
+}
+
+/* Phones: one card per stage, stacked (meta row, title, text). Wide: three columns on a hairline. */
+.stage {
+  display: grid;
+  gap: 10px;
+  padding: var(--sp-m) 0;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.stageMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--rule-strong);
+  white-space: nowrap;
+}
+
+.badgeDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+}
+
+.badge[data-status="done"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.badge[data-status="done"] .badgeDot {
+  background: var(--mint);
+  border-color: var(--mint);
+}
+
+.badge[data-status="next"] {
+  background: var(--mint);
+  border-color: var(--mint-deep);
+  color: var(--ink-teal);
+}
+
+.badge[data-status="next"] .badgeDot {
+  background: currentColor;
+}
+
+.stageTitle {
+  margin-top: 4px;
+}
+
+.stageBody {
+  display: grid;
+  gap: 14px;
+  justify-items: start;
+}
+
+.stageBody p {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 40em;
+}
+
+.stage[data-status="later"] .stageTitle {
+  color: var(--fg-muted);
+}
+
+@media (min-width: 900px) {
+  .stage {
+    grid-template-columns: minmax(150px, 1fr) minmax(0, 2.2fr) minmax(0, 3fr);
+    align-items: start;
+    column-gap: var(--gutter);
+    padding: var(--sp-l) 0;
+  }
+  .stageMeta {
+    justify-content: start;
+    gap: 20px;
+    padding-top: 4px;
+  }
+  .stageTitle {
+    margin-top: 0;
+  }
+}
+
+/* Testnet evidence: one per row on phones, 2×2 from 520px, four across on wide screens. */
+.evidence {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin-top: var(--sp-m);
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
+}
+
+.stat {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: var(--sp-s);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  min-width: 0;
+}
+
+.stat dd {
+  display: grid;
+  gap: 6px;
+}
+
+.statValue {
+  font-size: var(--fs-stat);
+  font-weight: 720;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.statDetail {
+  font-size: 1rem;
+  line-height: 1.4;
+  color: var(--fg-muted);
+}
+
+.source {
+  margin-top: var(--sp-s);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.source a {
+  display: inline;
+  color: var(--fg);
+}
+
+@media (min-width: 520px) {
+  .evidence {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 900px) {
+  .evidence {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .stat {
+    padding: var(--sp-m);
+  }
+}
+
+/* ---------------------------------------------------------------- 02: benefits */
+
+.benefits {
+  display: grid;
+  margin-top: var(--sp-l);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.benefit {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: var(--sp-m) 0;
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.benefit p {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+.noYield {
+  margin-top: var(--sp-m);
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+  max-width: 40em;
+}
+
+.noYield strong {
+  color: var(--fg);
+}
+
+@media (min-width: 900px) {
+  .benefits {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: var(--gutter);
+    border-top: 0;
+  }
+  .benefit {
+    padding: var(--sp-m) 0 var(--sp-l);
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- 03: try it today */
+
+.doors {
+  margin-top: var(--sp-l);
+}
+
+.doorName {
+  overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------------- 04: Telegram */
+
+.telegram {
+  display: grid;
+  gap: var(--sp-l);
+}
+
+.telegramBody {
+  display: grid;
+  gap: var(--sp-m);
+  align-content: center;
+  justify-items: start;
+}
+
+.telegramBody .h2,
+.telegramBody > h2 {
+  margin-top: 0;
+}
+
+.bodyText {
+  font-size: max(1rem, var(--fs-body));
+  line-height: 1.55;
+  color: var(--fg-muted);
+  max-width: 34em;
+}
+
+.telegramCta {
+  width: 100%;
+  min-height: 52px;
+  white-space: normal;
+  text-align: center;
+}
+
+/* Phones: the screenshot is centred and capped so it never fills more than a screen. */
+.shot {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  margin: 0;
+}
+
+.shot img {
+  width: 100%;
+  max-width: min(340px, 100%);
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--rule-strong);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+.shot figcaption {
+  color: var(--fg-muted);
+  text-align: center;
+}
+
+@media (min-width: 560px) {
+  .telegramCta {
+    width: auto;
+    white-space: nowrap;
+  }
+}
+
+@media (min-width: 900px) {
+  .telegram {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    grid-template-areas: "shot body";
+    align-items: center;
+    column-gap: calc(var(--gutter) * 2);
+  }
+  .shot {
+    grid-area: shot;
+  }
+  .telegramBody {
+    grid-area: body;
+  }
+  .shot img {
+    max-width: 400px;
+  }
+}
+
+/* ---------------------------------------------------------------- 05: FAQ */
+
+.faq {
+  margin-top: var(--sp-l);
+  border-top: 1px solid var(--rule-strong);
+  max-width: 60rem;
+}
+
+.qa {
+  border-bottom: 1px solid var(--rule-strong);
+}
+
+.qa summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 64px;
+  padding: 14px 0;
+  font-size: var(--fs-h3);
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  list-style: none;
+}
+
+.qa summary::-webkit-details-marker {
+  display: none;
+}
+
+.qa summary svg {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  transition: transform 0.3s var(--ease-out);
+}
+
+.qa[open] summary svg {
+  transform: rotate(45deg);
+}
+
+.answer {
+  display: grid;
+  gap: 12px;
+  padding: 0 0 var(--sp-m);
+  max-width: 44em;
+}
+
+.answer p {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .qa summary:hover {
+    color: var(--accent);
+  }
+}
+
+/* ---------------------------------------------------------------- disclaimer */
+
+.disclaimer {
+  display: grid;
+  gap: 12px;
+  padding-top: var(--sp-l);
+  padding-bottom: var(--sp-l);
+}
+
+.disclaimer p {
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--fg-muted);
+  max-width: 52em;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qa summary svg {
+    transition: none;
+  }
+}

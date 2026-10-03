@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowUpRight } from "lucide-react";
+import Link from "next/link";
+import { ArrowDown, ArrowRight, ArrowUpRight } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { Footer } from "@/components/site/Footer";
 import { CtaBar } from "@/components/ui/CtaBar";
@@ -117,6 +118,9 @@ export function Closing() {
               <a href={LINKS.company} className="micro text-link" target="_blank" rel="noreferrer">
                 Read the plan <ArrowUpRight size={12} aria-hidden />
               </a>
+              <Link href="/waitlist" className="micro text-link">
+                Join the mainnet waitlist <ArrowRight size={12} aria-hidden />
+              </Link>
             </p>
           </div>
           <Footer />

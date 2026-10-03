@@ -62,7 +62,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 0 var(--gutter);
+  /* Fixed bars keep clear of a notch or rounded corner (env() is 0 where there is none). */
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
   background: var(--mint);
   color: var(--ink-teal);
 }
@@ -110,7 +111,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--gutter);
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) 0 max(var(--gutter), env(safe-area-inset-left));
   color: #fff;
   mix-blend-mode: difference;
 }
@@ -405,7 +406,8 @@
   z-index: 55;
   display: flex;
   flex-direction: column;
-  padding: 0 var(--gutter) 28px;
+  padding: 0 max(var(--gutter), env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom))
+    max(var(--gutter), env(safe-area-inset-left));
   overflow-y: auto;
 }
 

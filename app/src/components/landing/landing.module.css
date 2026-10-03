@@ -870,6 +870,11 @@
   letter-spacing: -0.045em;
 }
 
+.quoteLink {
+  justify-self: start;
+  margin-left: 8%;
+}
+
 @media (max-width: 900px) {
   .rail {
     grid-template-columns: 1fr;
@@ -890,6 +895,9 @@
   }
   .quote p {
     padding-left: 0;
+  }
+  .quoteLink {
+    margin-left: 0;
   }
 }
 

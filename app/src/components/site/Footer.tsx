@@ -14,6 +14,7 @@ const PAGES = [
   ["/app/portfolio", "Portfolio"],
   ["/app/glossary", "Glossary"],
   ["/app/lessons", "Lessons"],
+  ["/waitlist", "Mainnet waitlist"],
 ] as const;
 
 /** Micro row on a hairline (every page, then project links), plus the eligibility and risk notice. */
