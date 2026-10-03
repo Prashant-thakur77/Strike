@@ -277,3 +277,51 @@ export function noTradeCounts(list: NoTrade[]): Record<NoTradeKind, number> {
   for (const n of list) c[n.kind]++;
   return c;
 }
+
+/* ================================================================ decision log filter */
+
+export type LogFilter = "all" | "proposals" | "settlements" | "nothing";
+
+export const LOG_FILTER_LABEL: Record<LogFilter, string> = {
+  all: "All",
+  proposals: "Proposals",
+  settlements: "Settlements",
+  nothing: "Sold nothing",
+};
+
+function matchesFilter(e: LogEntry, f: LogFilter): boolean {
+  if (f === "all") return true;
+  if (f === "proposals") return e.record.action !== "settle";
+  if (f === "settlements") return e.record.action === "settle";
+  return NO_TRADE.has(e.record.result.status);
+}
+
+/** The log narrowed to one kind of run and, optionally, to records whose vault, date, status or summary hold `text`. */
+export function filterLog(entries: LogEntry[], f: LogFilter, text = ""): LogEntry[] {
+  const needle = text.trim().toLowerCase();
+  return entries.filter(
+    (e) =>
+      matchesFilter(e, f) &&
+      (!needle ||
+        [
+          e.name,
+          e.record.vault.symbol,
+          e.record.date,
+          e.record.result.status,
+          e.record.result.summary,
+          e.record.action,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(needle)),
+  );
+}
+
+export function logFilterCounts(entries: LogEntry[]): Record<LogFilter, number> {
+  return {
+    all: entries.length,
+    proposals: entries.filter((e) => matchesFilter(e, "proposals")).length,
+    settlements: entries.filter((e) => matchesFilter(e, "settlements")).length,
+    nothing: entries.filter((e) => matchesFilter(e, "nothing")).length,
+  };
+}

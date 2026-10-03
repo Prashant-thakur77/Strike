@@ -3134,3 +3134,53 @@ a.idChip:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ================================================================ decision log filters */
+
+.logFilters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.logChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logChip {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.logChip[aria-pressed="true"] {
+  background: var(--fg);
+  color: var(--bg);
+  border-color: var(--fg);
+}
+
+.logSearch input {
+  min-height: 36px;
+  width: min(18rem, 100%);
+  padding: 6px 12px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.logSearch {
+  max-width: 100%;
+}

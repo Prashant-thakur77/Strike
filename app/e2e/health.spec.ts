@@ -5,7 +5,9 @@ import { normCdf as sdkNormCdf } from "../../sdk/src/pricing";
 import { parseRecordText, type LogEntry } from "../src/lib/agentLog";
 import {
   HEALTH_LABEL,
+  filterLog,
   healthAlerts,
+  logFilterCounts,
   noTradeCounts,
   noTrades,
   normCdf,
@@ -173,6 +175,26 @@ test.describe("health logic", () => {
   });
 });
 
+test.describe("decision log filter", () => {
+  test.skip(({ isMobile }) => isMobile, "pure logic runs once, on desktop");
+
+  test("kinds partition the committed records, and text narrows by vault, date or summary", () => {
+    const entries = committed();
+    const c = logFilterCounts(entries);
+    expect(c.all).toBe(entries.length);
+    expect(c.proposals + c.settlements).toBe(c.all);
+    expect(filterLog(entries, "proposals").every((e) => e.record.action !== "settle")).toBe(true);
+    expect(filterLog(entries, "nothing")).toHaveLength(noTrades(entries).length);
+    const a2 = filterLog(entries, "all", "csp-a2");
+    expect(a2.length).toBeGreaterThan(0);
+    expect(a2.every((e) => e.record.vault.symbol === "sTSLA-CSP-A2")).toBe(true);
+    expect(filterLog(entries, "proposals", "DeltaOutOfBand").map((e) => e.name)).toContain(
+      "2026-10-01-sTSLA-CSP",
+    );
+    expect(filterLog(entries, "all", "no such text anywhere")).toEqual([]);
+  });
+});
+
 /* ================================================================ the page */
 
 async function serveLog(page: Page) {
@@ -254,5 +276,20 @@ test("agents page: live series health with alerts, performance and the runs that
     await page.getByTestId("notrade-settle-toggle").click();
     await expect(page.getByTestId("notrade-row")).toHaveCount(listed);
   }
+  // The decision log's filters: proposals only, then a text filter, then a filter that matches nothing.
+  const entries = committed()
+    .sort((a, b) => b.name.localeCompare(a.name))
+    .slice(0, 24);
+  const counts = logFilterCounts(entries);
+  const log = page.locator('[aria-label="Decision records, newest first"]');
+  await page.locator('[data-filter="proposals"]').click();
+  await expect(page.locator('[data-filter="proposals"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(log.locator(":scope > li")).toHaveCount(counts.proposals);
+  await page.getByTestId("log-search").fill("DeltaOutOfBand");
+  await expect(log.locator(":scope > li")).toHaveCount(
+    filterLog(entries, "proposals", "DeltaOutOfBand").length,
+  );
+  await page.getByTestId("log-search").fill("no such text anywhere");
+  await expect(page.getByTestId("log-no-match")).toBeVisible();
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });

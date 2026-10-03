@@ -30,6 +30,7 @@ import {
   type LogRecord,
 } from "@/lib/agentLog";
 import { decisionPath, isRecordName } from "@/lib/decision";
+import { LOG_FILTER_LABEL, filterLog, logFilterCounts, type LogFilter } from "@/lib/agentHealth";
 import { REASONS } from "@/lib/labels";
 import { Skeleton } from "../Skeleton";
 import styles from "../app.module.css";
@@ -41,6 +42,8 @@ const FIRST_PAGE = 4;
 export function DecisionLog() {
   const q = useAgentLog();
   const [all, setAll] = useState(false);
+  const [filter, setFilter] = useState<LogFilter>("all");
+  const [text, setText] = useState("");
 
   if (q.isPending) {
     return (
@@ -54,11 +57,46 @@ export function DecisionLog() {
 
   const { entries, skipped } = q.data;
   if (entries.length === 0) return <LogEmpty skipped={skipped} />;
-  const shown = all ? entries : entries.slice(0, FIRST_PAGE);
-  const hidden = entries.length - shown.length;
+  const counts = logFilterCounts(entries);
+  const matching = filterLog(entries, filter, text);
+  const narrowed = filter !== "all" || text.trim() !== "";
+  // A narrowed list shows every match; the full log keeps its first page.
+  const shown = all || narrowed ? matching : matching.slice(0, FIRST_PAGE);
+  const hidden = matching.length - shown.length;
   return (
     <div className={styles.log}>
-      <ol className={styles.logList} aria-label="Decision records, newest first">
+      <div className={styles.logFilters} data-testid="log-filters">
+        <div role="group" aria-label="Show records" className={styles.logChips}>
+          {(Object.keys(LOG_FILTER_LABEL) as LogFilter[]).map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={styles.logChip}
+              aria-pressed={filter === f}
+              onClick={() => setFilter(f)}
+              data-filter={f}
+            >
+              {LOG_FILTER_LABEL[f]} <span className="mono">{counts[f]}</span>
+            </button>
+          ))}
+        </div>
+        <label className={styles.logSearch}>
+          <span className="sr-only">Filter records by vault, date or text</span>
+          <input
+            type="search"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Filter: vault, date or text"
+            data-testid="log-search"
+          />
+        </label>
+      </div>
+      {matching.length === 0 ? (
+        <p className="body" data-testid="log-no-match">
+          No record matches. {narrowed ? "Clear the filter to see all of them." : ""}
+        </p>
+      ) : null}
+      <ol className={styles.logList} aria-label="Decision records, newest first" data-count={shown.length}>
         {shown.map((e) => (
           <li key={e.name}>
             <LogCard entry={e} />
