@@ -42,6 +42,7 @@ async function handle(request: Request): Promise<Response> {
             undefined,
         }),
       skillText: SKILL_MD,
+      indexerUrl: process.env.STRIKE_INDEXER_URL || undefined,
     });
     return withCors(res);
   } catch (err) {
