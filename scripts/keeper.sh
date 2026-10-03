@@ -148,9 +148,13 @@ settle_expired() {
       # hint (findSettlementHints), records the price with recordSettlementPriceWithHints, then settles. For a
       # deployment other than the primary (the SDK's entry), its addresses go in as the SDK's STRIKE_* overrides.
       echo "$(date -u +%FT%TZ) $sym: single-round settle failed; settling through the SDK with hints"
-      (cd "$ROOT" && export STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_AGENT_PRIVATE_KEY="$PRIVATE_KEY" STRIKE_RPC_URL="$RPC_URL" &&
+      if (cd "$ROOT" && export STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_AGENT_PRIVATE_KEY="$PRIVATE_KEY" STRIKE_RPC_URL="$RPC_URL" &&
         if [ "$deploy" != "$PRIMARY" ]; then eval "$(sdk_overrides "$deploy")"; fi &&
-        pnpm -s --filter @strike/agent-example start -- --settle --vault "$vault") || echo "settle failed for $vault"
+        pnpm -s --filter @strike/agent-example start -- --settle --vault "$vault"); then
+        echo "$(date -u +%FT%TZ) settled $vault through the SDK with hints"
+      else
+        echo "settle failed for $vault"
+      fi
     fi
   done
 }

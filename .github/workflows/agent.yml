@@ -14,6 +14,11 @@ name: Weekly agent
 #           the Claude Code CLI and runs it on a Pro/Max subscription; the API key wins when both are set).
 #   Friday after the close: keeper.yml settles the expired series; the agent then records each settlement, and
 #           settles itself only if nothing has yet. A vault whose settlement record of the day exists is skipped.
+#           Nothing to settle is a notice, not a failure, and writes no record: a series still selling before its
+#           expiry, or one that expired while the feed has no round at or after expiry (the mainnet Chainlink feed
+#           prints during NYSE hours, so a Friday 20:00 UTC expiry can wait for Monday's open). Such a run shows the
+#           step "Waiting for the first print after expiry"; keeper.yml settles the series when the print arrives
+#           and then dispatches a settle run, which records it.
 # Agent #2 (sTSLA-CSP-A2 on 46630 v2, its own key) runs after them, with --profile conservative on Monday.
 # GitHub may drop a scheduled run when it is busy (keeper.yml's 10-minute cron ran every 2.7 to 6.8 hours), so while the
 # keeper runs, its chain dispatches this workflow when a slot has passed without a successful run (Monday until 19:00
@@ -27,6 +32,9 @@ name: Weekly agent
 #   AGENT2_PRIVATE_KEY  agent #2's signer (0x4501…B79b); without it the agent #2 job is skipped
 #   ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN (optional planner), ALCHEMY_API_KEY (optional RPC)
 # A failed run opens a "Weekly agent failing" issue (or comments on it); the next passing run closes it.
+run-name: >-
+  Weekly agent (${{ github.event_name == 'workflow_dispatch' && inputs.mode || (github.event.schedule == '15 21 * * 5' && 'settle' || 'propose') }})
+
 on:
   schedule:
     # 15:00 UTC is 11:00 New York in summer (EDT) and 10:00 in winter (EST): inside the 09:30-16:00 session all year,
@@ -210,8 +218,12 @@ jobs:
           ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
         run: |
           # --anchor sends each record's keccak256 hash and GitHub URL to that deployment's DecisionLog.
-          if scripts/weekly-agent.sh "$MODE"; then failed=0; else failed=1; fi
-          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          # Exit 75: no vault stopped, and at least one expired series waits for its first print after expiry.
+          if scripts/weekly-agent.sh "$MODE"; then rc=0; else rc=$?; fi
+          failed=0
+          waiting=0
+          if [ "$rc" = 75 ]; then waiting=1; elif [ "$rc" != 0 ]; then failed=1; fi
+          { echo "failed=$failed"; echo "waiting=$waiting"; } >> "$GITHUB_OUTPUT"
 
       - name: Commit the decision records
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
@@ -237,6 +249,13 @@ jobs:
             sleep $((attempt * 5))
           done
           exit 1
+
+      # keeper.yml reads this step's name from the run's jobs: a run that waited is checked again later.
+      - name: Waiting for the first print after expiry
+        if: steps.agent.outputs.waiting == '1'
+        run: |
+          echo "An expired series waits for the feed's first round at or after expiry (see the notices). keeper.yml" \
+            "settles it when the print is mirrored and then dispatches a settle run, which records it." | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when an agent run stopped
         if: steps.agent.outputs.failed == '1'
@@ -278,9 +297,10 @@ jobs:
         run: |
           # A vault still selling its series (state 2) has nothing to propose: a notice, not a stopped run (its series
           # runs Friday to Friday, so on a Monday it is often mid-series). A failed read runs the agent anyway.
-          # On Friday, a record of today for this vault whose result is "settled" means an earlier run has recorded it.
+          # On Friday, a settle record of today for this vault whose result is "settled" (or "skipped": nothing to
+          # settle) means an earlier run has recorded it.
           if [ "$MODE" = settle ] && jq -s -e --arg v "${VAULT,,}" --arg d "$(date -u +%F)" \
-            'any(.[]; .action == "settle" and .result.status == "settled" and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
+            'any(.[]; .action == "settle" and (.result.status == "settled" or .result.status == "skipped") and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
             "$LOG_DIR"/*.json >/dev/null 2>&1; then
             echo "::notice::sTSLA-CSP-A2's settlement is already recorded today; nothing to do"
             echo "failed=0" >> "$GITHUB_OUTPUT"
@@ -296,10 +316,15 @@ jobs:
             fi
           fi
           # --anchor: into the v2 DecisionLog, which accepts AgentRegistry.signerOf(2), this key.
+          # Settle with nothing to settle is the agent's notice: exit 0 before expiry, 75 while waiting for the first
+          # print after expiry (scripts/weekly-agent.sh reads the codes the same way).
           flags=(--vault "$VAULT" --log "$GITHUB_WORKSPACE/$LOG_DIR" --anchor)
           if [ "$MODE" = settle ]; then flags+=(--settle); else flags+=(--profile conservative); fi
-          if pnpm --silent --filter @strike/agent-example start "${flags[@]}"; then failed=0; else failed=1; fi
-          echo "failed=$failed" >> "$GITHUB_OUTPUT"
+          if pnpm --silent --filter @strike/agent-example start "${flags[@]}"; then rc=0; else rc=$?; fi
+          failed=0
+          waiting=0
+          if [ "$MODE" = settle ] && [ "$rc" = 75 ]; then waiting=1; elif [ "$rc" != 0 ]; then failed=1; fi
+          { echo "failed=$failed"; echo "waiting=$waiting"; } >> "$GITHUB_OUTPUT"
 
       - name: Commit the decision record
         if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
@@ -325,6 +350,12 @@ jobs:
             sleep $((attempt * 5))
           done
           exit 1
+
+      - name: Waiting for the first print after expiry
+        if: steps.agent.outputs.waiting == '1'
+        run: |
+          echo "sTSLA-CSP-A2's expired series waits for the feed's first round at or after expiry. keeper.yml settles" \
+            "it when the print is mirrored and then dispatches a settle run, which records it." | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Fail when the agent run stopped
         if: steps.agent.outputs.failed == '1'

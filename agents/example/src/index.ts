@@ -2,7 +2,14 @@ import { resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { anchorRecord, chainAnchorSender, decisionLogAddress, readAnchorEpoch } from "./anchor.js";
 import { DEFAULT_BUDGET, DEFAULT_SLIPPAGE_BPS, buyOptions, redeemOptions } from "./buyer.js";
-import { epochSnapshot, lastSettlement, readClient } from "./chain.js";
+import {
+  SETTLE_WAITING_EXIT,
+  type SettleWait,
+  epochSnapshot,
+  lastSettlement,
+  readClient,
+  settleWait,
+} from "./chain.js";
 import { describeCandidate, type PlannerCall, plannerCandidates, runLadder } from "./candidates.js";
 import { Journal, marketInputs } from "./journal.js";
 import { type PlannerMcp, planWithClaudeCode } from "./claudeCode.js";
@@ -49,7 +56,9 @@ Usage: pnpm --filter @strike/agent-example start [options]
   --planner <p>      With --llm: force the planner, api or claude-code.
   --dry-run          Propose run up to the final dry run, then stop: nothing is sent (works
                      without STRIKE_AGENT_PRIVATE_KEY).
-  --settle           Settle the vault's expired series.
+  --settle           Settle the vault's expired series. Nothing is sent and no decision record is
+                     written before expiry (exit 0), or after it while the price feed has no
+                     round at or after expiry (exit 75, "try again later").
   --status           Print the vault and agent state only.
   --vault <v>        Vault address or share symbol (default: the first vault this agent runs
                      that can take a proposal, covered calls first).
@@ -453,12 +462,34 @@ async function reckless(mcp: StrikeMcp, vault: string, log: Narrator, journal: J
 /** Days back a settlement still counts as this week's, for a --settle --log run after the keeper settled. */
 const RECENT_SETTLEMENT_DAYS = 7;
 
+/** A `--settle` run with nothing to settle yet: not an error, and no decision record. */
+class NothingToSettleYet extends Error {
+  constructor(
+    readonly wait: SettleWait,
+    symbol: string,
+  ) {
+    super(`${symbol}: ${wait.reason}`);
+  }
+}
+
 async function settle(mcp: StrikeMcp, vault: string, log: Narrator, journal: Journal, recording: boolean) {
   const state = await readVault(mcp, vault, log, journal);
   if (recording && state.vault.epochState !== "Selling") {
     // The keeper (keeper.yml, every 10 minutes) settles expired series itself; record its settlement.
     await recordKeeperSettlement(mcp, state, log, journal);
     return;
+  }
+  if (state.vault.epochState === "Selling") {
+    // Before expiry, or after it but before the feed's first round at or after expiry, settle would revert.
+    log.step("Can the series settle yet?");
+    let wait: SettleWait | null = null;
+    try {
+      wait = await settleWait(readClient(chainEnv(journal.chainId)), vault);
+    } catch (err) {
+      log.say(`Could not read the series and the price feed (${String(err)}); trying settle_epoch.`);
+    }
+    if (wait) throw new NothingToSettleYet(wait, state.vault.symbol);
+    log.say("Yes: the series has expired and its settlement price is available.");
   }
   if (recording) await readMarket(state, journal); // the running epoch's opening snapshot, before it closes
   log.step("Settle the expired series");
@@ -702,6 +733,7 @@ async function main() {
     const journal = new Journal(action, info.chainId, info.agentAddress);
     const anchor = values.anchor ? chainAnchorer(info.chainId) : undefined;
     let failure: string | undefined;
+    let waiting = false;
     try {
       if (values.settle) await settle(mcp, vault, log, journal, logDir !== undefined);
       else if (values.reckless) await reckless(mcp, vault, log, journal);
@@ -714,10 +746,22 @@ async function main() {
           journal,
         );
     } catch (err) {
+      if (err instanceof NothingToSettleYet) {
+        waiting = true;
+        const noPrint = err.wait.kind === "no-print";
+        const title = noPrint ? "Waiting for the first print after expiry" : "Nothing to settle this week";
+        const text = `${err.message}. Nothing was sent and no decision record is written${noPrint ? `; run --settle again after the next print (exit code ${SETTLE_WAITING_EXIT})` : ""}.`;
+        // In GitHub Actions (agent.yml, through scripts/weekly-agent.sh), a notice annotation instead of a failure.
+        console.log(
+          process.env.GITHUB_ACTIONS === "true" ? `::notice title=${title}::${text}` : `\n${title}. ${text}`,
+        );
+        if (noPrint) process.exitCode = SETTLE_WAITING_EXIT;
+        return;
+      }
       failure = err instanceof Error ? err.message : String(err);
       throw err;
     } finally {
-      if (logDir) {
+      if (logDir && !waiting) {
         try {
           await writeDecisionRecord(mcp, journal, logDir, failure && `Agent stopped: ${failure}`, anchor);
         } catch (err) {

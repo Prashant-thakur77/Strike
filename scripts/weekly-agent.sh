@@ -23,9 +23,13 @@
 #              folder), settle runs --status; both print the signer, overrides, record folder and anchor URL.
 # Propose skips a vault that is still selling its series (state Selling: nothing to propose until it settles) with a
 # notice, without running the agent, so no "skipped" record is written or anchored. Settle skips a vault that already
-# has a record dated today (UTC) in LOG_DIR whose result is "settled", so a second run on the same day (one that
-# keeper.yml dispatched) records nothing twice; a stopped attempt does not count, so it is retried.
-# Exits 3 when at least one vault's run stopped (its decision record says why), after trying every vault.
+# has a settle record dated today (UTC) in LOG_DIR whose result is "settled" or "skipped", so a second run on the same
+# day (one that keeper.yml dispatched) records nothing twice; a stopped attempt does not count, so it is retried.
+# Settle with nothing to settle yet is a notice from the agent, which sends nothing and writes no record: a series that
+# has not expired (exit 0), or one that has while the price feed has no round at or after expiry (exit 75: the first
+# mirrored print comes at the next NYSE open, and keeper.yml settles it then and dispatches this run again).
+# Exits 3 when at least one vault's run stopped (its decision record says why), after trying every vault; else 75
+# ("try again later") when at least one vault waits for its first print after expiry; else 0.
 # Needs Foundry (cast), jq, python3 and the workspace's pnpm install.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -111,6 +115,7 @@ if [ "$DRY_RUN" = 1 ]; then
 fi
 
 failed=0
+waiting=0
 for deploy in $DEPLOYS; do
   name=$(basename "$deploy" .json)
   vaults="${deploy%.json}-vaults.json"
@@ -144,9 +149,9 @@ for deploy in $DEPLOYS; do
         continue
       fi
     elif jq -s -e --arg v "$(echo "$vault" | tr '[:upper:]' '[:lower:]')" --arg d "$(date -u +%F)" \
-      'any(.[]; .action == "settle" and .result.status == "settled" and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
+      'any(.[]; .action == "settle" and (.result.status == "settled" or .result.status == "skipped") and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
       "$ROOT/$LOG_DIR"/*.json >/dev/null 2>&1; then
-      echo "::notice::$name $vkey ($vault): its settlement is already recorded today in $LOG_DIR"
+      echo "::notice::$name $vkey ($vault): its settlement (or nothing to settle) is already recorded today in $LOG_DIR"
       continue
     fi
     if [ "$DRY_RUN" = 1 ]; then
@@ -158,7 +163,8 @@ for deploy in $DEPLOYS; do
     [ -n "${GITHUB_ACTIONS:-}" ] && echo "::group::$name $vkey ($vault) ${run_flags[*]}"
     [ -z "${GITHUB_ACTIONS:-}" ] && echo "-- $name $vkey: pnpm --filter @strike/agent-example start ${run_flags[*]}"
     # A subshell per run: one deployment's overrides and key never reach the next.
-    if ! (
+    rc=0
+    (
       cd "$ROOT"
       export STRIKE_CHAIN_ID="$CHAIN_ID" STRIKE_RPC_URL="$RPC_URL" STRIKE_RECORD_BASE_URL="$BASE_URL"
       unset STRIKE_AGENT_PRIVATE_KEY
@@ -166,11 +172,14 @@ for deploy in $DEPLOYS; do
       [ -n "$overrides" ] && eval "$overrides"
       unset PRIVATE_KEY KEEPER_PRIVATE_KEY AGENT_SIGNER_KEY
       pnpm --silent --filter @strike/agent-example start "${run_flags[@]}"
-    ); then
+    ) || rc=$?
+    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
+    if [ "$rc" = 75 ] && [ "$MODE" = settle ]; then
+      waiting=1 # the agent printed the notice: expired, waiting for the first print after expiry
+    elif [ "$rc" != 0 ]; then
       failed=1
       echo "::warning::the agent stopped on $name $vkey ($vault); its decision record says why"
     fi
-    [ -n "${GITHUB_ACTIONS:-}" ] && echo "::endgroup::"
   done
 done
 
@@ -179,3 +188,4 @@ if [ "$DRY_RUN" = 1 ]; then
   for f in "$LOG_PATH"/*; do echo "  $(basename "$f")"; done
 fi
 [ "$failed" = 0 ] || exit 3
+[ "$waiting" = 0 ] || exit 75

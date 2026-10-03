@@ -9,7 +9,8 @@ name: Testnet keeper
 # runs from 28 September to 2 October, 2.7 to 6.8 hours apart. So each run keeps going for KEEPER_LOOP_MINUTES (default
 # 50), one pass every 10 minutes, and then starts the next run itself (workflow_dispatch with the workflow's own
 # token), which also starts the live smoke test, and the weekly agent when one of its runs is due and has not happened
-# (agent.yml's crons can be dropped the same way). The cron stays as the backstop that restarts the chain if it
+# (agent.yml's crons can be dropped the same way) or after this run settled an epoch, so the agent records it (see the
+# next job). The cron stays as the backstop that restarts the chain if it
 # breaks. One run at a time (the concurrency group below). Cancelling a run, or setting KEEPER_ENABLED to anything
 # but true, stops the chain.
 #
@@ -63,6 +64,11 @@ jobs:
     if: needs.gate.outputs.ready == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 80
+    # 1 when a pass settled an epoch on that chain; the next job then dispatches agent.yml to record the settlement.
+    # One name per chain: matrix legs that write the same output name overwrite each other.
+    outputs:
+      settled_46630: ${{ steps.keep.outputs.settled_46630 }}
+      settled_421614: ${{ steps.keep.outputs.settled_421614 }}
     strategy:
       fail-fast: false
       matrix:
@@ -121,6 +127,7 @@ jobs:
           fi
 
       - name: Keep (a pass every 10 minutes for LOOP_MINUTES)
+        id: keep
         env:
           PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
         run: |
@@ -132,15 +139,22 @@ jobs:
           deadline=$(( $(date +%s) + LOOP_MINUTES * 60 ))
           pass=0
           failed=0
+          settled=0
+          # keeper.sh prints "<time> settled <vault> ..." for each epoch it settles.
+          count_settled() {
+            if grep -qE "^[0-9TZ:-]+ settled 0x" "$RUNNER_TEMP/keeper.log"; then settled=1; fi
+          }
           while :; do
             pass=$((pass + 1))
             started=$(date +%s)
             echo "::group::Pass $pass on $CHAIN_ID at $(date -u +%T) UTC"
             scripts/keeper.sh --once 2>&1 | tee "$RUNNER_TEMP/keeper.log" || true
+            count_settled
             todo=$(left)
             if [ -n "$todo" ]; then
               printf 'Left after the pass (a new mainnet print, a lost race or a failure):\n%s\nRunning the keeper once more.\n' "$todo"
-              scripts/keeper.sh --once || true
+              scripts/keeper.sh --once 2>&1 | tee "$RUNNER_TEMP/keeper.log" || true
+              count_settled
               todo=$(left)
             fi
             cat "$RUNNER_TEMP/check.log"
@@ -157,6 +171,8 @@ jobs:
             [ "$next" -lt "$deadline" ] || break
             sleep $((next - $(date +%s) > 0 ? next - $(date +%s) : 0))
           done
+          echo "settled_$CHAIN_ID=$settled" >> "$GITHUB_OUTPUT"
+          [ "$settled" = 1 ] && echo "Settled at least one epoch on $CHAIN_ID during this run." | tee -a "$GITHUB_STEP_SUMMARY"
           # The run fails only when its last pass still left work; an earlier pass that recovered is a warning above.
           if [ "$failed" = 1 ]; then
             echo "::error::The last pass on $CHAIN_ID still left work to push or settle"
@@ -177,6 +193,7 @@ jobs:
       - uses: actions/github-script@v9
         env:
           AGENT_ENABLED: ${{ vars.AGENT_ENABLED }}
+          SETTLED: ${{ needs.keep.outputs.settled_46630 == '1' || needs.keep.outputs.settled_421614 == '1' }}
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -194,25 +211,55 @@ jobs:
                 }
               }
             }
-            // The weekly agent, when its slot has passed and no run since then is under way or has succeeded:
-            // Monday 15:20 to 19:00 UTC (propose, inside the NYSE session) and Friday from 21:35 UTC (settle).
-            // Its own skips make a second run a no-op, so a dispatch after a failed run is a retry.
+            // The weekly agent (agent.yml). Its own skips make a second run a no-op, so an extra dispatch only costs a run.
+            //  1. This run settled an epoch: a settle run records it (the agent's decision record, anchored). This is
+            //     how a series that expired on Friday while the feed had no print after expiry gets recorded once the
+            //     keeper settles it at Monday's first print.
+            //  2. A slot has passed with no run since that is under way or has succeeded (GitHub drops scheduled runs):
+            //     Monday 15:20 to 19:00 UTC (propose, inside the NYSE session) and Friday from 21:35 UTC (settle). A
+            //     dispatch after a failed run is a retry.
+            //  3. The latest finished run was a settle run that waited for a first print (its "Waiting for the first
+            //     print after expiry" step ran), at least 3 hours ago and within 4 days: check again, in case someone
+            //     other than this keeper settled the series. A waiting run neither fails nor opens the failure issue.
             const now = new Date();
             const at = (h, m) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), h, m));
             const day = now.getUTCDay();
             let due = null;
             if (day === 1 && now >= at(15, 20) && now < at(19, 0)) due = { mode: "propose", since: at(15, 0) };
             if (day === 5 && now >= at(21, 35)) due = { mode: "settle", since: at(21, 15) };
-            if (due && process.env.AGENT_ENABLED === "true") {
+            if (process.env.AGENT_ENABLED === "true") {
               try {
                 const { data } = await github.rest.actions.listWorkflowRuns({ owner, repo, workflow_id: "agent.yml", per_page: 20 });
-                const done = data.workflow_runs.some(
-                  (r) => new Date(r.created_at) >= due.since && (r.status !== "completed" || ["success", "skipped"].includes(r.conclusion)),
-                );
-                if (done) core.info(`agent.yml has run (or is running) since ${due.since.toISOString()}`);
-                else {
-                  await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: "agent.yml", ref: "main", inputs: { mode: due.mode } });
-                  core.notice(`Dispatched agent.yml (${due.mode}): no successful run since ${due.since.toISOString()}`);
+                const runs = data.workflow_runs;
+                const queued = runs.some((r) => ["queued", "pending", "waiting", "requested"].includes(r.status));
+                const busy = runs.some((r) => r.status !== "completed");
+                let dispatch = null;
+                if (process.env.SETTLED === "true") {
+                  // A run already queued starts after this settlement and records it; one in progress may have passed it.
+                  if (queued) core.info("This run settled an epoch; an agent.yml run is already queued and will record it");
+                  else dispatch = { mode: "settle", why: "this keeper run settled an epoch" };
+                }
+                if (!dispatch && due) {
+                  const done = runs.some(
+                    (r) => new Date(r.created_at) >= due.since && (r.status !== "completed" || ["success", "skipped"].includes(r.conclusion)),
+                  );
+                  if (done) core.info(`agent.yml has run (or is running) since ${due.since.toISOString()}`);
+                  else dispatch = { mode: due.mode, why: `no successful run since ${due.since.toISOString()}` };
+                }
+                if (!dispatch && !busy) {
+                  const last = runs.find((r) => r.status === "completed" && !["cancelled", "skipped"].includes(r.conclusion));
+                  const hours = last ? (now - new Date(last.created_at)) / 3_600_000 : 0;
+                  if (last?.conclusion === "success" && /\(settle\)/.test(last.display_title) && hours >= 3 && hours <= 96) {
+                    const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({ owner, repo, run_id: last.id });
+                    const waited = jobs.jobs.some((j) =>
+                      (j.steps ?? []).some((s) => s.name === "Waiting for the first print after expiry" && s.conclusion === "success"),
+                    );
+                    if (waited) dispatch = { mode: "settle", why: `run ${last.id} waited for a first print ${hours.toFixed(1)} h ago` };
+                  }
+                }
+                if (dispatch) {
+                  await github.rest.actions.createWorkflowDispatch({ owner, repo, workflow_id: "agent.yml", ref: "main", inputs: { mode: dispatch.mode } });
+                  core.notice(`Dispatched agent.yml (${dispatch.mode}): ${dispatch.why}`);
                 }
               } catch (e) {
                 core.warning(`Could not check or start agent.yml: ${e.message}`);

@@ -7,7 +7,9 @@ import {
   getDeployment,
   getStrikeChain,
   loadStrikeConfig,
+  mirrorFeedAbi,
   rpcEndpointsFor,
+  stockOracleAbi,
   transportFromEndpoints,
   wadToNumber,
 } from "@strike/sdk";
@@ -102,4 +104,90 @@ export async function lastSettlement(strike: StrikeClient, vault: string): Promi
     expiry: Number(series?.expiry ?? 0n),
     txHash: last.transactionHash,
   };
+}
+
+/**
+ * Exit code of a `--settle` run whose series has expired while the price feed has no round at or after expiry yet
+ * (EX_TEMPFAIL, "try again later"): settlement waits for the first mirrored print, at the next NYSE open. Nothing is
+ * sent and no decision record is written; scripts/weekly-agent.sh and agent.yml turn it into a notice. A series that
+ * has not expired yet is nothing to settle this week: exit 0, also without a record.
+ */
+export const SETTLE_WAITING_EXIT = 75;
+
+/** What decides whether a Selling vault's series can be settled now (all times in unix seconds). */
+export interface SettleInputs {
+  now: number;
+  expiry: number;
+  /** Options sold: a series that sold none settles without a price, at any time after expiry. */
+  sold: bigint;
+  /** StockOracle already holds the settlement price for (underlying, expiry). */
+  priceRecorded: boolean;
+  /** `updatedAt` of the feed's latest round, or null when it was not read. */
+  latestPriceAt: number | null;
+}
+
+/** Why a Selling series cannot settle now: before expiry, or after it with no feed round at or after expiry yet. */
+export interface SettleWait {
+  kind: "not-expired" | "no-print";
+  reason: string;
+}
+
+const isoTime = (sec: number) => new Date(sec * 1000).toISOString().replace(".000Z", "Z");
+
+/** Why the series cannot be settled yet, or null when `settle` can run (SafeStockFeed rule 10: first round >= expiry). */
+export function settleWaitReason(i: SettleInputs): SettleWait | null {
+  if (i.now < i.expiry) {
+    const hours = Math.ceil((i.expiry - i.now) / 3600);
+    return {
+      kind: "not-expired",
+      reason: `its series is still selling until expiry at ${isoTime(i.expiry)} (in about ${hours} h); it settles after expiry`,
+    };
+  }
+  if (i.sold === 0n || i.priceRecorded) return null;
+  if (i.latestPriceAt !== null && i.latestPriceAt >= i.expiry) return null;
+  const latest = i.latestPriceAt === null ? "" : ` (latest round published at ${isoTime(i.latestPriceAt)})`;
+  return {
+    kind: "no-print",
+    reason: `its series expired at ${isoTime(i.expiry)} and the price feed has no round at or after expiry yet${latest}; it settles at the first mirrored print after expiry`,
+  };
+}
+
+/** Reads `settleWaitReason`'s inputs for the vault's live series; null when it is not Selling or can be settled. */
+export async function settleWait(strike: StrikeClient, vault: string): Promise<SettleWait | null> {
+  const epoch = await epochSnapshot(strike, vault);
+  if (epoch.state !== "Selling") return null;
+  const series = await strike.getSeries(epoch.seriesId);
+  if (!series) return null;
+  const now = Number(await strike.blockTimestamp());
+  let priceRecorded = false;
+  let latestPriceAt: number | null = null;
+  if (now >= Number(series.expiry) && series.sold > 0n) {
+    const oracle = { address: strike.addresses.stockOracle, abi: stockOracleAbi } as const;
+    const recorded = await strike.viem.publicClient.readContract({
+      ...oracle,
+      functionName: "settlementPrice",
+      args: [series.underlying, series.expiry],
+    });
+    priceRecorded = recorded !== 0n;
+    if (!priceRecorded) {
+      const cfg = await strike.viem.publicClient.readContract({
+        ...oracle,
+        functionName: "feedConfig",
+        args: [series.underlying],
+      });
+      const [, , , updatedAt] = await strike.viem.publicClient.readContract({
+        address: cfg.feed,
+        abi: mirrorFeedAbi,
+        functionName: "latestRoundData",
+      });
+      latestPriceAt = Number(updatedAt);
+    }
+  }
+  return settleWaitReason({
+    now,
+    expiry: Number(series.expiry),
+    sold: series.sold,
+    priceRecorded,
+    latestPriceAt,
+  });
 }
