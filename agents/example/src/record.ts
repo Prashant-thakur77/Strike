@@ -216,6 +216,26 @@ export interface RecordAnchor {
   txHash: string;
 }
 
+/** One x402 payment the run made for paid data (`--paid-report`): what it bought, for how much, and the settlement. */
+export interface RecordPayment {
+  /** What was bought, e.g. "risk report". */
+  what: string;
+  endpoint: string;
+  /** CAIP-2 network, e.g. "eip155:421614". */
+  network: string;
+  chainId: number;
+  asset: string;
+  symbol: string;
+  /** Token units, e.g. "0.01". */
+  amount: string;
+  payer: string;
+  payTo: string;
+  /** The settlement transaction (transferWithAuthorization, sent by the server's relayer). */
+  transaction: string;
+  url: string | null;
+  paidAt: string;
+}
+
 export interface DecisionRecord {
   version: number;
   action: RecordAction;
@@ -242,6 +262,8 @@ export interface DecisionRecord {
   transactions: RecordTx[];
   result: RecordResult;
   trackRecord: RecordTrack | null;
+  /** x402 payments the run made for paid data (`--paid-report`); absent when it bought nothing. */
+  payments?: RecordPayment[];
   /** Present when the record was anchored on-chain (`--anchor`). */
   anchor?: RecordAnchor;
   /**
@@ -653,6 +675,17 @@ export function formatRecordMarkdown(r: DecisionRecord): string {
       ? r.transactions.map((t) => `- ${t.label}: ${txLink(t)}`)
       : ["None sent by this run."]),
     "",
+    ...(r.payments?.length
+      ? [
+          "## Paid data (x402)",
+          "",
+          ...r.payments.map(
+            (p) =>
+              `- ${p.what}: ${p.amount} ${p.symbol} on ${chainName(p.chainId)} to ${code(p.payTo)}, endpoint ${code(p.endpoint)}, settlement ${txLink({ label: "", hash: p.transaction, url: p.url })}`,
+          ),
+          "",
+        ]
+      : []),
     "## Result",
     "",
     ...resultSection(r.result),

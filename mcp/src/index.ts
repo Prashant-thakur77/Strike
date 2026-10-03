@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { type StrikeClient, describeRpc } from "@strike/sdk";
-import { clientFromConfig, configFromEnv } from "./config.js";
+import { clientFromConfig, configFromEnv, x402FromEnv } from "./config.js";
 import { createStrikeMcpServer } from "./server.js";
 
 // Strike MCP server over stdio. Configure with STRIKE_CHAIN_ID, STRIKE_DEPLOYMENT_VERSION (v2 or v3: one of the chain's
@@ -15,6 +15,7 @@ const server = createStrikeMcpServer({
   skillPath: config.skillPath,
   readOnly: config.readOnly,
   client: () => (cached ??= clientFromConfig(config)),
+  x402: x402FromEnv(config),
 });
 
 const transport = new StdioServerTransport();

@@ -21,7 +21,7 @@ import { riskEngineFor } from "./specialists/risk.js";
 import { type ClaudePlan, type PipelineOutcome, runPipeline } from "./specialists/run.js";
 import { type PlannerKind, parsePlanner, plannerLabel, selectPlanner } from "./planner.js";
 import type { LlmUsage } from "./usage.js";
-import { type RecordAction, type RecordAnchorer, txUrl, writeRecord } from "./record.js";
+import { type RecordAction, type RecordAnchorer, type RecordPayment, txUrl, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
   PROFILES,
@@ -82,6 +82,13 @@ Usage: pnpm --filter @strike/agent-example start [options]
                      DecisionLog.record(agentId, vault, epoch, keccak256 of the JSON record, its
                      GitHub URL); the transaction is added to the record. STRIKE_DECISION_LOG
                      overrides the contract, STRIKE_RECORD_BASE_URL the URL's directory.
+
+Paid data (x402, docs/STRIKE_SKILL.md):
+  --paid-report      Before a propose or --reckless run, buy the vault's full risk report from
+                     /api/agent/risk-report through the MCP tool paid_risk_report: 0.01 test USDC
+                     (Arbitrum Sepolia) or USDG (Robinhood Chain testnet), signed by
+                     STRIKE_PAYER_KEY (else the agent key), within STRIKE_X402_MAX_SPEND per run.
+                     The payment (amount, settlement tx, endpoint) goes into the decision record.
 
 Buyer modes (STRIKE_AGENT_PRIVATE_KEY is the buyer's key; it pays the premium in USDG):
   --buy              Find a live series (--vault to choose) and buy options within the budget,
@@ -486,6 +493,35 @@ async function writeDecisionRecord(
     console.error(`Could not anchor the record on-chain (written unanchored): ${paths.anchorError}`);
 }
 
+/** The paid_risk_report tool's answer (mcp/src/server.ts). */
+interface PaidReport {
+  report: { seriesRisk?: { summary?: string; error?: string }; mirrorAudit?: { ok?: boolean } };
+  payment: Omit<RecordPayment, "what" | "url"> | null;
+  budget: { cap: string; spent: string; remaining: string };
+}
+
+/**
+ * `--paid-report`: buy the vault's risk report over x402 and record the payment. A failure (no payer key, cap
+ * reached, the route unreachable) is printed and the run goes on without it.
+ */
+async function buyRiskReport(mcp: StrikeMcp, vault: string, chainId: number, journal: Journal) {
+  try {
+    const paid = await mcp.call<PaidReport>("paid_risk_report", { vault, chainId });
+    const p = paid.payment;
+    if (p) {
+      journal.payments.push({ what: "risk report", ...p, url: txUrl(p.chainId, p.transaction) });
+      console.log(
+        `Paid ${p.amount} ${p.symbol} over x402 for the risk report (settlement ${p.transaction}); ${paid.budget.remaining} of ${paid.budget.cap} left this run.`,
+      );
+    }
+    const risk = paid.report.seriesRisk;
+    if (risk?.summary) console.log(`  Risk engine: ${risk.summary}`);
+    else if (risk?.error) console.log(`  Risk engine: ${risk.error}`);
+  } catch (err) {
+    console.error(`(paid risk report skipped: ${err instanceof Error ? err.message : String(err)})`);
+  }
+}
+
 async function main() {
   // `pnpm start -- --flag` forwards the "--"; drop it so both invocation styles work.
   const argv = process.argv.slice(2);
@@ -513,6 +549,7 @@ async function main() {
       register: { type: "boolean" },
       bond: { type: "string" },
       "create-vault": { type: "string" },
+      "paid-report": { type: "boolean" },
       help: { type: "boolean", short: "h" },
     },
   });
@@ -630,6 +667,10 @@ async function main() {
       };
     }
     const anchor = values.anchor ? chainAnchorer(info.chainId) : undefined;
+    if (values["paid-report"]) {
+      if (values.settle) throw new Error("--paid-report goes with a propose or --reckless run");
+      await buyRiskReport(mcp, vault, info.chainId, journal);
+    }
     let failure: string | undefined;
     let waiting = false;
     try {

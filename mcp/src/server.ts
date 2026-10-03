@@ -56,6 +56,7 @@ import {
   vaultView,
 } from "./format.js";
 import { normalizeVersion } from "./deployments.js";
+import type { X402Payer } from "./x402.js";
 import {
   agentSchema,
   createVaultShape,
@@ -71,6 +72,9 @@ import {
 } from "./schemas.js";
 
 export const SERVER_VERSION = "0.1.0";
+
+/** The vault view the read tools return, for callers composing their own answers (the app's paid risk report). */
+export { vaultView } from "./format.js";
 export const SKILL_URI = "strike://skill";
 
 /** One Strike deployment a server reads: a client bound to it and its protocol version ("v2", "v3"). */
@@ -103,6 +107,11 @@ export interface StrikeMcpOptions {
    * this: its tool list has no write tools at all, rather than write tools that refuse.
    */
   readOnly?: boolean;
+  /**
+   * Pays Strike's x402 routes with this payer (x402.ts) and registers `paid_risk_report`. Absent (or with
+   * `readOnly`): the tool is not registered. `endpoint` is the risk report's URL without a query.
+   */
+  x402?: { payer: X402Payer; endpoint: string };
 }
 
 // Plain paths (not `new URL(literal, import.meta.url)`), so bundlers do not try to pull the file in as an asset.
@@ -2322,6 +2331,64 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
         });
       }),
   );
+
+  if (options.x402 && !options.readOnly) {
+    const { payer, endpoint } = options.x402;
+    server.registerTool(
+      "paid_risk_report",
+      {
+        title: "Paid risk report (x402)",
+        description:
+          "Buy Strike's full risk report for one vault over x402: the Stylus risk engine's greeks and stress test for the live series, the settlement and price mirror audits, and the agent's anchored decision records with links. The server answers 402 with its price (0.01 USDC on Arbitrum Sepolia or 0.01 USDG on Robinhood Chain testnet, from strike.config.json); this tool signs an EIP-3009 authorization for exactly that price with this server's payer key (STRIKE_PAYER_KEY, else the agent key; no gas needed), and returns the report with the settlement transaction. It pays only the configured payee and tokens, and stops at the run's spending cap (STRIKE_X402_MAX_SPEND, default x402.agentRunCap). A report that could not be built is not charged.",
+        inputSchema: {
+          vault: vaultInput.describe("Vault address (or share symbol on this server's chain)"),
+          chainId: z
+            .number()
+            .int()
+            .positive()
+            .optional()
+            .describe("Chain of the vault: 421614 or 46630 (default: this server's chain)"),
+        },
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          idempotentHint: false,
+          openWorldHint: true,
+        },
+      },
+      async ({ vault, chainId: vaultChain }) =>
+        run(async () => {
+          const cid = vaultChain ?? chainId;
+          let address: Address;
+          if (isAddress(vault)) address = getAddress(vault);
+          else if (cid === chainId) address = (await vaultDeployment(vault)).address;
+          else
+            throw new StrikeError(
+              `give the vault's address for chain ${cid} (symbols resolve on ${chainId})`,
+            );
+          const url = `${endpoint}?chain=${cid}&vault=${address}`;
+          const before = payer.payments().length;
+          const res = await payer.fetch(url, { headers: { Accept: "application/json" } });
+          const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+          if (!res.ok) {
+            throw new StrikeError(
+              `risk report: HTTP ${res.status}: ${String(body.error ?? res.statusText)}${res.status === 402 ? " (not paid)" : ""}`,
+            );
+          }
+          const paid = payer.payments().slice(before);
+          const b = payer.budget();
+          return result({
+            report: body,
+            payment: paid.at(-1) ?? null,
+            budget: {
+              cap: (Number(b.capAtomic) / 1e6).toString(),
+              spent: (Number(b.spentAtomic) / 1e6).toString(),
+              remaining: (Number(b.remainingAtomic) / 1e6).toString(),
+            },
+          });
+        }),
+    );
+  }
 
   return server;
 }

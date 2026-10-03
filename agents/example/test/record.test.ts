@@ -311,6 +311,39 @@ describe("decision record", () => {
     );
   });
 
+  it("records an x402 payment for paid data with its settlement link, and leaves records without one unchanged", async () => {
+    const plain = acceptedRecord();
+    expect(formatRecordJson(plain)).not.toContain("payments");
+    expect(formatRecordMarkdown(plain)).not.toContain("Paid data");
+    const tx = `0x${"c".repeat(64)}`;
+    const r: DecisionRecord = {
+      ...plain,
+      payments: [
+        {
+          what: "risk report",
+          endpoint:
+            "https://strike-options.vercel.app/api/agent/risk-report?chain=421614&vault=0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+          network: "eip155:421614",
+          chainId: 421614,
+          asset: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+          symbol: "USDC",
+          amount: "0.01",
+          payer: "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+          payTo: "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+          transaction: tx,
+          url: `https://sepolia.arbiscan.io/tx/${tx}`,
+          paidAt: "2026-10-03T18:00:00.000Z",
+        },
+      ],
+    };
+    const md = formatRecordMarkdown(r);
+    expect(md).toContain("## Paid data (x402)");
+    expect(md).toContain(`risk report: 0.01 USDC on Arbitrum Sepolia`);
+    expect(md).toContain(`(https://sepolia.arbiscan.io/tx/${tx})`);
+    expect(JSON.parse(formatRecordJson(r)).payments[0].transaction).toBe(tx);
+    expect(await prettierClean(md, "docs/agent-log/x.md")).toBe(md);
+  });
+
   it("emits JSON that round-trips", () => {
     const r = acceptedRecord();
     const json = formatRecordJson(r);

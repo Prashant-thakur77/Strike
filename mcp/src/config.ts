@@ -11,6 +11,7 @@ import {
 import { type Hex, createPublicClient, createWalletClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { findDeploymentVersion, normalizeVersion } from "./deployments.js";
+import { type X402Payer, createX402Payer } from "./x402.js";
 
 /** Server configuration from the environment. */
 export interface StrikeMcpConfig {
@@ -87,4 +88,36 @@ export function clientFromConfig(config: StrikeMcpConfig): StrikeClient {
       `${err instanceof Error ? err.message : String(err)}. Deploy Strike there and run \`node scripts/export-abis.mjs\`, or set STRIKE_CHAIN_ID to a deployed chain (31337 for the local devnet: scripts/demo-local.sh).`,
     );
   }
+}
+
+/**
+ * The x402 payer for `paid_risk_report`, or undefined (read-only server, no x402 section, no key). The key is
+ * STRIKE_PAYER_KEY, else the agent key; STRIKE_X402_MAX_SPEND caps the run (default x402.agentRunCap);
+ * STRIKE_X402_ENDPOINT overrides the report's URL (default: the app's URL and the route's path); payments go on
+ * STRIKE_X402_CHAIN_ID when the route accepts it, else the server's chain, else the route's first token.
+ */
+export function x402FromEnv(
+  config: StrikeMcpConfig,
+  env: NodeJS.ProcessEnv = process.env,
+): { payer: X402Payer; endpoint: string } | undefined {
+  const file = loadStrikeConfig();
+  const x402 = file.x402;
+  if (config.readOnly || !x402?.routes.riskReport) return undefined;
+  const payerEnv = strikeSecretName("x402PayerKey");
+  const raw = env[payerEnv]?.trim() || config.privateKey;
+  if (!raw) return undefined;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(raw)) throw new Error(`${payerEnv} must be a 0x-prefixed 32-byte hex key`);
+  const cap = env.STRIKE_X402_MAX_SPEND?.trim();
+  if (cap && !/^\d+(\.\d+)?$/.test(cap)) throw new Error(`invalid STRIKE_X402_MAX_SPEND: ${cap}`);
+  const preferred = Number(env.STRIKE_X402_CHAIN_ID ?? config.chainId);
+  const endpoint = env.STRIKE_X402_ENDPOINT?.trim() || `${file.services.app}${x402.routes.riskReport.path}`;
+  return {
+    payer: createX402Payer({
+      config: x402,
+      privateKey: raw as Hex,
+      capUnits: cap || undefined,
+      preferredChainId: Number.isInteger(preferred) ? preferred : undefined,
+    }),
+    endpoint,
+  };
 }

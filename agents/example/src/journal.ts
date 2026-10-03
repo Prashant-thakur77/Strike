@@ -6,6 +6,7 @@ import {
   type RecordCandidate,
   type RecordDecision,
   type RecordDryRun,
+  type RecordPayment,
   type RecordResult,
   type RecordTrack,
   type RecordTx,
@@ -44,6 +45,8 @@ export class Journal {
   alternatives: Alternative[] | null = null;
   confidence: Confidence | null = null;
   contradictions: Contradiction[] | null = null;
+  /** x402 payments for paid data (`--paid-report`). */
+  readonly payments: RecordPayment[] = [];
   /** Set on a --dry-run: labels the record and its file name. */
   run: DecisionRecord["run"] | null = null;
 
@@ -157,6 +160,7 @@ export class Journal {
       transactions: this.transactions,
       result,
       trackRecord: this.track,
+      ...(this.payments.length ? { payments: this.payments } : {}),
       ...(this.run ? { run: this.run } : {}),
     };
   }
