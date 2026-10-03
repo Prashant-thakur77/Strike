@@ -158,3 +158,22 @@ export function marketLine(
 /** NYSE regular hours in UTC while US daylight saving lasts (to 1 November 2026), and in Singapore time. */
 export const SESSION_UTC_DST = "13:30–20:00 UTC";
 export const SESSION_SGT_DST = "21:30–04:00 Singapore time";
+
+/**
+ * "14:05 GMT+8" today, "Sat 14:05 GMT+8" on another day: the viewer's time zone, named, so a newcomer does not have to
+ * guess whether the time is UTC, New York or theirs. `timeZone` is for tests.
+ */
+export function fmtAgain(ts: number, today: Date = new Date(), timeZone?: string): string {
+  const d = new Date(ts * 1000);
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZoneName: "short",
+    timeZone,
+  });
+  const day = (x: Date) => x.toLocaleDateString("en-CA", { timeZone });
+  return day(d) === day(today)
+    ? time
+    : `${d.toLocaleDateString("en-GB", { weekday: "short", timeZone })} ${time}`;
+}

@@ -12,6 +12,7 @@ import {
 } from "viem";
 import { privateKeyToAddress, generatePrivateKey } from "viem/accounts";
 import { foundry } from "viem/chains";
+import { fmtAgain } from "../src/lib/marketHours";
 import { RPC, acknowledge, connectWallet, devnetUp, horizontalOverflow, installMockWallet } from "./helpers";
 
 // Strike's test-USDG faucet (UsdgDrip). On a local devnet (Deploy, Seed and DeployUsdgDrip, as sdk/test/devnet.mjs
@@ -68,6 +69,14 @@ test.beforeEach(async ({ page }) => {
   await acknowledge(page);
 });
 
+test("the cooldown time names its time zone", () => {
+  test.skip(test.info().project.name !== "desktop", "pure function: one project is enough");
+  const at = Date.parse("2026-10-04T08:55:00Z") / 1000;
+  expect(fmtAgain(at, new Date("2026-10-04T01:00:00Z"), "UTC")).toBe("08:55 UTC");
+  expect(fmtAgain(at, new Date("2026-10-03T09:00:00Z"), "UTC")).toBe("Sun 08:55 UTC");
+  expect(fmtAgain(at, new Date("2026-10-03T09:00:00Z"), "Asia/Kolkata")).toBe("Sun 14:25 GMT+5:30");
+});
+
 test.describe("with a local devnet", () => {
   test.beforeEach(async () => {
     test.skip(!(await dripReady()), "needs a Strike devnet with the USDG faucet at E2E_RPC");
@@ -105,7 +114,10 @@ test.describe("with a local devnet", () => {
     ).toBe(10_000_000n);
     await expect(remaining).toHaveText(`${usd(before - 10_000_000n)} USDG left`);
     await expect(usdgRow(page).getByRole("button", { name: /^Again at / })).toBeDisabled();
-    await expect(usdgRow(page).getByText(/^Claimed\. Next 10 USDG for this wallet: /)).toBeVisible();
+    // The time names its zone (a newcomer cannot tell UTC from local otherwise; QA of 3 October).
+    await expect(
+      usdgRow(page).getByText(/^Claimed\. Next 10 USDG for this wallet: .*\d\d:\d\d (UTC|GMT)/),
+    ).toBeVisible();
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
   });
 
@@ -131,7 +143,7 @@ test.describe("with a local devnet", () => {
     expect(next).toBeGreaterThan(0n);
     await get.click();
     await expect(page.getByText(/^Get 10 test USDG failed: /)).toContainText(
-      /already got its 10 USDG today: again at (\w{3} )?\d\d:\d\d\./,
+      /already got its 10 USDG today: again at (\w{3} )?\d\d:\d\d (UTC|GMT)[+\-\d:]*\./,
     );
   });
 

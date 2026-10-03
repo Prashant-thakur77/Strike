@@ -1,6 +1,9 @@
 import { usdgDripAbi } from "@strike/sdk";
 import { BaseError, ContractFunctionRevertedError, erc20Abi, type Address, type PublicClient } from "viem";
 import { chainDeployments } from "./deployment";
+import { fmtAgain } from "./marketHours";
+
+export { fmtAgain };
 
 /** USDG per drip and the cooldown, as in UsdgDrip.sol (AMOUNT, COOLDOWN). */
 export const DRIP_AMOUNT = 10_000_000n;
@@ -42,15 +45,6 @@ export async function dripState(
   ]);
   const now = Number(block.timestamp);
   return { drip: f.drip, remaining, balance, nextAt: Number(next) > now ? Number(next) : 0, now };
-}
-
-/** "14:05" today, "Sat 14:05" on another day, in the viewer's time zone. */
-export function fmtAgain(ts: number, today: Date = new Date()): string {
-  const d = new Date(ts * 1000);
-  const time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
-  return d.toDateString() === today.toDateString()
-    ? time
-    : `${d.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
 }
 
 /** A drip revert in plain words: TooSoon(next) → "already claimed: again at 14:05", Empty() → refill pending. */
