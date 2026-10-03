@@ -11,6 +11,8 @@ const READ_TOOLS = [
   "risk_check",
   "agent_stats",
   "series_risk",
+  "wallet_statement",
+  "explain_decision",
 ];
 const HEADERS = {
   "content-type": "application/json",
