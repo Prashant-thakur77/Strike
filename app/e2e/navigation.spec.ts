@@ -158,6 +158,7 @@ test("the footer links every page, the docs, GitHub and the judges' tour", async
     "Monitor",
     "Proof",
     "Faucet",
+    "Portfolio",
     "Glossary",
     "Lessons",
   ]);

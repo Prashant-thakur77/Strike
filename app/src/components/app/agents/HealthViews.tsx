@@ -393,7 +393,7 @@ export function NoTradeHistory() {
       {settles.length > 0 ? (
         <button
           type="button"
-          className="pill pill-small pill-ghost"
+          className={`text-link ${h.toggle}`}
           aria-expanded={showSettle}
           onClick={() => setShowSettle((x) => !x)}
           data-testid="notrade-settle-toggle"

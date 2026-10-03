@@ -11,6 +11,7 @@ const PAGES = [
   ["/app/monitor", "Monitor"],
   ["/app/proof", "Proof"],
   ["/app/faucet", "Faucet"],
+  ["/app/portfolio", "Portfolio"],
   ["/app/glossary", "Glossary"],
   ["/app/lessons", "Lessons"],
 ] as const;

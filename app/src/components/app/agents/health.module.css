@@ -119,3 +119,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* The pill's label is long: let it wrap instead of widening the column on phones. */
+.stack > .toggle {
+  justify-self: start;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  white-space: normal;
+  text-align: left;
+  cursor: pointer;
+}

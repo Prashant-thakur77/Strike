@@ -99,6 +99,13 @@ export const TOUR: TourPage[] = [
     next: { href: "/app", label: "Back to the vaults", why: "See the terms at work in a live vault." },
   },
   {
+    href: "/app/portfolio",
+    label: "Portfolio",
+    purpose:
+      "See everything your wallet holds across the vaults: shares, premium to claim, requests and options.",
+    next: { href: "/app", label: "Back to the vaults", why: "Deposit, or claim what is waiting for you." },
+  },
+  {
     href: "/app/lessons",
     label: "Lessons",
     purpose: "See what went wrong in the live runs, the evidence for it, and what changed because of it.",

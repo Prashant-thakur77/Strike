@@ -134,7 +134,14 @@ export function VaultDetail({ address }: { address: Address }) {
             <Rail
               index="01"
               label="Your position"
-              note="Shares, their value, premium waiting to be claimed and queued requests."
+              note={
+                <>
+                  Shares, their value, premium waiting to be claimed and queued requests.{" "}
+                  <Link href="/app/portfolio" className="text-link" data-testid="portfolio-link">
+                    Every vault at once
+                  </Link>
+                </>
+              }
             >
               <PositionPanel vault={v} />
             </Rail>
