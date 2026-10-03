@@ -41,7 +41,7 @@ A propose run is five stages in a fixed order ([`src/specialists/run.ts`](src/sp
 
 The critic's cushion rule wants the break-even at least half a one-sigma move to expiry from spot (`sigma x sqrt(tenor)`; 0.75 for the `conservative` profile), and its stress loss is quoted with it. A veto on the mandate or the cushion gets one retry a rung further out of the money; any other veto, a no-go or no rung inside the mandate is a no-trade decision. It is written and anchored like a proposal, with `result.status` `not-sent` and `result.noTrade` naming the stage, the reasons and the codes. A stage that could not read its inputs is recorded as failed, the rest as not run, and the run stops with the record written. When the chain has no risk engine (the local devnet: anvil cannot run Stylus), the greeks and the stress are "not provided" and the critic does not veto for it.
 
-Example from 3 October, a Saturday: on both v3 put vaults the market analyst said "market closed until Mon 5 Oct 13:30 UTC", a no-trade. With `--ignore-session` the rest ran: 8 rungs, 6 inside the mandate, the planner took 0.20 delta, and the critic passed all five rules. The four records are in [`docs/agent-log/dry-runs/`](../../docs/agent-log/dry-runs/).
+Example from 3 October, a Saturday: on both v3 put vaults the market analyst said "market closed until Mon 5 Oct 13:30 UTC", a no-trade. With `--ignore-session` the rest ran: 8 rungs, 6 inside the mandate, the planner took 0.20 delta, and the critic passed all five rules. A fifth, with `--llm --planner claude-code`, had Claude choose the rung (0.20 delta, with its reasons as narration). The records are in [`docs/agent-log/dry-runs/`](../../docs/agent-log/dry-runs/).
 
 ## Claude plans the epoch (`--llm`)
 

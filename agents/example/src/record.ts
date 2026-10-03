@@ -265,12 +265,15 @@ export function chainName(chainId: number): string {
 }
 
 /**
- * File name (without extension) of a record: `<YYYY-MM-DD>-<vault symbol>`, with `-dry-run` (or `-as-if-open-dry-run`
- * for `--ignore-session`) for a dry run.
+ * File name (without extension) of a record: `<YYYY-MM-DD>-<vault symbol>`; a dry run adds `-dry-run`, preceded by
+ * `-claude` when Claude planned and by `-as-if-open` for `--ignore-session` (`...-as-if-open-claude-dry-run`).
  */
-export function recordBaseName(record: Pick<DecisionRecord, "date" | "vault" | "run">): string {
+export function recordBaseName(
+  record: Pick<DecisionRecord, "date" | "vault" | "run"> & { decision?: RecordDecision | null },
+): string {
   const symbol = record.vault.symbol.replace(/[^A-Za-z0-9._-]/g, "_");
-  const suffix = record.run ? (record.run.ignoreSession ? "-as-if-open-dry-run" : "-dry-run") : "";
+  const claude = record.decision?.planner && record.decision.planner.kind !== "rule" ? "-claude" : "";
+  const suffix = record.run ? `${record.run.ignoreSession ? "-as-if-open" : ""}${claude}-dry-run` : "";
   return `${record.date}-${symbol}${suffix}`;
 }
 

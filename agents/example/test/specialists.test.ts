@@ -1010,6 +1010,10 @@ describe("the record with a pipeline", () => {
       "2026-10-03-sTSLA-CSP-dry-run",
     );
     expect(recordBaseName({ ...built, run: undefined })).toBe("2026-10-03-sTSLA-CSP");
+    const claude = { kind: "claude-code" as const, model: "m", label: "Claude via Claude Code CLI, model m" };
+    const byClaude = { ...built, decision: { ...built.decision!, planner: claude } };
+    expect(recordBaseName(byClaude)).toBe("2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run");
+    expect(recordBaseName({ ...byClaude, run: undefined })).toBe("2026-10-03-sTSLA-CSP");
     expect(formatRecordMarkdown(built)).toContain("weekly proposal (dry run)");
   });
 
@@ -1026,7 +1030,9 @@ describe("the record with a pipeline", () => {
     expect(await prettier.format(md, { parser: "markdown", proseWrap: "preserve" })).toBe(md);
     const noTrade = formatRecordMarkdown((await run({}, { market: weekend() })).record);
     expect(noTrade).toContain("**No trade.**");
-    expect(noTrade).toContain("- **Risk analyst**: NOT RUN. The market analyst stopped the run before this stage");
+    expect(noTrade).toContain(
+      "- **Risk analyst**: NOT RUN. The market analyst stopped the run before this stage",
+    );
     expect(noTrade).not.toContain("undefined");
     expect(noTrade).toContain(
       "- **Stopped by:** the market analyst (market closed until Mon 5 Oct 13:30 UTC)",
