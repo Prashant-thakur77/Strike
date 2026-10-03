@@ -553,6 +553,113 @@
           "args": { "agentId": "1", "amount": "60 USDG" }
         }
       ]
+    },
+    "0xeea457def144c3872f5d6a8383cd229e5f6c9790f5c51a83222364e67dbd8efa": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: UsdgDrip pays team QA wallet 1 10 USDG",
+      "events": [
+        {
+          "event": "Transfer",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": {
+            "from": "0x1f3778BfC474419f154AD543625A711d90985632",
+            "to": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+            "value": "10 USDG"
+          }
+        }
+      ],
+      "context": { "USDG": { "100": "the faucet before the three drips", "70": "the faucet after them" } }
+    },
+    "0x5e66f6f9ab7a49e5e5017d3086a2686063843139c6067efe5343b3c03c91086b": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: UsdgDrip pays team QA wallet 2 10 USDG",
+      "events": [
+        {
+          "event": "Transfer",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": {
+            "from": "0x1f3778BfC474419f154AD543625A711d90985632",
+            "to": "0x2E89c1C42A76507dB832E9b78403AB50bd8D9957",
+            "value": "10 USDG"
+          }
+        }
+      ],
+      "context": { "USDG": { "100": "the faucet before the three drips", "70": "the faucet after them" } }
+    },
+    "0xe4c96a5ac0035d6e763079768169afc8ea51cd22a9c7472b3d2012dd7d41ddad": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: UsdgDrip pays team QA wallet 3 10 USDG",
+      "events": [
+        {
+          "event": "Transfer",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": {
+            "from": "0x1f3778BfC474419f154AD543625A711d90985632",
+            "to": "0x84bEBDF6736b3f438c9344fb653C80e89Db05F5D",
+            "value": "10 USDG"
+          }
+        }
+      ],
+      "context": { "USDG": { "100": "the faucet before the three drips", "70": "the faucet after them" } }
+    },
+    "0xaef908d7e4126a3b8f5bbbe08bf1123323ade5e0c6fedcc65246664bda62767c": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: team QA wallet 1 deposits 5 USDG through the vault page",
+      "events": [
+        {
+          "event": "Deposit",
+          "address": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+          "args": { "owner": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044", "assets": "5 USDG" }
+        }
+      ]
+    },
+    "0xefc417c9c935ec317fe3069270edaab1f45b5d52c03a265b5ae7539b3a8b6025": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: team QA wallet 2 deposits 4 USDG through the vault page",
+      "events": [
+        {
+          "event": "Deposit",
+          "address": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+          "args": { "owner": "0x2E89c1C42A76507dB832E9b78403AB50bd8D9957", "assets": "4 USDG" }
+        }
+      ]
+    },
+    "0xf9695b729313302241523c9ac8a55b55b07e109786cf43ecc9a7be5774aac7ef": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: team QA wallet 3 deposits 3 USDG through the vault page",
+      "events": [
+        {
+          "event": "Deposit",
+          "address": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
+          "args": { "owner": "0x84bEBDF6736b3f438c9344fb653C80e89Db05F5D", "assets": "3 USDG" }
+        }
+      ]
+    },
+    "0x6ecf12ba321e3e11744389e989ddde504b563c73b87a6fc93d41f18340506103": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: team QA wallet 1 withdraws 2 USDG from the unlocked v3 put vault",
+      "events": [
+        {
+          "event": "Withdraw",
+          "address": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+          "args": {
+            "owner": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+            "receiver": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+            "assets": "2 USDG"
+          }
+        }
+      ]
+    },
+    "0x123e48634cabc86c6138af3befd2ec55d50d1f9d6d351aae4f9bc36f5d828990": {
+      "chain": 46630,
+      "claim": "QA 3 Oct: team QA wallet 2 deposits 1 USDG (the re-run on the live site)",
+      "events": [
+        {
+          "event": "Deposit",
+          "address": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+          "args": { "owner": "0x2E89c1C42A76507dB832E9b78403AB50bd8D9957", "assets": "1 USDG" }
+        }
+      ]
     }
   }
 }
