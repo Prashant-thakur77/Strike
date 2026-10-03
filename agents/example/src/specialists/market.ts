@@ -104,7 +104,7 @@ export interface MarketCheck {
   limit: string;
 }
 
-/** Two inputs that should agree, compared (PRISM's "contradictions", computed here instead of asked of an LLM). */
+/** Two inputs that should agree, compared: computed from the chain, never asked of an LLM. */
 export interface Contradiction {
   between: [string, string];
   agree: boolean;

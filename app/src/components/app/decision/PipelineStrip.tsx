@@ -40,7 +40,7 @@ const delta = (bps: unknown) => {
 };
 const ms = (x: number | null) => (x === null ? "n/a" : x < 1000 ? `${x} ms` : `${(x / 1000).toFixed(1)} s`);
 
-/** The PRISM-style stage strip: one chip per stage in the order they ran, then a card per stage. */
+/** The stage strip: one chip per stage in the order they ran, then a card per stage. */
 export function PipelineStrip({
   pipeline: p,
   record: r,
