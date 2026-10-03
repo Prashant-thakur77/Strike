@@ -223,6 +223,10 @@ test("usage: the team list holds the documented wallets and matches any case", (
     "0x4501c16dc4f29394560F9B2aB935667cA058B79b",
     "0x1a00BaDC191FFcB65d16D27C0d1F3599528F7364",
     "0x85f0A3A3cb02253e578ec3BE2feDE1F1a1dC33E1",
+    // QA test wallets (3 Oct), docs/testnet-epochs/2026-10-03-end-to-end-qa.md
+    "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+    "0x2E89c1C42A76507dB832E9b78403AB50bd8D9957",
+    "0x84bEBDF6736b3f438c9344fb653C80e89Db05F5D",
   ]) {
     expect(listed).toContain(a.toLowerCase());
     expect(isTeamWallet(a.toUpperCase().replace("0X", "0x"))).toBe(true);
@@ -321,7 +325,7 @@ test("usage: /api/stats counts at least what the testnet epoch logs record", asy
   expect(t.optionsBought).toBeGreaterThanOrEqual(12);
   expect(t.slashedUsdg).toBeGreaterThanOrEqual(30);
   expect(t.decisionRecords).toBeGreaterThanOrEqual(5);
-  // All five team wallets have signed something on-chain; anyone else is outside the team.
+  // Every team wallet has signed something on-chain (the three QA wallets deposited on 3 Oct); anyone else is outside the team.
   expect(t.wallets - t.outsideWallets).toBe(TEAM_WALLETS.length);
   expect(t.outsideWallets).toBe(s!.outside.length);
 });

@@ -46,6 +46,24 @@ export const TEAM_WALLETS: readonly TeamWallet[] = [
     label: "Buyer agent, Arbitrum Sepolia v3 epoch of 30 September",
     source: "docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md",
   },
+  {
+    address: "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+    short: "QA test wallet 1 (3 Oct)",
+    label: "QA test wallets (3 Oct): team wallet 1 of 3 for the end-to-end test of the live app",
+    source: "docs/testnet-epochs/2026-10-03-end-to-end-qa.md",
+  },
+  {
+    address: "0x2E89c1C42A76507dB832E9b78403AB50bd8D9957",
+    short: "QA test wallet 2 (3 Oct)",
+    label: "QA test wallets (3 Oct): team wallet 2 of 3 for the end-to-end test of the live app",
+    source: "docs/testnet-epochs/2026-10-03-end-to-end-qa.md",
+  },
+  {
+    address: "0x84bEBDF6736b3f438c9344fb653C80e89Db05F5D",
+    short: "QA test wallet 3 (3 Oct)",
+    label: "QA test wallets (3 Oct): team wallet 3 of 3 for the end-to-end test of the live app",
+    source: "docs/testnet-epochs/2026-10-03-end-to-end-qa.md",
+  },
 ];
 
 const TEAM = new Set(TEAM_WALLETS.map((w) => w.address.toLowerCase()));
