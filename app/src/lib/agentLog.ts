@@ -22,7 +22,7 @@ export const AGENT_WORKFLOW_URL = `https://github.com/${AGENT_LOG_REPO}/blob/${A
 export const FIRST_EPOCH_LOG_URL = `https://github.com/${AGENT_LOG_REPO}/blob/${AGENT_LOG_BRANCH}/docs/testnet-epochs/2026-09-29.md`;
 
 /** Newest records kept. */
-export const AGENT_LOG_LIMIT = 12;
+export const AGENT_LOG_LIMIT = 24;
 /** How long a fetched log stays fresh (react-query staleTime). */
 export const AGENT_LOG_STALE_MS = 10 * 60_000;
 /** The only record schema this page understands (RECORD_VERSION in agents/example/src/record.ts). */

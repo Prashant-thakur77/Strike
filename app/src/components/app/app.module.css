@@ -1400,6 +1400,9 @@ a.idChip:hover {
   .board td[data-label="Bond"] {
     grid-column: 3;
   }
+  .board td[data-label="Depositor PnL"] {
+    grid-column: 2 / 4;
+  }
   .board .toggleCell {
     grid-column: 2 / 4;
     width: auto;

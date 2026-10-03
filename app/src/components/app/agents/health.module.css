@@ -1,0 +1,121 @@
+/* The agents page's live series health, alerts, performance and runs that sold nothing. */
+
+.stack {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.state,
+.kind,
+.level {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.state[data-state="out"] {
+  color: var(--gain-c);
+}
+
+.state[data-state="near"],
+.state[data-state="in"] {
+  color: var(--loss-c);
+}
+
+.state[data-state="expired"],
+.state[data-state="unsold"] {
+  color: var(--fg-muted);
+}
+
+.alerts {
+  display: grid;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+}
+
+.alertList,
+.noTradeList {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.alert[data-level="alert"] .level {
+  color: var(--loss-c);
+}
+
+.alert[data-level="watch"] .level {
+  color: var(--fg);
+}
+
+.alert[data-level="info"] .level {
+  color: var(--fg-muted);
+}
+
+.verdict {
+  font-size: 1rem;
+  line-height: 1.5;
+  max-width: 52em;
+}
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+}
+
+.counts dd {
+  margin: 4px 0 0;
+  font-size: 1.4rem;
+}
+
+.noTradeList li {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.kind {
+  justify-self: start;
+  color: var(--fg-muted);
+}
+
+.kind[data-kind="rejected"] {
+  color: var(--loss-c);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+@media (max-width: 640px) {
+  .counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -12,6 +12,7 @@ import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
 import { VersionTag } from "../VaultList";
 import { DecisionLog } from "./DecisionLog";
+import { LiveHealth, NoTradeHistory, Performance } from "./HealthViews";
 import { RegisterAgent } from "./RegisterAgent";
 import { SeasonBanner } from "./SeasonBanner";
 import { MetaStrip, MetaStripSkeleton } from "../MetaStrip";
@@ -21,8 +22,13 @@ import { Skeleton } from "../Skeleton";
 import { Term } from "@/components/ui/Term";
 import styles from "../app.module.css";
 
+/** Agents with settled epochs first, by cumulative depositor PnL; then by accepted proposals and fewest rejections. */
 function rank(a: AgentRow, b: AgentRow) {
-  return b.accepted - a.accepted || a.rejected - b.rejected || Number(a.id - b.id);
+  const sa = a.settledEpochs > 0 ? 1 : 0;
+  const sb = b.settledEpochs > 0 ? 1 : 0;
+  const pnl =
+    sa && sb ? (b.cumulativePnl > a.cumulativePnl ? 1 : b.cumulativePnl < a.cumulativePnl ? -1 : 0) : 0;
+  return sb - sa || pnl || b.accepted - a.accepted || a.rejected - b.rejected || Number(a.id - b.id);
 }
 
 export function AgentsPage() {
@@ -95,7 +101,7 @@ export function AgentsPage() {
           <Rail
             index="01"
             label="Leaderboard"
-            note="Ranked by accepted proposals, then fewest rejections. Open a row for the track record (AgentRegistry.track), the ERC-8004 identity and reputation, and the vaults it runs."
+            note="Agents with settled epochs rank first, by cumulative depositor PnL; the rest by accepted proposals, then fewest rejections. Open a row for the track record (AgentRegistry.track), the ERC-8004 identity and reputation, and the vaults it runs."
           >
             <Leaderboard
               registries={all.data ?? [{ version: r.agents[0]?.registryVersion ?? "", registry: r }]}
@@ -143,6 +149,30 @@ export function AgentsPage() {
             <RegisterAgent registry={r} />
           </Rail>
         ) : null}
+        <Rail
+          index="05"
+          id="live-health"
+          label="Live series health"
+          note="Each live series against its strike and break-even now, the time left, the model's odds of exercise from here, and the alerts these reads raise."
+        >
+          <LiveHealth />
+        </Rail>
+        <Rail
+          index="06"
+          id="performance"
+          label="Performance"
+          note="Settled epochs and cumulative depositor PnL per agent, as AgentRegistry records them, and what a sample that size can say."
+        >
+          <Performance />
+        </Rail>
+        <Rail
+          index="07"
+          id="no-trade"
+          label="Runs that sold nothing"
+          note="Rejected proposals, runs where the agent did not send, runs with nothing to settle and runs that stopped, from the decision records."
+        >
+          <NoTradeHistory />
+        </Rail>
       </div>
     </>
   );
@@ -180,6 +210,9 @@ function Leaderboard({
             </th>
             <th scope="col" className={styles.num}>
               Rejected
+            </th>
+            <th scope="col" className={styles.num}>
+              Depositor PnL
             </th>
             <th scope="col">Strikes</th>
             <th scope="col" className={styles.num}>
@@ -266,6 +299,19 @@ function AgentRows({
         <td className={`mono ${styles.num}`} data-label="Rejected">
           {a.rejected}
         </td>
+        <td className={`mono ${styles.num}`} data-label="Depositor PnL" data-testid="leaderboard-pnl">
+          {a.settledEpochs === 0 ? (
+            <span className={styles.cellMuted}>no settled epoch</span>
+          ) : (
+            <>
+              {a.cumulativePnl > 0n ? "+" : a.cumulativePnl < 0n ? "−" : ""}
+              {fmtAmount(a.cumulativePnl < 0n ? -a.cumulativePnl : a.cumulativePnl, dec)} USDG
+              <span className={styles.cellMuted}>
+                {a.settledEpochs} epoch{a.settledEpochs === 1 ? "" : "s"}
+              </span>
+            </>
+          )}
+        </td>
         <td data-label="Strikes">
           <span className={styles.pips} aria-label={`${a.strikes} of ${registry.maxStrikes} strikes`}>
             {Array.from({ length: registry.maxStrikes }, (_, k) => (
@@ -295,7 +341,7 @@ function AgentRows({
         </td>
       </tr>
       <tr id={detailsId} className={styles.agentDetails} hidden={!open}>
-        <td colSpan={8}>
+        <td colSpan={9}>
           <dl className={styles.agentFacts}>
             <div>
               <dt className="micro micro-muted">Track record</dt>

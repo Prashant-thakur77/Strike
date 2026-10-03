@@ -265,16 +265,16 @@ test.describe("listing", () => {
     expect(files[1].run).toBe(2);
   });
 
-  test("keeps the newest twelve", () => {
+  test("keeps the newest twenty-four", () => {
     unit();
     const names = Array.from(
-      { length: 20 },
+      { length: 30 },
       (_, i) => `2026-${String(10 + Math.floor(i / 10))}-${String((i % 10) + 10)}-sTSLA-CC.json`,
     );
     const files = parseListing(names.map((n) => entry(n)));
     expect(files).toHaveLength(AGENT_LOG_LIMIT);
-    expect(files[0].name).toBe("2026-11-19-sTSLA-CC.json");
-    expect(files.at(-1)!.name).toBe("2026-10-18-sTSLA-CC.json");
+    expect(files[0].name).toBe("2026-12-19-sTSLA-CC.json");
+    expect(files.at(-1)!.name).toBe("2026-10-16-sTSLA-CC.json");
   });
 
   test("anything but an array lists nothing", () => {
