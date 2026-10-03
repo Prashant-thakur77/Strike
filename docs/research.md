@@ -501,7 +501,7 @@ Strike's cash-secured-put vault, 2019 to 2026 ([backtest.md](backtest.md)): −0
 
 ## 9. Account abstraction and gas sponsorship on the two testnets
 
-Checked 2026-10-03 (UTC) for onboarding: can a new user act without first getting testnet ETH from a faucet? The answer decided [D48](decisions.md).
+Checked 2026-10-03 (UTC) for onboarding: can a new user act without first getting testnet ETH from a faucet? The answer decided [D49](decisions.md).
 
 **On-chain** (`cast code <address> --rpc-url <rpc>`, both public RPCs above):
 
@@ -519,7 +519,7 @@ Checked 2026-10-03 (UTC) for onboarding: can a new user act without first gettin
 - **Alchemy.** Bundler and Gas Manager listed for Robinhood Chain testnet ([Wallet APIs supported chains](https://www.alchemy.com/docs/wallets/supported-chains)); needs an API key and a Gas Manager policy.
 - **Biconomy.** Arbitrum Sepolia is supported ([supported networks](https://docs.biconomy.io/supportedNetworks)); we found no listing for Robinhood Chain testnet. Its paymaster URL comes from the dashboard.
 
-**What follows for Strike.** The infrastructure is there on both chains, but every gas sponsor needs an account the team does not hold today, and smart accounts change who holds the funds: with a 4337 account a user's USDG and shares live at a new address, so every balance and position read in the app would move; with 7702 the address stays, but injected wallets do not let a site ask for an authorization signature. So the build is a starter drip (D48): a relayed, team-funded `GasDrip` contract that gives a new wallet 0.0001 ETH, which needs no outside account. Sponsored smart accounts stay the next step: a Pimlico or ZeroDev project with a testnet policy takes the owner a few minutes to set up.
+**What follows for Strike.** The infrastructure is there on both chains, but every gas sponsor needs an account the team does not hold today, and smart accounts change who holds the funds: with a 4337 account a user's USDG and shares live at a new address, so every balance and position read in the app would move; with 7702 the address stays, but injected wallets do not let a site ask for an authorization signature. So the build is a starter drip (D49): a relayed, team-funded `GasDrip` contract that gives a new wallet 0.0001 ETH, which needs no outside account. Sponsored smart accounts stay the next step: a Pimlico or ZeroDev project with a testnet policy takes the owner a few minutes to set up.
 
 ---
 

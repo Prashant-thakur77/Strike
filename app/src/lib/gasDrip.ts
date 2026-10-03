@@ -1,6 +1,6 @@
 import { type Address, keccak256, stringToHex } from "viem";
 
-// The starter gas drip (GasDrip.sol, D48): a brand-new wallet gets 0.0001 test ETH from a team-funded contract, sent
+// The starter gas drip (GasDrip.sol, D49): a brand-new wallet gets 0.0001 test ETH from a team-funded contract, sent
 // by Strike's relayer through POST /api/gas-drip, so it can pay for its first transactions without an outside faucet.
 // Shared by the route and the faucet page: the limits, the proof-of-work both sides compute, and refusals in words.
 // Pure, with no SDK import, so the specs load it directly (`gasDripOf`, which reads the SDK map, is in drip.ts).

@@ -274,7 +274,7 @@ export const ROLE_INFO: Record<ContractKind, Partial<Record<RoleName, RoleInfo>>
       source: KIND_SOURCE.GasDrip,
     },
     relayer: {
-      can: "Send drip(to): 0.0001 test ETH to a new wallet. Held by the app's /api/gas-drip relayer key (D48).",
+      can: "Send drip(to): 0.0001 test ETH to a new wallet. Held by the app's /api/gas-drip relayer key (D49).",
       cannot:
         "Drip an address twice, drip to one holding 0.0001 ETH or more, or send more than 20 drips in a UTC day: the contract refuses each (AlreadyDripped, HasGas, DailyCapReached).",
       source: "docs/decisions.md",

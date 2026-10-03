@@ -21,7 +21,7 @@ import { clientIp } from "@/lib/waitlistServer";
 // POST /api/gas-drip {chainId, address, nonce}: checks the limits (lib/gasDripServer.ts) and sends GasDrip.drip(address)
 //      from the relayer, waiting for the receipt. The relayer key is GAS_RELAYER_KEY in the server environment, read
 //      at request time and never sent anywhere; without it every request answers 503 and the page links the chain's
-//      faucet instead. D48. No CORS headers: the faucet page is the only caller.
+//      faucet instead. D49. No CORS headers: the faucet page is the only caller.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

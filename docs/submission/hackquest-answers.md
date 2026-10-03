@@ -43,7 +43,7 @@ How Strike fits the buildathon's workshop themes, for the long-form fields and f
 - Security: an internal review with every finding fixed, Halmos proofs, an adversarial suite with a mutation check, a threat model; no external audit yet ([JUDGES.md](../JUDGES.md#how-strike-maps-to-the-workshop-themes)).
 - Governance: today one deployer key holds the testnet admin roles and is trusted; on mainnet the admin is a Safe behind a 73-day timelock ([D43](../decisions.md#d43--on-mainnet-the-admin-is-a-safe-behind-a-73-day-timelock-2026-10-02)), written and tested, not yet run.
 - Agentic, on Arbitrum: Stylus (Rust) strike solver and risk engine, a pipeline of specialist agents, an MCP server on npm and hosted.
-- After the buildathon: x402 payments for agents, onboarding without test ETH and Pendle yield on idle put collateral are being built on their own branches, and Dune queries for the mainnet stock-token market are written and not yet published ([Roadmap after the buildathon](../../README.md#roadmap-after-the-buildathon)).
+- Onboarding without test ETH is done: a new wallet gets its first gas from the faucet page's Get started, relayed from the team-funded GasDrip contract on both testnets (D49). After the buildathon: x402 payments for agents and Pendle yield on idle put collateral are being built on their own branches, and Dune queries for the mainnet stock-token market are written and not yet published ([Roadmap after the buildathon](../../README.md#roadmap-after-the-buildathon)).
 
 ## Link to frontend / demo (257 characters)
 
