@@ -365,9 +365,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "557",
+    count: "564",
     detail:
-      "SDK 262, MCP server 84, example agents 158, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
+      "SDK 262, MCP server 90, example agents 159, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -389,7 +389,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "384",
+    count: "397",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 33 of them are the opt-in UI audit at five widths",
     evidence: [

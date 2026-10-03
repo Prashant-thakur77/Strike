@@ -47,13 +47,13 @@
         },
         {
           "label": "MCP server",
-          "count": 84,
-          "source": "mcp: vitest run --reporter=json, 84 tests (the devnet suites need Foundry on PATH)"
+          "count": 90,
+          "source": "mcp: vitest run --reporter=json, 90 tests (the devnet suites need Foundry on PATH)"
         },
         {
           "label": "Example agents",
-          "count": 158,
-          "source": "agents/example: vitest run --reporter=json, 158 tests"
+          "count": 159,
+          "source": "agents/example: vitest run --reporter=json, 159 tests"
         },
         {
           "label": "Indexer",
@@ -72,8 +72,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 384,
-          "source": "app: npx playwright test --list reports 768 runs in 39 files = 384 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
+          "count": 397,
+          "source": "app: npx playwright test --list reports 794 runs in 40 files = 397 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
         }
       ]
     }
