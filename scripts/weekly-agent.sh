@@ -22,9 +22,10 @@
 #   --dry-run  read only, no key needed: propose runs the agent with --dry-run (no --anchor, records to a temporary
 #              folder), settle runs --status; both print the signer, overrides, record folder and anchor URL.
 # Propose skips a vault that is still selling its series (state Selling: nothing to propose until it settles) with a
-# notice, without running the agent, so no "skipped" record is written or anchored. Settle skips a vault that already
-# has a settle record dated today (UTC) in LOG_DIR whose result is "settled" or "skipped", so a second run on the same
-# day (one that keeper.yml dispatched) records nothing twice; a stopped attempt does not count, so it is retried.
+# notice, without running the agent, so no "skipped" record is written or anchored. Settle skips a vault whose
+# settlement is already recorded today (UTC) in LOG_DIR, or whose newest record there is a "skipped" settle record
+# (nothing to settle) from the last 7 days (scripts/settle-recorded.jq), so a second run (one that keeper.yml
+# dispatched) records nothing twice; a stopped attempt does not count, so it is retried.
 # Settle with nothing to settle yet is a notice from the agent, which sends nothing and writes no record: a series that
 # has not expired (exit 0), or one that has while the price feed has no round at or after expiry (exit 75: the first
 # mirrored print comes at the next NYSE open, and keeper.yml settles it then and dispatches this run again).
@@ -148,10 +149,10 @@ for deploy in $DEPLOYS; do
           "nothing to propose until it settles"
         continue
       fi
-    elif jq -s -e --arg v "$(echo "$vault" | tr '[:upper:]' '[:lower:]')" --arg d "$(date -u +%F)" \
-      'any(.[]; .action == "settle" and (.result.status == "settled" or .result.status == "skipped") and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
-      "$ROOT/$LOG_DIR"/*.json >/dev/null 2>&1; then
-      echo "::notice::$name $vkey ($vault): its settlement (or nothing to settle) is already recorded today in $LOG_DIR"
+    elif jq -s -e -f "$ROOT/scripts/settle-recorded.jq" --arg v "$(echo "$vault" | tr '[:upper:]' '[:lower:]')" \
+      --arg d "$(date -u +%F)" --arg w "$(date -u -d '7 days ago' +%F)" "$ROOT/$LOG_DIR"/*.json >/dev/null 2>&1; then
+      echo "::notice::$name $vkey ($vault): already recorded in $LOG_DIR (its settlement today, or nothing to settle" \
+        "with nothing since)"
       continue
     fi
     if [ "$DRY_RUN" = 1 ]; then

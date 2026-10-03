@@ -297,12 +297,11 @@ jobs:
         run: |
           # A vault still selling its series (state 2) has nothing to propose: a notice, not a stopped run (its series
           # runs Friday to Friday, so on a Monday it is often mid-series). A failed read runs the agent anyway.
-          # On Friday, a settle record of today for this vault whose result is "settled" (or "skipped": nothing to
-          # settle) means an earlier run has recorded it.
-          if [ "$MODE" = settle ] && jq -s -e --arg v "${VAULT,,}" --arg d "$(date -u +%F)" \
-            'any(.[]; .action == "settle" and (.result.status == "settled" or .result.status == "skipped") and ((.vault.address // "") | ascii_downcase) == $v and .date == $d)' \
-            "$LOG_DIR"/*.json >/dev/null 2>&1; then
-            echo "::notice::sTSLA-CSP-A2's settlement is already recorded today; nothing to do"
+          # In a settle run, an earlier run has done the work when this vault's settlement is recorded today, or its
+          # newest record is a recent "skipped" settle record (scripts/settle-recorded.jq, as weekly-agent.sh does).
+          if [ "$MODE" = settle ] && jq -s -e -f scripts/settle-recorded.jq --arg v "${VAULT,,}" --arg d "$(date -u +%F)" \
+            --arg w "$(date -u -d '7 days ago' +%F)" "$LOG_DIR"/*.json >/dev/null 2>&1; then
+            echo "::notice::sTSLA-CSP-A2's settlement (or nothing to settle) is already recorded; nothing to do"
             echo "failed=0" >> "$GITHUB_OUTPUT"
             exit 0
           fi
