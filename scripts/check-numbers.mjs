@@ -161,7 +161,7 @@ const CHECKS = [
       "coverage.branchesTotal",
     ],
   ],
-  ["README.md", "coverage table: other files", /\| The other (\d+) files \|/g, ["coverage.filesAt100"]],
+  ["README.md", "coverage table: other files", /\| The other (\d+) files\s*\|/g, ["coverage.filesAt100"]],
   [
     "README.md",
     "verified v2 contracts",

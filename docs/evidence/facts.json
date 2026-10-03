@@ -6,17 +6,17 @@
     "v2VerifiedOnBlockscout": 14
   },
   "coverage": {
-    "branches": 98.77,
-    "branchesHit": 240,
-    "branchesTotal": 243,
+    "branches": 98.92,
+    "branchesHit": 275,
+    "branchesTotal": 278,
     "command": "make coverage (forge coverage --ir-minimum --report summary --no-match-coverage \"(test|script|lib)/\")",
-    "files": 20,
-    "filesAt100": 16,
+    "files": 22,
+    "filesAt100": 17,
     "functions": 100,
     "lines": 99.32,
-    "linesHit": 1173,
-    "linesTotal": 1181,
-    "statements": 99.43
+    "linesHit": 1324,
+    "linesTotal": 1333,
+    "statements": 99.45
   },
   "deployments": {
     "421614-v3": {
@@ -89,7 +89,7 @@
     }
   },
   "measured": {
-    "commit": "198d3f9",
+    "commit": "ae70f1f",
     "date": "2026-10-03"
   },
   "tests": {
@@ -111,7 +111,7 @@
     },
     "fork": {
       "command": "forge test --list --json: test/fork",
-      "tests": 9
+      "tests": 16
     },
     "foundry": {
       "audit": 19,
@@ -129,10 +129,10 @@
         "pricing": 21,
         "root": 1,
         "testnet": 13,
-        "unit": 233
+        "unit": 292
       },
       "command": "forge test --no-match-path \"test/{fork,differential,formal}/*\" --summary (in contracts)",
-      "passing": 527,
+      "passing": 586,
       "skipped": 7
     },
     "halmos": {
@@ -186,7 +186,7 @@
   "totals": {
     "about": "typescript = SDK + MCP + example agents + indexer (the proof page's TypeScript card); pnpm = typescript + the Telegram bot (corepack pnpm -r test); testsAndProofs = Foundry main suite + fork + differential + Halmos proofs + Rust + pnpm + subgraph + Playwright per viewport",
     "pnpm": 650,
-    "testsAndProofs": 1607,
+    "testsAndProofs": 1673,
     "typescript": 557
   }
 }

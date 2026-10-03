@@ -81,7 +81,7 @@ No contract is upgradeable. Vault clones and the manager are immutable code; a n
 
 | Kind                            | Where                                                                                                                                                                             |
 | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Unit, integration, fuzz         | `contracts/test` (527 tests on `main`, 19 of them audit regressions in `contracts/test/audit`; 531 on `v3-contracts`, 40 audit regressions), 99.3% line and 98.8% branch coverage |
+| Unit, integration, fuzz         | `contracts/test` (586 tests on `main`, 19 of them audit regressions in `contracts/test/audit`; 531 on `v3-contracts`, 40 audit regressions), 99.3% line and 98.9% branch coverage |
 | Invariants with mutation checks | `contracts/test/invariant`, [testing.md](testing.md)                                                                                                                              |
 | Fork tests on chain 4663        | `contracts/test/fork` (real tokens, feeds, USDG, ERC-8004)                                                                                                                        |
 | Differential Rust vs Solidity   | `contracts/test/differential`, vectors, on-chain equality check at deploy                                                                                                         |

@@ -48,11 +48,15 @@ Ran 5 tests for test/audit/AuditSettlement.t.sol:AuditSettlementTest
 Suite result: ok. 5 passed; 0 failed; 0 skipped
 Ran 5 tests for test/testnet/TestnetContracts.t.sol:TestnetContractsTest
 Suite result: ok. 5 passed; 0 failed; 0 skipped
+Ran 52 tests for test/unit/PendleCollateralAdapter.t.sol:PendleCollateralAdapterTest
+Suite result: ok. 52 passed; 0 failed; 0 skipped
 Ran 6 tests for test/audit/AuditPricing.t.sol:AuditPricingTest
 Suite result: ok. 6 passed; 0 failed; 0 skipped
 Ran 7 tests for test/adversarial/DoubleSpend.t.sol:AdversarialDoubleSpendTest
 Suite result: ok. 7 passed; 0 failed; 0 skipped
 Ran 7 tests for test/agents/Reputation.t.sol:ReputationTest
+Suite result: ok. 7 passed; 0 failed; 0 skipped
+Ran 7 tests for test/unit/StrikePutReserve.t.sol:StrikePutReserveTest
 Suite result: ok. 7 passed; 0 failed; 0 skipped
 Ran 8 tests for test/audit/AuditVault.t.sol:AuditVaultTest
 Suite result: ok. 8 passed; 0 failed; 0 skipped

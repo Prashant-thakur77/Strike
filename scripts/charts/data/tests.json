@@ -7,8 +7,8 @@
       "items": [
         {
           "label": "Fork (Robinhood Chain mainnet)",
-          "count": 9,
-          "source": "contracts/test/fork/*.t.sol: 6 in RobinhoodFork, 3 in StockCollateralFork (grep -c 'function test')"
+          "count": 16,
+          "source": "contracts/test/fork/*.t.sol: 6 in RobinhoodFork, 3 in StockCollateralFork, 7 in PendleCollateralFork (grep -c 'function test')"
         },
         {
           "label": "Differential (Rust vs Solidity)",

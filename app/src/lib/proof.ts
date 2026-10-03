@@ -346,7 +346,7 @@ export interface TestFact {
 export const TESTS: readonly TestFact[] = [
   {
     label: "Foundry",
-    count: "527",
+    count: "586",
     detail:
       "Unit, integration, fuzz, invariant, conformance and audit-regression suites (fork, differential and formal below); 7 more are skipped: settlement rules the StockCollateral example has no use for",
     evidence: [
@@ -405,8 +405,8 @@ export const TESTS: readonly TestFact[] = [
 // CI fails below 95% lines (.github/workflows/ci.yml).
 export const COVERAGE = {
   lines: "99.3%",
-  branches: "98.8%",
-  statements: "99.4%",
+  branches: "98.9%",
+  statements: "99.5%",
   functions: "100%",
   evidence: [
     { label: "docs/testing.md#coverage", href: gh("docs/testing.md", "coverage") },
