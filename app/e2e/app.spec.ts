@@ -24,6 +24,23 @@ const CALL_EXPIRY = 1790971200;
 const IDENTITY_REGISTRY = "0x8004A818BFB912233c491871b3d84c89A494BD9e";
 const REPUTATION_REGISTRY = "0x8004B663056A597Dffe9eCcC1965A193B7388713";
 
+/** v3's TSLA cash-secured-put vault on Arbitrum Sepolia (contracts/deployments/421614-vaults.json). */
+const ARB_PUT_VAULT = "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe";
+
+async function arbSepoliaUp(): Promise<boolean> {
+  try {
+    const res = await fetch(process.env.E2E_RPC_421614 ?? "https://sepolia-rollup.arbitrum.io/rpc", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    return ((await res.json()) as { result?: string }).result === "0x66eee";
+  } catch {
+    return false;
+  }
+}
+
 async function testnetUp(): Promise<boolean> {
   try {
     const res = await fetch(RPC, {
@@ -177,6 +194,47 @@ test.describe("on Robinhood Chain testnet", () => {
       timeout: 45_000,
     });
     await expect(alert).not.toContainText("Couldn't read this from the chain");
+  });
+
+  // QA of 3 October: v3's Arbitrum Sepolia vaults share their addresses with v1's (superseded) vaults on Robinhood
+  // Chain testnet. Opened on the wrong network, such an address showed the v1 vault's empty state with a live deposit
+  // form; and a decision page's vault link (?chain=421614) opened on Robinhood Chain testnet without a reload.
+  test("a v3 Arbitrum Sepolia vault opened on Robinhood Chain testnet is not shown here, and the app offers the right network", async ({
+    page,
+  }) => {
+    test.skip(!(await arbSepoliaUp()), "Arbitrum Sepolia RPC unreachable");
+    await page.goto(`/app/vault/${ARB_PUT_VAULT}?chain=46630`);
+    const alert = page.locator("#main").getByRole("alert");
+    await expect(alert.getByRole("heading", { name: "No Strike vault at this address." })).toBeVisible({
+      timeout: 45_000,
+    });
+    await expect(page.getByRole("tab", { name: "Deposit" })).toHaveCount(0);
+    const elsewhere = page.getByTestId("vault-elsewhere");
+    await expect(elsewhere).toHaveAttribute("data-state", "found", { timeout: 45_000 });
+    await expect(elsewhere).toContainText("It is a Strike vault on Arbitrum Sepolia.");
+    await alert.getByRole("button", { name: "Switch to Arbitrum Sepolia" }).click();
+    await expect(alert).toHaveCount(0, { timeout: 45_000 });
+    await expect(page.getByText("Cash-secured put", { exact: true }).first()).toBeVisible();
+    await expect(page.locator("#trace")).not.toContainText("Couldn't read the epoch trace", {
+      timeout: 45_000,
+    });
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+  });
+
+  test("a decision page's vault link opens the vault on the record's network", async ({ page }) => {
+    test.skip(!(await arbSepoliaUp()), "Arbitrum Sepolia RPC unreachable");
+    await page.goto("/app/decision/421614/2026-09-30-sTSLA-CSP");
+    const link = page.locator(`a[href^="/app/vault/${ARB_PUT_VAULT}?chain=421614"]`).first();
+    await expect(link).toBeVisible({ timeout: 45_000 });
+    await link.click();
+    await expect(page).toHaveURL(new RegExp(`/app/vault/${ARB_PUT_VAULT}`));
+    await expect(page.getByText("Cash-secured put", { exact: true }).first()).toBeVisible({
+      timeout: 45_000,
+    });
+    await expect(page.locator("#main").getByRole("alert")).toHaveCount(0);
+    await expect(page.getByText(/Epoch 1/).first()).toBeVisible();
+    await expect(page.locator("#trace")).toContainText("Epoch 1 opened", { timeout: 45_000 });
+    await expect(page.locator("#trace")).toContainText("2026-09-30");
   });
 
   test("agents show the ERC-8004 identity and reputation", async ({ page }) => {

@@ -1,6 +1,16 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  Suspense,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useConnection } from "wagmi";
 import { DEFAULT_CHAIN_ID, isAppChainId, type AppChainId } from "@/lib/chains";
 
@@ -57,7 +67,28 @@ export function ChainProvider({ children }: { children: ReactNode }) {
   }, [isConnected, walletChainId, setChainId]);
 
   const value = useMemo(() => ({ chainId, ready, setChainId }), [chainId, ready, setChainId]);
-  return <ChainContext.Provider value={value}>{children}</ChainContext.Provider>;
+  return (
+    <ChainContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <ChainFromUrl onChain={setChainId} />
+      </Suspense>
+      {children}
+    </ChainContext.Provider>
+  );
+}
+
+/**
+ * `?chain=` on a link the app navigates to without a reload (a decision page's vault link, the portfolio's): the
+ * first load reads it in `load()`, later navigations here. Without it a link to an Arbitrum Sepolia vault opened on
+ * Robinhood Chain testnet, where the same address is a superseded v1 vault (QA, 3 Oct).
+ */
+function ChainFromUrl({ onChain }: { onChain: (id: AppChainId) => void }) {
+  const param = useSearchParams().get("chain");
+  useEffect(() => {
+    const id = Number(param);
+    if (param && isAppChainId(id)) onChain(id);
+  }, [param, onChain]);
+  return null;
 }
 
 export function useChainState(): ChainState {

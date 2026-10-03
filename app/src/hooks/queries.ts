@@ -7,7 +7,9 @@ import { useConnection } from "wagmi";
 import { AGENT_LOG_STALE_MS, AgentLogError, fetchAgentLog } from "@/lib/agentLog";
 import { affordableOptions } from "@/lib/hedge";
 import {
+  NotAVaultError,
   faucetTokens,
+  hasForeignManager,
   marketStatus,
   optionHoldings,
   position,
@@ -69,6 +71,9 @@ export function useVault(address: Address) {
     refetchInterval: REFRESH,
     queryFn: async () => {
       const own = await vaultDeployment(client!, chainId, address);
+      // A vault of no deployment on this chain (v1's on Robinhood Chain testnet sit at the addresses of v3's on
+      // Arbitrum Sepolia) is not shown with the default deployment's reads: it is "not a Strike vault here".
+      if (!own && (await hasForeignManager(client!, chainId, address))) throw new NotAVaultError(address);
       return vaultSummary(client!, own ?? deployment!, address);
     },
   });

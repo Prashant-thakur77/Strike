@@ -202,6 +202,29 @@ export async function vaultDeployment(
   }
 }
 
+/**
+ * True when `vault` answers `manager()` with an EpochManager that is none of `chainId`'s Strike deployments: a vault
+ * of a superseded deployment (v1 on Robinhood Chain testnet, whose vaults share their addresses with v3 on Arbitrum
+ * Sepolia) or someone else's clone. False when the read fails (not a vault at all, or the RPC is down), so the caller
+ * keeps its usual error path.
+ */
+export async function hasForeignManager(
+  client: PublicClient,
+  chainId: number,
+  vault: Address,
+): Promise<boolean> {
+  try {
+    const manager = await client.readContract({
+      address: vault,
+      abi: vaultManagerAbi,
+      functionName: "manager",
+    });
+    return deploymentOfManager(chainId, manager) === null;
+  } catch {
+    return false;
+  }
+}
+
 /** Thrown when an address is not a vault registered with this network's EpochManager. */
 export class NotAVaultError extends Error {
   readonly address: Address;
