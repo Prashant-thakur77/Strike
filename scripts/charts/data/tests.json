@@ -37,8 +37,8 @@
       "items": [
         {
           "label": "SDK",
-          "count": 280,
-          "source": "sdk: vitest run --reporter=json, 262 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
+          "count": 282,
+          "source": "sdk: vitest run --reporter=json, 282 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
         },
         {
           "label": "Telegram bot",

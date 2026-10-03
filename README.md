@@ -666,7 +666,7 @@ To check the headline claims with standard tools only, no Strike code: [docs/ver
 
 | Tests and proofs | Line coverage      | Strike solver in Stylus | Live epochs                             | Contracts verified                               |
 | ---------------- | ------------------ | ----------------------- | --------------------------------------- | ------------------------------------------------ |
-| [1,809](#tests)  | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [3 epochs, 3 slashes](#the-live-epochs) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
+| [1,811](#tests)  | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [3 epochs, 3 slashes](#the-live-epochs) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
 
 Charts are rebuilt from committed data by [`scripts/charts/build_charts.py`](scripts/charts/README.md); each has a light and a dark version and its numbers in the table beside it.
 
@@ -696,7 +696,7 @@ The `test_AUDIT_*` names describe the attack each test first reproduced; they no
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/tests-by-suite-dark.svg">
-  <img alt="Horizontal bar chart of 1,809 tests and proofs by suite: Foundry main suite 607 passing (7 skipped): unit 292, agents 36, conformance 35, oracle 34, testnet 34, core 33, adversarial 30, integration 28, pricing 21, audit 19, invariant 18, examples 14, governance 12, version check 1; fork 16, Halmos 9, differential 3; Rust 15; SDK 280, MCP 96, example agents 159, Telegram bot 104, indexer 53, subgraph 10; Playwright 457 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
+  <img alt="Horizontal bar chart of 1,811 tests and proofs by suite: Foundry main suite 607 passing (7 skipped): unit 292, agents 36, conformance 35, oracle 34, testnet 34, core 33, adversarial 30, integration 28, pricing 21, audit 19, invariant 18, examples 14, governance 12, version check 1; fork 16, Halmos 9, differential 3; Rust 15; SDK 282, MCP 96, example agents 159, Telegram bot 104, indexer 53, subgraph 10; Playwright 457 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
 </picture>
 
 | Suite                                                                                                     | Tests | How it was counted                                                         |
@@ -706,7 +706,7 @@ The `test_AUDIT_*` names describe the attack each test first reproduced; they no
 | Differential, Rust vs Solidity pricer ([`test/differential`](contracts/test/differential))                |     3 | 10,000 fuzz inputs and 300 vectors                                         |
 | Halmos proofs ([`test/formal`](contracts/test/formal), [notes](docs/security/formal-verification.md))     |     9 | Proven for every input in range; 16 more are marked unproven               |
 | Rust, Stylus pricer ([`stylus/pricer`](stylus/pricer))                                                    |    15 | `make stylus-test`                                                         |
-| TypeScript: SDK 280, MCP 96, example agents 159, indexer 53, Telegram bot 104; 2 more skipped (see below) |   692 | `corepack pnpm -r test`                                                    |
+| TypeScript: SDK 282, MCP 96, example agents 159, indexer 53, Telegram bot 104; 2 more skipped (see below) |   694 | `corepack pnpm -r test`                                                    |
 | Subgraph ([`subgraph/tests`](subgraph/tests))                                                             |    10 | matchstick                                                                 |
 | App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                       |   457 | `npx playwright test --list`: 914 runs, 457 tests × 2 viewports            |
 

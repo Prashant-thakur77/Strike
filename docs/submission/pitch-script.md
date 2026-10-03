@@ -60,7 +60,7 @@ Screen: The founder, Prashant Thakur, to camera ([strike-founder.mp4](../media/s
 
 ## 2:07 to 2:23 · Slide 14: Evidence, not claims
 
-> Behind it: 1,809 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
+> Behind it: 1,811 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
 >
 > CI re-checks all 177 transactions the docs cite, on-chain. It is not audited yet.
 

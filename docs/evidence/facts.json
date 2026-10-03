@@ -93,7 +93,7 @@
     }
   },
   "measured": {
-    "commit": "5792d0b",
+    "commit": "878b7b0",
     "date": "2026-10-03"
   },
   "tests": {
@@ -172,7 +172,7 @@
       "command": "vitest run --reporter=json (in sdk, Foundry on PATH so devnet suites run)",
       "failingWhenMeasured": 0,
       "skipped": 2,
-      "tests": 280
+      "tests": 282
     },
     "subgraph": {
       "command": "test( cases in subgraph/tests (matchstick runs them)",
@@ -189,8 +189,8 @@
   "threats": 25,
   "totals": {
     "about": "typescript = SDK + MCP + example agents + indexer (the proof page's TypeScript card); pnpm = typescript + the Telegram bot (corepack pnpm -r test); testsAndProofs = Foundry main suite + fork + differential + Halmos proofs + Rust + pnpm + subgraph + Playwright per viewport",
-    "pnpm": 692,
-    "testsAndProofs": 1809,
-    "typescript": 588
+    "pnpm": 694,
+    "testsAndProofs": 1811,
+    "typescript": 590
   }
 }

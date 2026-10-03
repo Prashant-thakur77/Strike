@@ -365,9 +365,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "588",
+    count: "590",
     detail:
-      "SDK 280, MCP server 96, example agents 159, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
+      "SDK 282, MCP server 96, example agents 159, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
