@@ -107,6 +107,11 @@ for (const file of sources) {
 // every commit must exist in this repository.
 const LESSONS = "docs/evidence/lessons.json";
 let lessonRefs = 0;
+// A shallow clone (CI checks out one commit) has no history to resolve a commit in: report those instead of failing.
+const shallow =
+  execFileSync("git", ["rev-parse", "--is-shallow-repository"], { cwd: root, encoding: "utf8" }).trim() ===
+  "true";
+let unresolved = 0;
 if (tracked.has(LESSONS)) {
   for (const l of JSON.parse(readFileSync(join(root, LESSONS), "utf8")).lessons) {
     const paths = [...l.evidence.flatMap((e) => (e.path ? [e.path] : [])), ...l.tests];
@@ -116,15 +121,24 @@ if (tracked.has(LESSONS)) {
     }
     for (const c of l.commits) {
       lessonRefs++;
+      if (!/^[0-9a-f]{7,40}$/.test(c)) {
+        broken.push(`${LESSONS}: ${l.id}: commit ${c} (not a commit hash)`);
+        continue;
+      }
       try {
         execFileSync("git", ["cat-file", "-e", `${c}^{commit}`], { cwd: root, stdio: "ignore" });
       } catch {
-        broken.push(`${LESSONS}: ${l.id}: commit ${c} (not in this repository)`);
+        if (shallow) unresolved++;
+        else broken.push(`${LESSONS}: ${l.id}: commit ${c} (not in this repository)`);
       }
     }
   }
 }
 
+if (unresolved)
+  console.log(
+    `${unresolved} lesson commit(s) not resolvable in this shallow clone; run in a full clone to check them`,
+  );
 for (const b of broken) console.log(b);
 console.log(
   `${sources.length} files, ${checked} relative links checked, ${lessonRefs} lesson paths and commits, ${broken.length} broken`,

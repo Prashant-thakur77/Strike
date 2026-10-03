@@ -11,6 +11,9 @@ import { acknowledge, horizontalOverflow } from "./helpers";
 // working links, and /app/proof links to it.
 
 const REPO = join(__dirname, "..", "..");
+const SHALLOW =
+  execFileSync("git", ["rev-parse", "--is-shallow-repository"], { cwd: REPO, encoding: "utf8" }).trim() ===
+  "true";
 
 test.describe("lessons data", () => {
   test.skip(({ isMobile }) => isMobile, "data checks run once, on desktop");
@@ -38,8 +41,13 @@ test.describe("lessons data", () => {
         if (e.path) expect(existsSync(join(REPO, e.path)), e.path).toBe(true);
       }
       for (const t of l.tests) expect(existsSync(join(REPO, t)), t).toBe(true);
-      for (const sha of l.commits)
-        execFileSync("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: REPO, stdio: "ignore" });
+      // CI checks out one commit deep, so the history may be absent: there the hashes are checked for form only, and
+      // scripts/check-links.mjs resolves them in a full clone.
+      for (const sha of l.commits) {
+        expect(sha, l.id).toMatch(/^[0-9a-f]{7,40}$/);
+        if (!SHALLOW)
+          execFileSync("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: REPO, stdio: "ignore" });
+      }
     }
   });
 
