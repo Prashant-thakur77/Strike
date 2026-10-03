@@ -48,6 +48,10 @@ export interface BotConfig {
   dataDir: string;
   /** POLL_INTERVAL_SECONDS (default 15): how often to look for new logs. */
   pollIntervalMs: number;
+  /** WATCH_INTERVAL_SECONDS (default 60): how often each watched wallet is read for /watch alerts. */
+  watchIntervalMs: number;
+  /** strike.config.json's services.app: the "act in the app" link. */
+  appUrl: string;
   /** LOG_BLOCK_RANGE (default 50000): largest getLogs range; halved automatically when the RPC refuses. */
   logBlockRange: bigint;
   /** First block to scan when there is no stored cursor: the Strike deploy block. */
@@ -100,6 +104,8 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
     rpcEndpoints,
     dataDir: resolve(env.DATA_DIR?.trim() || "data"),
     pollIntervalMs: positiveInt(env, "POLL_INTERVAL_SECONDS", 15) * 1000,
+    watchIntervalMs: positiveInt(env, "WATCH_INTERVAL_SECONDS", 60) * 1000,
+    appUrl: loadStrikeConfig().services.app,
     logBlockRange: BigInt(positiveInt(env, "LOG_BLOCK_RANGE", 50_000)),
     startBlock: deploymentBlock(chainId),
     explorerUrl: explorerOf(chainId),

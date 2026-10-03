@@ -9,6 +9,7 @@ import type { Address, PublicClient } from "viem";
 import type { BotConfig } from "./config.js";
 import { publicClientFor } from "./config.js";
 import { type SettlementLookup, settlementLookup } from "./settlements.js";
+import { type WalletSource, optionSeriesScanner } from "./wallet.js";
 
 /** The Strike reads the commands use (a subset of `StrikeClient`, so tests can fake it). */
 export type StrikeReader = Pick<
@@ -47,6 +48,8 @@ export interface CommandTarget {
   strike: StrikeReader;
   /** The vault's last settled series (price, payout), when the epoch it last processed settled. */
   lastSettlement?: SettlementLookup;
+  /** Per-wallet reads for /watch and /status <address>. */
+  wallet?: WalletSource;
 }
 
 /** What the alert loop needs of a deployment, on top of {@link CommandTarget}. */
@@ -103,6 +106,16 @@ export async function openTargets(config: BotConfig): Promise<BotTarget[]> {
         usdgDecimals: await client.usdgDecimals(),
         strike: client,
         lastSettlement: settlementLookup(client, publicClient, em, startBlock),
+        wallet: {
+          reader: client,
+          heldSeries: optionSeriesScanner(
+            publicClient,
+            em,
+            client.addresses.optionToken,
+            startBlock,
+            config.logBlockRange,
+          ),
+        },
         primary: setting.chainId === config.chainId && i === 0,
         deployment,
         epochManager: em,

@@ -5,6 +5,7 @@ import { configFromEnv, loadDotEnv } from "./config.js";
 import { StateStore } from "./store.js";
 import { openTargets } from "./targets.js";
 import { createTelegramApi } from "./telegram.js";
+import { WatchTracker } from "./wallet.js";
 
 const log = (message: string) => console.log(`${new Date().toISOString()} ${message}`);
 
@@ -36,12 +37,13 @@ async function main(): Promise<void> {
       },
       getBlockNumber: () => publicClient.getBlockNumber({ cacheTime: 0 }),
       startBlock: t.startBlock,
+      wallet: { reader: t.client, usdgDecimals: t.usdgDecimals },
     };
   });
   const api = createTelegramApi({ token: config.token, baseUrl: config.telegramApiUrl });
   const me = await api.getMe();
   log(
-    `@${me.username ?? me.id} on chain ${config.chainId} via ${describeRpc(config.rpcEndpoints)}; ${store.subscribers.length} subscriber(s); cursor ${store.cursor ?? `deploy block ${config.startBlock}`}; state ${store.path}`,
+    `@${me.username ?? me.id} on chain ${config.chainId} via ${describeRpc(config.rpcEndpoints)}; ${store.subscribers.length} subscriber(s); cursor ${store.cursor ?? `deploy block ${config.startBlock}`}; state ${store.path}; ${store.watchers().size} watched wallet(s)`,
   );
   for (const t of targets) {
     const cursor = t.primary ? store.cursor : store.cursorOf(t.key);
@@ -67,6 +69,7 @@ async function main(): Promise<void> {
       pollIntervalMs: config.pollIntervalMs,
       botUsername: me.username,
       log,
+      watch: { tracker: new WatchTracker(), intervalMs: config.watchIntervalMs, appUrl: config.appUrl },
     },
     controller.signal,
   );

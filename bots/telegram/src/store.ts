@@ -16,6 +16,27 @@ export interface BotState {
   updateOffset: number;
   /** Chat ids that receive alerts. */
   subscribers: number[];
+  /**
+   * Wallets each chat watches (/watch), by chat id: checksummed addresses, public chain data. Nothing else about a
+   * wallet is stored. Absent in files written before /watch existed.
+   */
+  watches?: Record<string, string[]>;
+}
+
+/** Most wallets one chat may watch. */
+export const MAX_WATCHES_PER_CHAT = 5;
+
+function readWatches(raw: unknown): Record<string, string[]> | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const out: Record<string, string[]> = {};
+  for (const [chat, list] of Object.entries(raw)) {
+    if (!/^-?\d+$/.test(chat) || !Array.isArray(list)) continue;
+    const ok = [
+      ...new Set(list.filter((a): a is string => typeof a === "string" && /^0x[0-9a-fA-F]{40}$/.test(a))),
+    ];
+    if (ok.length) out[chat] = ok.slice(0, MAX_WATCHES_PER_CHAT);
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 function readCursors(raw: unknown): Record<string, string> | undefined {
@@ -60,6 +81,7 @@ export class StateStore {
         cursor: typeof parsed.cursor === "string" && /^\d+$/.test(parsed.cursor) ? parsed.cursor : null,
         updateOffset: Number.isInteger(parsed.updateOffset) ? (parsed.updateOffset as number) : 0,
         cursors: readCursors(parsed.cursors),
+        watches: readWatches(parsed.watches),
         subscribers: Array.isArray(parsed.subscribers)
           ? [...new Set(parsed.subscribers.filter((id): id is number => Number.isSafeInteger(id)))]
           : [],
@@ -115,6 +137,44 @@ export class StateStore {
     return true;
   }
 
+  /** The wallets a chat watches. */
+  watchesOf(chatId: number): readonly string[] {
+    return this.state.watches?.[String(chatId)] ?? [];
+  }
+
+  /** Every watched wallet and the chats watching it. */
+  watchers(): Map<string, number[]> {
+    const out = new Map<string, number[]>();
+    for (const [chat, list] of Object.entries(this.state.watches ?? {})) {
+      for (const a of list) out.set(a, [...(out.get(a) ?? []), Number(chat)]);
+    }
+    return out;
+  }
+
+  /** Watch a wallet (checksummed address) in a chat. */
+  async watch(chatId: number, address: string): Promise<"added" | "already" | "full"> {
+    const list = this.watchesOf(chatId);
+    if (list.some((a) => a.toLowerCase() === address.toLowerCase())) return "already";
+    if (list.length >= MAX_WATCHES_PER_CHAT) return "full";
+    this.state.watches = { ...this.state.watches, [String(chatId)]: [...list, address] };
+    await this.save();
+    return "added";
+  }
+
+  /** Stop watching one wallet, or every wallet (`address` null), in a chat. Returns how many were removed. */
+  async unwatch(chatId: number, address: string | null): Promise<number> {
+    const list = this.watchesOf(chatId);
+    const keep = address === null ? [] : list.filter((a) => a.toLowerCase() !== address.toLowerCase());
+    const removed = list.length - keep.length;
+    if (removed === 0) return 0;
+    const next = { ...this.state.watches };
+    if (keep.length) next[String(chatId)] = keep;
+    else delete next[String(chatId)];
+    this.state.watches = next;
+    await this.save();
+    return removed;
+  }
+
   async setCursor(nextBlock: bigint): Promise<void> {
     this.state.cursor = nextBlock.toString();
     await this.save();
@@ -128,8 +188,12 @@ export class StateStore {
 
   /** Write the state atomically (temp file, then rename). */
   save(): Promise<void> {
-    const { cursors, ...rest } = this.state;
-    const written = cursors && Object.keys(cursors).length > 0 ? { ...rest, cursors } : rest;
+    const { cursors, watches, ...rest } = this.state;
+    const written = {
+      ...rest,
+      ...(cursors && Object.keys(cursors).length > 0 ? { cursors } : {}),
+      ...(watches && Object.keys(watches).length > 0 ? { watches } : {}),
+    };
     const snapshot = `${JSON.stringify(written, null, 2)}\n`;
     const tmp = `${this.path}.tmp`;
     this.writing = this.writing

@@ -3,9 +3,12 @@ import { type CommandContext, parseCommand, runCommand } from "./commands.js";
 import { backoffMs, sleep } from "./retry.js";
 import type { StateStore } from "./store.js";
 import type { CommandTarget } from "./targets.js";
+import { type WalletReader, type WatchTracker, slashItems, walletViews, watchAlertText } from "./wallet.js";
+import type { Address } from "viem";
 import {
   type SendOptions,
   type TelegramApi,
+  TelegramError,
   type TelegramUpdate,
   broadcast,
   sendWithRetry,
@@ -24,6 +27,15 @@ export interface AlertSource {
   getBlockNumber: () => Promise<bigint>;
   /** First block to scan when the store has no cursor: the deployment's block. */
   startBlock: bigint;
+  /** Reads for the per-wallet slash notice (a slash paid into a vault a watched wallet is in). */
+  wallet?: { reader: Pick<WalletReader, "claimables">; usdgDecimals: number };
+}
+
+/** Per-wallet alerts (/watch): how often to look, and what each chat has been told. */
+export interface WatchOptions {
+  tracker: WatchTracker;
+  intervalMs: number;
+  appUrl?: string;
 }
 
 export interface BotDeps {
@@ -37,6 +49,8 @@ export interface BotDeps {
   botUsername?: string;
   log: (message: string) => void;
   send?: SendOptions;
+  /** /watch alerts; absent, the commands say they are not available and no watch loop runs. */
+  watch?: WatchOptions;
 }
 
 // Alerts sent by this process, by deployment, transaction and log index: a chunk whose cursor save failed (or an
@@ -76,6 +90,7 @@ async function pollSource(d: BotDeps, s: AlertSource, freshStore: boolean): Prom
       if (seen.has(id)) return;
       if (seen.size >= SEEN_LIMIT) seen.delete(seen.values().next().value as string);
       seen.add(id);
+      await notifyWatchersOfSlash(d, s, alert);
       const chats = d.store.subscribers;
       if (chats.length === 0) return;
       const r = await broadcast(d.api, chats, text, {
@@ -89,6 +104,62 @@ async function pollSource(d: BotDeps, s: AlertSource, freshStore: boolean): Prom
     },
     (next) => setCursor(d, s, next),
   );
+}
+
+/** A slash paid into a vault: tell each chat watching a wallet that is in that vault. */
+async function notifyWatchersOfSlash(d: BotDeps, s: AlertSource, alert: Parameters<typeof slashItems>[0]) {
+  if (!d.watch || !s.wallet || alert.name !== "ProposalRejected" || alert.slashed === 0n) return;
+  const watchers = d.store.watchers();
+  if (watchers.size === 0) return;
+  const items = await slashItems(
+    alert,
+    s.wallet.reader,
+    [...watchers.keys()] as Address[],
+    s.label,
+    s.key,
+    s.wallet.usdgDecimals,
+  );
+  for (const [address, item] of items) {
+    for (const chat of watchers.get(address) ?? []) {
+      const fresh = d.watch.tracker.fresh(chat, address, [item], false);
+      if (!fresh.length) continue;
+      try {
+        await sendWithRetry(d.api, chat, watchAlertText(address, fresh, d.watch.appUrl), d.send);
+      } catch (err) {
+        d.log(`slash notice to chat ${chat} failed: ${(err as Error).message}`);
+      }
+    }
+  }
+}
+
+/**
+ * One /watch pass: read each watched wallet on every deployment and send each chat watching it the items it has not
+ * been told about. Returns the messages sent. A wallet whose reads fail on some deployment keeps its other items.
+ */
+export async function pollWatchesOnce(d: BotDeps): Promise<number> {
+  if (!d.watch) return 0;
+  const watchers = d.store.watchers();
+  let sent = 0;
+  for (const [address, chats] of watchers) {
+    const { views, errors } = await walletViews(d.targets, address as Address);
+    const items = views.flatMap((v) => v.items);
+    for (const e of errors) d.log(`watch ${address}: ${e}`);
+    for (const chat of chats) {
+      // Prune forgotten items only when every deployment answered (a failed read is not "the item went away").
+      const fresh = d.watch.tracker.fresh(chat, address, items, errors.length === 0);
+      if (!fresh.length) continue;
+      try {
+        await sendWithRetry(d.api, chat, watchAlertText(address as Address, fresh, d.watch.appUrl), d.send);
+        sent += 1;
+        d.log(`watch ${address}: ${fresh.length} item(s) sent to chat ${chat}`);
+      } catch (err) {
+        // A chat that blocked the bot or no longer exists stops watching.
+        if (err instanceof TelegramError && err.code === 403) await d.store.unwatch(chat, null);
+        d.log(`watch alert to chat ${chat} failed: ${(err as Error).message}`);
+      }
+    }
+  }
+  return sent;
 }
 
 /**
@@ -121,6 +192,7 @@ export async function handleUpdate(update: TelegramUpdate, d: BotDeps): Promise<
     targets: d.targets,
     subscriptions: d.store,
     chatId: msg.chat.id,
+    watches: d.watch ? { store: d.store, tracker: d.watch.tracker, appUrl: d.watch.appUrl } : undefined,
   };
   const reply = await runCommand(cmd, ctx);
   try {
@@ -170,5 +242,16 @@ export async function runBot(d: BotDeps, signal: AbortSignal): Promise<void> {
       }
     }
   };
-  await Promise.all([alerts(), commands()]);
+  const watches = async () => {
+    if (!d.watch) return;
+    while (!signal.aborted) {
+      try {
+        await pollWatchesOnce(d);
+      } catch (err) {
+        d.log(`watch pass failed, retrying next time: ${(err as Error).message.split("\n")[0]}`);
+      }
+      await sleep(d.watch.intervalMs, signal);
+    }
+  };
+  await Promise.all([alerts(), commands(), watches()]);
 }

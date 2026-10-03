@@ -9,6 +9,7 @@ import { type Address, getAddress, isAddress } from "viem";
 import { amount, shortAddress, usd, usdg, utc } from "./format.js";
 import type { Settlement } from "./settlements.js";
 import { type CommandTarget, applyFilter, chainList, parseFilter } from "./targets.js";
+import { type WatchTracker, walletStatusText, walletViews } from "./wallet.js";
 
 export type { CommandTarget, StrikeReader } from "./targets.js";
 
@@ -44,11 +45,26 @@ export interface Subscriptions {
   unsubscribe(chatId: number): Promise<boolean>;
 }
 
+/** The per-wallet watch list a command touches (the {@link StateStore} satisfies `store`). */
+export interface WatchContext {
+  store: {
+    watchesOf(chatId: number): readonly string[];
+    watch(chatId: number, address: string): Promise<"added" | "already" | "full">;
+    unwatch(chatId: number, address: string | null): Promise<number>;
+  };
+  /** Which items each chat has been told about (so /watch's own reply is not repeated as an alert). */
+  tracker: WatchTracker;
+  /** The app's URL, for the "act in the app" link. */
+  appUrl?: string;
+}
+
 export interface CommandContext {
   /** Every deployment the bot reads: the SDK's `deploymentsFor` of each configured chain. */
   targets: readonly CommandTarget[];
   subscriptions: Subscriptions;
   chatId: number;
+  /** /watch, /unwatch and /status <address>; absent, /watch says it is not available. */
+  watches?: WatchContext;
 }
 
 export const HELP = [
@@ -60,9 +76,13 @@ export const HELP = [
   "/quote <vault> [amount] [chain] [version] - premium for N options of the vault's live series (default 1)",
   "/agent <id> [chain] [version] - an agent's bond, strikes, proposals and status (ids are per registry)",
   "/status [chain] - chain head and the price feed status of each underlying",
+  "/status <address> - a wallet's Strike positions and what needs its action",
+  "/watch <address> - alerts in this chat when that wallet has something to do: premium to claim, a queued deposit or withdrawal processed, an option to redeem, a series waiting for its price, a slash paid into its vault (up to 5 wallets)",
+  "/unwatch <address|all> - stop watching",
   "/help - this list",
   "",
   "This bot never asks for keys and cannot send transactions.",
+  "Addresses are public chain data: the bot stores only which chat watches which address, nothing else about you or the wallet.",
 ].join("\n");
 
 /** Run one command and return the reply text. */
@@ -88,7 +108,13 @@ export async function runCommand(cmd: ParsedCommand, ctx: CommandContext): Promi
       case "agent":
         return await agentReply(cmd.args, ctx);
       case "status":
+        if (cmd.args[0] && isAddress(cmd.args[0], { strict: false }))
+          return await walletStatusReply(cmd.args[0], ctx);
         return await statusReply(cmd.args, ctx);
+      case "watch":
+        return await watchReply(cmd.args, ctx);
+      case "unwatch":
+        return await unwatchReply(cmd.args, ctx);
       default:
         return `Unknown command /${cmd.name}. Send /help for the list.`;
     }
@@ -419,4 +445,59 @@ async function deploymentStatus(t: CommandTarget, tagged: boolean, ctx: CommandC
   const cursor = t.primary ? ctx.subscriptions.cursor : (ctx.subscriptions.cursorOf?.(t.key) ?? null);
   lines.push(`${tag}Alerts: scanned to block ${cursor === null ? "none yet" : (cursor - 1n).toString()}`);
   return lines;
+}
+
+async function walletStatusReply(raw: string, ctx: CommandContext): Promise<string> {
+  const address = getAddress(raw);
+  const { views, errors } = await walletViews(ctx.targets, address);
+  if (views.length === 0 && errors.length === 0) return "Wallet lookups are not available on this bot.";
+  return walletStatusText(address, views, errors, ctx.watches?.appUrl);
+}
+
+const WATCH_USAGE =
+  "Usage: /watch <0x address>, for example /watch 0x7767ca2d944A91e6ae896f85cACA4DfDE1810044";
+
+async function watchReply(args: string[], ctx: CommandContext): Promise<string> {
+  const w = ctx.watches;
+  if (!w) return "Wallet alerts are not available on this bot.";
+  const [raw] = args;
+  if (!raw) {
+    const list = w.store.watchesOf(ctx.chatId);
+    return list.length
+      ? `This chat watches:\n${list.map((a) => `• ${a}`).join("\n")}\n/unwatch <address> or /unwatch all to stop.`
+      : `This chat watches no wallet. ${WATCH_USAGE}`;
+  }
+  if (!isAddress(raw, { strict: false })) return `"${raw.slice(0, 64)}" is not a 0x address. ${WATCH_USAGE}`;
+  const address = getAddress(raw);
+  const added = await w.store.watch(ctx.chatId, address);
+  if (added === "full") {
+    return `This chat already watches ${w.store.watchesOf(ctx.chatId).length} wallets, the most it can. /unwatch one first.`;
+  }
+  const { views, errors } = await walletViews(ctx.targets, address);
+  const items = views.flatMap((v) => v.items);
+  // What /watch shows now is not sent again as an alert.
+  w.tracker.fresh(ctx.chatId, address, items, errors.length === 0);
+  const head =
+    added === "already"
+      ? `This chat already watches ${address}.`
+      : `Watching ${address}. This chat gets an alert when it has something to do on any Strike deployment. Addresses are public chain data; the bot stores only this chat's watch list.`;
+  return `${head}\n\n${walletStatusText(address, views, errors, w.appUrl)}`;
+}
+
+async function unwatchReply(args: string[], ctx: CommandContext): Promise<string> {
+  const w = ctx.watches;
+  if (!w) return "Wallet alerts are not available on this bot.";
+  const [raw] = args;
+  if (!raw) return "Usage: /unwatch <0x address> or /unwatch all";
+  if (raw.toLowerCase() === "all") {
+    const list = [...w.store.watchesOf(ctx.chatId)];
+    const n = await w.store.unwatch(ctx.chatId, null);
+    for (const a of list) w.tracker.forget(ctx.chatId, a);
+    return n ? `Stopped watching ${n} wallet(s).` : "This chat watches no wallet.";
+  }
+  if (!isAddress(raw, { strict: false })) return `"${raw.slice(0, 64)}" is not a 0x address.`;
+  const address = getAddress(raw);
+  const n = await w.store.unwatch(ctx.chatId, address);
+  w.tracker.forget(ctx.chatId, address);
+  return n ? `Stopped watching ${address}.` : `This chat was not watching ${address}.`;
 }

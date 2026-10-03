@@ -3,12 +3,16 @@
  * token and without touching the state file. Extra arguments are run as commands and their replies printed:
  *
  *   pnpm --filter @strike/telegram-bot dry-run "/vaults" "/quote sTSLA-CC 1" "/agent 1" "/status"
+ *   pnpm --filter @strike/telegram-bot dry-run --no-history "/status 0x…" "/watch 0x…"
+ *
+ * `--no-history` skips the alert replay. /watch keeps its list in memory only and prints the reply it would send.
  */
 import { processRange } from "./alerts.js";
 import { type Subscriptions, parseCommand, runCommand } from "./commands.js";
 import { configFromEnv, loadDotEnv } from "./config.js";
 import { AlertBuilder, viemLogFetcher } from "./logs.js";
 import { openTargets } from "./targets.js";
+import { WatchTracker } from "./wallet.js";
 
 async function main(): Promise<void> {
   loadDotEnv();
@@ -16,9 +20,11 @@ async function main(): Promise<void> {
   const targets = await openTargets(config);
   const heads = new Map<string, bigint>();
   let primaryCursor: bigint | null = null;
+  const history = !process.argv.includes("--no-history");
   for (const t of targets) {
     const head = await t.publicClient.getBlockNumber();
     heads.set(t.key, head);
+    if (!history) continue;
     console.log(
       `Dry run on ${t.label} (chain ${t.chainId}): EpochManager ${t.epochManager}, blocks ${t.startBlock} to ${head}. Nothing is sent.\n`,
     );
@@ -54,11 +60,31 @@ async function main(): Promise<void> {
     subscribe: async () => true,
     unsubscribe: async () => true,
   };
+  const watched = new Map<number, string[]>();
+  const watches = {
+    store: {
+      watchesOf: (chat: number) => watched.get(chat) ?? [],
+      watch: async (chat: number, address: string) => {
+        const list = watched.get(chat) ?? [];
+        if (list.includes(address)) return "already" as const;
+        watched.set(chat, [...list, address]);
+        return "added" as const;
+      },
+      unwatch: async (chat: number, address: string | null) => {
+        const list = watched.get(chat) ?? [];
+        const keep = address === null ? [] : list.filter((a) => a !== address);
+        watched.set(chat, keep);
+        return list.length - keep.length;
+      },
+    },
+    tracker: new WatchTracker(),
+    appUrl: config.appUrl,
+  };
   for (const text of commands) {
     const cmd = parseCommand(text);
     if (!cmd) continue;
     console.log(`\n>>> ${text}`);
-    console.log(await runCommand(cmd, { targets, subscriptions, chatId: 0 }));
+    console.log(await runCommand(cmd, { targets, subscriptions, chatId: 0, watches }));
   }
 }
 
