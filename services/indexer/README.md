@@ -76,7 +76,7 @@ All optional except `DATABASE_URL`. The root [`.env.example`](../../.env.example
 | `STRIKE_ROOT`, `STRIKE_CONFIG`, `MIGRATIONS_DIR` | found from the working directory, set in Docker | Where `strike.config.json`, `contracts/deployments` and `migrations/` are                     |
 
 What to index comes from `strike.config.json` at the repository root when it exists (the shared config every
-component is moving to: each chain's `deployments` files, `name`, `explorer`, and
+component reads, [D42](../../docs/decisions.md): each chain's `deployments` files, `name`, `explorer`, and
 `services.indexer.port`), else from `contracts/deployments/{46630,46630-v3,421614}.json` and their `-vaults.json`
 files, the three deployments `/api/stats` counts. A chain without deployments (4663, the mainnet feeds chain) is
 skipped. The five MirrorFeeds that v2 and v3 share on 46630 are read once, by v2.
@@ -149,7 +149,7 @@ NOTHING`, in the same transaction as the cursor update. Re-running a range, over
 corepack pnpm --filter @strike/indexer test
 ```
 
-46 tests, all against a real Postgres: `TEST_DATABASE_URL` when set (a server you run, or a CI service container),
+53 tests, all against a real Postgres: `TEST_DATABASE_URL` when set (a server you run, or a CI service container),
 otherwise an embedded Postgres 17 that the `embedded-postgres` package starts in `~/.cache` and removes afterwards.
 Each test file gets its own database. The chain is an in-memory fake (`test/helpers.ts`) whose logs are encoded with
 the SDK's ABIs, with hashes that change when a test replaces blocks.
@@ -174,7 +174,7 @@ TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres corepack
 | `stats.test.ts`      | `/stats` equals the app's own `aggregateUsage` on the same logs (three deployments on two chains, team and outside wallets, a wallet on both chains, an unvalued vault), field by field; the copied team list and chain labels match the app's                                                                                                                                           |
 | `api.test.ts`        | `/health` and request ids; `/ready` before the first head, within the threshold and behind it (with the numbers and reasons); `/events` pages through every event newest first without repeats, filters, 400s; `/agents`, `/epochs`, `/stats`; the service serves HTTP, stays the only writer and stops cleanly                                                                          |
 | `rate-limit.test.ts` | The per-client limit: 429 with `Retry-After` before any database query, `/health` exempt, one client does not use up another's window, `X-Forwarded-For` counted only with `TRUST_PROXY`, bounded memory, the environment settings                                                                                                                                                       |
-| `config.test.ts`     | The deployment records, and the same deployments from a `strike.config.json` in the cycle 13 schema; `INDEXER_CHAINS`; environment validation                                                                                                                                                                                                                                            |
+| `config.test.ts`     | The deployment records, and the same deployments from a `strike.config.json` in the current schema; `INDEXER_CHAINS`; environment validation                                                                                                                                                                                                                                             |
 | `net.test.ts`        | The RPC DNS cache: one lookup for a burst, family filter, expiry, failures not cached; fetch through the pooled agent                                                                                                                                                                                                                                                                    |
 
 ## The live check (2 October 2026)

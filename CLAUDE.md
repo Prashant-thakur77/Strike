@@ -18,3 +18,4 @@
 - Contracts: `make test`, `make ci-test`, `make fmt-check` (run from the repo root; Foundry must be on PATH: `export PATH="$HOME/.foundry/bin:$PATH"`).
 - Stylus pricer: `cargo test --manifest-path stylus/pricer/Cargo.toml`.
 - JS packages: `pnpm -r lint`, `pnpm -r test` (Node 22, see `.nvmrc`).
+- Docs checks before a push: `corepack pnpm format:check`, `node scripts/check-links.mjs` (0 broken), `node scripts/check-numbers.mjs` (every stated count against `docs/evidence/facts.json`), `node scripts/check-claims.mjs` (every cited transaction on its chain).
