@@ -1,6 +1,8 @@
-Millions of people own stocks. On Robinhood Chain, stocks are tokens, but a token earns nothing while it sits. Wall Street holders sell covered calls for income, but someone must pick each week's strike, and you must trust them. On-chain it's harder: multipliers easy to apply twice, weekend price freezes, pauses, mid-week splits. So tokens sit idle, or go to managers nobody can check.
+Own stock tokens that just sit in your wallet? What if they earned income every week, under rules the agent can't break? That's Strike.
 
-Now imagine an agent picking the strike each week, held to the rules by a contract. This is Strike: options vaults for stock tokens.
+Wall Street holders sell covered calls for income, but someone must pick each week's strike, and you must trust them. On-chain it's harder: multipliers easy to apply twice, weekend price freezes, pauses, mid-week splits. So tokens sit idle, or go to managers nobody can check.
+
+In Strike, an agent picks the strike each week, held to the rules by a contract. Options vaults for stock tokens.
 
 Weekly premium in USDG. An AI agent picks the strike, inside a mandate. Break it, and its bond goes to depositors. Rust on Stylus does the math. Live on Robinhood Chain and Arbitrum Sepolia.
 
@@ -10,7 +12,7 @@ Say Maya opens the Tesla vault. Its first week sold the $369.86 call: four optio
 
 The limits are in the contract: Delta 0.10 to 0.35, at least 95% of fair value, at least 0.05% yield, at most 80% sold, 1 to 8 days, fixed for good.
 
-The playground tests proposals live, no wallet. An honest 0.20-delta call: accepted. A reckless at-the-money strike: rejected, delta out of band. A real one costs the agent 10 USDG, paid to depositors.
+The playground tests a proposal live, no wallet. An honest 0.20-delta call: accepted. A reckless at-the-money strike: rejected, delta out of band. A real one costs the agent 10 USDG, paid to depositors.
 
 Run the agent does the rule stages live, in your browser, against the real vault, sending nothing.
 
@@ -48,7 +50,7 @@ The monitor, live on mainnet: Nvidia's multiplier, 1.000775, is already in the p
 
 Over 403 weeks since 2019, covered calls cut volatility 25 to 46%, but lagged holding everywhere: Tesla 23.1% a year, against 44.0% held. And it assumes full weekly sales.
 
-The proof page: 1,574 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
+The proof page: 1,607 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
 
 9 lessons from the live runs, each with evidence, the fix and its test.
 

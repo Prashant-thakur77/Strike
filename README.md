@@ -97,8 +97,8 @@
 <p align="center">
   <a href="docs/JUDGES.md"><b>Judge's tour</b></a> ·
   <a href="https://strike-options.vercel.app"><b>Live app</b></a> ·
-  <a href="docs/media/strike-demo.mp4"><b>Demo video</b></a> (6:04, <a href="docs/media/strike-demo-silent.mp4">captions only</a>) ·
-  <a href="docs/media/strike-pitch.mp4"><b>Pitch</b></a> (2:57, opens with the founder) ·
+  <a href="docs/media/strike-demo.mp4"><b>Demo video</b></a> (5:56, <a href="docs/media/strike-demo-silent.mp4">captions only</a>) ·
+  <a href="docs/media/strike-pitch.mp4"><b>Pitch</b></a> (2:40, a hook, the founder, then the deck) ·
   <a href="docs/media/strike-founder.mp4"><b>Founder intro</b></a> (0:47, <a href="docs/media/strike-founder-vertical.mp4">vertical</a>) ·
   <a href="docs/README.md"><b>Docs</b></a> ·
   <a href="docs/DEPLOYMENTS.md"><b>Deployments</b></a> ·
@@ -108,7 +108,7 @@
 
 <p align="center">
   <a href="docs/media/strike-demo.mp4"><img src="docs/media/strike-demo.gif" alt="Strike demo: the 3D architecture scene (12 seconds; click for the full narrated video)" width="80%"></a><br>
-  <sub>Click for the narrated walkthrough (6:04) (<a href="docs/submission/demo-script.md#chapters">chapters</a>), or watch the <a href="docs/media/strike-demo-silent.mp4">captioned cut without voice</a>.</sub>
+  <sub>Click for the narrated walkthrough (5:56) (<a href="docs/submission/demo-script.md#chapters">chapters</a>), or watch the <a href="docs/media/strike-demo-silent.mp4">captioned cut without voice</a>.</sub>
 </p>
 
 > **Status on 3 October: live on Robinhood Chain testnet (v2 and v3 side by side) and on Arbitrum Sepolia (v3), unaudited.** The three covered-call series of 2 October expired at 20:00 UTC and wait for their settlement price, the first mainnet TSLA print at or after expiry, expected after NYSE opens on Monday 5 October; agent #2's put runs to 9 October. Addresses and transactions: [Live on two chains](#live-on-two-chains). Built for the Arbitrum Open House Singapore buildathon; we are building Strike as a company, starting on these testnets ([plan](#building-strike-as-a-company)). Do not use real funds; any mainnet vault will be capped until an external audit ([milestone 3](docs/MILESTONES.md#3-external-audit-then-a-capped-mainnet-vault-weeks-618-17000), [Not built yet](#not-built-yet)).

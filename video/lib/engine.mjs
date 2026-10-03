@@ -714,6 +714,8 @@ export function mixAudio(tls, total, work, music = null) {
   return wav;
 }
 
+/** Picture and voice in one file; a -2 dB limiter before AAC, whose encoding can push a -1.5 dBFS sample peak over
+ *  -1.5 dBTP. */
 export function mux(video, wav, out) {
   ff([
     "-i",
@@ -724,6 +726,8 @@ export function mux(video, wav, out) {
     "0:v",
     "-map",
     "1:a",
+    "-af",
+    "alimiter=limit=0.79:attack=5:release=60:level=disabled",
     "-c:v",
     "copy",
     "-c:a",

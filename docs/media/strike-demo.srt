@@ -1,708 +1,712 @@
 1
-00:00:00,080 --> 00:00:01,719
-Millions of people own stocks.
+00:00:00,080 --> 00:00:00,783
+Own stock tokens
 
 2
-00:00:01,769 --> 00:00:03,709
-On Robinhood Chain, stocks are tokens,
+00:00:00,833 --> 00:00:02,211
+that just sit in your wallet?
 
 3
-00:00:03,759 --> 00:00:05,646
-but a token earns nothing while it sits.
+00:00:02,261 --> 00:00:03,838
+What if they earned income every week,
 
 4
-00:00:05,696 --> 00:00:07,843
+00:00:03,888 --> 00:00:05,486
+under rules the agent can't break?
+
+5
+00:00:05,536 --> 00:00:06,704
+That's Strike.
+
+6
+00:00:06,784 --> 00:00:08,798
 Wall Street holders sell
 covered calls for income,
 
-5
-00:00:07,893 --> 00:00:09,795
+7
+00:00:08,848 --> 00:00:10,708
 but someone must pick each week's strike,
 
-6
-00:00:09,845 --> 00:00:10,835
+8
+00:00:10,758 --> 00:00:12,144
 and you must trust them.
 
-7
-00:00:10,885 --> 00:00:11,827
+9
+00:00:12,194 --> 00:00:13,275
 On-chain it's harder:
 
-8
-00:00:11,877 --> 00:00:13,595
+10
+00:00:13,325 --> 00:00:15,061
 multipliers easy to apply twice,
 
-9
-00:00:13,645 --> 00:00:14,749
+11
+00:00:15,112 --> 00:00:16,182
 weekend price freezes,
 
-10
-00:00:14,799 --> 00:00:16,104
+12
+00:00:16,232 --> 00:00:17,860
 pauses, mid-week splits.
 
-11
-00:00:16,154 --> 00:00:17,422
+13
+00:00:17,910 --> 00:00:19,246
 So tokens sit idle,
 
-12
-00:00:17,472 --> 00:00:19,232
+14
+00:00:19,297 --> 00:00:21,109
 or go to managers nobody can check.
 
-13
-00:00:19,282 --> 00:00:21,872
-Now imagine an agent picking
+15
+00:00:21,159 --> 00:00:23,328
+In Strike, an agent picks
 the strike each week,
 
-14
-00:00:21,922 --> 00:00:23,474
+16
+00:00:23,378 --> 00:00:24,820
 held to the rules by a contract.
 
-15
-00:00:23,524 --> 00:00:24,252
-This is Strike:
-
-16
-00:00:24,303 --> 00:00:25,988
-options vaults for stock tokens.
-
 17
-00:00:26,038 --> 00:00:27,806
-Weekly premium in USDG.
+00:00:24,870 --> 00:00:26,676
+Options vaults for stock tokens.
 
 18
-00:00:27,856 --> 00:00:30,440
+00:00:26,726 --> 00:00:28,866
+Weekly premium in USDG.
+
+19
+00:00:28,916 --> 00:00:31,343
 An AI agent picks the
 strike, inside a mandate.
 
-19
-00:00:30,490 --> 00:00:32,807
+20
+00:00:31,393 --> 00:00:33,533
 Break it, and its bond goes to depositors.
 
-20
-00:00:32,857 --> 00:00:34,496
+21
+00:00:33,583 --> 00:00:35,081
 Rust on Stylus does the math.
 
-21
-00:00:34,546 --> 00:00:37,301
+22
+00:00:35,131 --> 00:00:37,875
 Live on Robinhood Chain
 and Arbitrum Sepolia.
 
-22
-00:00:37,351 --> 00:00:38,335
+23
+00:00:37,925 --> 00:00:38,801
 Inside one week:
 
-23
-00:00:38,385 --> 00:00:40,501
+24
+00:00:38,851 --> 00:00:40,922
 Depositors fill a vault
 with a fixed mandate.
 
-24
-00:00:40,551 --> 00:00:43,071
+25
+00:00:40,972 --> 00:00:43,369
 An agent reads it via MCP and dry-runs.
 
-25
-00:00:43,121 --> 00:00:45,665
+26
+00:00:43,419 --> 00:00:46,033
 It proposes delta, expiry, size and price.
 
-26
-00:00:45,715 --> 00:00:48,364
+27
+00:00:46,083 --> 00:00:48,697
 The Epoch Manager checks it
 at guarded oracle prices.
 
-27
-00:00:48,414 --> 00:00:50,632
+28
+00:00:48,747 --> 00:00:51,153
 Rust on Stylus solves and
 stress-tests the strike.
 
-28
-00:00:50,682 --> 00:00:53,371
+29
+00:00:51,203 --> 00:00:53,916
 If it passes, buyers pay premium in USDG.
 
-29
-00:00:53,421 --> 00:00:55,577
+30
+00:00:53,966 --> 00:00:56,175
 If not, the bond is slashed to depositors.
 
-30
-00:00:55,627 --> 00:00:57,140
+31
+00:00:56,225 --> 00:00:57,669
 Decisions are hashed on-chain;
 
-31
-00:00:57,190 --> 00:00:59,892
+32
+00:00:57,719 --> 00:01:00,261
 the agent has an ERC-8004 identity.
 
-32
-00:00:59,942 --> 00:01:01,055
+33
+00:01:00,311 --> 00:01:01,349
 Friday's close settles;
 
-33
-00:01:01,105 --> 00:01:03,253
+34
+00:01:01,399 --> 00:01:03,261
 depositors get the premium, less a fee.
 
-34
-00:01:03,303 --> 00:01:06,413
+35
+00:01:03,311 --> 00:01:06,322
 Same contracts on Robinhood
 Chain and Arbitrum Sepolia.
 
-35
-00:01:06,463 --> 00:01:08,102
+36
+00:01:06,372 --> 00:01:07,940
 Say Maya opens the Tesla vault.
 
-36
-00:01:08,152 --> 00:01:12,161
+37
+00:01:07,990 --> 00:01:11,620
 Its first week sold the $369.86 call:
 
-37
-00:01:12,211 --> 00:01:14,171
+38
+00:01:11,670 --> 00:01:13,646
 four options, 10.01 USDG.
 
-38
-00:01:14,221 --> 00:01:16,257
+39
+00:01:13,696 --> 00:01:15,668
 At or below the strike, Maya keeps it;
 
-39
-00:01:16,307 --> 00:01:19,432
+40
+00:01:15,718 --> 00:01:18,939
 the buyer profits above $372.36.
 
-40
-00:01:19,482 --> 00:01:20,881
+41
+00:01:18,989 --> 00:01:20,386
 The limits are in the contract:
 
-41
-00:01:20,931 --> 00:01:23,510
+42
+00:01:20,436 --> 00:01:22,749
 Delta 0.10 to 0.35,
 
-42
-00:01:23,560 --> 00:01:25,671
+43
+00:01:22,799 --> 00:01:24,605
 at least 95% of fair value,
 
-43
-00:01:25,721 --> 00:01:28,057
+44
+00:01:24,655 --> 00:01:26,715
 at least 0.05% yield,
 
-44
-00:01:28,107 --> 00:01:29,444
+45
+00:01:26,765 --> 00:01:28,118
 at most 80% sold,
 
-45
-00:01:29,494 --> 00:01:30,346
+46
+00:01:28,168 --> 00:01:29,217
 1 to 8 days,
 
-46
-00:01:30,396 --> 00:01:31,339
+47
+00:01:29,267 --> 00:01:30,240
 fixed for good.
 
-47
-00:01:31,389 --> 00:01:33,199
-The playground tests proposals live,
-
 48
-00:01:33,249 --> 00:01:33,852
-no wallet.
+00:01:30,290 --> 00:01:31,867
+The playground tests a proposal live,
 
 49
-00:01:33,902 --> 00:01:36,486
-An honest 0.20-delta call: accepted.
+00:01:31,917 --> 00:01:32,578
+no wallet.
 
 50
-00:01:36,536 --> 00:01:38,163
-A reckless at-the-money strike:
+00:01:32,628 --> 00:01:35,084
+An honest 0.20-delta call: accepted.
 
 51
-00:01:38,213 --> 00:01:39,783
-rejected, delta out of band.
+00:01:35,134 --> 00:01:36,476
+A reckless at-the-money strike:
 
 52
-00:01:39,833 --> 00:01:43,719
+00:01:36,526 --> 00:01:38,084
+rejected, delta out of band.
+
+53
+00:01:38,134 --> 00:01:41,708
 A real one costs the agent
 10 USDG, paid to depositors.
 
-53
-00:01:43,769 --> 00:01:45,799
+54
+00:01:41,758 --> 00:01:44,716
 Run the agent does the rule
 stages live, in your browser,
 
-54
-00:01:45,849 --> 00:01:48,718
+55
+00:01:44,766 --> 00:01:47,183
 against the real vault, sending nothing.
 
-55
-00:01:49,369 --> 00:01:51,047
+56
+00:01:47,358 --> 00:01:48,775
 Buyers pay at the moment they buy:
 
-56
-00:01:51,097 --> 00:01:53,693
+57
+00:01:48,825 --> 00:01:51,516
 oracle spot moved 0.5% against them,
 
-57
-00:01:53,743 --> 00:01:55,880
+58
+00:01:51,566 --> 00:01:53,616
 Black-Scholes, times the agent's factor.
 
-58
-00:01:55,930 --> 00:01:57,347
+59
+00:01:53,666 --> 00:01:55,040
 Never below intrinsic value,
 
-59
-00:01:57,397 --> 00:01:59,355
+60
+00:01:55,090 --> 00:01:56,883
 so stale prices can't be picked off.
 
-60
-00:01:59,405 --> 00:02:00,990
+61
+00:01:56,933 --> 00:01:58,358
 Buying waits for the NYSE open,
 
-61
-00:02:01,040 --> 00:02:02,701
+62
+00:01:58,408 --> 00:01:59,924
 shown in your own time zone.
 
-62
-00:02:02,751 --> 00:02:06,467
+63
+00:01:59,974 --> 00:02:03,375
 Live on September 29, the seller
 agent asked for 0.20 delta;
 
-63
-00:02:06,517 --> 00:02:10,249
+64
+00:02:03,425 --> 00:02:07,121
 the contract solved $369.86, accepted.
 
-64
-00:02:10,299 --> 00:02:12,471
+65
+00:02:07,171 --> 00:02:09,390
 A reckless agent forced
 an at-the-money put:
 
-65
-00:02:12,521 --> 00:02:14,430
+66
+00:02:09,440 --> 00:02:11,657
 rejected, 10 USDG slashed,
 
-66
-00:02:14,480 --> 00:02:15,987
+67
+00:02:11,707 --> 00:02:13,389
 bond 60 to 50.
 
-67
-00:02:16,037 --> 00:02:19,176
+68
+00:02:13,439 --> 00:02:16,461
 The explorer says Success:
 a rejection isn't a revert,
 
-68
-00:02:19,226 --> 00:02:21,200
+69
+00:02:16,511 --> 00:02:18,386
 and 10 USDG left the bond.
 
-69
-00:02:21,250 --> 00:02:23,722
+70
+00:02:18,436 --> 00:02:21,106
 The call expired Friday at 20:00 UTC;
 
-70
-00:02:23,772 --> 00:02:24,804
+71
+00:02:21,156 --> 00:02:22,167
 it has not settled yet.
 
-71
-00:02:24,854 --> 00:02:27,662
+72
+00:02:22,217 --> 00:02:24,850
 It settles at the first mainnet
 Chainlink print after expiry;
 
-72
-00:02:27,712 --> 00:02:29,644
+73
+00:02:24,900 --> 00:02:26,570
 the contract rejects any other price.
 
-73
-00:02:29,694 --> 00:02:32,804
+74
+00:02:26,620 --> 00:02:29,669
 The last print, at 19:55,
 came before expiry.
 
-74
-00:02:32,854 --> 00:02:35,124
+75
+00:02:29,719 --> 00:02:32,053
 The epoch trace shows
 each step's transaction,
 
-75
-00:02:35,174 --> 00:02:36,288
+76
+00:02:32,103 --> 00:02:33,174
 and what is pending.
 
-76
-00:02:36,338 --> 00:02:38,543
+77
+00:02:33,224 --> 00:02:35,191
 Anyone can run an agent,
 with no permission.
 
-77
-00:02:38,593 --> 00:02:40,503
+78
+00:02:35,241 --> 00:02:37,109
 Here a test wallet registers an agent
 
-78
-00:02:40,553 --> 00:02:43,182
+79
+00:02:37,159 --> 00:02:39,732
 and bonds 60 USDG, above the 50 minimum.
 
-79
-00:02:43,232 --> 00:02:44,451
+80
+00:02:39,782 --> 00:02:40,751
 The wallet signs each step:
 
-80
-00:02:44,501 --> 00:02:45,784
+81
+00:02:40,801 --> 00:02:41,991
 register, then bond.
 
-81
-00:02:45,834 --> 00:02:48,957
+82
+00:02:42,041 --> 00:02:44,972
 Each one waits for its block
 on Robinhood Chain testnet.
 
-82
-00:02:49,157 --> 00:02:50,259
+83
+00:02:45,172 --> 00:02:46,114
 Now it can propose.
 
-83
-00:02:50,309 --> 00:02:53,517
+84
+00:02:46,164 --> 00:02:49,253
 Every rejected proposal costs it 10 USDG.
 
-84
-00:02:57,238 --> 00:02:59,268
+85
+00:02:54,124 --> 00:02:56,058
 On Arbitrum Sepolia, Claude planned it:
 
-85
-00:02:59,318 --> 00:03:01,873
+86
+00:02:56,108 --> 00:02:58,460
 via Strike's MCP server, it read the vault
 
-86
-00:03:01,923 --> 00:03:03,572
+87
+00:02:58,510 --> 00:03:00,056
 and dry-ran five candidates.
 
-87
-00:03:03,622 --> 00:03:07,087
+88
+00:03:00,106 --> 00:03:04,030
 It chose 0.20 delta at 105% of fair value,
 
-88
-00:03:07,137 --> 00:03:08,073
+89
+00:03:04,080 --> 00:03:04,638
 and wrote why:
 
-89
-00:03:08,123 --> 00:03:09,956
+90
+00:03:04,688 --> 00:03:06,078
 mid-band, safe from small moves.
 
-90
-00:03:10,006 --> 00:03:13,472
+91
+00:03:06,128 --> 00:03:09,870
 The contract solved $364.29: accepted.
 
-91
-00:03:13,522 --> 00:03:14,213
+92
+00:03:09,920 --> 00:03:10,729
 On Arbiscan:
 
-92
-00:03:14,263 --> 00:03:16,139
+93
+00:03:10,779 --> 00:03:12,643
 a successful call from the agent's signer.
 
-93
-00:03:16,189 --> 00:03:18,662
+94
+00:03:12,693 --> 00:03:15,182
 The same run slashed a
 reckless put 10 USDG,
 
-94
-00:03:18,712 --> 00:03:20,350
+95
+00:03:15,232 --> 00:03:16,780
 and a buyer took all 4 calls.
 
-95
-00:03:20,400 --> 00:03:21,158
+96
+00:03:16,830 --> 00:03:17,706
 In 3D:
 
-96
-00:03:21,208 --> 00:03:24,049
+97
+00:03:17,756 --> 00:03:20,554
 Across, Tesla's price. Back, days left.
 
-97
-00:03:24,099 --> 00:03:25,449
+98
+00:03:20,604 --> 00:03:21,881
 Up, a share's value.
 
-98
-00:03:25,499 --> 00:03:29,193
+99
+00:03:21,931 --> 00:03:25,620
 At expiry it bends flat
 at the $364.29 strike:
 
-99
-00:03:29,243 --> 00:03:30,597
+100
+00:03:25,670 --> 00:03:26,886
 upside goes to the buyer.
 
-100
-00:03:30,647 --> 00:03:34,379
+101
+00:03:26,936 --> 00:03:30,500
 Below, the depositor keeps
 stock plus $2.23 per option.
 
-101
-00:03:34,429 --> 00:03:36,496
+102
+00:03:30,550 --> 00:03:32,878
 The math is Rust, on Arbitrum Stylus.
 
-102
-00:03:36,546 --> 00:03:38,890
+103
+00:03:32,928 --> 00:03:35,518
 Solving a strike takes
 48 Black-Scholes runs:
 
-103
-00:03:38,941 --> 00:03:41,152
+104
+00:03:35,568 --> 00:03:37,806
 6.5 times less gas than Solidity,
 
-104
-00:03:41,202 --> 00:03:43,381
+105
+00:03:37,856 --> 00:03:39,968
 3.3 times less per proposal.
 
-105
-00:03:43,431 --> 00:03:45,006
+106
+00:03:40,018 --> 00:03:41,615
 Every run leaves a decision record.
 
-106
-00:03:45,056 --> 00:03:47,011
+107
+00:03:41,665 --> 00:03:43,562
 Its hash is anchored in the DecisionLog;
 
-107
-00:03:47,062 --> 00:03:49,160
+108
+00:03:43,612 --> 00:03:45,593
 rehash the file, and it matches the chain.
 
-108
-00:03:49,210 --> 00:03:51,122
+109
+00:03:45,643 --> 00:03:47,556
 CI re-checks every cited transaction:
 
-109
-00:03:51,172 --> 00:03:54,623
+110
+00:03:47,606 --> 00:03:50,689
 177 of 177 verified.
 
-110
-00:03:54,673 --> 00:03:56,324
+111
+00:03:50,739 --> 00:03:52,300
 The agent now runs five stages:
 
-111
-00:03:56,374 --> 00:03:59,447
+112
+00:03:52,350 --> 00:03:55,566
 market, risk, strike planner,
 critic, then the contract.
 
-112
-00:03:59,497 --> 00:04:02,844
+113
+00:03:55,616 --> 00:03:58,409
 In this Claude-planned dry run,
 four passed and nothing was sent;
 
-113
-00:04:02,895 --> 00:04:04,563
+114
+00:03:58,459 --> 00:03:59,960
 its token use is on record.
 
-114
-00:04:04,613 --> 00:04:06,958
+115
+00:04:00,010 --> 00:04:02,270
 On the weekend, the market
 analyst said no trade;
 
-115
-00:04:07,008 --> 00:04:08,329
+116
+00:04:02,320 --> 00:04:03,584
 the rest never ran.
 
-116
-00:04:08,379 --> 00:04:09,801
+117
+00:04:03,634 --> 00:04:05,067
 Agent two's accepted put:
 
-117
-00:04:09,851 --> 00:04:11,804
+118
+00:04:05,117 --> 00:04:07,128
 each mandate rule, with the headroom left.
 
-118
-00:04:11,854 --> 00:04:12,908
+119
+00:04:07,178 --> 00:04:08,174
 Why not the other strikes:
 
-119
-00:04:12,958 --> 00:04:15,465
+120
+00:04:08,224 --> 00:04:10,997
 the same proposal at each
 delta, judged by the rules.
 
-120
-00:04:15,515 --> 00:04:16,649
+121
+00:04:11,047 --> 00:04:12,240
 What would make the week lose:
 
-121
-00:04:16,699 --> 00:04:20,132
+122
+00:04:12,290 --> 00:04:15,829
 TSLA below $340.20, 17% model odds,
 
-122
-00:04:20,182 --> 00:04:22,043
+123
+00:04:15,879 --> 00:04:17,653
 then stress rows and what-ifs.
 
-123
-00:04:22,093 --> 00:04:23,888
+124
+00:04:17,703 --> 00:04:19,279
 Agent one's forced put was rejected:
 
-124
-00:04:23,939 --> 00:04:26,715
+125
+00:04:19,330 --> 00:04:22,284
 the check stops at the delta
 band; later rules never run.
 
-125
-00:04:26,765 --> 00:04:28,701
+126
+00:04:22,334 --> 00:04:24,263
 Its ERC-8004 identity:
 
-126
-00:04:28,751 --> 00:04:33,358
+127
+00:04:24,313 --> 00:04:28,426
 114 on Robinhood Chain testnet,
 253 on Arbitrum Sepolia.
 
-127
-00:04:33,408 --> 00:04:33,977
+128
+00:04:28,476 --> 00:04:29,002
 The monitor,
 
-128
-00:04:34,027 --> 00:04:35,047
+129
+00:04:29,052 --> 00:04:29,915
 live on mainnet:
 
-129
-00:04:35,097 --> 00:04:39,461
+130
+00:04:29,965 --> 00:04:34,801
 Nvidia's multiplier, 1.000775,
 is already in the price,
 
-130
-00:04:39,511 --> 00:04:41,359
+131
+00:04:34,851 --> 00:04:36,749
 so Strike never applies it twice.
 
-131
-00:04:41,409 --> 00:04:43,857
+132
+00:04:36,799 --> 00:04:39,208
 Over 403 weeks since 2019,
 
-132
-00:04:43,907 --> 00:04:46,926
+133
+00:04:39,258 --> 00:04:42,494
 covered calls cut volatility 25 to 46%,
 
-133
-00:04:46,976 --> 00:04:48,456
+134
+00:04:42,544 --> 00:04:43,982
 but lagged holding everywhere:
 
-134
-00:04:48,506 --> 00:04:52,502
+135
+00:04:44,032 --> 00:04:47,993
 Tesla 23.1% a year, against 44.0% held.
 
-135
-00:04:52,552 --> 00:04:54,377
+136
+00:04:48,043 --> 00:04:49,829
 And it assumes full weekly sales.
 
-136
-00:04:54,427 --> 00:04:55,241
+137
+00:04:49,879 --> 00:04:50,943
 The proof page:
 
-137
-00:04:55,291 --> 00:04:57,609
-1,574 tests and proofs,
-
 138
-00:04:57,659 --> 00:04:59,465
-99.3% line coverage,
+00:04:50,993 --> 00:04:53,151
+1,607 tests and proofs,
 
 139
-00:04:59,515 --> 00:05:00,644
-nine Halmos proofs,
+00:04:53,201 --> 00:04:54,900
+99.3% line coverage,
 
 140
-00:05:00,694 --> 00:05:02,522
-all 11 review findings fixed.
+00:04:54,951 --> 00:04:56,020
+nine Halmos proofs,
 
 141
-00:05:02,572 --> 00:05:04,408
-Running by itself reads both testnets:
+00:04:56,071 --> 00:04:57,785
+all 11 review findings fixed.
 
 142
-00:05:04,458 --> 00:05:05,713
-prices, each vault's week,
+00:04:57,835 --> 00:04:59,422
+Running by itself reads both testnets:
 
 143
-00:05:05,763 --> 00:05:06,780
-the scheduled jobs.
+00:04:59,472 --> 00:05:00,761
+prices, each vault's week,
 
 144
-00:05:06,830 --> 00:05:09,052
+00:05:00,811 --> 00:05:01,763
+the scheduled jobs.
+
+145
+00:05:01,813 --> 00:05:03,677
 The mirror audit checks
 every copied price:
 
-145
-00:05:09,102 --> 00:05:11,904
+146
+00:05:03,727 --> 00:05:06,681
 84 of 84 rounds match mainnet Chainlink.
 
-146
-00:05:11,954 --> 00:05:13,683
+147
+00:05:06,731 --> 00:05:08,169
 9 lessons from the live runs,
 
-147
-00:05:13,733 --> 00:05:16,177
+148
+00:05:08,219 --> 00:05:10,571
 each with evidence, the fix and its test.
 
-148
-00:05:16,227 --> 00:05:17,179
+149
+00:05:10,621 --> 00:05:11,507
 Who else is here?
 
-149
-00:05:17,229 --> 00:05:20,278
+150
+00:05:11,557 --> 00:05:14,419
 Stonkhouse and Archer Markets on
 Robinhood Chain are order books:
 
-150
-00:05:20,328 --> 00:05:21,922
+151
+00:05:14,469 --> 00:05:15,988
 traders pick strike and price.
 
-151
-00:05:21,972 --> 00:05:25,069
+152
+00:05:16,038 --> 00:05:18,473
 Ribbon, Derive and Thetanuts
 sell crypto options
 
-152
-00:05:25,119 --> 00:05:26,722
+153
+00:05:18,523 --> 00:05:20,213
 by auction, order book or RFQ.
 
-153
-00:05:26,772 --> 00:05:29,223
+154
+00:05:20,263 --> 00:05:22,586
 Tilt's AI manages vaults, with no options;
 
-154
-00:05:29,273 --> 00:05:32,242
+155
+00:05:22,636 --> 00:05:25,131
 its sources don't say
 what limits it on-chain.
 
-155
-00:05:32,292 --> 00:05:34,300
+156
+00:05:25,181 --> 00:05:26,923
 In Strike, a bonded agent proposes,
 
-156
-00:05:34,350 --> 00:05:36,166
+157
+00:05:26,973 --> 00:05:28,725
 the contract enforces mandate and price,
 
-157
-00:05:36,216 --> 00:05:37,438
+158
+00:05:28,775 --> 00:05:29,899
 and rule-breakers pay.
 
-158
-00:05:37,488 --> 00:05:39,571
+159
+00:05:29,949 --> 00:05:31,991
 Stock-token traps are handled on-chain.
 
-159
-00:05:39,621 --> 00:05:41,616
+160
+00:05:32,041 --> 00:05:34,094
 Holders get income and keep their keys.
 
-160
-00:05:41,666 --> 00:05:44,638
+161
+00:05:34,144 --> 00:05:36,946
 Weekend freezes: settle on
 the first post-expiry price.
 
-161
-00:05:44,688 --> 00:05:46,981
+162
+00:05:36,996 --> 00:05:39,650
 Multiplier: never applied, fork-tested.
 
-162
-00:05:47,031 --> 00:05:49,704
+163
+00:05:39,700 --> 00:05:42,344
 Agent trust: fixed
 mandate, bond, slashing.
 
-163
-00:05:49,754 --> 00:05:52,540
+164
+00:05:42,394 --> 00:05:45,255
 Gas: Rust on Stylus, 6.5 times cheaper.
 
-164
-00:05:52,590 --> 00:05:54,933
+165
+00:05:45,305 --> 00:05:47,733
 Not done: no audit, and testnet only.
 
-165
-00:05:54,983 --> 00:05:57,306
+166
+00:05:47,783 --> 00:05:50,042
 Next: eight settled
 weeks, an external audit,
 
-166
-00:05:57,356 --> 00:05:59,136
+167
+00:05:50,093 --> 00:05:51,732
 then one capped mainnet vault.
 
-167
-00:05:59,186 --> 00:06:01,600
+168
+00:05:51,782 --> 00:05:54,281
 Strike: options on Robinhood
 Chain and Arbitrum,
 
-168
-00:06:01,650 --> 00:06:03,772
+169
+00:05:54,331 --> 00:05:56,357
 run by agents held to a mandate.

@@ -493,6 +493,74 @@
         color: #5e5e5b;
       }
 
+      /* ------------------------------------------------------------ hook: a question in big kinetic type, one beat
+         per caption chunk (the scene has no caption bar: this text is the caption) */
+      .hook {
+        position: absolute;
+        inset: 0;
+        flex-direction: column;
+        justify-content: center;
+        padding: 0 150px;
+        background: radial-gradient(1400px 800px at 30% 40%, #123030 0%, var(--ink-teal) 60%, #030606 100%);
+        transition: background-position 300ms ease;
+      }
+      .hook .q {
+        font: 800 138px/0.98 var(--sans);
+        letter-spacing: -0.05em;
+        max-width: 1620px;
+        margin: 0;
+      }
+      .hook .q span {
+        display: inline-block;
+        opacity: 0;
+        transform: translateY(46px) scale(1.06);
+        transition:
+          opacity 140ms ease-out,
+          transform 260ms cubic-bezier(0.2, 1.4, 0.4, 1);
+        margin-right: 0.22em;
+      }
+      .hook .q span.in {
+        opacity: 1;
+        transform: none;
+      }
+      .hook .q span.acc {
+        color: var(--mint);
+      }
+      .hook .rule {
+        height: 10px;
+        width: 0;
+        background: var(--mint);
+        margin-top: 46px;
+        transition: width 420ms cubic-bezier(0.2, 0.9, 0.3, 1);
+      }
+      .hook .rule.in {
+        width: 360px;
+      }
+      .hook .brand {
+        font: 800 300px/0.9 var(--sans);
+        letter-spacing: -0.065em;
+        margin: 0;
+        transform: scale(1.25);
+        opacity: 0;
+        transition:
+          opacity 160ms ease-out,
+          transform 380ms cubic-bezier(0.2, 1.3, 0.4, 1);
+      }
+      .hook .brand.in {
+        transform: none;
+        opacity: 1;
+      }
+      .hook .brand em {
+        font-style: normal;
+        color: var(--mint);
+      }
+      .hook .pre {
+        font: 700 64px/1 var(--sans);
+        letter-spacing: -0.02em;
+        color: var(--mint);
+        margin: 0 0 18px 10px;
+      }
+
       /* ------------------------------------------------------------ closing card */
       .close {
         position: absolute;
@@ -607,6 +675,8 @@
       <div class="mx" id="mx"></div>
       <p class="msrc" id="mxSrc"></p>
     </div>
+
+    <div class="hook mode" id="hook"><div id="hookStage"></div></div>
 
     <div class="close mode" id="close">
       <div class="logo fade">Strike<em>.</em></div>
@@ -789,6 +859,34 @@
           document.querySelectorAll("#mx > div").forEach((el) => {
             el.style.opacity = Number(el.dataset.r) <= n ? "" : "0";
           });
+        },
+      };
+
+      // ---------------------------------------------------------------- hook: beat(i) replaces the stage with beat i, its
+      // words slamming in one after another; a "brand" beat is the wordmark
+      window.__hook = {
+        async beat(i) {
+          const b = DATA.beats[i];
+          const stage = document.getElementById("hookStage");
+          const hook = document.getElementById("hook");
+          hook.style.backgroundPosition = `${(i % 2) * 6}% ${(i % 3) * 4}%`;
+          if (b.brand) {
+            stage.innerHTML = `<p class="pre">${esc(b.pre ?? "")}</p><p class="brand">Strike<em>.</em></p>`;
+            await sleep(30);
+            stage.querySelector(".brand").classList.add("in");
+            return;
+          }
+          const acc = new Set(b.accent ?? []);
+          stage.innerHTML = `<p class="q">${b.text
+            .split(" ")
+            .map((w, k) => `<span class="${acc.has(k) ? "acc" : ""}">${esc(w)}</span>`)
+            .join("")}</p><div class="rule"></div>`;
+          await sleep(20);
+          for (const el of stage.querySelectorAll(".q span")) {
+            el.classList.add("in");
+            await sleep(55);
+          }
+          stage.querySelector(".rule").classList.add("in");
         },
       };
 

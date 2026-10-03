@@ -62,9 +62,13 @@ const WORK = join(ROOT, "video", ".out", KIND);
 const MEDIA = join(ROOT, "docs", "media");
 mkdirSync(WORK, { recursive: true });
 
+/** The narrator (chosen on 3 October for a livelier read): voice-ref-bright.wav is Chatterbox's own built-in voice read
+ *  at exaggeration 0.8 (synthetic, no real person), used as the reference at exaggeration 0.7 and cfg_weight 0.3. In the
+ *  test (two lines, two seeds each, Whisper small.en) it kept a word match of 1.00 with 5.3 semitones of pitch
+ *  variation, against 3.0 for the earlier voice-ref.wav at 0.35; 0.85 was higher still but dropped to 0.92 on numbers. */
 export const SETTINGS = {
-  voice: join(ROOT, "video/narration/voice-ref.wav"),
-  exaggeration: 0.35,
+  voice: join(ROOT, "video/narration/voice-ref-bright.wav"),
+  exaggeration: 0.7,
   cfg_weight: 0.3,
   temperature: 0.7,
   seeds: [11, 23, 37],
@@ -72,8 +76,8 @@ export const SETTINGS = {
   min_cands: 2,
   cache: join(ROOT, "video/.out/tts"),
   asr_model: "small.en",
-  target_cps: 14.5,
-  max_cps: 17,
+  target_cps: 19,
+  max_cps: 22,
 };
 
 /** The live run's agent output from the epoch log, split by its "== ..." headers. */
@@ -98,14 +102,22 @@ function epochLog() {
 const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 /** docs/submission/<kind>-script.md, written from the same scene list and timeline as the video. */
 function scriptDoc(doc, scenes, tls, total, words, intro = null) {
-  const off = intro?.duration ?? 0;
+  const dur = intro?.duration ?? 0;
+  const at = intro?.at ?? 0; // where the intro sits on the body's timeline (after the scene intro.after)
+  const off = (t) => (t >= at - 1e-6 ? t + dur : t);
   const chapters = scenes
-    .map((s, i) => (s.chapter ? `${mmss(off + tls[i].start)} ${s.chapter}` : null))
+    .map((s, i) => (s.chapter ? `${mmss(off(tls[i].start))} ${s.chapter}` : null))
     .filter(Boolean);
-  if (intro) chapters.unshift(`0:00 ${intro.title}`);
+  if (intro) {
+    const k = chapters.findIndex((c) => {
+      const [m, sec] = c.split(" ")[0].split(":").map(Number);
+      return m * 60 + sec > at;
+    });
+    chapters.splice(k < 0 ? chapters.length : k, 0, `${mmss(at)} ${intro.title}`);
+  }
   const parts = [
     doc.head({
-      total: total + off,
+      total: total + dur,
       narration: total,
       words,
       wpm: Math.round((words / total) * 60),
@@ -114,14 +126,16 @@ function scriptDoc(doc, scenes, tls, total, words, intro = null) {
       intro,
     }),
   ];
-  if (intro) {
-    parts.push(`## 0:00 to ${mmss(off)} · ${intro.title}`);
+  const introPart = () => {
+    parts.push(`## ${mmss(at)} to ${mmss(at + dur)} · ${intro.title}`);
     if (intro.screen) parts.push(`Screen: ${intro.screen}`);
     parts.push(`> ${intro.text}`);
-  }
+  };
+  if (intro && at === 0) introPart();
   scenes.forEach((s, i) => {
     const tl = tls[i];
-    parts.push(`## ${mmss(off + tl.start)} to ${mmss(off + tl.start + tl.dur)} · ${s.title ?? s.tag}`);
+    if (intro && at > 0 && Math.abs(tl.start - at) < 1e-6) introPart();
+    parts.push(`## ${mmss(off(tl.start))} to ${mmss(off(tl.start) + tl.dur)} · ${s.title ?? s.tag}`);
     if (s.screen) parts.push(`Screen: ${s.screen}`);
     parts.push(tl.lines.map((l) => `> ${l.text.replace(/\s*\|\s*/g, " ")}`).join("\n>\n"));
   });
@@ -319,16 +333,31 @@ async function main() {
   // a video may open with a recorded intro (the pitch: the founder's own clip, video/founder.mjs)
   const intro = def.intro && !PREVIEW ? await def.intro() : null;
   if (intro) {
+    // after a scene (intro.after), or at the very start
+    const k = intro.after ? scenes.findIndex((x) => x.id === intro.after) : -1;
+    if (intro.after && k < 0) throw new Error(`intro.after: no scene "${intro.after}"`);
+    intro.at = k < 0 ? 0 : tls[k].start + tls[k].dur;
     const body = join(WORK, "body.mp4");
     mux(picture, wav, body);
     prependIntro(intro, body, join(MEDIA, out.narrated));
-    log(`  opens with ${intro.path.replace(ROOT + "/", "")} (${intro.duration.toFixed(1)} s)`);
+    log(
+      `  ${intro.path.replace(ROOT + "/", "")} (${intro.duration.toFixed(1)} s) inserted at ${intro.at.toFixed(1)} s`,
+    );
   } else mux(picture, wav, join(MEDIA, out.narrated));
   if (out.silent) copyFileSync(picture, join(MEDIA, out.silent));
   const s = srt(tls);
   writeFileSync(
     join(MEDIA, out.srt),
-    intro ? srtText([...intro.cues, ...shiftCues(s.cues, intro.duration)]) : s.text,
+    intro
+      ? srtText([
+          ...s.cues.filter((c) => c.from < intro.at),
+          ...shiftCues(intro.cues, intro.at),
+          ...shiftCues(
+            s.cues.filter((c) => c.from >= intro.at),
+            intro.duration,
+          ),
+        ])
+      : s.text,
   );
   writeFileSync(
     join(WORK, "script.txt"),
@@ -393,11 +422,32 @@ async function main() {
   );
 }
 
-/** The intro's first `duration` seconds, then the rendered body; one encode, 30 fps, AAC 48 kHz stereo, a -2 dB
- *  limiter so the joined, re-encoded audio stays under -1.5 dBTP. */
+/** The rendered body with the intro's first `duration` seconds inserted at `intro.at` (0: at the start); the body's
+ *  audio fades out into the intro and back in after it (its music bed would otherwise stop and start abruptly). One
+ *  encode, 30 fps, AAC 48 kHz stereo, a -2 dB limiter so the joined, re-encoded audio stays under -1.5 dBTP. */
 function prependIntro(intro, body, out) {
-  const norm = (i) =>
-    `[${i}:v]fps=30,scale=1920:1080,setsar=1,format=yuv420p[v${i}];[${i}:a]aresample=48000,aformat=channel_layouts=stereo[a${i}]`;
+  const at = intro.at ?? 0;
+  const v = (i, trim) => `[${i}:v]${trim}fps=30,scale=1920:1080,setsar=1,format=yuv420p`;
+  const a = (i, trim) => `[${i}:a]${trim}aresample=48000,aformat=channel_layouts=stereo`;
+  const parts = [`${v(0, "")}[vi]`, `${a(0, "")}[ai]`];
+  const order = [];
+  if (at > 0) {
+    parts.push(`${v(1, `trim=end=${at.toFixed(3)},setpts=PTS-STARTPTS,`)}[vh]`);
+    parts.push(
+      `${a(1, `atrim=end=${at.toFixed(3)},asetpts=PTS-STARTPTS,`)},afade=t=out:st=${(at - 0.25).toFixed(3)}:d=0.25[ah]`,
+    );
+    order.push("[vh][ah]");
+  }
+  order.push("[vi][ai]");
+  parts.push(`${v(1, `trim=start=${at.toFixed(3)},setpts=PTS-STARTPTS,`)}[vb]`);
+  parts.push(
+    `${a(1, `atrim=start=${at.toFixed(3)},asetpts=PTS-STARTPTS,`)}${at > 0 ? ",afade=t=in:d=0.6" : ""}[ab]`,
+  );
+  order.push("[vb][ab]");
+  parts.push(
+    `${order.join("")}concat=n=${order.length}:v=1:a=1[v][ac]`,
+    `[ac]alimiter=limit=0.79:attack=5:release=60:level=disabled[a]`,
+  );
   ff([
     "-t",
     intro.duration.toFixed(3),
@@ -406,7 +456,7 @@ function prependIntro(intro, body, out) {
     "-i",
     body,
     "-filter_complex",
-    `${norm(0)};${norm(1)};[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][ac];[ac]alimiter=limit=0.79:attack=5:release=60:level=disabled[a]`,
+    parts.join(";"),
     "-map",
     "[v]",
     "-map",

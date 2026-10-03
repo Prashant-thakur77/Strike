@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { STRIKE_CONFIG, chainConfig } from "./lib/config.mjs";
 import { L, ROOT } from "./lib/engine.mjs";
 import { sayDec, sayInt, sayUsd } from "./lib/facts.mjs";
+import { hookScene } from "./lib/hook.mjs";
 import { signingContext, signingPrepare, signingRun } from "./lib/wallet.mjs";
 
 export const APP = (process.env.APP_URL ?? STRIKE_CONFIG.services.app).replace(/\/$/, "");
@@ -324,16 +325,14 @@ export function scenes(f, live) {
   const worst = round2(a.worstLoss);
   return [
     // ============================================================================================ 1. the problem
+    hookScene({ chapter: "The problem" }),
     {
       id: "problem",
-      chapter: "The problem",
       kind: "footage",
       screen:
-        "Stock footage (Pexels, free licence; credits in docs/media/CREDITS.md): stock-exchange columns, a stock app on a phone, a man on Wall Street, a chart on paper, a ticker, candlesticks, a worried face; cut on the narration.",
+        "Stock footage (Pexels, free licence; credits in docs/media/CREDITS.md): a man on Wall Street, a chart on paper, a worried face, a ticker, candlesticks, waiting; cut on the narration.",
       tag: "The problem",
       lines: [
-        L("Millions of people own stocks."),
-        L("On Robinhood Chain, stocks are tokens, | but a token earns nothing while it sits."),
         L(
           "Wall Street holders sell covered calls for income, | but someone must pick each week's strike, | and you must trust them.",
         ),
@@ -344,15 +343,12 @@ export function scenes(f, live) {
       ],
       // shot list: which clip plays from which caption chunk (line, chunk); clips in video/footage.json
       shots: [
-        ["floor", 0, 0],
-        ["phone", 1, 0],
-        ["idle", 1, 1],
-        ["screens", 2, 0],
-        ["chart", 2, 1],
-        ["worried", 2, 2],
-        ["ticker", 3, 0],
-        ["candles", 3, 2],
-        ["waiting", 4, 0],
+        ["screens", 0, 0],
+        ["chart", 0, 1],
+        ["worried", 0, 2],
+        ["ticker", 1, 0],
+        ["candles", 1, 2],
+        ["waiting", 2, 0],
       ],
     },
     // ============================================================================================ 2. the turn
@@ -373,13 +369,11 @@ export function scenes(f, live) {
         ],
       },
       lines: [
-        L("Now imagine an agent picking the strike each week, | held to the rules by a contract."),
-        L("This is Strike: | options vaults for stock tokens."),
+        L("In Strike, an agent picks the strike each week, | held to the rules by a contract."),
+        L("Options vaults for stock tokens."),
       ],
       async run(h) {
         await h.cue(1, -0.2);
-        await h.page.evaluate(() => window.__turn.show(1));
-        await h.chunk(1, 1, -0.1);
         await h.page.evaluate(() => window.__turn.show(2));
         await h.at(h.tl.lines[1].end - 0.6);
         await h.page.evaluate(() => window.__turn.show(4));
@@ -445,7 +439,9 @@ export function scenes(f, live) {
       three: { mode: "flow", delta: a.delta, size: a.bought, premiumPct: a.premiumPct },
       lines: [
         L("Inside one week:"),
-        L("Depositors fill a vault with a fixed mandate."),
+        L("Depositors fill a vault with a fixed mandate.", "Depositors fill a vault with a fixed mandate.", {
+          seeds: [11, 23, 37, 51, 64, 77],
+        }),
         L("An agent reads it via MCP and dry-runs.", "An agent reads it via M C P and dry-runs."),
         L("It proposes delta, expiry, size and price."),
         L(
@@ -559,7 +555,11 @@ export function scenes(f, live) {
       screen: `\`/app/playground\`, no wallet. Zoom on the honest 0.20-delta call preset, click it, zoom on **Accepted**; click the reckless at-the-money preset, zoom on **Rejected: DeltaOutOfBand**, then on the ${f.slash} USDG slash panel.`,
       tag: "Playground",
       lines: [
-        L("The playground tests proposals live, | no wallet."),
+        L(
+          "The playground tests a proposal live, | no wallet.",
+          "The playground tests a proposal live, | no wallet.",
+          { seeds: [11, 23, 37, 51, 64, 77] },
+        ),
         L("An honest 0.20-delta call: accepted.", "An honest zero point two oh delta call: accepted."),
         L("A reckless at-the-money strike: | rejected, delta out of band."),
         L(
@@ -990,7 +990,7 @@ export function scenes(f, live) {
         ),
         L(
           `CI re-checks every cited transaction: | ${live.claims.verified} of ${live.claims.cited} verified.`,
-          `C I re-checks every cited transaction: | ${sayInt(live.claims.verified)} of ${sayInt(live.claims.cited)} verified.`,
+          `CI re-checks every cited transaction: | ${sayInt(live.claims.verified)} of ${sayInt(live.claims.cited)} verified.`,
           { seeds: [11, 23, 37, 51, 64, 77] },
         ),
       ],
@@ -1711,9 +1711,9 @@ export const poster = { scene: "surface3d", at: 24 };
 export const gifScene = "flow3d";
 export const timing = { lead: 0.08, gap: 0.1, tail: 0.15 };
 export const crf = 24;
-/** The demo reads faster than the pitch: every take sped up 32% with Rubber Band (formants kept), to fit the
- *  decision pages, the settlement state and the proof page's liveness checks into about five and a half minutes. */
-export const tts = { speed: 1.32, speed_max_cps: 23, max_cps: 19 };
+/** The demo reads faster than the pitch: every take sped up 8% with Rubber Band (formants kept; the narrator chosen on
+ *  3 October reads about 35% faster than the earlier one on its own), to keep every chapter in about six minutes. */
+export const tts = { speed: 1.08, speed_max_cps: 23, max_cps: 24 };
 /** The music bed (video/narration/music.py, CC0): ducked under the voice, -16 LUFS overall. */
 export const music = { seed: 7, speech_lufs: -31, gap_db: 5, fade_in: 2, fade_out: 3 };
 
@@ -1723,7 +1723,7 @@ export const scriptDoc = {
 
 The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (${total.toFixed(1)} s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by \`node video/record.mjs demo\` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
 
-The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 32% faster with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of \`scripts/check-claims.mjs\`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
+The arc: a question to the people Strike is for (kinetic type), the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice (its own built-in voice, read with energy), sped up 8% with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of \`scripts/check-claims.mjs\`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
 
 ## Chapters
 
