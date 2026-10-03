@@ -551,120 +551,120 @@ And it assumes full weekly sales.
 The proof page:
 
 133
-00:04:48,178 --> 00:04:50,642
-1,385 tests and proofs,
+00:04:48,178 --> 00:04:50,341
+1,393 tests and proofs,
 
 134
-00:04:50,692 --> 00:04:52,278
+00:04:50,391 --> 00:04:52,304
 99.3% line coverage,
 
 135
-00:04:52,328 --> 00:04:53,461
+00:04:52,354 --> 00:04:53,482
 nine Halmos proofs,
 
 136
-00:04:53,511 --> 00:04:55,197
+00:04:53,532 --> 00:04:55,248
 all 11 review findings fixed.
 
 137
-00:04:55,247 --> 00:04:57,142
+00:04:55,298 --> 00:04:57,193
 Running by itself reads both testnets:
 
 138
-00:04:57,192 --> 00:04:58,488
+00:04:57,243 --> 00:04:58,539
 prices, each vault's week,
 
 139
-00:04:58,538 --> 00:04:59,585
+00:04:58,589 --> 00:04:59,636
 the scheduled jobs.
 
 140
-00:04:59,635 --> 00:05:01,926
+00:04:59,686 --> 00:05:01,977
 The mirror audit checks
 every copied price:
 
 141
-00:05:01,976 --> 00:05:04,862
+00:05:02,027 --> 00:05:04,913
 84 of 84 rounds match mainnet Chainlink.
 
 142
-00:05:04,912 --> 00:05:05,892
+00:05:04,963 --> 00:05:05,943
 Who else is here?
 
 143
-00:05:05,942 --> 00:05:09,087
+00:05:05,993 --> 00:05:09,138
 Stonkhouse and Archer Markets on
 Robinhood Chain are order books:
 
 144
-00:05:09,137 --> 00:05:10,780
+00:05:09,188 --> 00:05:10,831
 traders pick strike and price.
 
 145
-00:05:10,830 --> 00:05:13,700
+00:05:10,881 --> 00:05:13,751
 Ribbon, Derive and Thetanuts
 sell crypto options
 
 146
-00:05:13,750 --> 00:05:15,727
+00:05:13,801 --> 00:05:15,778
 by auction, order book or RFQ.
 
 147
-00:05:15,777 --> 00:05:18,308
+00:05:15,828 --> 00:05:18,359
 Tilt's AI manages vaults, with no options;
 
 148
-00:05:18,358 --> 00:05:21,412
+00:05:18,409 --> 00:05:21,463
 its sources don't say
 what limits it on-chain.
 
 149
-00:05:21,462 --> 00:05:23,535
+00:05:21,513 --> 00:05:23,585
 In Strike, a bonded agent proposes,
 
 150
-00:05:23,585 --> 00:05:25,458
+00:05:23,636 --> 00:05:25,509
 the contract enforces mandate and price,
 
 151
-00:05:25,508 --> 00:05:26,767
+00:05:25,559 --> 00:05:26,818
 and rule-breakers pay.
 
 152
-00:05:26,817 --> 00:05:28,964
+00:05:26,868 --> 00:05:29,015
 Stock-token traps are handled on-chain.
 
 153
-00:05:29,014 --> 00:05:31,066
+00:05:29,065 --> 00:05:31,117
 Holders get income and keep their keys.
 
 154
-00:05:31,116 --> 00:05:34,179
+00:05:31,167 --> 00:05:34,230
 Weekend freezes: settle on
 the first post-expiry price.
 
 155
-00:05:34,229 --> 00:05:36,592
+00:05:34,280 --> 00:05:36,643
 Multiplier: never applied, fork-tested.
 
 156
-00:05:36,642 --> 00:05:39,397
+00:05:36,693 --> 00:05:39,448
 Agent trust: fixed
 mandate, bond, slashing.
 
 157
-00:05:39,447 --> 00:05:42,319
+00:05:39,498 --> 00:05:42,370
 Gas: Rust on Stylus, 6.5 times cheaper.
 
 158
-00:05:42,369 --> 00:05:44,779
+00:05:42,420 --> 00:05:44,830
 Not done: no audit, and testnet only.
 
 159
-00:05:44,829 --> 00:05:47,318
+00:05:44,880 --> 00:05:47,369
 Strike: options on Robinhood
 Chain and Arbitrum,
 
 160
-00:05:47,368 --> 00:05:49,542
+00:05:47,419 --> 00:05:49,593
 run by agents held to a mandate.

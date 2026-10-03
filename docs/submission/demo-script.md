@@ -1,6 +1,6 @@
 # Demo video script (5:49)
 
-The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (349.8 s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by `node video/record.mjs demo` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
+The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (349.9 s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by `node video/record.mjs demo` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
 
 The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 28% faster with Rubber Band (formants kept): 937 words in 350 s (161 words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of `scripts/check-claims.mjs`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
 
@@ -291,7 +291,7 @@ Screen: `/app/proof`: the headline tiles (deployment, Foundry tests, coverage, i
 
 > The proof page:
 >
-> 1,385 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed.
+> 1,393 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed.
 >
 > Running by itself reads both testnets: prices, each vault's week, the scheduled jobs.
 >

@@ -42,7 +42,7 @@ The monitor, live on mainnet: Nvidia's multiplier, 1.000775, is already in the p
 
 Over 403 weeks since 2019, covered calls cut volatility 25 to 46%, but lagged holding everywhere: Tesla 23.1% a year, against 44.0% held. And it assumes full weekly sales.
 
-The proof page: 1,385 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
+The proof page: 1,393 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
 
 Who else is here? Stonkhouse and Archer Markets on Robinhood Chain are order books: traders pick strike and price. Ribbon, Derive and Thetanuts sell crypto options by auction, order book or RFQ. Tilt's AI manages vaults, with no options; its sources don't say what limits it on-chain.
 
