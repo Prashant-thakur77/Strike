@@ -417,7 +417,8 @@ export async function recordScene(browser, scene, tl, work, env) {
   await ctx.close();
   const path = await video.path();
   const shift = Math.max(0, marks.close - videoDuration(path));
-  const meta = { path, start: Math.max(0, marks.start - shift), dur: tl.dur, hash: timingHash(tl) };
+  // negative when the recording began after the scene clock started: segment() pads the first frame
+  const meta = { path, start: marks.start - shift, dur: tl.dur, hash: timingHash(tl) };
   writeFileSync(join(dir, "meta.json"), JSON.stringify(meta, null, 1));
   log(`  ${scene.id}: ${tl.dur.toFixed(1)} s recorded (video starts ${shift.toFixed(2)} s late)`);
   return meta;
@@ -573,15 +574,17 @@ export function segment(scene, tl, src, out) {
   // a pre-recorded clip may play faster than it was recorded (scene.clipSpeed), e.g. the signing take's block waits
   const speed = src.speed ?? 1;
   const fast = speed !== 1 ? `setpts=PTS/${speed},` : "";
+  // a recording that began after the scene clock: hold its first frame for the missing time
+  const late = src.start < 0 ? `tpad=start_mode=clone:start_duration=${(-src.start).toFixed(3)},` : "";
   ff([
     "-ss",
-    src.start.toFixed(3),
+    Math.max(0, src.start).toFixed(3),
     "-i",
     src.path,
     "-t",
     (tl.dur * speed).toFixed(3),
     "-vf",
-    `${fast}fps=30,scale=${W}:${H}:flags=lanczos,${pad},trim=duration=${dur},format=yuv420p,${fades}`,
+    `${fast}fps=30,scale=${W}:${H}:flags=lanczos,${late}${pad},trim=duration=${dur},format=yuv420p,${fades}`,
     ...enc,
   ]);
 }

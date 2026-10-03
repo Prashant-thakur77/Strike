@@ -1234,6 +1234,13 @@ export function scenes(f, live) {
         await h.chunk(2, 1, -0.2);
         // the Robinhood Chain testnet card: prices, the mirror audit and each vault's week
         await focusCard(h, /^Newest mirrored round$/i, { up: 1, scale: 1.6, dim: 0.18 });
+        await h.chunk(2, 2, -0.3);
+        // the scheduled keeper and weekly agent, as the card reads them now
+        await focusCard(h, /^Testnet keeper$/, {
+          closest: '[class*="status_schedules"]',
+          scale: 1.4,
+          dim: 0.18,
+        });
         await h.cue(3, -0.2);
         await h.page.evaluate((n) => {
           const v = window.__v;
