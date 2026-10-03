@@ -59,7 +59,40 @@ export type StrikeSecretRole =
   | "arbiscanKey"
   | "githubToken"
   | "blobToken"
-  | "waitlistSalt";
+  | "waitlistSalt"
+  | "x402RelayerKey"
+  | "x402PayerKey";
+
+/** One token an x402 paid endpoint accepts (an EIP-3009 stablecoin) and its EIP-712 domain. */
+export interface StrikeX402Asset {
+  chainId: number;
+  address: Address;
+  symbol: string;
+  decimals: number;
+  /** The token's EIP-712 domain name and version; its DOMAIN_SEPARATOR must match them. */
+  eip712Name: string;
+  eip712Version: string;
+}
+
+/** x402 paid endpoints (docs/ENDPOINTS.md): prices, accepted tokens and the payee. Public values only. */
+export interface StrikeX402Config {
+  /** x402 protocol version: headers PAYMENT-REQUIRED, PAYMENT-SIGNATURE and PAYMENT-RESPONSE. */
+  version: 2;
+  /** EIP-3009 transferWithAuthorization for the exact price. */
+  scheme: "exact";
+  /** "self": the app verifies and settles with its own relayer key (secrets.x402RelayerKey); else a facilitator URL. */
+  facilitator: string;
+  /** Who receives the payments. */
+  payTo: Address;
+  /** How long a signed payment stays valid, in seconds (default 120). */
+  maxTimeoutSeconds?: number;
+  /** Default total an agent may pay in one run, in token units ("0.05"). */
+  agentRunCap?: string;
+  /** Paid routes by name: path, price per call in token units ("0.01") and what the caller gets. */
+  routes: Record<string, { path: string; price: string; description: string }>;
+  /** Accepted tokens, the preferred first. */
+  assets: StrikeX402Asset[];
+}
 
 /** strike.config.json (version 1). */
 export interface StrikeConfig {
@@ -77,6 +110,8 @@ export interface StrikeConfig {
     waitlistForm: string;
     repository: string;
   };
+  /** x402 paid endpoints; absent when the deployment sells nothing. */
+  x402?: StrikeX402Config;
   /** Environment variable NAMES by role. Never values. */
   secrets: Record<StrikeSecretRole, string>;
 }

@@ -11,7 +11,14 @@ export {
   strikeSecretName,
   validateStrikeConfig,
 } from "./config.js";
-export type { LoadStrikeConfigOptions, StrikeChainConfig, StrikeConfig, StrikeSecretRole } from "./config.js";
+export type {
+  LoadStrikeConfigOptions,
+  StrikeChainConfig,
+  StrikeConfig,
+  StrikeSecretRole,
+  StrikeX402Asset,
+  StrikeX402Config,
+} from "./config.js";
 export {
   AGENT_REGISTRY_EIP712,
   DEFAULT_CONSENT_TTL,
