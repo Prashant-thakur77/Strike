@@ -14,6 +14,7 @@ const PAGES = [
   ["/app/portfolio", "Portfolio"],
   ["/app/glossary", "Glossary"],
   ["/app/lessons", "Lessons"],
+  ["/app/governance", "Governance"],
   ["/waitlist", "Mainnet waitlist"],
 ] as const;
 

@@ -1,0 +1,321 @@
+/* /app/governance: role holders, role texts, the last admin actions and the staged path. */
+
+.leadNote {
+  font-size: max(0.9rem, var(--fs-floor-note));
+  line-height: 1.45;
+  color: var(--fg-muted);
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(56px, 6vw, 96px);
+  padding-top: clamp(48px, 5.5vw, 88px);
+}
+
+.block {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 100%;
+  border-bottom: 1px solid var(--rule-strong);
+  transition: border-color 0.2s var(--ease-ui);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.link:hover {
+  border-color: currentColor;
+}
+
+.link svg {
+  flex: none;
+}
+
+.meta {
+  margin: 0;
+  max-width: 54em;
+  font-size: max(0.85rem, var(--fs-floor-meta));
+  line-height: 1.5;
+  color: var(--fg-muted);
+  overflow-wrap: anywhere;
+}
+
+.text {
+  margin: 0;
+  max-width: 48em;
+  line-height: 1.55;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chips :global(.chip) {
+  min-height: 44px;
+}
+
+.ok {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-weight: 600;
+  color: var(--gain-c);
+}
+
+.ok svg {
+  flex: none;
+}
+
+.warn {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--loss-c);
+  border-radius: 10px;
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
+
+.warn ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.warnTitle {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-weight: 650;
+  color: var(--loss-c);
+}
+
+.warnTitle svg {
+  flex: none;
+  margin-top: 3px;
+}
+
+.error {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.error p {
+  margin: 0;
+  color: var(--loss-c);
+  overflow-wrap: anywhere;
+}
+
+/* Tables: long texts wrap; names, roles and links stay on one line where they fit. */
+.table th[scope="row"] {
+  min-width: 10rem;
+  color: var(--fg);
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  vertical-align: top;
+  border-bottom: 1px solid var(--rule);
+  padding-top: 16px;
+}
+
+.rowHead {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.wrapCell {
+  min-width: 16rem;
+  max-width: 34rem;
+  white-space: normal !important;
+  line-height: 1.5;
+}
+
+.contract {
+  font-weight: 650;
+}
+
+.shared {
+  font-weight: 400;
+  color: var(--fg-muted);
+}
+
+.holders,
+.grants {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grants li {
+  min-height: 1.5em;
+}
+
+.holder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.holderName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.holder[data-kind="unknown"] .holderName {
+  color: var(--loss-c);
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  font-size: max(0.72rem, var(--fs-label));
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.tag[data-kind="contract"] {
+  border-style: dashed;
+}
+
+.tag[data-kind="unknown"] {
+  border-color: var(--loss-c);
+  color: var(--loss-c);
+}
+
+.none {
+  color: var(--fg-muted);
+}
+
+/* The staged path */
+.stages {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage {
+  display: grid;
+  gap: 10px;
+  padding: clamp(18px, 2.2vw, 28px);
+  border: 1px solid var(--rule-strong);
+  border-radius: 10px;
+  min-width: 0;
+}
+
+.stage[data-current] {
+  border-color: var(--fg);
+  box-shadow: inset 4px 0 0 var(--fg);
+}
+
+.stageHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.stageTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 650;
+}
+
+.current {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--fg);
+  color: var(--bg, var(--paper));
+  font-size: max(0.72rem, var(--fs-label));
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.where {
+  margin: 0;
+  font-size: max(0.85rem, var(--fs-floor-meta));
+  color: var(--fg-muted);
+}
+
+.commitments {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+.commitments p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.tests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: max(0.85rem, var(--fs-floor-meta));
+  overflow-wrap: anywhere;
+}
+
+.code {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--ghost, rgba(0, 0, 0, 0.04));
+  font-size: max(0.82rem, var(--fs-floor-meta));
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .table th[scope="row"] {
+    min-width: 0;
+  }
+  .rowHead {
+    display: grid;
+    gap: 4px;
+    justify-items: start;
+  }
+
+  .wrapCell {
+    min-width: 0;
+    max-width: none;
+  }
+  .holder {
+    justify-content: flex-end;
+  }
+}

@@ -504,6 +504,15 @@ export function ProofPage() {
           label="Security"
           note="Static analysis, an internal adversarial review and a threat model. None of this replaces an external audit."
         >
+          <p className={styles.text} data-testid="proof-governance">
+            <strong>Admin keys.</strong> Who holds each privileged role on every contract of the three
+            deployments, read live with <code className="mono">hasRole</code>, what each role can and cannot
+            do, the last admin actions and the staged path to a timelocked Safe on mainnet:{" "}
+            <Link href="/app/governance" className="text-link" data-testid="proof-governance-link">
+              the governance page
+            </Link>
+            .
+          </p>
           <Fold summary={`Show analysis and ${reviewTotal} findings`} openSummary="Hide section">
             <div className={styles.secGrid}>
               <div className={styles.secCell}>

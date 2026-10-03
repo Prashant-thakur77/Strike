@@ -115,6 +115,17 @@ export const TOUR: TourPage[] = [
       why: "Every claim next to the contract, test or transaction behind it.",
     },
   },
+  {
+    href: "/app/governance",
+    label: "Governance",
+    purpose:
+      "See who holds every admin key on Strike's contracts, what each key can do, and how that power shrinks before mainnet.",
+    next: {
+      href: "/app/proof",
+      label: "Check the proof",
+      why: "Every claim next to the contract, test or transaction behind it.",
+    },
+  },
 ];
 
 /** The tour entry for a pathname (vault pages share one entry). */
