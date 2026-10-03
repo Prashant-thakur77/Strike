@@ -165,6 +165,40 @@ export type {
   SettlementAuditOptions,
   SettlementCheckStatus,
 } from "./mirror.js";
+export {
+  STATEMENT_ACTIONS,
+  STATEMENT_ACTION_DESCRIPTIONS,
+  STATEMENT_CSV_COLUMNS,
+  StatementInputError,
+  buildRows,
+  buildStatement,
+  checkCommand,
+  csvCell,
+  deploymentId,
+  eventSignature,
+  optionSymbol,
+  parseStatementQuery,
+  statement,
+  statementBound,
+  statementChainIds,
+  statementChecks,
+  statementCsv,
+  statementTotals,
+} from "./statement.js";
+export type {
+  StatementAction,
+  StatementAmount,
+  StatementCheck,
+  StatementContext,
+  StatementLog,
+  StatementOptions,
+  StatementRow,
+  StatementSeriesMeta,
+  StatementSource,
+  StatementTotal,
+  StatementVaultMeta,
+  WalletStatement,
+} from "./statement.js";
 export { type CorporateAction, findSettlementHints, findSettlementRound } from "./settlement.js";
 export type { FeedRound, RoundReader } from "./settlement.js";
 export type * from "./types.js";

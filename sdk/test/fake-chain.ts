@@ -83,9 +83,11 @@ export function fakeChain(
     timestamp: bigint;
     account?: Address;
     /** Past logs `eth_getLogs` serves (filtered by address and topics). */
-    logs?: (FakeLog & { blockNumber: bigint; transactionHash?: Hex })[];
+    logs?: (FakeLog & { blockNumber: bigint; transactionHash?: Hex; logIndex?: number })[];
     /** Timestamps of past blocks by number (the latest block has `timestamp`). */
     blockTimestamps?: Record<string, bigint>;
+    /** What eth_blockNumber answers (default 1). */
+    head?: bigint;
   },
 ): { client: PublicClient; wallet: WalletClient; calls: string[]; sent: SentTx[] } {
   const byAddress = new Map(Object.entries(contracts).map(([a, c]) => [a.toLowerCase(), c]));
@@ -103,7 +105,7 @@ export function fakeChain(
         case "eth_chainId":
           return toHex(999);
         case "eth_blockNumber":
-          return "0x1";
+          return toHex(opts.head ?? 1n);
         case "eth_getBlockByNumber": {
           const [tag] = params as [string];
           const past = tag.startsWith("0x") ? opts.blockTimestamps?.[BigInt(tag).toString()] : undefined;
@@ -119,12 +121,36 @@ export function fakeChain(
           };
         }
         case "eth_getLogs": {
-          const [filter] = params as [{ address?: Address; topics?: (Hex | null)[] }];
+          // `address` and each topic may be a list (any of them matches), as eth_getLogs allows.
+          const [filter] = params as [
+            {
+              address?: Address | Address[];
+              topics?: (Hex | Hex[] | null)[];
+              fromBlock?: Hex;
+              toBlock?: Hex;
+            },
+          ];
+          const addresses = filter.address
+            ? (Array.isArray(filter.address) ? filter.address : [filter.address]).map((a) => a.toLowerCase())
+            : null;
+          // Block bounds apply only on a chain with a set head (older tests serve every log whatever the range).
+          const ranged = opts.head !== undefined;
+          const from = ranged && filter.fromBlock?.startsWith("0x") ? BigInt(filter.fromBlock) : null;
+          const to = ranged && filter.toBlock?.startsWith("0x") ? BigInt(filter.toBlock) : null;
           return (opts.logs ?? [])
             .filter(
               (l) =>
-                (!filter.address || l.address.toLowerCase() === filter.address.toLowerCase()) &&
-                (filter.topics ?? []).every((t, i) => t === null || t === undefined || l.topics[i] === t),
+                (!addresses || addresses.includes(l.address.toLowerCase())) &&
+                (from === null || l.blockNumber >= from) &&
+                (to === null || l.blockNumber <= to) &&
+                (filter.topics ?? []).every(
+                  (t, i) =>
+                    t === null ||
+                    t === undefined ||
+                    (Array.isArray(t)
+                      ? t.some((x) => x.toLowerCase() === l.topics[i]?.toLowerCase())
+                      : l.topics[i]?.toLowerCase() === t.toLowerCase()),
+                ),
             )
             .map((l, i) => ({
               address: l.address,
@@ -134,7 +160,7 @@ export function fakeChain(
               blockNumber: toHex(l.blockNumber),
               transactionHash: l.transactionHash ?? keccak256(toHex(`log-${i}`)),
               transactionIndex: "0x0",
-              logIndex: toHex(i),
+              logIndex: toHex(l.logIndex ?? i),
               removed: false,
             }));
         }
