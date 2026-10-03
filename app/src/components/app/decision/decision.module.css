@@ -151,3 +151,40 @@
   min-width: 11rem;
   white-space: normal !important;
 }
+
+/* Where a section's figures come from. */
+.source {
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--fg-muted);
+  max-width: 52em;
+}
+
+.source .micro {
+  margin-right: 6px;
+}
+
+/* A change the agent made before sending (PASS / MODIFY / FAIL). */
+.modify {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg);
+}
+
+.checks {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check[data-ok="unknown"] svg {
+  color: var(--fg-muted);
+}

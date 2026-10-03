@@ -49,6 +49,14 @@ import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { MandateRules } from "../playground/MandateRules";
 import { AnchorLine, Reasoning } from "../vault/WhyStrikePanel";
+import {
+  ConsistencyView,
+  Modifications,
+  NotProvided,
+  SourceLine,
+  StressView,
+  WhatIfView,
+} from "./WhatIfSections";
 import appStyles from "../app.module.css";
 import styles from "./decision.module.css";
 
@@ -282,6 +290,7 @@ function DecisionBody({
           label="What it chose and why"
           note="From the anchored record: the planner, its target, the contract's own dry run and the reasoning it wrote before proposing."
         >
+          <SourceLine kinds={["record"]} />
           <Chosen record={r} />
         </Rail>
         <Rail
@@ -292,6 +301,7 @@ function DecisionBody({
         >
           {derived.inp ? (
             <div className={styles.block} data-testid="decision-scorecard">
+              <SourceLine kinds={["record", "recomputed"]} />
               <MandateRules rules={derived.rules} />
               <p className={appStyles.hint}>
                 Measured on the dry run in the record (<code className="mono">previewProposal</code>, the
@@ -302,6 +312,7 @@ function DecisionBody({
           ) : (
             <Missing why={derived.missing} />
           )}
+          {derived.inp ? <Modifications record={r} /> : null}
         </Rail>
         <Rail
           index="03"
@@ -309,6 +320,7 @@ function DecisionBody({
           label="Why not the other strikes"
           note="The same proposal at other target deltas, from just below the mandate's band to just above it, each judged by the mandate's rules."
         >
+          <SourceLine kinds={recorded.length > 0 ? ["record"] : ["recomputed"]} />
           <PlannerCalls record={r} />
           {recorded.length > 0 ? (
             <RecordedLadder record={r} rows={recorded} sentLabel={sentLabel} />
@@ -330,7 +342,16 @@ function DecisionBody({
           note="The settlement price where the option starts costing depositors more than its premium, and the pricing model's odds of getting there."
         >
           {derived.inp ? (
-            <LossView record={r} loss={derived.loss} underlying={r.vault.underlying} />
+            <>
+              <LossView record={r} loss={derived.loss} underlying={r.vault.underlying} />
+              <StressView
+                inp={derived.inp}
+                loss={derived.loss}
+                pricing={SDK_PRICING}
+                underlying={r.vault.underlying}
+                sold={r.result.status === "accepted"}
+              />
+            </>
           ) : (
             <Missing why={derived.missing} />
           )}
@@ -357,11 +378,36 @@ function DecisionBody({
         </Rail>
         <Rail
           index="06"
+          id="whatif"
+          label="What if"
+          note="The proposal sent next to keeping cash, half the size and the strikes either side of it, valued for the whole vault: model numbers before settlement, the payout at the settlement price after."
+        >
+          {derived.inp ? (
+            <WhatIfView
+              chainId={chainId}
+              record={r}
+              inp={derived.inp}
+              rows={
+                recorded.length > 0
+                  ? recorded
+                  : derived.ladder && derived.ladder.check.ok
+                    ? derived.ladder.rows
+                    : null
+              }
+              rowsSource={recorded.length > 0 ? "recorded" : "recomputed"}
+            />
+          ) : (
+            <Missing why={derived.missing} />
+          )}
+        </Rail>
+        <Rail
+          index="07"
           id="proof"
           label="Anchor and transactions"
           note="The record's keccak256, rebuilt here from the file on GitHub and checked against its anchoring transaction on-chain, and every transaction the run sent."
         >
           <div className={styles.block} data-testid="decision-proof">
+            <SourceLine kinds={["record", "chain"]} />
             <AnchorLine anchor={anchor} chainId={chainId} />
             {r.transactions.length > 0 ? (
               <ul className={appStyles.factLinks} aria-label="Transactions">
@@ -390,6 +436,17 @@ function DecisionBody({
                 Decision log
               </Link>
             </div>
+            <ConsistencyView
+              record={r}
+              anchor={anchor.status}
+              ladderMatches={
+                recorded.length > 0
+                  ? recordedMatchesDry(r, recorded)
+                  : derived.inp && derived.ladder
+                    ? derived.ladder.check.ok
+                    : null
+              }
+            />
           </div>
         </Rail>
       </div>
@@ -454,7 +511,8 @@ function Chosen({ record: r }: { record: LogRecord }) {
             {dry ? (
               <>
                 <span className={appStyles.whyValue}>
-                  {fmtPrice(dry.strike)} · |Δ| {dry.delta ?? "—"} · fair {fmtPrice(dry.fairValue)}
+                  {fmtPrice(dry.strike)} · |Δ| {dry.delta ?? <NotProvided what="not recorded" />} · fair{" "}
+                  {fmtPrice(dry.fairValue)}
                 </span>
                 <span className={appStyles.cellMuted}>
                   {dry.size ? `${opts(Number(dry.size))} of ${opts(Number(dry.capacity ?? 0))} options` : ""}
@@ -463,7 +521,7 @@ function Chosen({ record: r }: { record: LogRecord }) {
                 </span>
               </>
             ) : (
-              <span className={appStyles.cellMuted}>No dry run in the record</span>
+              <NotProvided what="No dry run in the record" />
             )}
           </dd>
         </div>
@@ -563,7 +621,9 @@ function PlannerCalls({ record: r }: { record: LogRecord }) {
                   {c.chosen ? <span className={styles.sent}>chosen</span> : null}
                 </td>
                 <td className="mono">{fmtPrice(c.fairValue)}</td>
-                <td className="mono">{c.yieldBps === null ? "—" : fmtFactor(c.yieldBps)}</td>
+                <td className="mono">
+                  {c.yieldBps === null ? <NotProvided what="not recorded" /> : fmtFactor(c.yieldBps)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -715,7 +775,20 @@ function LadderView({
   );
 }
 
-const dash = (x: number, f: (n: number) => string) => (Number.isFinite(x) ? f(x) : "—");
+/** A ladder figure, or "not recorded" when the agent's dry run did not carry it (never a blank or a guess). */
+const dash = (x: number, f: (n: number) => string) =>
+  Number.isFinite(x) ? f(x) : <NotProvided what="not recorded" />;
+
+/** The agent's own ladder: its chosen rung must be the record's dry run (same strike and fair value). */
+function recordedMatchesDry(r: LogRecord, rows: LadderRow[]): boolean | null {
+  const chosen = rows.find((x) => x.sent);
+  const d = r.dryRun;
+  if (!chosen || !d?.strike || !d.fairValue) return null;
+  return (
+    Math.abs(chosen.strike - Number(d.strike)) <= 0.01 &&
+    Math.abs(chosen.fairValue - Number(d.fairValue)) <= 0.005
+  );
+}
 
 function LadderTr({ row, mark = "sent" }: { row: LadderRow; mark?: string }) {
   const v = row.verdict;
@@ -773,6 +846,7 @@ function LossView({
   const side = l.isCall ? "above" : "below";
   return (
     <div className={styles.block} data-testid="decision-loss">
+      <SourceLine kinds={["record", "model"]} />
       {!sold ? (
         <p className={appStyles.hint} data-testid="loss-hypothetical">
           Nothing was sold: {notSoldWhy(r)}, so no option can lose. Had it been accepted, these are the
