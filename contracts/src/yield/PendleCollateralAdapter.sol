@@ -33,6 +33,8 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 ///      - the vault (`owner`) can always take liquid USDG out and can always sell PT at its own price limit; after
 ///        maturity anyone can redeem the PT back to USDG.
 ///      The allocator (the vault's agent) only chooses how much and when, inside those bounds, as it does for strikes.
+///      Every state-changing function is `nonReentrant`. Trade outputs are the router's returned amounts, checked
+///      against the caller's minimum; the cap and reserve checks read live balances after the trade.
 contract PendleCollateralAdapter is ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
     using Math for uint256;
@@ -183,9 +185,8 @@ contract PendleCollateralAdapter is ReentrancyGuardTransient {
         uint256 floor = usdgIn.mulDiv(ONE, rate).mulDiv(BPS - maxSlippageBps, BPS);
         if (minPtOut < floor) revert SlippageBoundTooLoose(minPtOut, floor);
 
-        uint256 before = pt.balanceOf(address(this));
         usdg.forceApprove(address(router), usdgIn);
-        router.swapExactTokenForPt(
+        (ptOut,,) = router.swapExactTokenForPt(
             address(this),
             market,
             minPtOut,
@@ -193,7 +194,6 @@ contract PendleCollateralAdapter is ReentrancyGuardTransient {
             TokenInput(address(usdg), usdgIn, address(usdg), address(0), _noSwap()),
             _noLimitOrders()
         );
-        ptOut = pt.balanceOf(address(this)) - before;
         if (ptOut < minPtOut) revert OutputTooLow(ptOut, minPtOut);
 
         uint256 position = ptValue();
@@ -212,22 +212,20 @@ contract PendleCollateralAdapter is ReentrancyGuardTransient {
         if (ptIn == 0) revert ZeroAmount();
         if (block.timestamp >= maturity) return _redeem(ptIn, minUsdgOut);
         // The vault's own sales do not read the oracle, so they work even if it cannot answer.
-        uint256 rate;
+        uint256 rate = 0;
         if (msg.sender != owner) {
             rate = _oracleRate();
             uint256 floor = ptIn.mulDiv(rate, ONE).mulDiv(BPS - maxSlippageBps, BPS);
             if (minUsdgOut < floor) revert SlippageBoundTooLoose(minUsdgOut, floor);
         }
-        uint256 before = usdg.balanceOf(address(this));
         pt.forceApprove(address(router), ptIn);
-        router.swapExactPtForToken(
+        (usdgOut,,) = router.swapExactPtForToken(
             address(this),
             market,
             ptIn,
             TokenOutput(address(usdg), minUsdgOut, address(usdg), address(0), _noSwap()),
             _noLimitOrders()
         );
-        usdgOut = usdg.balanceOf(address(this)) - before;
         if (usdgOut < minUsdgOut) revert OutputTooLow(usdgOut, minUsdgOut);
         emit Deallocated(msg.sender, ptIn, usdgOut, rate);
     }
@@ -243,13 +241,13 @@ contract PendleCollateralAdapter is ReentrancyGuardTransient {
 
     // ================================================================== curator side
 
-    function setEnabled(bool on) external only(curator) {
+    function setEnabled(bool on) external only(curator) nonReentrant {
         enabled = on;
         emit EnabledSet(on);
     }
 
     /// @notice A lower cap or a higher buffer stops new allocations; the curator or the agent then sells down.
-    function setLimits(uint256 cap_, uint16 bufferBps_, uint16 maxSlippageBps_) external only(curator) {
+    function setLimits(uint256 cap_, uint16 bufferBps_, uint16 maxSlippageBps_) external only(curator) nonReentrant {
         if (cap_ > hardCap || bufferBps_ > BPS || maxSlippageBps_ > MAX_SLIPPAGE_BPS) revert LimitTooHigh();
         cap = cap_;
         bufferBps = bufferBps_;
@@ -257,7 +255,7 @@ contract PendleCollateralAdapter is ReentrancyGuardTransient {
         emit LimitsSet(cap_, bufferBps_, maxSlippageBps_);
     }
 
-    function setAllocator(address allocator_) external only(curator) {
+    function setAllocator(address allocator_) external only(curator) nonReentrant {
         allocator = allocator_;
         emit AllocatorSet(allocator_);
     }
@@ -330,12 +328,10 @@ contract PendleCollateralAdapter is ReentrancyGuardTransient {
     }
 
     function _redeem(uint256 ptIn, uint256 minUsdgOut) internal returns (uint256 usdgOut) {
-        uint256 before = usdg.balanceOf(address(this));
         pt.forceApprove(address(router), ptIn);
-        router.redeemPyToToken(
+        (usdgOut,) = router.redeemPyToToken(
             address(this), yt, ptIn, TokenOutput(address(usdg), minUsdgOut, address(usdg), address(0), _noSwap())
         );
-        usdgOut = usdg.balanceOf(address(this)) - before;
         if (usdgOut < minUsdgOut) revert OutputTooLow(usdgOut, minUsdgOut);
         emit Redeemed(ptIn, usdgOut);
     }
