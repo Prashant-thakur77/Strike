@@ -29,7 +29,7 @@ Known limits, found while writing this page:
 
 ## Decision pages
 
-`/app/decision/{chain}/{record}` is one page per decision record, where `{chain}` is 46630 or 421614 and `{record}` is the file name in that chain's records folder without `.json` (for example [`/app/decision/46630/2026-10-02-sTSLA-CSP-A2`](https://strike-options.vercel.app/app/decision/46630/2026-10-02-sTSLA-CSP-A2)). The browser fetches the record from raw.githubusercontent.com, checks its hash on the record's chain and reads the settlement price from `/api/epoch-trace`. Any other chain or a name that is not `<YYYY-MM-DD>-<symbol>[-N]` is a 404 ([route](../app/src/app/app/decision/%5Bchain%5D/%5Brecord%5D/page.tsx), [derivations](../app/src/lib/decision.ts)).
+`/app/decision/{chain}/{record}` is one page per decision record, where `{chain}` is 46630 or 421614 and `{record}` is the file name in that chain's records folder without `.json` (for example [`/app/decision/46630/2026-10-02-sTSLA-CSP-A2`](https://strike-options.vercel.app/app/decision/46630/2026-10-02-sTSLA-CSP-A2)). The browser fetches the record from raw.githubusercontent.com, checks its hash on the record's chain and reads the settlement price from `/api/epoch-trace`. Any other chain or a name that is not `<YYYY-MM-DD>-<symbol>[-N]` is a 404 ([route](../app/src/app/app/decision/%5Bchain%5D/%5Brecord%5D/page.tsx), [derivations](../app/src/lib/decision.ts)). `?dry=1` opens a specialist-pipeline dry run from `docs/agent-log/dry-runs/` (or `dry-runs/arbitrum-sepolia/` for 421614) instead: the same page with the stage strip, badged as a dry run and without an anchor check, since dry runs are never anchored.
 
 ## Agent files
 
