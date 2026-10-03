@@ -941,6 +941,31 @@ describe("the pipeline end to end", () => {
     expect(rejectionCounts([{ ...t.rows[1]!, ok: false, error: "x" }])).toEqual({ unreadable: 1 });
   });
 
+  it("stops at the risk analyst when no rung is inside the mandate (an empty vault), naming the rejections", async () => {
+    const { outcome, record } = await run(
+      {},
+      {
+        riskCheck: async (args) => {
+          const c = fakeCheck(args);
+          return { ...c, ok: false, reason: "ZeroSize", measured: { ...c.measured, capacity: "0" } };
+        },
+      },
+    );
+    expect(outcome).toEqual({
+      kind: "no-trade",
+      stage: "risk",
+      reasons: ["no rung of the ladder is inside the mandate (8 ZeroSize)"],
+    });
+    expect(record.result.noTrade!.codes).toEqual(["NO_RUNG_IN_MANDATE"]);
+    expect(record.decision!.pipeline!.map((s) => s.verdict)).toEqual([
+      "pass",
+      "fail",
+      "not-run",
+      "not-run",
+      "not-run",
+    ]);
+  });
+
   it("holds the conservative profile to a wider cushion", async () => {
     const input = await criticInput(3000);
     expect(ruleOf(criticRules(input), "cushion").ok).toBe(true);

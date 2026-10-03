@@ -161,6 +161,12 @@ export function rejectionCounts(rows: RiskRow[]): Record<string, number> {
   return out;
 }
 
+/** "8 ZeroSize" or "2 DeltaOutOfBand, 1 unreadable". */
+export const rejectionText = (rows: RiskRow[]) =>
+  Object.entries(rejectionCounts(rows))
+    .map(([k, n]) => `${n} ${k}`)
+    .join(", ");
+
 /** The critic's approval goes stale after this long; a send after it needs a new pass. */
 export const APPROVAL_TTL_MS = 120_000;
 
@@ -404,7 +410,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         summary:
           accepted > 0
             ? `${table.rows.length} rungs dry-run, ${accepted} inside the mandate; greeks and stress ${isNotProvided(engine) ? `not provided (${engine.reason})` : `from the risk engine at ${engine.address}`}.`
-            : `None of the ${table.rows.length} rungs is inside the mandate.`,
+            : `None of the ${table.rows.length} rungs is inside the mandate (${rejectionText(table.rows)}).`,
         inputs: { vault, premiumBps: ladderPremium, mandate: mandate.summary, sigma: brief.sigma.value },
         output: { ...table, rejections: rejectionCounts(table.rows) } as unknown as Record<string, unknown>,
         sources,
@@ -412,10 +418,15 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
       };
     });
     if (!table.rows.some((r) => r.ok))
-      return noTrade("risk", ["no rung of the ladder is inside the mandate"], ["NO_RUNG_IN_MANDATE"], {
-        table,
-        contradictions: brief.contradictions,
-      });
+      return noTrade(
+        "risk",
+        [`no rung of the ladder is inside the mandate (${rejectionText(table.rows)})`],
+        ["NO_RUNG_IN_MANDATE"],
+        {
+          table,
+          contradictions: brief.contradictions,
+        },
+      );
 
     // 3. Strike planner.
     let choice: PlannerChoice | null = null;
