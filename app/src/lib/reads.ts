@@ -8,6 +8,7 @@ import {
   testStockTokenAbi,
 } from "@strike/sdk";
 import { erc20Abi, parseAbi, type Address, type PublicClient } from "viem";
+import { chainNow } from "./chainNow";
 import { deploymentOfManager, deploymentVersion, fromBlock, type Deployment } from "./deployment";
 import { toNumber, usdValue } from "./format";
 import { LOOKAHEAD_DAYS, dayOf, sessionChange, type CalendarDay, type SessionChange } from "./marketHours";
@@ -121,6 +122,39 @@ export async function vaultAddresses(client: PublicClient, dep: Deployment): Pro
       }),
     ),
   );
+}
+
+/** A vault as the faucet page needs it: which kind it is and which stock token it writes on. */
+export interface VaultEntry {
+  address: Address;
+  isCall: boolean;
+  underlying: TokenInfo;
+  /** The deployment the vault belongs to. */
+  deployment: Deployment;
+}
+
+/**
+ * Every vault of a deployment with its kind and stock token, and nothing else: the count, the addresses, each vault's
+ * `isCall` and `underlying`, then the token symbols (cached by `tokenInfo`). Each round is one Multicall3 call on a
+ * batching client. No logs and no block reads, unlike `vaultSummary` with `vaultHistory`.
+ */
+export async function vaultDirectory(client: PublicClient, dep: Deployment): Promise<VaultEntry[]> {
+  const addresses = await vaultAddresses(client, dep);
+  const kinds = await Promise.all(
+    addresses.map((address) =>
+      Promise.all([
+        client.readContract({ address, abi: strikeVaultAbi, functionName: "isCall" }),
+        client.readContract({ address, abi: strikeVaultAbi, functionName: "underlying" }),
+      ]),
+    ),
+  );
+  const tokens = await Promise.all(kinds.map(([, underlying]) => tokenInfo(client, underlying)));
+  return addresses.map((address, i) => ({
+    address,
+    isCall: kinds[i][0],
+    underlying: tokens[i],
+    deployment: dep,
+  }));
 }
 
 export async function getSeries(client: PublicClient, dep: Deployment, id: bigint): Promise<Series> {
@@ -855,50 +889,54 @@ export async function faucetTokens(
   dep: Deployment,
   account: Address | undefined,
 ): Promise<FaucetToken[]> {
-  const now = Number((await client.getBlock()).timestamp);
-  return Promise.all(
-    Object.entries(dep.stocks).map(async ([symbol, { token }]) => {
-      const info = await tokenInfo(client, token);
-      const balance = account
-        ? await client.readContract({
-            address: token,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [account],
-          })
-        : 0n;
-      try {
-        const t = { address: token, abi: testStockTokenAbi } as const;
-        const [amount, cooldown, last] = await Promise.all([
-          client.readContract({ ...t, functionName: "FAUCET_AMOUNT" }),
-          client.readContract({ ...t, functionName: "FAUCET_COOLDOWN" }),
-          account ? client.readContract({ ...t, functionName: "lastFaucet", args: [account] }) : 0n,
-        ]);
-        const nextAt = last === 0n ? 0 : Number(last + cooldown);
-        return {
-          symbol,
-          token,
-          decimals: info.decimals,
-          isTestToken: true,
-          amount,
-          cooldown: Number(cooldown),
-          balance,
-          nextAt: nextAt > now ? nextAt : 0,
-        };
-      } catch {
-        return {
-          symbol,
-          token,
-          decimals: info.decimals,
-          isTestToken: false,
-          amount: 0n,
-          cooldown: 0,
-          balance,
-          nextAt: 0,
-        };
-      }
-    }),
-  );
+  // The clock rides in the same Multicall3 call as the token reads (chainNow); cooldowns are measured on it.
+  const [now, tokens] = await Promise.all([
+    chainNow(client),
+    Promise.all(
+      Object.entries(dep.stocks).map(async ([symbol, { token }]) => {
+        const info = await tokenInfo(client, token);
+        const balance = account
+          ? await client.readContract({
+              address: token,
+              abi: erc20Abi,
+              functionName: "balanceOf",
+              args: [account],
+            })
+          : 0n;
+        try {
+          const t = { address: token, abi: testStockTokenAbi } as const;
+          const [amount, cooldown, last] = await Promise.all([
+            client.readContract({ ...t, functionName: "FAUCET_AMOUNT" }),
+            client.readContract({ ...t, functionName: "FAUCET_COOLDOWN" }),
+            account ? client.readContract({ ...t, functionName: "lastFaucet", args: [account] }) : 0n,
+          ]);
+          const nextAt = last === 0n ? 0 : Number(last + cooldown);
+          return {
+            symbol,
+            token,
+            decimals: info.decimals,
+            isTestToken: true,
+            amount,
+            cooldown: Number(cooldown),
+            balance,
+            nextAt,
+          };
+        } catch {
+          return {
+            symbol,
+            token,
+            decimals: info.decimals,
+            isTestToken: false,
+            amount: 0n,
+            cooldown: 0,
+            balance,
+            nextAt: 0,
+          };
+        }
+      }),
+    ),
+  ]);
+  return tokens.map((t) => ({ ...t, nextAt: t.nextAt > now ? t.nextAt : 0 }));
 }
 
 export interface WalletBalances {

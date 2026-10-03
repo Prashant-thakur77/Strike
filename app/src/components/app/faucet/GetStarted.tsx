@@ -6,7 +6,7 @@ import { ArrowRight, ArrowUpRight, Check } from "lucide-react";
 import { useRef, useState } from "react";
 import { formatEther } from "viem";
 import { useConnection } from "wagmi";
-import { useAllVaults, useWalletBalances } from "@/hooks/queries";
+import { useVaultDirectory, useWalletBalances } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { explorerUrl } from "@/lib/chains";
 import { DRIP_AMOUNT, dripOf, gasDripOf } from "@/lib/drip";
@@ -144,7 +144,7 @@ export function GetStarted() {
   const { isConnected } = useConnection();
   const qc = useQueryClient();
   const balances = useWalletBalances();
-  const vaults = useAllVaults();
+  const vaults = useVaultDirectory();
   const status = useGasDripStatus();
   const gasDrip = gasDripOf(chainId);
   const usdgDrip = dripOf(chainId);
@@ -154,7 +154,7 @@ export function GetStarted() {
   const s = status.data;
   const hasGas = !!b && b.gas >= GAS_ENOUGH;
   const hasUsdg = !!b && b.usdg.balance >= DRIP_AMOUNT;
-  const putVault = (vaults.data ?? []).find((v) => !v.summary.isCall);
+  const putVault = (vaults.data ?? []).find((v) => !v.isCall);
   const faucet = chainId === 421614 ? LINKS.arbSepoliaFaucet : LINKS.robinhoodFaucet;
   const refresh = () => {
     // The relayer waited for the block, so the new balance is readable now.
@@ -219,10 +219,10 @@ export function GetStarted() {
       done: false,
       body: (
         <Link
-          href={putVault ? `/app/vault/${putVault.summary.address}` : "/app"}
+          href={putVault ? `/app/vault/${putVault.address}` : "/app"}
           className={hasUsdg ? "pill pill-small" : "text-link"}
         >
-          {putVault ? `Open the ${putVault.summary.underlying.symbol} put vault` : "Open vaults"}{" "}
+          {putVault ? `Open the ${putVault.underlying.symbol} put vault` : "Open vaults"}{" "}
           <ArrowRight size={12} aria-hidden />
         </Link>
       ),

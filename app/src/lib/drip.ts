@@ -1,5 +1,6 @@
 import { usdgDripAbi } from "@strike/sdk";
 import { BaseError, ContractFunctionRevertedError, erc20Abi, type Address, type PublicClient } from "viem";
+import { chainNow } from "./chainNow";
 import { chainDeployments } from "./deployment";
 import { fmtAgain } from "./marketHours";
 
@@ -35,15 +36,14 @@ export async function dripState(
   const f = dripOf(chainId);
   if (!f) return null;
   const c = { address: f.drip, abi: usdgDripAbi } as const;
-  const [block, remaining, balance, next] = await Promise.all([
-    client.getBlock(),
+  const [now, remaining, balance, next] = await Promise.all([
+    chainNow(client),
     client.readContract({ ...c, functionName: "remaining" }),
     account
       ? client.readContract({ address: f.usdg, abi: erc20Abi, functionName: "balanceOf", args: [account] })
       : 0n,
     account ? client.readContract({ ...c, functionName: "nextDripAt", args: [account] }) : 0n,
   ]);
-  const now = Number(block.timestamp);
   return { drip: f.drip, remaining, balance, nextAt: Number(next) > now ? Number(next) : 0, now };
 }
 

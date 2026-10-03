@@ -117,6 +117,8 @@ interface Setup {
   chainId?: number;
   /** Deploy a RiskLens bound to `manager` (default: the series' EpochManager) and pass it to the client. */
   lens?: { manager?: Address };
+  /** Replace the feed's rounds: its latest round and `getRoundData` by round id (records each id read). */
+  feed?: { latest: readonly bigint[]; round: (id: bigint) => readonly bigint[]; read: bigint[] };
 }
 
 function setup(o: Setup = {}) {
@@ -209,12 +211,17 @@ function setup(o: Setup = {}) {
     [FEED]: {
       abi: mirrorFeedAbi,
       fns: {
-        latestRoundData: [3n, 35_000_500_000n, 1_790_777_939n, 1_790_777_939n, 3n],
-        getRoundData: (args: readonly unknown[]) =>
-          ({
+        latestRoundData: o.feed?.latest ?? [3n, 35_000_500_000n, 1_790_777_939n, 1_790_777_939n, 3n],
+        getRoundData: (args: readonly unknown[]) => {
+          if (o.feed) {
+            o.feed.read.push(args[0] as bigint);
+            return o.feed.round(args[0] as bigint);
+          }
+          return {
             2: [2n, 35_245_300_000n, 1_790_700_322n, 1_790_700_322n, 2n],
             1: [1n, 36_900_000_000n, 1_790_629_879n, 1_790_629_879n, 1n],
-          })[String(args[0]) as "1" | "2"],
+          }[String(args[0]) as "1" | "2"];
+        },
       },
     },
     [ENGINE]: {
@@ -378,6 +385,40 @@ describe("seriesRisk on the live TSLA covered call (fixed vector)", () => {
     expect(iv.sigma).toBe(STYLUS.impliedVol);
     near(wadToNumber(iv.sigma), REFERENCE.impliedVol, 1e-11);
     near(wadToNumber(iv.sigma), 0.6, 1e-7); // the epoch's sigma, up to the USDG rounding of the premium
+  });
+
+  // A feed in phase 2 at aggregator round 40, one round an hour; round 3 is the last one published before the buy.
+  const PHASE = 2n << 64n;
+  const hourly = (read: bigint[]) => ({
+    latest: [PHASE + 40n, 35_000_500_000n, BUY_TIME + 37n * 3600n, BUY_TIME + 37n * 3600n, PHASE + 40n],
+    round: (id: bigint) => {
+      const r = id - PHASE;
+      const at = BUY_TIME - 600n + (r - 3n) * 3600n;
+      return [id, r === 3n ? 35_245_300_000n : 30_000_000_000n, at, at, id];
+    },
+    read,
+  });
+
+  it("walks back many feed rounds to the one in force at the buy, newest first", async () => {
+    const read: bigint[] = [];
+    const { strike } = setup({ feed: hourly(read) });
+    const r = await strike.seriesRisk(SERIES_ID);
+    expect(r.impliedVol!.spot).toBe(352_453_000_000_000_000_000n); // round 3's answer
+    // Rounds 39 down to 1, in order: three reads of 16, 16 and the 7 left, so the chunk with round 3 is read whole.
+    expect(read.map((id) => Number(id - PHASE))).toEqual(Array.from({ length: 39 }, (_, i) => 39 - i));
+  });
+
+  it("never reads below the phase's first round, and says so when no round is old enough", async () => {
+    const read: bigint[] = [];
+    const feed = hourly(read);
+    const { strike } = setup({
+      feed: { ...feed, round: (id) => [id, 30_000_000_000n, BUY_TIME + 60n, BUY_TIME + 60n, id] },
+    });
+    const r = await strike.seriesRisk(SERIES_ID);
+    expect(r.impliedVol).toBeNull();
+    expect(r.impliedVolNote).toBe("the feed round in force at the buy is not available");
+    expect(read.length).toBe(39);
+    expect(read.every((id) => id > PHASE)).toBe(true);
   });
 
   it("accepts a series object and skips the implied volatility on request", async () => {

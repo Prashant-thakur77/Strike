@@ -475,6 +475,12 @@ async function readSpot(ctx: RiskContext, token: Address): Promise<{ spot: bigin
 }
 
 const MAX_ROUND_STEPS = 64;
+/**
+ * Rounds read at once while walking back from the latest. On a client that batches through Multicall3 (the app's)
+ * one chunk is one eth_call; one read per round made about 20 sequential calls for a buy a day old, enough with the
+ * page's other reads to draw HTTP 429 from a public RPC.
+ */
+const ROUND_CHUNK = 16;
 
 /**
  * The last buy's implied volatility: its premium per option ÷ the premium factor is the fair value the contract
@@ -572,16 +578,30 @@ async function feedPriceAt(ctx: RiskContext, token: Address, at: bigint): Promis
     cfg.feedDecimals <= 18
       ? answer * 10n ** BigInt(18 - cfg.feedDecimals)
       : answer / 10n ** BigInt(cfg.feedDecimals - 18);
-  let [roundId, answer, , updatedAt] = await pc.readContract({ ...feed, functionName: "latestRoundData" });
-  const phaseBase = roundId - (roundId & ((1n << 64n) - 1n));
-  for (let i = 0; i < MAX_ROUND_STEPS; i++) {
-    if (updatedAt <= at) return answer > 0n ? scale(answer) : null;
-    if (roundId - phaseBase <= 1n) return null;
-    [roundId, answer, , updatedAt] = await pc.readContract({
-      ...feed,
-      functionName: "getRoundData",
-      args: [roundId - 1n],
-    });
+  const [latestId, latestAnswer, , latestUpdatedAt] = await pc.readContract({
+    ...feed,
+    functionName: "latestRoundData",
+  });
+  if (latestUpdatedAt <= at) return latestAnswer > 0n ? scale(latestAnswer) : null;
+  const phaseBase = latestId - (latestId & ((1n << 64n) - 1n));
+  // Walk back newest first, ROUND_CHUNK rounds per step, never below the phase's first round: the same rounds in the
+  // same order as one read at a time, so the first round at or before `at` wins and a failed read still throws.
+  let roundId = latestId;
+  for (let read = 0; read < MAX_ROUND_STEPS - 1;) {
+    const left = roundId - phaseBase - 1n;
+    if (left <= 0n) return null;
+    const n = Math.min(ROUND_CHUNK, Number(left), MAX_ROUND_STEPS - 1 - read);
+    const ids = Array.from({ length: n }, (_, i) => roundId - 1n - BigInt(i));
+    const rounds = await Promise.allSettled(
+      ids.map((id) => pc.readContract({ ...feed, functionName: "getRoundData", args: [id] })),
+    );
+    for (const r of rounds) {
+      if (r.status === "rejected") throw r.reason;
+      const [, answer, , updatedAt] = r.value;
+      if (updatedAt <= at) return answer > 0n ? scale(answer) : null;
+    }
+    roundId -= BigInt(n);
+    read += n;
   }
   return null;
 }

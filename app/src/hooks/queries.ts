@@ -17,6 +17,7 @@ import {
   registry,
   rejections,
   vaultAddresses,
+  vaultDirectory,
   vaultDeployment,
   vaultHistory,
   vaultSummary,
@@ -59,6 +60,21 @@ export function useAllVaults() {
     enabled: ready && !!client && deployments.length > 0,
     refetchInterval: REFRESH,
     queryFn: async () => (await Promise.all(deployments.map((d) => vaultsOf(client!, d)))).flat(),
+  });
+}
+
+/**
+ * Every vault of every deployment on the chain, the default deployment's first, with only its kind and stock token
+ * (`vaultDirectory`). For pages that list or link vaults without their numbers, such as the faucet: a few Multicall3
+ * calls, read once and kept for five minutes, where `useAllVaults` reads each vault's logs and block times every 15 s.
+ */
+export function useVaultDirectory() {
+  const { client, deployments, chainId, ready } = useStrike();
+  return useQuery({
+    queryKey: ["strike", chainId, "vault-directory", deployments.map(deploymentKey).join(",")],
+    enabled: ready && !!client && deployments.length > 0,
+    staleTime: 5 * 60_000,
+    queryFn: async () => (await Promise.all(deployments.map((d) => vaultDirectory(client!, d)))).flat(),
   });
 }
 

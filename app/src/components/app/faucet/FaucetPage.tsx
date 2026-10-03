@@ -5,11 +5,12 @@ import { testStockTokenAbi } from "@strike/sdk";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { parseAbi, parseUnits } from "viem";
 import { useConnection } from "wagmi";
-import { useVaults, useWalletBalances } from "@/hooks/queries";
+import { useVaultDirectory, useWalletBalances } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { useTx } from "@/hooks/useTx";
 import { fmtAmount, fmtNy } from "@/lib/format";
 import { LINKS } from "@/lib/links";
+import { deploymentKey } from "@/lib/deployment";
 import { dripOf, gasDripOf } from "@/lib/drip";
 import type { FaucetToken } from "@/lib/reads";
 import { ConnectButton } from "@/components/site/ConnectButton";
@@ -38,8 +39,13 @@ export function FaucetPage() {
       ? { href: LINKS.arbSepoliaFaucet, text: "Arbitrum Sepolia faucet" }
       : { href: LINKS.robinhoodFaucet, text: "Robinhood Chain faucet" };
   const b = balances.data;
-  const vaults = useVaults();
-  const vaultSymbols = new Set((vaults.data ?? []).map((v) => v.summary.underlying.symbol));
+  // Kinds and stock tokens only (a few Multicall3 calls): the page needs no vault numbers.
+  const vaults = useVaultDirectory();
+  const vaultSymbols = new Set(
+    (vaults.data ?? [])
+      .filter((v) => deploymentKey(v.deployment) === deploymentKey(deployment))
+      .map((v) => v.underlying.symbol),
+  );
   const stocks: { symbol: string; full: FaucetToken | null }[] = b
     ? b.stocks.map((t) => ({ symbol: t.symbol, full: t }))
     : Object.keys(deployment?.stocks ?? {}).map((symbol) => ({ symbol, full: null }));
