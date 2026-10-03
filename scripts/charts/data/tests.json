@@ -52,8 +52,8 @@
         },
         {
           "label": "Example agents",
-          "count": 96,
-          "source": "agents/example: vitest run --reporter=json, 96 tests"
+          "count": 102,
+          "source": "agents/example: vitest run --reporter=json, 102 tests"
         },
         {
           "label": "Indexer",
@@ -72,8 +72,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 264,
-          "source": "app: npx playwright test --list reports 528 runs in 27 files = 264 tests x 2 viewports (desktop 1440x900, mobile 390x844), 32 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
+          "count": 266,
+          "source": "app: npx playwright test --list reports 532 runs in 27 files = 266 tests x 2 viewports (desktop 1440x900, mobile 390x844), 32 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
         }
       ]
     }

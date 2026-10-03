@@ -337,8 +337,8 @@ export interface TestFact {
   evidence: Evidence[];
 }
 
-// Source: docs/evidence/facts.json (527 Foundry passing and 7 skipped, 15 Rust, 486 TypeScript = SDK 253 + MCP 84 +
-// agents 96 + indexer 53, 62 Telegram bot, 10 subgraph, 264 Playwright); scripts/check-numbers.mjs fails CI when a
+// Source: docs/evidence/facts.json (527 Foundry passing and 7 skipped, 15 Rust, 492 TypeScript = SDK 253 + MCP 84 +
+// agents 102 + indexer 53, 62 Telegram bot, 10 subgraph, 266 Playwright); scripts/check-numbers.mjs fails CI when a
 // count here differs from it. Re-count with `node scripts/check-numbers.mjs --measure --write`, which runs
 // `forge test --no-match-path "test/{fork,differential,formal}/*" --summary` (the fork, differential and Halmos suites
 // are counted under CHECKS), vitest in each TypeScript package and `npx playwright test --list` in app (tests per
@@ -365,9 +365,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "486",
+    count: "492",
     detail:
-      "SDK 253, MCP server 84, example agents 96, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
+      "SDK 253, MCP server 84, example agents 102, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -389,7 +389,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "264",
+    count: "266",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 32 of them are the opt-in UI audit at five widths",
     evidence: [
