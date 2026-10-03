@@ -52,8 +52,8 @@
         },
         {
           "label": "Example agents",
-          "count": 102,
-          "source": "agents/example: vitest run --reporter=json, 102 tests"
+          "count": 148,
+          "source": "agents/example: vitest run --reporter=json, 148 tests"
         },
         {
           "label": "Indexer",

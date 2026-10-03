@@ -44,7 +44,7 @@ The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synth
 
 ## 1:31 to 1:51 · Slide 14: Evidence, not claims
 
-> Behind it: 1,393 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
+> Behind it: 1,439 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
 >
 > CI re-checks all 160 transactions the docs cite, on-chain. It is not audited yet.
 
