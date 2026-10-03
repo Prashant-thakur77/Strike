@@ -953,7 +953,7 @@ One command runs a full week on a local anvil chain, in about 15 seconds once th
 scripts/demo-local.sh
 ```
 
-No USDG yet? On Robinhood Chain testnet, get gas from the [Robinhood Chain faucet](https://faucet.testnet.chain.robinhood.com/), then press **Get 10 test USDG** on the app's [faucet page](https://strike-options.vercel.app/app/faucet): Strike's own faucet contract ([`UsdgDrip`](docs/DEPLOYMENTS.md#usdgdrip-the-test-usdg-faucet-additive-deployed-2026-10-01), verified, refilled by the team) sends 10 test USDG once a day per address, so a first transaction does not wait on the Paxos faucet.
+New wallet with no test ETH? **Get started** on the app's [faucet page](https://strike-options.vercel.app/app/faucet) sends it 0.0001 ETH for gas from a team-funded contract ([`GasDrip`](docs/DEPLOYMENTS.md#gasdrip-the-starter-gas-drip-additive-deployed-2026-10-03), once per address, at most 20 a day, relayed by the app because a wallet without gas cannot ask; [D47](docs/decisions.md)), on Robinhood Chain testnet and Arbitrum Sepolia. Then press **Get 10 test USDG**: Strike's own faucet contract ([`UsdgDrip`](docs/DEPLOYMENTS.md#usdgdrip-the-test-usdg-faucet-additive-deployed-2026-10-01), verified, refilled by the team) sends 10 test USDG once a day per address, so a first transaction does not wait on the Paxos faucet.
 
 No install at all: open the [mandate playground](https://strike-options.vercel.app/app/playground), click "Reckless agent", and the deployed `EpochManager.previewProposal` returns `DeltaOutOfBand` without a wallet. The [5-minute tester guide](docs/testers.md) covers the faucet, a deposit and a buy, and the [feedback form](https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml) takes reports.
 

@@ -1,6 +1,6 @@
 {
   "about": "What scripts/check-claims.mjs checks in a cited transaction beyond its status, block, time and gas (those are read from the tables that cite it). Each entry is one claim the docs make, with the events its receipt must contain. Values: '10 USDG' and '369.86 USD' are exact amounts in the unit's decimals; a leading '~' compares after rounding to the decimals written ('~0.20 WAD'); '8 (DeltaOutOfBand)' is an enum value with its name; addresses compare case-insensitively. 'status': 'reverted' marks a transaction cited because it failed. 'context' lists figures a citing sentence may also state that are not in this receipt (balances before and after), each with what it is.",
-  "units": { "USDG": 6, "USD": 18, "WAD": 18, "TOKEN": 18, "USDC": 6 },
+  "units": { "USDG": 6, "USD": 18, "WAD": 18, "TOKEN": 18, "USDC": 6, "ETH": 18 },
   "events": {
     "EpochOpened": "EpochOpened(address indexed vault, uint64 indexed epoch, uint256 spot)",
     "SeriesProposed": "SeriesProposed(address indexed vault, uint64 indexed epoch, uint256 indexed seriesId, uint256 strike, uint64 expiry, uint256 size, uint16 premiumBps, uint256 fairValue, int256 delta)",
@@ -21,7 +21,10 @@
     "PremiumClaimed": "PremiumClaimed(address indexed account, uint256 amount)",
     "Transfer": "Transfer(address indexed from, address indexed to, uint256 value)",
     "IdentityMinted": "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
-    "AuthorizationUsed": "AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)"
+    "AuthorizationUsed": "AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)",
+    "GasDripped": "Dripped(address indexed to, address indexed relayer, uint256 amount)",
+    "GasRefilled": "Refilled(address indexed from, uint256 amount)",
+    "RelayerSet": "RelayerSet(address indexed relayer, bool allowed)"
   },
   "transactions": {
     "0x7cdcbb537cb7d8703c865c3bcb29c25eebaa8a85c0eca8ca27ffeb5476d2ae7a": {
@@ -719,6 +722,80 @@
           "event": "Deposit",
           "address": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
           "args": { "owner": "0x2E89c1C42A76507dB832E9b78403AB50bd8D9957", "assets": "1 USDG" }
+        }
+      ]
+    },
+    "0x951279ff1a89a37af55a03380363ac28c0ad3e7119e6407bb1687738c134623f": {
+      "chain": 46630,
+      "claim": "GasDrip deployed on Robinhood Chain testnet with the relayer allowed",
+      "events": [
+        {
+          "event": "RelayerSet",
+          "address": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+          "args": { "relayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c", "allowed": true }
+        }
+      ]
+    },
+    "0xd284e812e9aabd6d90805fc792524a0996eac332d8840a2655f8795421422219": {
+      "chain": 46630,
+      "claim": "GasDrip funded with 0.002 ETH by the deployer",
+      "events": [
+        {
+          "event": "GasRefilled",
+          "address": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+          "args": { "from": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff", "amount": "0.002 ETH" }
+        }
+      ]
+    },
+    "0x27ce6d484a9da04aa6e7b6a09f680d81b58df2420908cd68a7e85096ba0d98ec": {
+      "chain": 421614,
+      "claim": "GasDrip deployed on Arbitrum Sepolia with the relayer allowed",
+      "events": [
+        {
+          "event": "RelayerSet",
+          "address": "0x4fF10F0A6C1a9cC9c0a83ceC6c0C5e3dd2293EAd",
+          "args": { "relayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c", "allowed": true }
+        }
+      ]
+    },
+    "0x2994afe2df148715de0b92c9a4f659f54765d63a05cffe380c5a566c77039b0e": {
+      "chain": 421614,
+      "claim": "GasDrip funded with 0.004 ETH by the deployer",
+      "events": [
+        {
+          "event": "GasRefilled",
+          "address": "0x4fF10F0A6C1a9cC9c0a83ceC6c0C5e3dd2293EAd",
+          "args": { "from": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff", "amount": "0.004 ETH" }
+        }
+      ]
+    },
+    "0xb1aab122e725610a072862b9fd0fbfc3df842d1fe9433468580c5039e790cf42": {
+      "chain": 46630,
+      "claim": "first starter-gas drip, relayed by /api/gas-drip to a wallet holding 0 ETH",
+      "events": [
+        {
+          "event": "GasDripped",
+          "address": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+          "args": {
+            "to": "0xc10D28DF05aC093dE8d1bc281D3B5d6f7322d86d",
+            "relayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
+            "amount": "0.0001 ETH"
+          }
+        }
+      ]
+    },
+    "0x09b7f96a0bbbdccc844f8639ffa9e93106fe18e41a5442a7e15ccb2674782eb5": {
+      "chain": 46630,
+      "claim": "the same wallet claims 10 test USDG, paying with its starter gas",
+      "events": [
+        {
+          "event": "Transfer",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": {
+            "from": "0x1f3778BfC474419f154AD543625A711d90985632",
+            "to": "0xc10D28DF05aC093dE8d1bc281D3B5d6f7322d86d",
+            "value": "10 USDG"
+          }
         }
       ]
     }

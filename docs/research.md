@@ -499,6 +499,30 @@ Strike's cash-secured-put vault, 2019 to 2026 ([backtest.md](backtest.md)): −0
 
 ---
 
+## 9. Account abstraction and gas sponsorship on the two testnets
+
+Checked 2026-10-03 (UTC) for onboarding: can a new user act without first getting testnet ETH from a faucet? The answer decided [D47](decisions.md).
+
+**On-chain** (`cast code <address> --rpc-url <rpc>`, both public RPCs above):
+
+| Contract                 | Address                                      | Robinhood testnet 46630 | Arbitrum Sepolia 421614 |
+| ------------------------ | -------------------------------------------- | ----------------------- | ----------------------- |
+| ERC-4337 EntryPoint v0.6 | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` | deployed                | deployed                |
+| ERC-4337 EntryPoint v0.7 | `0x0000000071727De22E5E9d8BAf0edAc6f37da032` | deployed                | deployed                |
+| ERC-4337 EntryPoint v0.8 | `0x4337084D9E255Ff0702461CF8895CE9E3b5Ff108` | deployed                | deployed                |
+| ERC-4337 EntryPoint v0.9 | `0x433709009B8330FDa32311DF1C2AFA402eD8D009` | deployed                | deployed                |
+
+- **ArbOS version, on-chain.** `ArbSys(0x64).arbOSVersion()` returns 116 on both chains, which is ArbOS 61 (the precompile adds 55). Both RPCs report Nitro `v3.12.1-rc.2`. EIP-7702 arrived in ArbOS 40 "Callisto" ([Arbitrum docs](https://docs.arbitrum.io/run-arbitrum-node/arbos-releases/arbos40)).
+- **EIP-7702, on-chain.** `cast estimate` of a type-4 transaction carrying a signed authorization (a throwaway key delegating to the v0.7 EntryPoint) succeeds on both chains, at 56,795 gas on 46630 and 52,514 on 421614 against 27,455 and 23,161 for the same call without it: the authorization is processed, not ignored. Robinhood's docs list 7702 support ([account abstraction](https://docs.robinhood.com/chain/account-abstraction)).
+- **Pimlico public bundler, live.** `https://public.pimlico.io/v2/{46630,421614}/rpc` answers `eth_supportedEntryPoints` with all four EntryPoints and `pimlico_getUserOperationGasPrice` with prices, with no API key. Its docs list both chains for bundler and paymaster ([supported chains](https://docs.pimlico.io/llms-full.txt), "Robinhood Testnet, Chain ID 46630, EIP-7702 support"). The docs also say the public endpoint serves paymaster methods on testnets, but `pm_sponsorUserOperation` and `pm_getPaymasterStubData` on both chains answered `"Sponsorship policy ID is required for this API key"`: sponsorship needs a free Pimlico account and a policy. Testnet sponsorship is free once that exists ("Testnet User Operations are free to sponsor").
+- **ZeroDev.** Lists Robinhood Testnet 46630 and Arbitrum Sepolia 421614 as supported networks ([docs](https://docs.zerodev.app/llms-full.txt), "Supported Networks"); every bundler and paymaster URL carries a project ID from the dashboard, and sponsoring needs a gas policy per chain ("confirm that a gas policy exists for the project and chain").
+- **Alchemy.** Bundler and Gas Manager listed for Robinhood Chain testnet ([Wallet APIs supported chains](https://www.alchemy.com/docs/wallets/supported-chains)); needs an API key and a Gas Manager policy.
+- **Biconomy.** Arbitrum Sepolia is supported ([supported networks](https://docs.biconomy.io/supportedNetworks)); we found no listing for Robinhood Chain testnet. Its paymaster URL comes from the dashboard.
+
+**What follows for Strike.** The infrastructure is there on both chains, but every gas sponsor needs an account the team does not hold today, and smart accounts change who holds the funds: with a 4337 account a user's USDG and shares live at a new address, so every balance and position read in the app would move; with 7702 the address stays, but injected wallets do not let a site ask for an authorization signature. So the build is a starter drip (D47): a relayed, team-funded `GasDrip` contract that gives a new wallet 0.0001 ETH, which needs no outside account. Sponsored smart accounts stay the next step: a Pimlico or ZeroDev project with a testnet policy takes the owner a few minutes to set up.
+
+---
+
 ## UNVERIFIED / needs a human check
 
 1. **Clutch Labs "Covered Call Options"**: I only saw it in a search snippet.
