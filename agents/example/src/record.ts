@@ -458,11 +458,16 @@ function stageDetails(st: PipelineStage): string[] {
       out.push(`${head}: ${parts.join(", ")}`);
     }
     const engine = asObj(o.engine);
-    out.push(
-      isNotProvided(engine)
-        ? `Risk engine: not provided (${engine.reason})`
-        : `Risk engine: ${code(String(engine.address))} (${String(engine.via)})`,
-    );
+    if (isNotProvided(engine)) out.push(`Risk engine: not provided (${engine.reason})`);
+    else if (typeof engine.address === "string")
+      out.push(`Risk engine: ${code(engine.address)} (${String(engine.via)})`);
+    const rej = asObj(o.rejections);
+    if (Object.keys(rej).length)
+      out.push(
+        `Rejected by the dry run: ${Object.entries(rej)
+          .map(([k, n]) => `${String(n)} ${k}`)
+          .join(", ")}`,
+      );
   } else if (st.stage === "planner") {
     if (typeof o.targetDeltaBps === "number")
       out.push(
@@ -503,8 +508,9 @@ function pipelineSection(d: RecordDecision | null): string[] {
   ];
   for (const st of stages) {
     const meta = st.verdict === "not-run" ? "" : ` (${BY_TEXT[st.by]}, ${msText(st.durationMs)})`;
+    const summary = oneLine(st.summary).replace(/^not run: /, "");
     lines.push(
-      `- **${STAGE_TITLES[st.stage]}${st.attempt > 1 ? ` (attempt ${st.attempt})` : ""}**${meta}: ${VERDICT_TEXT[st.verdict]}. ${oneLine(st.summary)}`,
+      `- **${STAGE_TITLES[st.stage]}${st.attempt > 1 ? ` (attempt ${st.attempt})` : ""}**${meta}: ${VERDICT_TEXT[st.verdict]}. ${summary[0]?.toUpperCase() ?? ""}${summary.slice(1)}`,
     );
     for (const l of stageDetails(st)) lines.push(`  - ${oneLine(l)}`);
     if (st.narration) {

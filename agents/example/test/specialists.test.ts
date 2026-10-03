@@ -1026,6 +1026,8 @@ describe("the record with a pipeline", () => {
     expect(await prettier.format(md, { parser: "markdown", proseWrap: "preserve" })).toBe(md);
     const noTrade = formatRecordMarkdown((await run({}, { market: weekend() })).record);
     expect(noTrade).toContain("**No trade.**");
+    expect(noTrade).toContain("- **Risk analyst**: NOT RUN. The market analyst stopped the run before this stage");
+    expect(noTrade).not.toContain("undefined");
     expect(noTrade).toContain(
       "- **Stopped by:** the market analyst (market closed until Mon 5 Oct 13:30 UTC)",
     );
