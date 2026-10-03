@@ -99,32 +99,40 @@ test.describe("liveness judgments", () => {
     const agent = SCHEDULES.find((s) => s.workflow === "agent.yml")!;
     const runs = [
       {
-        event: "workflow_dispatch",
-        status: "completed",
-        conclusion: "success",
-        created_at: "2026-10-05T13:58:00Z",
-        html_url: "u1",
-      },
-      {
         event: "schedule",
         status: "completed",
         conclusion: "skipped",
         created_at: "2026-10-05T13:37:35Z",
         html_url: "u2",
       },
+      {
+        event: "workflow_dispatch",
+        status: "completed",
+        conclusion: "success",
+        created_at: "2026-10-05T12:58:00Z",
+        html_url: "u1",
+      },
     ];
     const off = { name: keeper.name, ...scheduleState("keeper.yml", runs) };
-    expect(off).toMatchObject({ state: "off", lastScheduled: { url: "u2" }, lastManual: { url: "u1" } });
+    expect(off).toMatchObject({
+      state: "off",
+      lastScheduled: { url: "u2" },
+      lastManual: { url: "u1" },
+      lastRun: { url: "u1" },
+    });
     const v = scheduleVerdict(off, keeper, NOW);
     expect(v).toMatchObject({ tone: "warn", label: "Switched off" });
     expect(v.detail).toBe(
       "The last scheduled run (Mon 5 Oct, 13:37 UTC) was skipped: its switch, the repository variable KEEPER_ENABLED, is not 'true'. Run by hand until the scheduled jobs are switched on.",
     );
-    const on = { name: keeper.name, ...scheduleState("keeper.yml", [{ ...runs[1], conclusion: "success" }]) };
+    const on = {
+      name: keeper.name,
+      ...scheduleState("keeper.yml", [{ ...runs[0]!, conclusion: "success" }]),
+    };
     expect(scheduleVerdict(on, keeper, NOW)).toMatchObject({ tone: "good", label: "On" });
     const failed = {
       name: keeper.name,
-      ...scheduleState("keeper.yml", [{ ...runs[1], conclusion: "failure" }]),
+      ...scheduleState("keeper.yml", [{ ...runs[0]!, conclusion: "failure" }]),
     };
     expect(scheduleVerdict(failed, keeper, NOW)).toMatchObject({ tone: "bad", label: "On, last run failed" });
     const none = { name: agent.name, ...scheduleState("agent.yml", []) };
@@ -133,6 +141,93 @@ test.describe("liveness judgments", () => {
     const unknown = { name: agent.name, ...scheduleState("agent.yml", null, "HTTP 403, rate limit") };
     expect(scheduleVerdict(unknown, agent, NOW)).toMatchObject({ tone: "neutral", label: "Unknown" });
     expect(scheduleVerdict(unknown, agent, NOW).detail).toContain("(HTTP 403, rate limit)");
+  });
+
+  test("schedules: a cancelled run is not a failure; the last run is the newest finished one of either trigger", () => {
+    pure();
+    const keeper = SCHEDULES.find((s) => s.workflow === "keeper.yml")!;
+    const agent = SCHEDULES.find((s) => s.workflow === "agent.yml")!;
+    const run = (
+      event: string,
+      status: string,
+      conclusion: string | null,
+      time: string,
+      url: string,
+      title?: string,
+    ) => ({
+      event,
+      status,
+      conclusion,
+      created_at: `2026-10-03T${time}Z`,
+      html_url: url,
+      ...(title ? { display_title: title } : {}),
+    });
+    // keeper.yml on 3 October: its chain's dispatched runs pass; a scheduled run queued behind them was cancelled by
+    // the concurrency group at 01:23 UTC.
+    const keeperRuns = [
+      run("workflow_dispatch", "in_progress", null, "02:12:00", "k5"),
+      run("schedule", "completed", "cancelled", "01:23:10", "k4"),
+      run("workflow_dispatch", "completed", "success", "01:21:40", "k3"),
+      run("workflow_dispatch", "completed", "success", "00:30:05", "k2"),
+      run("schedule", "completed", "success", "22:05:00", "k1"),
+    ];
+    const k = { name: keeper.name, ...scheduleState("keeper.yml", keeperRuns) };
+    expect(k).toMatchObject({
+      state: "on",
+      lastScheduled: { url: "k1", conclusion: "success" },
+      lastManual: { url: "k5" },
+      lastRun: { url: "k3", conclusion: "success" },
+    });
+    expect(scheduleVerdict(k, keeper, NOW)).toEqual({
+      tone: "good",
+      label: "On",
+      detail: "Last run Sat 3 Oct, 01:21 UTC (dispatched), success.",
+    });
+    // A failed dispatched run after the cancelled one still reads as a failure.
+    const failed = {
+      name: keeper.name,
+      ...scheduleState("keeper.yml", [keeperRuns[1]!, { ...keeperRuns[2]!, conclusion: "failure" }]),
+    };
+    expect(scheduleVerdict(failed, keeper, NOW)).toMatchObject({ tone: "bad", label: "On, last run failed" });
+    // Only a running and a cancelled run: on, nothing finished to judge.
+    const pending = { name: keeper.name, ...scheduleState("keeper.yml", [keeperRuns[0]!, keeperRuns[1]!]) };
+    expect(pending).toMatchObject({ state: "on", lastScheduled: null, lastRun: null });
+    expect(scheduleVerdict(pending, keeper, NOW)).toEqual({
+      tone: "good",
+      label: "On",
+      detail: "No finished run to judge yet: the newest is still running, and cancelled runs do not count.",
+    });
+    // Only cancelled runs say nothing at all.
+    expect(scheduleState("keeper.yml", [keeperRuns[1]!]).state).toBe("none");
+    // agent.yml: the scheduled settle run failed, then a dispatched settle run passed (it waited for the first print).
+    const a = {
+      name: agent.name,
+      ...scheduleState("agent.yml", [
+        run("workflow_dispatch", "completed", "success", "04:29:26", "a2", "Weekly agent (settle)"),
+        run("schedule", "completed", "failure", "00:31:08", "a1", "Weekly agent"),
+      ]),
+    };
+    expect(a).toMatchObject({ state: "on", lastRun: { url: "a2", title: "Weekly agent (settle)" } });
+    expect(scheduleVerdict(a, agent, NOW)).toEqual({
+      tone: "good",
+      label: "On",
+      detail: "Last run Sat 3 Oct, 04:29 UTC (dispatched, settle), success.",
+    });
+    // JSON served before lastRun existed: a cancelled last scheduled run is not a failure either.
+    const old = {
+      name: keeper.name,
+      workflow: "keeper.yml",
+      state: "on" as const,
+      lastScheduled: {
+        event: "schedule",
+        status: "completed",
+        conclusion: "cancelled",
+        createdAt: "2026-10-03T01:23:10Z",
+        url: "k4",
+      },
+      lastManual: null,
+    };
+    expect(scheduleVerdict(old, keeper, NOW)).toMatchObject({ tone: "good", label: "On" });
   });
 
   test("next slots of the two cron shapes", () => {
@@ -364,6 +459,91 @@ test("proof: the liveness card shows each chain's mirrored prices, epochs, settl
       clip: { x: 0, y: box.y - 16, width: page.viewportSize()!.width, height: box.height + 32 },
     });
   }
+});
+
+test("proof: the liveness card judges the last finished run, not a cancelled scheduled one", async ({
+  page,
+}) => {
+  const body = fixture();
+  const runs = "https://github.com/Prashant-thakur77/Strike/actions/runs";
+  body.schedules = [
+    {
+      name: "Testnet keeper",
+      workflow: "keeper.yml",
+      state: "on",
+      lastScheduled: {
+        event: "schedule",
+        status: "completed",
+        conclusion: "success",
+        createdAt: "2026-10-05T11:05:00Z",
+        url: `${runs}/11`,
+      },
+      lastManual: {
+        event: "workflow_dispatch",
+        status: "in_progress",
+        conclusion: null,
+        createdAt: "2026-10-05T13:52:00Z",
+        url: `${runs}/14`,
+      },
+      lastRun: {
+        event: "workflow_dispatch",
+        status: "completed",
+        conclusion: "success",
+        createdAt: "2026-10-05T13:01:00Z",
+        url: `${runs}/13`,
+      },
+    },
+    {
+      name: "Weekly agent",
+      workflow: "agent.yml",
+      state: "on",
+      lastScheduled: {
+        event: "schedule",
+        status: "completed",
+        conclusion: "failure",
+        createdAt: "2026-10-03T00:31:08Z",
+        url: `${runs}/21`,
+        title: "Weekly agent",
+      },
+      lastManual: {
+        event: "workflow_dispatch",
+        status: "completed",
+        conclusion: "success",
+        createdAt: "2026-10-03T04:29:26Z",
+        url: `${runs}/22`,
+        title: "Weekly agent (settle)",
+      },
+      lastRun: {
+        event: "workflow_dispatch",
+        status: "completed",
+        conclusion: "success",
+        createdAt: "2026-10-03T04:29:26Z",
+        url: `${runs}/22`,
+        title: "Weekly agent (settle)",
+      },
+    },
+  ];
+  await serve(page, body);
+  await page.goto("/app/proof#status");
+  const card = page.getByTestId("liveness");
+  const keeper = card.locator('[data-testid="liveness-schedule"][data-workflow="keeper.yml"]');
+  await expect(keeper).toHaveAttribute("data-state", "on");
+  await expect(keeper).toContainText("Last run Mon 5 Oct, 13:01 UTC (dispatched), success.");
+  await expect(keeper).not.toContainText("last run failed");
+  await expect(keeper.getByRole("link", { name: "last run", exact: true })).toHaveAttribute(
+    "href",
+    `${runs}/13`,
+  );
+  await expect(
+    keeper.getByRole("link", { name: /last dispatched run, Mon 5 Oct, 13:52 UTC, running/ }),
+  ).toBeVisible();
+  const agent = card.locator('[data-testid="liveness-schedule"][data-workflow="agent.yml"]');
+  await expect(agent).toContainText("Last run Sat 3 Oct, 04:29 UTC (dispatched, settle), success.");
+  await expect(agent).not.toContainText("last run failed");
+  await expect(agent.getByRole("link", { name: "last scheduled run" })).toHaveAttribute("href", `${runs}/21`);
+  // The dispatched run is the last run: one link, not two.
+  await expect(agent.getByRole("link", { name: /last dispatched run/ })).toHaveCount(0);
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
 
 test("proof: the liveness card says when /api/status cannot be read, with a retry", async ({ page }) => {

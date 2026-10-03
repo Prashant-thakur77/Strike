@@ -84,16 +84,22 @@ export interface RunJson {
   conclusion: string | null;
   createdAt: string;
   url: string;
+  /** The run's title, "Weekly agent (settle)" (agent.yml's run-name), when GitHub gives one. */
+  title?: string;
 }
 
 export interface ScheduleStatusJson {
   workflow: string;
   name: string;
-  /** "on": the last scheduled run did work; "off": it was skipped by its switch; "none": GitHub lists no scheduled
-   *  run yet; "unknown": GitHub's run list could not be read. */
+  /** "on": the last scheduled run that was not cancelled did work; "off": it was skipped by its switch; "none":
+   *  GitHub lists no scheduled run yet; "unknown": GitHub's run list could not be read. */
   state: "on" | "off" | "none" | "unknown";
   lastScheduled: RunJson | null;
+  /** The newest run started by workflow_dispatch: the keeper's chain, keeper.yml dispatching agent.yml, or by hand. */
   lastManual: RunJson | null;
+  /** The newest finished run of either kind that was not cancelled or skipped: what "last run" means on the card.
+   *  Absent from JSON served before 3 October 2026. */
+  lastRun?: RunJson | null;
   error?: string;
 }
 
@@ -145,6 +151,7 @@ interface GitHubRun {
   conclusion?: string | null;
   created_at?: string;
   html_url?: string;
+  display_title?: string;
 }
 
 const runJson = (r: GitHubRun): RunJson => ({
@@ -153,26 +160,43 @@ const runJson = (r: GitHubRun): RunJson => ({
   conclusion: r.conclusion ?? null,
   createdAt: r.created_at ?? "",
   url: r.html_url ?? "",
+  ...(r.display_title ? { title: r.display_title } : {}),
 });
 
+/** Runs GitHub cancelled say nothing about the job: keeper.yml's concurrency group cancels a queued scheduled run
+ *  when its own chain has already queued the next one. */
+const cancelled = (r: GitHubRun) => r.conclusion === "cancelled";
+
 /**
- * Whether a scheduled job is switched on, from GitHub's list of its runs (newest first). Both workflows gate their
- * jobs on a repository variable, which is not public; a scheduled run whose jobs were all skipped concludes
- * "skipped", so the newest scheduled run says which way the switch was when it ran.
+ * Whether a scheduled job is switched on, and how its last run went, from GitHub's list of its runs (newest first).
+ * Both workflows gate their jobs on a repository variable, which is not public; a run whose jobs were all skipped
+ * concludes "skipped", so the newest run that was not cancelled, scheduled or dispatched (the keeper restarts itself
+ * with workflow_dispatch and dispatches agent.yml; the same switch gates both), says which way the switch is. The last
+ * run is the newest finished one of either trigger that was not cancelled or skipped.
  */
 export function scheduleState(
   workflow: string,
   runs: GitHubRun[] | null,
   error?: string,
 ): Omit<ScheduleStatusJson, "name"> {
-  if (!runs) return { workflow, state: "unknown", lastScheduled: null, lastManual: null, error };
-  const scheduled = runs.find((r) => r.event === "schedule");
+  if (!runs)
+    return { workflow, state: "unknown", lastScheduled: null, lastManual: null, lastRun: null, error };
+  const own = runs.filter(
+    (r) => (r.event === "schedule" || r.event === "workflow_dispatch") && !cancelled(r),
+  );
+  const scheduled = own.find((r) => r.event === "schedule");
   const manual = runs.find((r) => r.event === "workflow_dispatch");
-  const lastScheduled = scheduled ? runJson(scheduled) : null;
-  const lastManual = manual ? runJson(manual) : null;
-  if (!lastScheduled) return { workflow, state: "none", lastScheduled, lastManual };
-  if (lastScheduled.conclusion === "skipped") return { workflow, state: "off", lastScheduled, lastManual };
-  return { workflow, state: "on", lastScheduled, lastManual };
+  const finished = own.find((r) => r.status === "completed" && r.conclusion !== "skipped");
+  const base = {
+    workflow,
+    lastScheduled: scheduled ? runJson(scheduled) : null,
+    lastManual: manual ? runJson(manual) : null,
+    lastRun: finished ? runJson(finished) : null,
+  };
+  const newest = own[0];
+  if (!newest) return { ...base, state: "none" };
+  if (newest.conclusion === "skipped") return { ...base, state: "off" };
+  return { ...base, state: "on" };
 }
 
 // ------------------------------------------------------------------ judgments
@@ -309,21 +333,38 @@ export function nextSlot(schedule: Schedule, now: number): number | null {
 export function scheduleVerdict(s: ScheduleStatusJson, schedule: Schedule, now: number): Verdict {
   const when = (r: RunJson | null) => (r ? fmtUtc(Date.parse(r.createdAt) / 1000) : "");
   if (s.state === "off") {
+    // The skipped run that says so: the newer of the last scheduled and the last dispatched run.
+    const skipped = [s.lastScheduled, s.lastManual]
+      .filter((r): r is RunJson => r?.conclusion === "skipped")
+      .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))[0];
     return {
       tone: "warn",
       label: "Switched off",
-      detail: `The last scheduled run (${when(s.lastScheduled)}) was skipped: its switch, the repository variable ${schedule.gate}, is not 'true'. Run by hand until the scheduled jobs are switched on.`,
+      detail: `The last ${skipped?.event === "workflow_dispatch" ? "run" : "scheduled run"} (${when(skipped ?? s.lastScheduled)}) was skipped: its switch, the repository variable ${schedule.gate}, is not 'true'. Run by hand until the scheduled jobs are switched on.`,
     };
   }
   if (s.state === "on") {
-    const failed = s.lastScheduled?.conclusion && s.lastScheduled.conclusion !== "success";
-    const running = !s.lastScheduled?.conclusion;
+    // JSON from before lastRun existed: the last scheduled run, unless GitHub cancelled it.
+    const last =
+      s.lastRun !== undefined
+        ? s.lastRun
+        : s.lastScheduled?.conclusion && s.lastScheduled.conclusion !== "cancelled"
+          ? s.lastScheduled
+          : null;
+    if (!last) {
+      return {
+        tone: "good",
+        label: "On",
+        detail: "No finished run to judge yet: the newest is still running, and cancelled runs do not count.",
+      };
+    }
+    const failed = last.conclusion !== "success";
+    const trigger = last.event === "schedule" ? "scheduled" : "dispatched";
+    const mode = /\((\w+)\)$/.exec(last.title ?? "")?.[1];
     return {
       tone: failed ? "bad" : "good",
       label: failed ? "On, last run failed" : "On",
-      detail: `Last scheduled run ${when(s.lastScheduled)}${
-        running ? ", still running" : `, ${s.lastScheduled!.conclusion}`
-      }.`,
+      detail: `Last run ${when(last)} (${trigger}${mode ? `, ${mode}` : ""}), ${last.conclusion}.`,
     };
   }
   if (s.state === "none") {

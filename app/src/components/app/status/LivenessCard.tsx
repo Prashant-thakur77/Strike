@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, RotateCw } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import { errorMessage } from "@/hooks/useTx";
 import { EPOCH_STATES } from "@/lib/labels";
 import { headline } from "@/lib/mirrorAudit";
@@ -284,14 +284,25 @@ function Schedules({ status, now }: { status: StatusJson; now: number }) {
             </p>
             <p className={styles.scheduleDetail}>{v.detail}</p>
             <p className={styles.sub}>
-              {s?.lastScheduled?.url ? <Ext href={s.lastScheduled.url}>last scheduled run</Ext> : null}
-              {s?.lastScheduled?.url && s.lastManual?.url ? " · " : null}
-              {s?.lastManual?.url ? (
-                <Ext href={s.lastManual.url}>
-                  last run by hand, {fmtUtc(Date.parse(s.lastManual.createdAt) / 1000)}
-                  {s.lastManual.conclusion ? `, ${s.lastManual.conclusion}` : ""}
-                </Ext>
-              ) : null}
+              {[
+                s?.lastRun?.url ? <Ext href={s.lastRun.url}>last run</Ext> : null,
+                s?.lastScheduled?.url && s.lastScheduled.url !== s.lastRun?.url ? (
+                  <Ext href={s.lastScheduled.url}>last scheduled run</Ext>
+                ) : null,
+                s?.lastManual?.url && s.lastManual.url !== s.lastRun?.url ? (
+                  <Ext href={s.lastManual.url}>
+                    last dispatched run, {fmtUtc(Date.parse(s.lastManual.createdAt) / 1000)}
+                    {s.lastManual.conclusion ? `, ${s.lastManual.conclusion}` : ", running"}
+                  </Ext>
+                ) : null,
+              ]
+                .filter(Boolean)
+                .map((link, i) => (
+                  <Fragment key={i}>
+                    {i > 0 ? " · " : null}
+                    {link}
+                  </Fragment>
+                ))}
             </p>
           </section>
         );
