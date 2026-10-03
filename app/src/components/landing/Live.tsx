@@ -17,8 +17,9 @@ export function Live() {
             Live on Robinhood Chain testnet
           </Reveal>
           <Reveal as="p" className="lead" delay={0.12}>
-            The newest EpochManager events, read straight from the chain: epochs, proposals, rejections and
-            sales. Each row links to its transaction on Blockscout.
+            The newest events of the v2 EpochManager, the network&apos;s default deployment, read straight
+            from the chain: epochs, proposals, rejections and sales. Each row links to its transaction on
+            Blockscout; v3&apos;s steps, and every deposit, are in each vault&apos;s epoch trace.
           </Reveal>
         </div>
         <UsageStrip />

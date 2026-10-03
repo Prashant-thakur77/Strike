@@ -128,7 +128,7 @@ function StatusLine({
         rel="noreferrer"
         title={`EpochManager ${ACTIVITY_EPOCH_MANAGER}`}
       >
-        EpochManager {shortAddr(ACTIVITY_EPOCH_MANAGER)} <ArrowUpRight size={11} aria-hidden />
+        v2 EpochManager {shortAddr(ACTIVITY_EPOCH_MANAGER)} <ArrowUpRight size={11} aria-hidden />
       </a>
       <button
         type="button"

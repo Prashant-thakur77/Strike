@@ -582,8 +582,10 @@ export function ProofPage() {
           label="Live activity"
           note={
             <>
-              Every EpochManager event since the deploy block, read from the chain&apos;s logs. Hover a time
-              for UTC. The first live epoch&apos;s full log: <Out href={LIVE_EPOCH_LOG}>2026-09-29.md</Out>.
+              Every event of the v2 EpochManager (Robinhood Chain testnet&apos;s default deployment) since its
+              deploy block, read from the chain&apos;s logs. v3&apos;s epochs, and deposits and withdrawals,
+              are in each vault&apos;s epoch trace. Hover a time for UTC. The first live epoch&apos;s full
+              log: <Out href={LIVE_EPOCH_LOG}>2026-09-29.md</Out>.
             </>
           }
         >

@@ -160,6 +160,10 @@ test("proof: live feed shows the known transactions and the Stylus pricer is act
   const idx = KNOWN.map((k) => order.indexOf(k.tx));
   expect(idx[2]).toBeLessThan(idx[1]);
   expect(idx[1]).toBeLessThan(idx[0]);
+  // The feed reads v2's EpochManager only and says so, and where v3's steps and deposits are (QA, 3 Oct).
+  const activity = page.getByRole("region", { name: "Live activity" });
+  await expect(activity).toContainText("v2 EpochManager 0x5A3b");
+  await expect(activity).toContainText("deposits and withdrawals, are in each vault's epoch trace");
 
   await expect(page.getByTestId("active-pricer")).toContainText(
     /0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c/i,
