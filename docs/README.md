@@ -4,15 +4,16 @@ Start with the [project README](../README.md), or the [judge's tour](JUDGES.md) 
 
 ## Understand the protocol
 
-| Document                                | What it covers                                                                                        |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [Technical note](technical-note.md)     | The problem, the design, the trust model, what is tested and the path to production, in 2 to 4 pages  |
-| [Sponsor technology](sponsor-tech.md)   | Each sponsor feature Strike uses: why, what breaks without it, code, transaction or live link, status |
-| [Litepaper](litepaper.md)               | The model, mechanism, agent incentives and backtest results in one read                               |
-| [Design spec](design.md)                | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates     |
-| [SafeStockFeed guide](safestockfeed.md) | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them                   |
-| [Gas: Stylus vs Solidity](gas.md)       | Measured costs of the pricer and of real protocol transactions, including where Stylus loses          |
-| [Decisions](decisions.md)               | Every design decision with its reason and the alternative it rejected (D1–D45)                        |
+| Document                                                     | What it covers                                                                                                |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| [Technical note](technical-note.md)                          | The problem, the design, the trust model, what is tested and the path to production, in 2 to 4 pages          |
+| [Sponsor technology](sponsor-tech.md)                        | Each sponsor feature Strike uses: why, what breaks without it, code, transaction or live link, status         |
+| [Litepaper](litepaper.md)                                    | The model, mechanism, agent incentives and backtest results in one read                                       |
+| [Design spec](design.md)                                     | Units, epoch lifecycle, settlement formulas, vault accounting, invariants, oracle rules, mandates             |
+| [Pendle collateral (prototype)](design/pendle-collateral.md) | Idle put collateral into Pendle PT-USDG: research, rules, risks, the fork-tested adapter, what shipping needs |
+| [SafeStockFeed guide](safestockfeed.md)                      | Safe stock-token prices for any Robinhood Chain protocol, and how to integrate them                           |
+| [Gas: Stylus vs Solidity](gas.md)                            | Measured costs of the pricer and of real protocol transactions, including where Stylus loses                  |
+| [Decisions](decisions.md)                                    | Every design decision with its reason and the alternative it rejected (D1–D45)                                |
 
 ## Check that it is safe
 
