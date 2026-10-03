@@ -10,7 +10,7 @@ import { useStrike } from "@/hooks/useStrike";
 import { useTx } from "@/hooks/useTx";
 import { fmtAmount, fmtNy } from "@/lib/format";
 import { LINKS } from "@/lib/links";
-import { dripOf } from "@/lib/drip";
+import { dripOf, gasDripOf } from "@/lib/drip";
 import type { FaucetToken } from "@/lib/reads";
 import { ConnectButton } from "@/components/site/ConnectButton";
 import { NotDeployed } from "../NotDeployed";
@@ -18,6 +18,7 @@ import { PageHero } from "../PageHero";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { TxNote } from "../TxNote";
+import { GetStarted } from "./GetStarted";
 import { DripButton, DripSummary } from "./UsdgDrip";
 import appStyles from "../app.module.css";
 
@@ -30,6 +31,7 @@ export function FaucetPage() {
   const balances = useWalletBalances();
   const local = chainId === 31337;
   const drip = !!dripOf(chainId);
+  const starter = !!gasDripOf(chainId);
   const robinhood = chainId === 46630 || chainId === 4663;
   const gas =
     chainId === 421614
@@ -62,8 +64,17 @@ export function FaucetPage() {
         <NotDeployed />
       ) : (
         <div className={appStyles.detailBody}>
+          {starter ? (
+            <Rail
+              index="01"
+              label="Get started"
+              note="A new wallet needs no test ETH first: Strike sends a little gas, then you claim USDG and deposit."
+            >
+              <GetStarted />
+            </Rail>
+          ) : null}
           <Rail
-            index="01"
+            index={starter ? "02" : "01"}
             label="Your test tokens"
             note={
               isConnected
@@ -90,6 +101,13 @@ export function FaucetPage() {
                 >
                   {local ? (
                     <span className={appStyles.cellMuted}>Anvil accounts start with 10,000 ETH</span>
+                  ) : starter ? (
+                    <div className={appStyles.faucetRow}>
+                      <a href="#start" className={`text-link ${appStyles.faucetLink}`}>
+                        Starter gas above
+                      </a>
+                      <ExtLink href={gas.href}>or the {gas.text}</ExtLink>
+                    </div>
                   ) : (
                     <ExtLink href={gas.href}>{gas.text}</ExtLink>
                   )}
@@ -150,7 +168,7 @@ export function FaucetPage() {
               </p>
             </div>
           </Rail>
-          <Rail index="02" label="Then deposit" note="Put the tokens to work.">
+          <Rail index={starter ? "03" : "02"} label="Then deposit" note="Put the tokens to work.">
             <div className={appStyles.prompt}>
               <p className="body">
                 A stock token goes in a covered-call vault; USDG goes in a cash-secured-put vault. Either way

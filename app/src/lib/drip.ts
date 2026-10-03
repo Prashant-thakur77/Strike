@@ -60,3 +60,12 @@ export function dripErrorMessage(err: unknown): string | null {
     return "The faucet is empty for now. The team refills it; try faucet.paxos.com meanwhile.";
   return null;
 }
+
+/** The chain's GasDrip and the relayer the deployment file names, or null where there is none. */
+export function gasDripOf(chainId: number): { drip: Address; relayer: Address | null } | null {
+  for (const d of chainDeployments(chainId)) {
+    const r = d as { gasDrip?: Address; gasDripRelayer?: Address };
+    if (r.gasDrip) return { drip: r.gasDrip, relayer: r.gasDripRelayer ?? null };
+  }
+  return null;
+}

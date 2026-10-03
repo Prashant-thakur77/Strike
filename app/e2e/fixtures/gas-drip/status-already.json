@@ -1,0 +1,15 @@
+{
+  "chainId": 46630,
+  "drip": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+  "relayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
+  "difficulty": 18,
+  "limits": { "perIpPerDay": 2, "attemptsPer10Min": 6 },
+  "available": true,
+  "amount": "100000000000000",
+  "dailyCap": 20,
+  "dripsLeftToday": 0,
+  "remaining": "1700000000000000",
+  "eligible": false,
+  "reason": "AlreadyDripped",
+  "message": "This wallet already had its starter gas. It is one per address, ever."
+}

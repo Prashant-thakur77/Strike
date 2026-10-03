@@ -103,12 +103,22 @@ export function DripSummary() {
       <p className={appStyles.hint}>
         Testnet USDG has no value. This faucet is ours: a contract the team refills (
         <AddressLink address={f.drip} />
-        ), so you can try Strike even when the Paxos faucet is slow. The transaction needs a little gas: get
-        testnet ETH from the{" "}
-        <a href={LINKS.robinhoodFaucet} target="_blank" rel="noreferrer" className="text-link">
-          Robinhood Chain faucet <ArrowUpRight size={12} aria-hidden />
+        ), so you can try Strike even when the Paxos faucet is slow. The transaction needs a little gas: a new
+        wallet gets it from{" "}
+        <a href="#start" className="text-link">
+          Get started
         </a>{" "}
-        first.
+        above, or from the{" "}
+        <a
+          href={chainId === 421614 ? LINKS.arbSepoliaFaucet : LINKS.robinhoodFaucet}
+          target="_blank"
+          rel="noreferrer"
+          className="text-link"
+        >
+          {chainId === 421614 ? "Arbitrum Sepolia" : "Robinhood Chain"} faucet{" "}
+          <ArrowUpRight size={12} aria-hidden />
+        </a>
+        .
       </p>
     </div>
   );

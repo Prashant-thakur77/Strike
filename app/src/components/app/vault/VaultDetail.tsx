@@ -20,6 +20,7 @@ import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { StateTag } from "../StateTag";
 import { VersionTag, strategyName } from "../VaultList";
+import { GasNudge } from "../faucet/GetStarted";
 import { DripNudge } from "../faucet/UsdgDrip";
 import { MirrorBadge } from "../mirror/MirrorBadge";
 import { DepositPanel } from "./DepositPanel";
@@ -156,6 +157,7 @@ export function VaultDetail({ address }: { address: Address }) {
                     : "The vault is between epochs, so deposits and withdrawals go through at once."
               }
             >
+              <GasNudge />
               {v.isCall ? null : <DripNudge />}
               <DepositPanel vault={v} />
             </Rail>

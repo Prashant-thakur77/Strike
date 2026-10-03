@@ -44,3 +44,111 @@
   line-height: 1.5;
   color: var(--fg-muted);
 }
+
+/* Get started: the first-run path at the top of the faucet page (connect, starter gas, USDG, deposit). */
+
+.start {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.startHead {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.steps {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 8px 16px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.step[data-state="next"] .stepTitle {
+  color: var(--fg-muted, var(--muted, inherit));
+}
+
+.stepIndex {
+  display: inline-grid;
+  place-items: center;
+  width: 1.9em;
+  height: 1.9em;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.75rem;
+}
+
+.step[data-state="current"] .stepIndex {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.step[data-state="done"] .stepIndex {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--paper, #fff);
+}
+
+.stepTitle {
+  font-weight: 650;
+  min-width: 0;
+}
+
+.stepBody {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+  text-align: right;
+}
+
+.limits {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.limits ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .step {
+    grid-template-columns: 2.2em minmax(0, 1fr);
+  }
+  .stepBody {
+    grid-column: 2 / -1;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  .stepBody > * {
+    justify-items: start;
+  }
+}
