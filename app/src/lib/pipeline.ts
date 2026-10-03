@@ -67,8 +67,32 @@ export interface Confidence {
   basis: string;
 }
 
+/** One figure of the Claude call's usage: the count the agent recorded, or why it has none. */
+export interface UsageFigure {
+  value: number | null;
+  /** Set when the record says `{ provided: false, reason }` (or the field is missing from the usage block). */
+  reason: string | null;
+}
+
+/** `decision.llm`: what the planner's Claude call used, as the API or the Claude Code stream reported it. */
+export interface LlmUsage {
+  planner: string;
+  model: string;
+  calls: UsageFigure;
+  inputTokens: UsageFigure;
+  outputTokens: UsageFigure;
+  cacheReadTokens: UsageFigure;
+  cacheCreationTokens: UsageFigure;
+  /** Claude Code's own list-price estimate; the Messages API reports none. */
+  costUsd: UsageFigure;
+  durationMs: UsageFigure;
+  source: string;
+}
+
 export interface Pipeline {
   stages: Stage[];
+  /** Null for a record without `decision.llm` (rule mode, or written before the field). */
+  llm: LlmUsage | null;
   noTrade: NoTrade | null;
   run: RunInfo | null;
   alternatives: Alternative[];
@@ -130,6 +154,29 @@ function stageOf(v: unknown): Stage | null {
   };
 }
 
+const figure = (v: unknown): UsageFigure => {
+  const n = typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : null;
+  return { value: n, reason: n === null ? (notProvided(v) ?? "not in the record") : null };
+};
+
+/** The usage block of `decision.llm`, or null when the record has none (or it is not an object). */
+export function llmOf(v: unknown): LlmUsage | null {
+  const o = obj(v);
+  if (!o) return null;
+  return {
+    planner: str(o.planner) ?? "",
+    model: str(o.model) ?? "",
+    calls: figure(o.calls),
+    inputTokens: figure(o.inputTokens),
+    outputTokens: figure(o.outputTokens),
+    cacheReadTokens: figure(o.cacheReadTokens),
+    cacheCreationTokens: figure(o.cacheCreationTokens),
+    costUsd: figure(o.costUsd),
+    durationMs: figure(o.durationMs),
+    source: str(o.source) ?? "",
+  };
+}
+
 /** The pipeline of a raw record, or null for a record written before it (no `decision.pipeline`). */
 export function pipelineOf(raw: unknown): Pipeline | null {
   const r = obj(raw);
@@ -144,6 +191,7 @@ export function pipelineOf(raw: unknown): Pipeline | null {
   const conf = obj(d?.confidence);
   return {
     stages,
+    llm: llmOf(d?.llm),
     noTrade: nt
       ? {
           stage: str(nt.stage) ?? "",
@@ -281,5 +329,10 @@ export const DRY_RUNS: { chainId: number; name: string; what: string }[] = [
     chainId: 46630,
     name: "2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run",
     what: "As if open, with Claude as the strike planner",
+  },
+  {
+    chainId: 46630,
+    name: "2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run-2",
+    what: "As if open, with Claude as the planner: its token use and cost are recorded",
   },
 ];

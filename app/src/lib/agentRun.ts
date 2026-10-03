@@ -189,6 +189,7 @@ export function buildRun(
         ignoreSession: waived.length > 0,
         note: "Run in your browser against the live vault: nothing was sent.",
       },
+      llm: null,
       alternatives: [],
       confidence: null,
     };
@@ -263,6 +264,7 @@ export function buildRun(
         ignoreSession: waived.length > 0,
         note: "Run in your browser against the live vault: nothing was sent.",
       },
+      llm: null,
       alternatives: [],
       confidence: null,
     };
@@ -374,6 +376,7 @@ export function buildRun(
       ignoreSession: waived.length > 0,
       note: "Run in your browser against the live vault: nothing was sent.",
     },
+    llm: null,
     alternatives: [],
     confidence:
       chosen.exerciseProbability === null

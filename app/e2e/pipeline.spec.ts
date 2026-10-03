@@ -5,6 +5,7 @@ import {
   DRY_RUNS,
   DRY_RUN_FOLDERS,
   gradeAlternative,
+  llmOf,
   notProvided,
   pipelineOf,
   sourceUrl,
@@ -25,6 +26,7 @@ const raw = (chainId: number, name: string) =>
 const CLOSED = "2026-10-03-sTSLA-CSP-dry-run";
 const OPEN = "2026-10-03-sTSLA-CSP-as-if-open-dry-run";
 const CLAUDE = "2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run";
+const CLAUDE_USAGE = "2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run-2";
 
 test.describe("pipeline logic", () => {
   test.skip(({ isMobile }) => isMobile, "pure logic runs once, on desktop");
@@ -68,6 +70,31 @@ test.describe("pipeline logic", () => {
     expect(planner.by).toBe("claude");
     expect(planner.narration?.label).toContain("Claude");
     expect(planner.narration!.text.length).toBeGreaterThan(40);
+  });
+
+  test("decision.llm is read as recorded: counts as numbers, anything missing as its reason, none as null", () => {
+    const real = pipelineOf(raw(46630, CLAUDE_USAGE))!;
+    expect(real.llm).toMatchObject({
+      planner: "claude-code",
+      model: "claude-opus-5",
+      calls: { value: 10, reason: null },
+      inputTokens: { value: 8 },
+      outputTokens: { value: 2604 },
+      cacheReadTokens: { value: 57383 },
+      cacheCreationTokens: { value: 23371 },
+      costUsd: { value: 0.3297195 },
+      durationMs: { value: 44412 },
+    });
+    expect(real.stages.find((s) => s.stage === "planner")!.by).toBe("claude");
+    // The earlier Claude dry run and the rule runs have no llm field.
+    expect(pipelineOf(raw(46630, CLAUDE))!.llm).toBeNull();
+    expect(pipelineOf(raw(46630, OPEN))!.llm).toBeNull();
+    expect(llmOf({ calls: { provided: false, reason: "no turns" }, inputTokens: -3 })).toMatchObject({
+      calls: { value: null, reason: "no turns" },
+      inputTokens: { value: null, reason: "not in the record" },
+      costUsd: { value: null },
+    });
+    expect(llmOf("x")).toBeNull();
   });
 
   test("alternatives are graded as premium income minus the payout on their size; kept cash is zero", () => {
@@ -190,9 +217,57 @@ test("the Claude-planned dry run keeps Claude's words in a narration box", async
   const chips = page.getByTestId("pipeline-chip");
   await expect(page.getByTestId("pipeline-run")).toContainText("Claude 1");
   await expect(page.getByTestId("pipeline-run")).toContainText("does not carry token counts");
+  await expect(page.getByTestId("pipeline-usage-missing")).toBeVisible();
   await chips.nth(2).click();
   await expect(page.getByTestId("pipeline-stage")).toContainText("by Claude");
   await expect(page.getByTestId("pipeline-narration")).toContainText("Claude's words, not a computed number");
+});
+
+test("the run line shows the Claude call's recorded tokens, cost and calls", async ({ page }) => {
+  await openDry(page, 46630, CLAUDE_USAGE);
+  const usage = page.getByTestId("pipeline-usage");
+  await expect(usage).toContainText("Claude used 10 calls");
+  await expect(usage).toContainText("8 input tokens");
+  await expect(usage).toContainText("2,604 output tokens");
+  await expect(usage).toContainText("57,383 cache-read tokens");
+  await expect(usage).toContainText("23,371 cache-creation tokens");
+  await expect(usage).toContainText("$0.3297");
+  await expect(usage).toContainText("44.4 s");
+  await expect(page.getByTestId("pipeline-usage-missing")).toHaveCount(0);
+  expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
+});
+
+test("a fixture with API usage: a figure the API did not report reads 'not provided', never a zero", async ({
+  page,
+}) => {
+  const rec = structuredClone(raw(46630, CLAUDE)) as { decision: Record<string, unknown> };
+  rec.decision.llm = {
+    planner: "api",
+    model: "claude-opus-5",
+    calls: 1,
+    inputTokens: 1550,
+    outputTokens: 240,
+    cacheReadTokens: {
+      provided: false,
+      reason: "2 of 2 API responses did not report cache_read_input_tokens",
+    },
+    costUsd: { provided: false, reason: "the Messages API reports tokens, not a price" },
+    durationMs: 9100,
+    source: "Messages API usage objects, summed over 1 response",
+  };
+  await acknowledge(page);
+  await serveRaw(page);
+  await page.route(`${RAW}docs/agent-log/dry-runs/${CLAUDE}.json`, (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify(rec), contentType: "text/plain" }),
+  );
+  await page.goto(`/app/decision/46630/${CLAUDE}?dry=1`);
+  await expect(page.getByTestId("decision-page")).toBeVisible({ timeout: 60_000 });
+  const usage = page.getByTestId("pipeline-usage");
+  await expect(usage).toContainText("Claude used 1 call, 1,550 input tokens, 240 output tokens");
+  await expect(usage).toContainText("no price reported");
+  await expect(usage).toContainText("9.1 s");
+  await expect(usage).not.toContainText("cache-read");
+  await expect(page.getByTestId("pipeline-usage-missing")).toHaveCount(0);
 });
 
 test("a record from before the pipeline says it was not recorded", async ({ page }) => {

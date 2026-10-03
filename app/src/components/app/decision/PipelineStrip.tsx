@@ -12,7 +12,9 @@ import {
   txUrl,
   verdictLabel,
   type Pipeline,
+  type LlmUsage,
   type Stage,
+  type UsageFigure,
 } from "@/lib/pipeline";
 import appStyles from "../app.module.css";
 import styles from "./decision.module.css";
@@ -96,7 +98,7 @@ export function PipelineStrip({
           </li>
         ))}
       </ol>
-      <RunLine stages={p.stages} />
+      <RunLine stages={p.stages} llm={p.llm} />
       {stages[open] ? <StageCard stage={stages[open]!} pipeline={p} record={r} chainId={chainId} /> : null}
     </div>
   );
@@ -510,8 +512,31 @@ function ContractBody({ st, chainId }: { st: Stage; chainId: number }) {
   );
 }
 
-/** How the run was spent, from the record's own timings: time per stage and who ran each. Token use is not recorded. */
-function RunLine({ stages }: { stages: Stage[] }) {
+/** A count with thousands separators, or why the record has none. */
+const figureText = (f: UsageFigure, unit: string) =>
+  f.value !== null ? `${f.value.toLocaleString("en-US")} ${unit}` : `${unit} not provided (${f.reason})`;
+
+/** The Claude call's usage as the record keeps it (decision.llm): tokens, calls, price where the source gave one. */
+function usageText(u: LlmUsage): string {
+  const parts = [
+    figureText(u.calls, u.calls.value === 1 ? "call" : "calls"),
+    figureText(u.inputTokens, "input tokens"),
+    figureText(u.outputTokens, "output tokens"),
+  ];
+  if (u.cacheReadTokens.value !== null) parts.push(figureText(u.cacheReadTokens, "cache-read tokens"));
+  if (u.cacheCreationTokens.value !== null)
+    parts.push(figureText(u.cacheCreationTokens, "cache-creation tokens"));
+  parts.push(
+    u.costUsd.value !== null
+      ? `$${u.costUsd.value.toFixed(u.costUsd.value < 1 ? 4 : 2)} (Claude Code's own list-price estimate, not a bill)`
+      : "no price reported",
+  );
+  if (u.durationMs.value !== null) parts.push(ms(u.durationMs.value));
+  return parts.join(", ");
+}
+
+/** How the run was spent, from the record's own timings and, when it has them, the Claude call's recorded usage. */
+function RunLine({ stages, llm }: { stages: Stage[]; llm: LlmUsage | null }) {
   const ran = stages.filter((x) => x.verdict !== "not-run");
   const total = ran.reduce((t, x) => t + (x.durationMs ?? 0), 0);
   const by = (k: string) => ran.filter((x) => x.by === k).length;
@@ -521,8 +546,16 @@ function RunLine({ stages }: { stages: Stage[] }) {
       {ran.length} of {stages.length} stage{stages.length === 1 ? "" : "s"} ran, {ms(total)} in all (
       {ran.map((x) => `${STAGE_LABEL[x.stage] ?? x.stage} ${ms(x.durationMs)}`).join(", ") || "none"}); agent
       code ran {by("rule")}, Claude {by("claude")}
-      {claude ? ` (${claude})` : ""}, the contract {by("contract")}. The record does not carry token counts,
-      so none are shown.
+      {claude ? ` (${claude})` : ""}, the contract {by("contract")}.{" "}
+      {llm ? (
+        <span data-testid="pipeline-usage" title={llm.source || undefined}>
+          Claude used {usageText(llm)}.
+        </span>
+      ) : (
+        <span data-testid="pipeline-usage-missing">
+          The record does not carry token counts, so none are shown.
+        </span>
+      )}
     </p>
   );
 }
