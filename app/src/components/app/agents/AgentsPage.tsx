@@ -10,6 +10,7 @@ import { explorerNftUrl, explorerUrl } from "@/lib/chains";
 import { fmtAmount, fmtBps, fmtNy, fmtWadUsd, shortAddr } from "@/lib/format";
 import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
+import { PageIndex } from "../PageIndex";
 import { VersionTag } from "../VaultList";
 import { DecisionLog } from "./DecisionLog";
 import { DryRuns, LiveHealth, NoTradeHistory, Performance, WeekByWeek } from "./HealthViews";
@@ -30,6 +31,19 @@ function rank(a: AgentRow, b: AgentRow) {
     sa && sb ? (b.cumulativePnl > a.cumulativePnl ? 1 : b.cumulativePnl < a.cumulativePnl ? -1 : 0) : 0;
   return sb - sa || pnl || b.accepted - a.accepted || a.rejected - b.rejected || Number(a.id - b.id);
 }
+
+/** The agents page is long; one chip per section, in page order. */
+const SECTIONS = [
+  { id: "leaderboard", label: "Leaderboard" },
+  { id: "decision-log", label: "Decision log" },
+  { id: "rejections", label: "Rejections" },
+  { id: "run-your-own-agent", label: "Run your own" },
+  { id: "live-health", label: "Health" },
+  { id: "performance", label: "Performance" },
+  { id: "no-trade", label: "Sold nothing" },
+  { id: "dry-runs", label: "Dry runs" },
+  { id: "weekly", label: "Week by week" },
+];
 
 export function AgentsPage() {
   const { meta, deployments } = useStrike();
@@ -96,10 +110,12 @@ export function AgentsPage() {
         ) : null}
       </Gate>
       {/* The decision log comes from GitHub, not the chain: it shows whatever the network or its state. */}
-      <div className={styles.detailBody}>
+      <PageIndex items={SECTIONS} />
+      <div className={`${styles.detailBody} ${styles.indexed}`}>
         {r ? (
           <Rail
             index="01"
+            id="leaderboard"
             label="Leaderboard"
             note="Agents with settled epochs rank first, by cumulative depositor PnL; the rest by accepted proposals, then fewest rejections. Open a row for the track record (AgentRegistry.track), the ERC-8004 identity and reputation, and the vaults it runs."
           >
@@ -126,6 +142,7 @@ export function AgentsPage() {
         {r ? (
           <Rail
             index="03"
+            id="rejections"
             label="Rejected proposals"
             note="Every ProposalRejected event: what the agent asked for and the rule it broke."
           >

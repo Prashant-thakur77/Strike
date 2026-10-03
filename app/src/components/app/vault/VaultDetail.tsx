@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, ChevronDown } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Address } from "viem";
+import { useConnection } from "wagmi";
 import { useMarket, useVault, useVaultHistory } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { DeploymentScope } from "@/components/providers/DeploymentScope";
@@ -30,6 +32,7 @@ import { OptionsPanel } from "./OptionsPanel";
 import { PositionPanel } from "./PositionPanel";
 import { RiskPanel } from "./RiskPanel";
 import { SeriesPanel } from "./SeriesPanel";
+import { ThisWeekCall } from "./ThisWeekCall";
 import { Timeline } from "./Timeline";
 import { WhyStrikePanel } from "./WhyStrikePanel";
 import { Term } from "@/components/ui/Term";
@@ -45,6 +48,8 @@ export function VaultDetail({ address }: { address: Address }) {
   const expired = phase === "expired";
   // Where a chain runs more than one deployment (v2 and v3 on Robinhood Chain testnet), say which one this vault is.
   const showVersion = deployments.length > 1 && !!v?.version;
+  const { isConnected } = useConnection();
+  const folds = useFolds(DETAIL_IDS);
 
   return (
     <Gate isLoading={vault.isLoading} error={vault.error} loading={<DetailSkeleton />}>
@@ -134,17 +139,11 @@ export function VaultDetail({ address }: { address: Address }) {
           <div className={styles.detailBody}>
             <Rail
               index="01"
-              label="Your position"
-              note={
-                <>
-                  Shares, their value, premium waiting to be claimed and queued requests.{" "}
-                  <Link href="/app/portfolio" className="text-link" data-testid="portfolio-link">
-                    Every vault at once
-                  </Link>
-                </>
-              }
+              id="call"
+              label="This week's call"
+              note="The agent's decision in five lines, from its anchored record and the chain."
             >
-              <PositionPanel vault={v} />
+              <ThisWeekCall vault={v} />
             </Rail>
             <Rail
               index="02"
@@ -171,53 +170,97 @@ export function VaultDetail({ address }: { address: Address }) {
             </Rail>
             <Rail
               index="04"
-              id="why"
-              label="Why this strike"
-              note="The agent's own record of this epoch's decision: who planned it, what it dry-ran, why, and the hash it anchored on-chain before proposing."
-            >
-              <WhyStrikePanel vault={v} />
-            </Rail>
-            <Rail
-              index="05"
-              id="risk"
-              label="Risk"
-              note={
-                expired
-                  ? "The series has expired: greeks need time to expiry, so none are shown. The ±30% stress test, computed on-chain by the Stylus risk engine, shows the vault's result against the last print until the settlement price is in."
-                  : "Greeks and a ±30% stress test of this week's series, computed on-chain by the Stylus risk engine each time the page refreshes."
-              }
-            >
-              <RiskPanel vault={v} />
-            </Rail>
-            <Rail
-              index="06"
+              id="timeline"
               label="Epoch timeline"
-              note="Idle, open, selling, settled. Times are New York time."
+              note="Where this week is: idle, open, selling, settled. Times are New York time."
             >
               <Timeline vault={v} history={history.data} />
             </Rail>
             <Rail
-              index="07"
-              id="trace"
-              label="Epoch trace"
-              note="Every step of this epoch and the last, each with its transaction and the evidence it carries: the opening snapshot, the anchored decision record, proposals and slashes, buys, the settlement round checked against mainnet Chainlink, redemptions and claims, and deposits and withdrawals, queued or made while the vault was unlocked. Times are UTC."
+              index="05"
+              label="Your position"
+              note={
+                <>
+                  Shares, their value, premium waiting to be claimed and queued requests.{" "}
+                  <Link href="/app/portfolio" className="text-link" data-testid="portfolio-link">
+                    Every vault at once
+                  </Link>
+                </>
+              }
             >
-              <EpochTrace vault={v} />
+              <PositionPanel vault={v} />
             </Rail>
+            {/* Option tokens only matter to a wallet that may hold some; signed out, Your position already asks. */}
+            {isConnected ? (
+              <Rail
+                index="06"
+                label="Your options"
+                note="Option tokens you hold from this vault. Redeem them once the series settles."
+              >
+                <OptionsPanel vault={v} seriesIds={history.data?.seriesIds} />
+              </Rail>
+            ) : null}
             <Rail
-              index="08"
-              label="Your options"
-              note="Option tokens you hold from this vault. Redeem them once the series settles."
-            >
-              <OptionsPanel vault={v} seriesIds={history.data?.seriesIds} />
-            </Rail>
-            <Rail
-              index="09"
+              index={isConnected ? "07" : "06"}
+              id="mandate"
               label="Mandate"
-              note="Fixed when the vault was created. The contract rejects any proposal outside it."
+              note="The rules the agent can't break. Fixed when the vault was created; the contract rejects any proposal outside them."
             >
               <MandatePanel vault={v} />
             </Rail>
+            <section
+              className={`gutter ${styles.experts}`}
+              aria-labelledby="experts-title"
+              data-testid="vault-details"
+            >
+              <div className={styles.expertsHead}>
+                <p id="experts-title" className={styles.expertsTitle}>
+                  Details for experts
+                </p>
+                <button type="button" className={styles.expertsToggle} onClick={folds.toggleAll}>
+                  {folds.allOpen ? "Close all" : "Open all"}
+                </button>
+              </div>
+              <DetailFold
+                id="why"
+                index="A"
+                label="Why this strike"
+                note="The agent's own record of this decision, and the hash it anchored on-chain before proposing."
+                open={folds.isOpen("why")}
+                onToggle={folds.set}
+              >
+                <WhyStrikePanel vault={v} />
+              </DetailFold>
+              <DetailFold
+                id="risk"
+                index="B"
+                label="Risk"
+                note={
+                  expired
+                    ? "The ±30% stress test against the last print, computed on-chain by the Stylus risk engine."
+                    : "Greeks and a ±30% stress test of this week's series, computed on-chain by the Stylus risk engine."
+                }
+                open={folds.isOpen("risk")}
+                onToggle={folds.set}
+              >
+                <RiskPanel vault={v} />
+              </DetailFold>
+              <DetailFold
+                id="trace"
+                index="C"
+                label="Epoch trace"
+                note="Every step of this epoch and the last, each with its transaction and the evidence it carries. Times are UTC."
+                open={folds.isOpen("trace")}
+                onToggle={folds.set}
+              >
+                <p className={styles.detailLong}>
+                  The opening snapshot, the anchored decision record, proposals and slashes, buys, the
+                  settlement round checked against mainnet Chainlink, redemptions and claims, and deposits and
+                  withdrawals, queued or made while the vault was unlocked.
+                </p>
+                <EpochTrace vault={v} />
+              </DetailFold>
+            </section>
             <aside className={`gutter ${styles.feedback}`} aria-label="Feedback">
               <div className={styles.feedbackRow}>
                 <span className="micro micro-muted">Testnet · tell us what worked and what didn&apos;t</span>
@@ -242,5 +285,86 @@ function DetailSkeleton() {
       </span>
       <Skeleton width="60%" />
     </div>
+  );
+}
+
+const DETAIL_IDS = ["why", "risk", "trace"] as const;
+type DetailId = (typeof DETAIL_IDS)[number];
+
+/**
+ * Which expert sections are open. Closed at first so the page leads with the action; a link to one (#why, #risk,
+ * #trace, from the docs, the decision page or the trace's own links) opens it and scrolls to it.
+ */
+function useFolds(ids: readonly DetailId[]) {
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const fromHash = () => {
+      const id = window.location.hash.slice(1);
+      if (!(ids as readonly string[]).includes(id)) return;
+      setOpen((o) => ({ ...o, [id]: true }));
+      // After the section has rendered open (the page may still be loading its data).
+      requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "start" }));
+    };
+    fromHash();
+    window.addEventListener("hashchange", fromHash);
+    return () => window.removeEventListener("hashchange", fromHash);
+  }, [ids]);
+  const allOpen = ids.every((id) => open[id]);
+  return {
+    isOpen: (id: string) => !!open[id],
+    set: (id: string, value: boolean) => setOpen((o) => (o[id] === value ? o : { ...o, [id]: value })),
+    allOpen,
+    toggleAll: () => setOpen(Object.fromEntries(ids.map((id) => [id, !allOpen]))),
+  };
+}
+
+/** One expert section: a labelled summary with a one-line note; the content stays in the page when closed. */
+function DetailFold({
+  id,
+  index,
+  label,
+  note,
+  open,
+  onToggle,
+  children,
+}: {
+  id: string;
+  index: string;
+  label: string;
+  note: ReactNode;
+  open: boolean;
+  onToggle: (id: string, open: boolean) => void;
+  children: ReactNode;
+}) {
+  // Arriving on a link to this section after the vault has loaded: bring it into view once it is open.
+  useEffect(() => {
+    if (window.location.hash === `#${id}`) {
+      requestAnimationFrame(() => document.getElementById(id)?.scrollIntoView({ block: "start" }));
+    }
+  }, [id]);
+  return (
+    <section id={id} className={styles.detailFold} aria-labelledby={`${id}-title`}>
+      <details
+        open={open}
+        onToggle={(e) => {
+          if (e.currentTarget.open !== open) onToggle(id, e.currentTarget.open);
+        }}
+        data-testid={`fold-${id}`}
+      >
+        <summary className={styles.detailSummary}>
+          <span className="index">{index}</span>
+          <span className={styles.detailLabel}>
+            <h2 id={`${id}-title`} className={styles.detailTitle}>
+              {label}
+            </h2>
+            <span className={styles.detailNote}>{note}</span>
+          </span>
+          <span className={styles.detailChevron} aria-hidden>
+            <ChevronDown size={16} />
+          </span>
+        </summary>
+        <div className={styles.detailBodyInner}>{children}</div>
+      </details>
+    </section>
   );
 }

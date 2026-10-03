@@ -13,6 +13,7 @@ import type { VaultSummary } from "@/lib/reads";
 import { ConnectButton } from "@/components/site/ConnectButton";
 import { AmountField } from "../AmountField";
 import { TxNote } from "../TxNote";
+import { YourWeek } from "./YourWeek";
 import styles from "../app.module.css";
 
 type Mode = "deposit" | "withdraw";
@@ -175,12 +176,12 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
             unit={inShares ? vault.symbol : vault.asset.symbol}
             decimals={decimals}
             max={max}
-            disabled={!isConnected}
             compact
           />
           {action}
         </div>
         {hint}
+        {mode === "deposit" ? <YourWeek vault={vault} amount={amount} /> : null}
         <TxNote tx={tx} />
         {next}
       </div>
@@ -197,9 +198,9 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
         unit={vault.asset.symbol}
         decimals={decimals}
         max={max}
-        disabled={!isConnected}
       />
       {hint}
+      {mode === "deposit" ? <YourWeek vault={vault} amount={amount} /> : null}
       {action}
       <TxNote tx={tx} />
       {next}

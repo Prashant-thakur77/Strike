@@ -14,7 +14,7 @@ export const TOUR: TourPage[] = [
   {
     href: "/app",
     label: "Vaults",
-    purpose: "Pick a vault to see this week's option and what depositors earn from it.",
+    purpose: "Pick a vault, deposit, and collect the premium it earns each week.",
     next: {
       href: "/app/playground",
       label: "Try the playground",
@@ -135,7 +135,10 @@ export function tourPage(pathname: string): TourPage | null {
   return TOUR.find((p) => p.href === path) ?? null;
 }
 
-/** The "start here" path on the landing page and the vaults page. */
+/** A decision page worth opening first: agent #2's accepted proposal of 2 October (also in the judges' tour). */
+export const SHOWCASE_DECISION = "/app/decision/46630/2026-10-02-sTSLA-CSP-A2";
+
+/** The "start here" path on the landing page. */
 export const START_HERE = [
   { href: "/app", label: "See a vault", note: "What you deposit and what it pays" },
   { href: "/app/playground", label: "Try the playground", note: "Test a proposal, no wallet" },

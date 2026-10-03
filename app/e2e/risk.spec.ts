@@ -175,7 +175,8 @@ for (const c of CASES) {
     const phase = await livePhase(c.rpc, c.epochManager as Address, c.vault as Address);
     info.annotations.push({ type: "phase", description: phase });
     await acknowledge(page);
-    await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}`);
+    // "Risk" is folded under "Details for experts"; a link to #risk opens it (D53).
+    await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}#risk`);
     await expectRiskPhase(page, c, phase);
 
     const dir = process.env.RISK_SHOTS;
@@ -213,7 +214,7 @@ for (const phase of ["selling", "expired", "settled", "open"] as const) {
       vaultPhase({ vault: V2.vault as Address, seriesId: V2_SERIES, phase }),
       feedStatus(0, Math.floor(Date.now() / 1000) - 600),
     ]);
-    await page.goto(`/app/vault/${V2.vault}?chain=${V2.chainId}`);
+    await page.goto(`/app/vault/${V2.vault}?chain=${V2.chainId}#risk`);
     await expectRiskPhase(page, V2, phase);
   });
 }

@@ -16,22 +16,31 @@ test.beforeEach(async ({ page }) => {
 
 test("the app nav marks the current page, and only that one", async ({ page }, info) => {
   test.skip(info.project.name !== "desktop", "the inline nav is desktop-only; the menu test covers phones");
-  for (const [path, label] of [
-    ["/app/backtest", "Backtest"],
-    ["/app/glossary", null],
-    ["/app/proof", "Proof"],
-    [`/app/vault/${CALL_VAULT_46630}`, "Vaults"],
+  // [path, the group marked (null for a top-level link), the page's own link]
+  for (const [path, group, own] of [
+    ["/app/backtest", "Learn", "Backtest"],
+    ["/app/glossary", "Learn", "Glossary"],
+    ["/app/proof", "Proof", "Proof"],
+    [`/app/vault/${CALL_VAULT_46630}`, null, "Vaults"],
+    ["/app/portfolio", null, "Portfolio"],
   ] as const) {
     await page.goto(path);
     const nav = page.getByRole("navigation", { name: "App" });
     const current = nav.locator('a[aria-current="page"]');
-    if (label) {
-      await expect(current).toHaveCount(1);
-      await expect(current).toHaveText(label);
-    } else {
-      await expect(current).toHaveCount(0);
+    await expect(current).toHaveCount(1);
+    await expect(current).toHaveText(new RegExp(`^${own}`));
+    const marked = nav.locator('button[data-current="true"]');
+    if (group === null) await expect(marked).toHaveCount(0);
+    else {
+      await expect(marked).toHaveCount(1);
+      await expect(marked).toHaveText(group);
     }
   }
+  // A decision page belongs to Agents.
+  await page.goto("/app/decision/46630/2026-10-02-sTSLA-CSP-A2");
+  await expect(page.getByRole("navigation", { name: "App" }).locator('a[aria-current="page"]')).toHaveText(
+    "Agents",
+  );
 });
 
 test("every app page says what it is for, and its Next link leads to a real page", async ({
@@ -70,19 +79,18 @@ test("following Next from the vaults walks the whole tour and comes back", async
   ]);
 });
 
-test("start here: four steps on the landing page and the vaults page", async ({ page }) => {
-  for (const path of ["/", "/app"]) {
-    await page.goto(path);
-    const steps = page.getByRole("navigation", { name: "Start here" }).getByRole("link");
-    await expect(steps).toHaveCount(START_HERE.length);
-    for (const [i, s] of START_HERE.entries()) {
-      await expect(steps.nth(i)).toContainText(s.label);
-    }
+test("start here: four steps on the landing page, three ways in on the vaults page", async ({ page }) => {
+  await page.goto("/");
+  const steps = page.getByRole("navigation", { name: "Start here" }).getByRole("link");
+  await expect(steps).toHaveCount(START_HERE.length);
+  for (const [i, s] of START_HERE.entries()) {
+    await expect(steps.nth(i)).toContainText(s.label);
   }
-  // On the vaults page, step 1 points at the list below it.
-  await expect(
-    page.getByRole("navigation", { name: "Start here" }).getByRole("link").first(),
-  ).toHaveAttribute("href", "#vault-list");
+  // On the vaults page the first way in points at the list below it (nav-home.spec.ts checks the other two).
+  await page.goto("/app");
+  const choices = page.getByRole("navigation", { name: "Start here" }).getByRole("link");
+  await expect(choices).toHaveCount(3);
+  await expect(choices.first()).toHaveAttribute("href", "#vault-list");
 });
 
 test("a glossary term shows its definition on keyboard focus, and Escape closes it", async ({ page }) => {

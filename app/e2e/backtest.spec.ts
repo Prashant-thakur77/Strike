@@ -153,15 +153,19 @@ test("no horizontal overflow, with charts and with tables", async ({ page }) => 
   expect(sideways).toBe(0);
 });
 
-test("the app nav lists Backtest between Playground and Agents", async ({ page }) => {
+test("the app nav lists Backtest under Learn, after the Playground", async ({ page }) => {
   test.skip(test.info().project.name !== "desktop", "the desktop nav");
   await page.goto("/app/backtest");
-  const links = await page.getByRole("navigation", { name: "App" }).getByRole("link").allTextContents();
+  const nav = page.getByRole("navigation", { name: "App" });
+  await nav.getByRole("button", { name: "Learn" }).click();
+  const links = await page
+    .locator("#nav-learn a")
+    .evaluateAll((els) => els.map((e) => e.querySelector("span")?.textContent ?? ""));
   const i = links.indexOf("Backtest");
   expect(links[i - 1]).toBe("Playground");
-  expect(links[i + 1]).toBe("Agents");
   // Scoped to the nav: the footer lists every page too.
-  await expect(
-    page.getByRole("navigation", { name: "App" }).getByRole("link", { name: "Backtest", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("#nav-learn").getByRole("link", { name: /^Backtest/ })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
 });

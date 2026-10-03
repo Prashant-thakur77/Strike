@@ -1,13 +1,16 @@
 import type { ReactNode } from "react";
 import { EligibilityGate } from "@/components/app/EligibilityGate";
 import { NextStep } from "@/components/app/NextStep";
+import { WrongNetwork } from "@/components/app/WrongNetwork";
 import { AppNav } from "@/components/site/AppNav";
 import { Footer } from "@/components/site/Footer";
+import styles from "@/components/site/site.module.css";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="theme-paper">
+    <div className={`theme-paper ${styles.appShell}`}>
       <AppNav />
+      <WrongNetwork />
       {/* At least a screen tall, so the footer never sits in the first viewport while data loads and then jumps. */}
       <main id="main" style={{ minHeight: "calc(100svh - var(--banner-h))" }}>
         {children}

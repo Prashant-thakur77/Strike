@@ -1620,7 +1620,8 @@ function settleScene(f, live) {
       L("The epoch trace shows each step's transaction, | and what is pending."),
     ],
     async prepare(page) {
-      await openApp(page, `/app/vault/${CC_VAULT}`, () =>
+      // #trace opens the folded "Epoch trace" section on the vault page.
+      await openApp(page, `/app/vault/${CC_VAULT}#trace`, () =>
         page
           .getByText("Waiting for the settlement price", { exact: false })
           .first()

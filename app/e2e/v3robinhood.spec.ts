@@ -49,8 +49,9 @@ test("the vault list shows v3 and v2 vaults on Robinhood Chain testnet, tagged b
   await expect(list.locator(`a[href="/app/vault/${V2_CALL}"]`)).toHaveAttribute("data-version", "v2");
   // One group per deployment, newest first, the default one named.
   const groups = list.locator("[data-version] > p");
-  await expect(list.locator("> [data-version]")).toHaveCount(2);
-  await expect(list.locator("> [data-version]").first()).toHaveAttribute("data-version", "v3");
+  // (the groups sit one level down since D53's list, under the profile questions)
+  await expect(list.locator("div[data-version]")).toHaveCount(2);
+  await expect(list.locator("div[data-version]").first()).toHaveAttribute("data-version", "v3");
   await expect(groups.last()).toContainText("the network's default deployment");
   expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0);
 });
@@ -96,6 +97,8 @@ test("the v3 covered-call vault page reads its own deployment: series, risk via 
   const between = series.getByText(/^(Waiting for the agent|No option on sale)\.$/).first();
   await expect(strike.or(between).first()).toBeVisible({ timeout: 60_000 });
   const live = await strike.isVisible();
+  // Risk and Why this strike are folded under "Details for experts" (D53).
+  await page.getByRole("button", { name: "Open all" }).click();
 
   // Risk: through v3's RiskLens, bound to the vault's v3 EpochManager.
   const risk = page.locator("section#risk");

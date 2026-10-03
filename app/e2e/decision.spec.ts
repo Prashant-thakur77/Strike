@@ -439,7 +439,7 @@ test("the epoch trace links its proposal, record and settlement steps to the dec
   };
   await page.route("**/api/epoch-trace?**", (route) => route.fulfill({ json: trace }));
   await acknowledge(page);
-  await page.goto(`/app/vault/${r.vault.address}?chain=${rec.chainId}`);
+  await page.goto(`/app/vault/${r.vault.address}?chain=${rec.chainId}#trace`);
   const links = page.locator("section#trace").getByTestId("trace-decision");
   await expect(links).toHaveCount(2, { timeout: 60_000 });
   await expect(links.first()).toHaveAttribute("href", `/app/decision/46630/${rec.name}`);

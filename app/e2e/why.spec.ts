@@ -89,7 +89,8 @@ async function githubUp(): Promise<boolean> {
 /** The rail and, once loaded, the panel; skips when the epoch has no published record. */
 async function openPanel(page: Page, c: Case) {
   await acknowledge(page);
-  await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}`);
+  // "Why this strike" is folded under "Details for experts"; a link to #why opens it (D53).
+  await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}#why`);
   const rail = page.locator("section#why");
   await expect(rail).toBeVisible({ timeout: 60_000 });
   await expect(rail.getByRole("heading", { level: 2 })).toHaveText("Why this strike");
@@ -207,7 +208,8 @@ test("says when there is no record, and offers a retry when GitHub cannot be rea
 
   // Nothing published for this epoch: every record file is a 404.
   await page.route(`${RAW}**`, (route) => route.fulfill({ status: 404, body: "404: Not Found" }));
-  await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}`);
+  // "Why this strike" is folded under "Details for experts"; a link to #why opens it (D53).
+  await page.goto(`/app/vault/${c.vault}?chain=${c.chainId}#why`);
   const rail = page.locator("section#why");
   await expect(rail).toBeVisible({ timeout: 60_000 });
   const empty = rail.getByTestId("why-empty");

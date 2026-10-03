@@ -293,6 +293,164 @@
   }
 }
 
+/* A nav group: the button looks like a nav link; its menu drops below with one line per page. */
+.navGroup {
+  position: relative;
+  display: inline-flex;
+}
+
+button.appLink {
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-nav);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.navChevron {
+  transition: transform 0.25s var(--ease-out);
+}
+
+button.appLink[aria-expanded="true"] {
+  opacity: 1;
+}
+
+button.appLink[aria-expanded="true"] .navChevron {
+  transform: rotate(180deg);
+}
+
+button.appLink[data-current] {
+  opacity: 1;
+}
+
+button.appLink[data-current]::after {
+  transform: scaleX(1);
+}
+
+.navPanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -18px;
+  z-index: 70;
+  display: grid;
+  gap: 2px;
+  width: 22rem;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.18);
+}
+
+.navPanel[hidden] {
+  display: none;
+}
+
+.navPanelLink {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  transition: background 0.2s var(--ease-ui);
+}
+
+.navPanelLink:hover,
+.navPanelLink:focus-visible {
+  background: var(--ghost);
+}
+
+.navPanelLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+
+.navPanelLink[aria-current="page"] .navPanelLabel {
+  color: var(--accent);
+}
+
+.navPanelLink[aria-current="page"] .navPanelLabel::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.navPanelNote {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--fg-muted);
+}
+
+/* ---------------------------------------------------------------- phone tab bar */
+
+.tabBar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .tabBar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    padding: 4px max(4px, env(safe-area-inset-right)) max(4px, env(safe-area-inset-bottom))
+      max(4px, env(safe-area-inset-left));
+    border-top: 1px solid var(--rule-strong);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.06);
+  }
+  /* Room for the bar under the last thing on the page. */
+  .appShell {
+    padding-bottom: calc(var(--tab-bar-h) + env(safe-area-inset-bottom));
+  }
+}
+
+.tab {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 3px;
+  min-height: 52px;
+  padding: 4px 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 620;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.tab[aria-current="page"] {
+  color: var(--fg);
+}
+
+.tab[aria-current="page"] svg {
+  color: var(--accent);
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 /* ---------------------------------------------------------------- chain switcher */
 
 .chain {
@@ -482,6 +640,50 @@
     opacity: 1;
     transform: none;
   }
+}
+
+/* The app menu: the three main places large, the grouped pages smaller below. */
+.menuGrouped .menuLinks {
+  margin-top: 20px;
+}
+
+.menuGrouped .menuLink {
+  font-size: clamp(2rem, 10vw, 3.4rem);
+}
+
+.menuGroups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.menuGroup {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.menuGroup ul {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menuSubLink {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  border-bottom: 1px solid var(--rule);
+}
+
+.menuSubLink[aria-current="page"] {
+  color: var(--mint);
 }
 
 .menuExtra {

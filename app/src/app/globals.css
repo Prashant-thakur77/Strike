@@ -32,6 +32,7 @@
   --banner-h: 30px;
   --nav-h: clamp(72px, 6.8vw, 98px);
   --app-nav-h: 72px;
+  --tab-bar-h: 64px;
   --section-pad-top: clamp(72px, 7vw, 104px);
   --section-pad-bottom: clamp(88px, 9vw, 136px);
 
