@@ -37,8 +37,8 @@
       "items": [
         {
           "label": "SDK",
-          "count": 253,
-          "source": "sdk: vitest run --reporter=json, 253 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
+          "count": 262,
+          "source": "sdk: vitest run --reporter=json, 262 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
         },
         {
           "label": "Telegram bot",
@@ -72,8 +72,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 315,
-          "source": "app: npx playwright test --list reports 630 runs in 35 files = 315 tests x 2 viewports (desktop 1440x900, mobile 390x844), 32 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
+          "count": 325,
+          "source": "app: npx playwright test --list reports 650 runs in 36 files = 325 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
         }
       ]
     }
