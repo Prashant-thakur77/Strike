@@ -37,17 +37,17 @@
       "items": [
         {
           "label": "SDK",
-          "count": 262,
+          "count": 280,
           "source": "sdk: vitest run --reporter=json, 262 tests (2 more skipped: the opt-in STRIKE_LIVE=1 simulation of v3 register on the two deployed registries, live.consent.test.ts; not counted)"
         },
         {
           "label": "Telegram bot",
-          "count": 93,
+          "count": 104,
           "source": "bots/telegram: vitest run --reporter=json, 93 tests"
         },
         {
           "label": "MCP server",
-          "count": 90,
+          "count": 96,
           "source": "mcp: vitest run --reporter=json, 90 tests (the devnet suites need Foundry on PATH)"
         },
         {
@@ -72,8 +72,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 431,
-          "source": "app: npx playwright test --list reports 862 runs in 42 files = 431 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
+          "count": 438,
+          "source": "app: npx playwright test --list reports 876 runs in 43 files = 438 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
         }
       ]
     }

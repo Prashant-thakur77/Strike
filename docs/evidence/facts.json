@@ -93,7 +93,7 @@
     }
   },
   "measured": {
-    "commit": "f2723ac",
+    "commit": "8af2f37",
     "date": "2026-10-03"
   },
   "tests": {
@@ -107,7 +107,7 @@
       "command": "vitest run --reporter=json (in bots/telegram, Foundry on PATH so devnet suites run)",
       "failingWhenMeasured": 0,
       "skipped": 0,
-      "tests": 93
+      "tests": 104
     },
     "differential": {
       "command": "forge test --list --json: test/differential",
@@ -154,14 +154,14 @@
       "command": "vitest run --reporter=json (in mcp, Foundry on PATH so devnet suites run)",
       "failingWhenMeasured": 0,
       "skipped": 0,
-      "tests": 90
+      "tests": 96
     },
     "playwright": {
-      "byDefault": 398,
+      "byDefault": 405,
       "command": "npx playwright test --list --reporter=json (in app)",
-      "files": 42,
-      "runs": 862,
-      "tests": 431,
+      "files": 43,
+      "runs": 876,
+      "tests": 438,
       "uiAudit": 33
     },
     "rust": {
@@ -172,7 +172,7 @@
       "command": "vitest run --reporter=json (in sdk, Foundry on PATH so devnet suites run)",
       "failingWhenMeasured": 0,
       "skipped": 2,
-      "tests": 262
+      "tests": 280
     },
     "subgraph": {
       "command": "test( cases in subgraph/tests (matchstick runs them)",
@@ -189,8 +189,8 @@
   "threats": 25,
   "totals": {
     "about": "typescript = SDK + MCP + example agents + indexer (the proof page's TypeScript card); pnpm = typescript + the Telegram bot (corepack pnpm -r test); testsAndProofs = Foundry main suite + fork + differential + Halmos proofs + Rust + pnpm + subgraph + Playwright per viewport",
-    "pnpm": 657,
-    "testsAndProofs": 1748,
-    "typescript": 564
+    "pnpm": 692,
+    "testsAndProofs": 1790,
+    "typescript": 588
   }
 }

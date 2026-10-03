@@ -365,9 +365,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "TypeScript",
-    count: "564",
+    count: "588",
     detail:
-      "SDK 262, MCP server 90, example agents 159, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
+      "SDK 280, MCP server 96, example agents 159, indexer 53; 2 more SDK tests are opt-in live checks against the deployed v3 registries",
     evidence: [
       { label: "sdk/test", href: ghTree("sdk/test") },
       { label: "mcp/test", href: ghTree("mcp/test") },
@@ -377,8 +377,9 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Telegram bot",
-    count: "93",
-    detail: "Log scanning with range back-off, message formatting, commands across deployments, store",
+    count: "104",
+    detail:
+      "Log scanning with range back-off, message formatting, commands across deployments, per-wallet /watch alerts, store",
     evidence: [{ label: "bots/telegram/test", href: ghTree("bots/telegram/test") }],
   },
   {
@@ -389,7 +390,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "431",
+    count: "438",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 33 of them are the opt-in UI audit at five widths",
     evidence: [
