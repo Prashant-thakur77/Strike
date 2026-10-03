@@ -34,7 +34,7 @@ DeFi, Options, AI Agents, RWA, Robinhood Chain, Arbitrum Sepolia, Stock Tokens, 
 Stock-token options vaults paid in USDG. An AI agent only proposes; the contract checks its immutable mandate, slashes its bond to depositors on a breach, and prices risk in Stylus (Rust). Live on 46630 and 421614: https://github.com/Prashant-thakur77/Strike/blob/main/docs/DEPLOYMENTS.md
 ```
 
-Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 1,693 tests and proofs (586 Foundry tests, 9 Halmos-proven properties), 99.3% line coverage, three live epochs (Claude planned the accepted proposal in the two v3 ones), and agent #1 linked to ERC-8004 identities #114 (Robinhood Chain testnet) and #253 (Arbitrum Sepolia). Judges can start at [JUDGES.md](../JUDGES.md).
+Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 1,748 tests and proofs (607 Foundry tests, 9 Halmos-proven properties), 99.3% line coverage, three live epochs (Claude planned the accepted proposal in the two v3 ones), and agent #1 linked to ERC-8004 identities #114 (Robinhood Chain testnet) and #253 (Arbitrum Sepolia). Judges can start at [JUDGES.md](../JUDGES.md).
 
 How Strike fits the buildathon's workshop themes, for the long-form fields and for judges who ask:
 

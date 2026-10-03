@@ -32,6 +32,8 @@ Ran 21 tests for test/conformance/StockOracleConformance.t.sol:StockOracleConfor
 Suite result: ok. 21 passed; 0 failed; 0 skipped
 Ran 21 tests for test/oracle/StockOracle.t.sol:StockOracleTest
 Suite result: ok. 21 passed; 0 failed; 0 skipped
+Ran 21 tests for test/testnet/GasDrip.t.sol:GasDripTest
+Suite result: ok. 21 passed; 0 failed; 0 skipped
 Ran 22 tests for test/unit/VaultFactory.t.sol:VaultFactoryTest
 Suite result: ok. 22 passed; 0 failed; 0 skipped
 Ran 25 tests for test/core/EpochManager.t.sol:EpochManagerTest

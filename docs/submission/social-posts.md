@@ -50,7 +50,7 @@ Drafts for the build thread. Facts only; every number is from the repo. Each pos
 
 **9/**
 
-> Evidence: 1,693 tests and proofs, 9 of them Halmos proofs, 99.3% line coverage, Rust and Solidity pricers equal to the wei, agent #1 on ERC-8004 (#114 and #253), and an internal review with 11 findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed. Unaudited, testnet only.
+> Evidence: 1,748 tests and proofs, 9 of them Halmos proofs, 99.3% line coverage, Rust and Solidity pricers equal to the wei, agent #1 on ERC-8004 (#114 and #253), and an internal review with 11 findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed. Unaudited, testnet only.
 
 **10/**
 

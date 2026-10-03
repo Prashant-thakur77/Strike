@@ -75,7 +75,7 @@
       <a href="app/"><img alt="React 19" src="https://img.shields.io/badge/React-19-20232A?logo=react&logoColor=61DAFB"></a>
       <a href="sdk/src/client.ts"><img alt="viem 2" src="https://img.shields.io/badge/viem-2-FFC517"></a>
       <a href="app/src/lib/wagmi.ts"><img alt="wagmi 3" src="https://img.shields.io/badge/wagmi-3-1B1B1F?logo=wagmi&logoColor=white"></a>
-      <a href="app/e2e"><img alt="Playwright: 397 tests" src="https://img.shields.io/badge/Playwright-397%20tests-2EAD33"></a>
+      <a href="app/e2e"><img alt="Playwright: 431 tests" src="https://img.shields.io/badge/Playwright-431%20tests-2EAD33"></a>
       <a href="sdk/test"><img alt="Vitest" src="https://img.shields.io/badge/Vitest-5-6E9F18?logo=vitest&logoColor=white"></a>
     </td>
   </tr>
@@ -666,7 +666,7 @@ To check the headline claims with standard tools only, no Strike code: [docs/ver
 
 | Tests and proofs | Line coverage      | Strike solver in Stylus | Live epochs                             | Contracts verified                               |
 | ---------------- | ------------------ | ----------------------- | --------------------------------------- | ------------------------------------------------ |
-| [1,693](#tests)  | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [3 epochs, 3 slashes](#the-live-epochs) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
+| [1,748](#tests)  | [99.3%](#coverage) | [6.5× cheaper](#gas)    | [3 epochs, 3 slashes](#the-live-epochs) | [14 on Blockscout + Stylus](docs/DEPLOYMENTS.md) |
 
 Charts are rebuilt from committed data by [`scripts/charts/build_charts.py`](scripts/charts/README.md); each has a light and a dark version and its numbers in the table beside it.
 
@@ -696,21 +696,21 @@ The `test_AUDIT_*` names describe the attack each test first reproduced; they no
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/tests-by-suite-dark.svg">
-  <img alt="Horizontal bar chart of 1,693 tests and proofs by suite: Foundry main suite 586 passing (7 skipped): unit 292, agents 36, conformance 35, oracle 34, core 33, adversarial 30, integration 28, pricing 21, audit 19, invariant 18, examples 14, testnet 13, governance 12, version check 1; fork 16, Halmos 9, differential 3; Rust 15; SDK 262, MCP 90, example agents 159, Telegram bot 93, indexer 53, subgraph 10; Playwright 397 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
+  <img alt="Horizontal bar chart of 1,748 tests and proofs by suite: Foundry main suite 607 passing (7 skipped): unit 292, agents 36, conformance 35, oracle 34, testnet 34, core 33, adversarial 30, integration 28, pricing 21, audit 19, invariant 18, examples 14, governance 12, version check 1; fork 16, Halmos 9, differential 3; Rust 15; SDK 262, MCP 90, example agents 159, Telegram bot 93, indexer 53, subgraph 10; Playwright 431 per viewport." src="docs/media/charts/tests-by-suite-light.svg" width="100%">
 </picture>
 
 | Suite                                                                                                    | Tests | How it was counted                                                         |
 | -------------------------------------------------------------------------------------------------------- | ----: | -------------------------------------------------------------------------- |
-| Foundry main suite ([`contracts/test`](contracts/test)), passing; 7 more skipped (see below)             |   586 | `forge test --no-match-path "test/{fork,differential,formal}/*" --summary` |
+| Foundry main suite ([`contracts/test`](contracts/test)), passing; 7 more skipped (see below)             |   607 | `forge test --no-match-path "test/{fork,differential,formal}/*" --summary` |
 | Fork tests on Robinhood Chain mainnet ([`test/fork`](contracts/test/fork))                               |    16 | `forge test --match-path "test/fork/*"` with `ROBINHOOD_RPC_URL`           |
 | Differential, Rust vs Solidity pricer ([`test/differential`](contracts/test/differential))               |     3 | 10,000 fuzz inputs and 300 vectors                                         |
 | Halmos proofs ([`test/formal`](contracts/test/formal), [notes](docs/security/formal-verification.md))    |     9 | Proven for every input in range; 16 more are marked unproven               |
 | Rust, Stylus pricer ([`stylus/pricer`](stylus/pricer))                                                   |    15 | `make stylus-test`                                                         |
 | TypeScript: SDK 262, MCP 90, example agents 159, indexer 53, Telegram bot 93; 2 more skipped (see below) |   657 | `corepack pnpm -r test`                                                    |
 | Subgraph ([`subgraph/tests`](subgraph/tests))                                                            |    10 | matchstick                                                                 |
-| App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                      |   397 | `npx playwright test --list`: 794 runs, 397 tests × 2 viewports            |
+| App, Playwright ([`app/e2e`](app/e2e)), at desktop and mobile sizes                                      |   431 | `npx playwright test --list`: 862 runs, 431 tests × 2 viewports            |
 
-Counted on 2026-10-02; the per-folder Foundry counts are in [`scripts/charts/data/forge-tests.txt`](scripts/charts/data/forge-tests.txt). The 7 skipped tests are the settlement rules of the [SafeStockFeed conformance suite](contracts/test/conformance) run against the `StockCollateral` example, which values collateral and has no settlement price; `StockOracle` passes all 21 rules. The 2 skipped TypeScript tests are the SDK's opt-in `STRIKE_LIVE=1` simulation of v3 registration against the two deployed v3 registries ([`live.consent.test.ts`](sdk/test/live.consent.test.ts)). Some Playwright tests run in one viewport only (pure functions and the HTTP-only `mcp.spec.ts` on desktop, the phone menu on mobile) and are skipped in the other. The register spec runs its v2 test or its three v3 tests depending on the devnet's registry. 33 of the 397 are the UI audit ([`ui-audit.spec.ts`](app/e2e/ui-audit.spec.ts)), which runs only with `UI_AUDIT=1` and sets its own viewports. The [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch has 531 Foundry tests passing (1 skipped) and 28 Rust tests.
+Counted on 2026-10-02; the per-folder Foundry counts are in [`scripts/charts/data/forge-tests.txt`](scripts/charts/data/forge-tests.txt). The 7 skipped tests are the settlement rules of the [SafeStockFeed conformance suite](contracts/test/conformance) run against the `StockCollateral` example, which values collateral and has no settlement price; `StockOracle` passes all 21 rules. The 2 skipped TypeScript tests are the SDK's opt-in `STRIKE_LIVE=1` simulation of v3 registration against the two deployed v3 registries ([`live.consent.test.ts`](sdk/test/live.consent.test.ts)). Some Playwright tests run in one viewport only (pure functions and the HTTP-only `mcp.spec.ts` on desktop, the phone menu on mobile) and are skipped in the other. The register spec runs its v2 test or its three v3 tests depending on the devnet's registry. 33 of the 431 are the UI audit ([`ui-audit.spec.ts`](app/e2e/ui-audit.spec.ts)), which runs only with `UI_AUDIT=1` and sets its own viewports. The [`v3-contracts`](https://github.com/Prashant-thakur77/Strike/tree/v3-contracts) branch has 531 Foundry tests passing (1 skipped) and 28 Rust tests.
 
 Every count in this section is in [`docs/evidence/facts.json`](docs/evidence/facts.json), written by `node scripts/check-numbers.mjs --measure --write`, which runs the commands above (the TypeScript suites with Foundry on the path, so the SDK's and the MCP server's devnet suites run, as CI's `devnet-ts` job does). CI's [claims workflow](.github/workflows/claims.yml) fails when this README, the judge's tour, testing.md, the technical note or the proof page states a different figure.
 
@@ -718,7 +718,7 @@ Every count in this section is in [`docs/evidence/facts.json`](docs/evidence/fac
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/media/charts/coverage-by-contract-dark.svg">
-  <img alt="Dot plot of line and branch coverage for 22 files. All are at 100% except AgentRegistry (lines 98.6%, branches 92.9%), MandateGuard (lines 94.7%), EpochManager (98.7%, 98.4%), StrikeVault (lines 99.4%) and PendleCollateralAdapter (lines 99.3%). Total 99.3% of lines and 98.9% of branches, above the 95% CI gate." src="docs/media/charts/coverage-by-contract-light.svg" width="100%">
+  <img alt="Dot plot of line and branch coverage for 23 files. All are at 100% except AgentRegistry (lines 98.6%, branches 92.9%), MandateGuard (lines 94.7%), EpochManager (98.7%, 98.4%), StrikeVault (lines 99.4%) and PendleCollateralAdapter (lines 99.3%). Total 99.3% of lines and 99.0% of branches, above the 95% CI gate." src="docs/media/charts/coverage-by-contract-light.svg" width="100%">
 </picture>
 
 | Contract                  | Lines                 | Branches            |
@@ -728,8 +728,8 @@ Every count in this section is in [`docs/evidence/facts.json`](docs/evidence/fac
 | `EpochManager`            | 98.7% (310/314)       | 98.4% (62/63)       |
 | `StrikeVault`             | 99.4% (167/168)       | 100% (30/30)        |
 | `PendleCollateralAdapter` | 99.3% (133/134)       | 100% (31/31)        |
-| The other 17 files        | 100%                  | 100%                |
-| **Total**                 | **99.3% (1324/1333)** | **98.9% (275/278)** |
+| The other 18 files        | 100%                  | 100%                |
+| **Total**                 | **99.3% (1367/1376)** | **99.0% (291/294)** |
 
 From `make coverage` ([table](scripts/charts/data/coverage.txt)). The [CI coverage job](.github/workflows/ci.yml) fails if total line coverage drops below 95%.
 

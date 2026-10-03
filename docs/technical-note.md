@@ -87,7 +87,7 @@ The `MirrorFeed`s were the one input a depositor had to take on our word. The pr
 | Docs against the chain      | `check-claims.mjs` fetches every transaction the docs and the app cite (161) and checks it on its chain; `check-numbers.mjs` checks every stated count and address against `facts.json` | [`check-claims.mjs`](../scripts/check-claims.mjs), [`check-numbers.mjs`](../scripts/check-numbers.mjs)             |
 | Whole system                | `scripts/demo-local.sh` runs a full week on anvil, once out of the money and once in the money, in CI                                                                                   | [`demo-local.sh`](../scripts/demo-local.sh)                                                                        |
 
-Counts on 3 October, from [`evidence/facts.json`](evidence/facts.json) (CI fails when this note states a different figure): the Foundry suite without fork, differential and formal tests has 586 passing and 7 skipped; the SDK 262 passing and 2 skipped; the MCP server 90; the example agents 159; the indexer 53; the Telegram bot 93; Playwright 397 per viewport. Line coverage of the contracts is 99.32% (1,324 of 1,333 lines; [coverage](../README.md#coverage)).
+Counts on 3 October, from [`evidence/facts.json`](evidence/facts.json) (CI fails when this note states a different figure): the Foundry suite without fork, differential and formal tests has 607 passing and 7 skipped; the SDK 262 passing and 2 skipped; the MCP server 90; the example agents 159; the indexer 53; the Telegram bot 93; Playwright 431 per viewport. Line coverage of the contracts is 99.35% (1,367 of 1,376 lines; [coverage](../README.md#coverage)).
 
 ## 5. Path to production
 

@@ -6,17 +6,17 @@
     "v2VerifiedOnBlockscout": 14
   },
   "coverage": {
-    "branches": 98.92,
-    "branchesHit": 275,
-    "branchesTotal": 278,
+    "branches": 98.98,
+    "branchesHit": 291,
+    "branchesTotal": 294,
     "command": "make coverage (forge coverage --ir-minimum --report summary --no-match-coverage \"(test|script|lib)/\")",
-    "files": 22,
-    "filesAt100": 17,
+    "files": 23,
+    "filesAt100": 18,
     "functions": 100,
-    "lines": 99.32,
-    "linesHit": 1324,
-    "linesTotal": 1333,
-    "statements": 99.45
+    "lines": 99.35,
+    "linesHit": 1367,
+    "linesTotal": 1376,
+    "statements": 99.46
   },
   "deployments": {
     "421614-v3": {
@@ -26,6 +26,8 @@
         "decisionLog": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
         "epochManager": "0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0",
         "feeManager": "0xaD2C4aC0db613F2c7e3F060Bfdd1276912154569",
+        "gasDrip": "0x4fF10F0A6C1a9cC9c0a83ceC6c0C5e3dd2293EAd",
+        "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
         "marketCalendar": "0xefD1121ef13F1187F9ac9A54076DFa09A586d31D",
         "optionToken": "0x63614FB8594F0C24CfB8F419326eB3BA7C3274A7",
         "pricer": "0x79A4158900579FA0eE5b413B4724D010C8a0A8E2",
@@ -49,6 +51,8 @@
         "decisionLog": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
         "epochManager": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
         "feeManager": "0x6b23819bC44EEbE1BD004208c0F00f2ed002B621",
+        "gasDrip": "0x8dC1296314Df514e4fC86720DD26f0b4F3D10b27",
+        "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
         "marketCalendar": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
         "optionToken": "0x557060266F4aE09ae723541AC8E7E27A99B0c9DB",
         "pricer": "0x4261d47E6487e2533EdB9D5F91242F28121d5A1A",
@@ -89,7 +93,7 @@
     }
   },
   "measured": {
-    "commit": "9f7bb37",
+    "commit": "f2723ac",
     "date": "2026-10-03"
   },
   "tests": {
@@ -128,11 +132,11 @@
         "oracle": 34,
         "pricing": 21,
         "root": 1,
-        "testnet": 13,
+        "testnet": 34,
         "unit": 292
       },
       "command": "forge test --no-match-path \"test/{fork,differential,formal}/*\" --summary (in contracts)",
-      "passing": 586,
+      "passing": 607,
       "skipped": 7
     },
     "halmos": {
@@ -153,11 +157,11 @@
       "tests": 90
     },
     "playwright": {
-      "byDefault": 364,
+      "byDefault": 398,
       "command": "npx playwright test --list --reporter=json (in app)",
-      "files": 40,
-      "runs": 794,
-      "tests": 397,
+      "files": 42,
+      "runs": 862,
+      "tests": 431,
       "uiAudit": 33
     },
     "rust": {
@@ -186,7 +190,7 @@
   "totals": {
     "about": "typescript = SDK + MCP + example agents + indexer (the proof page's TypeScript card); pnpm = typescript + the Telegram bot (corepack pnpm -r test); testsAndProofs = Foundry main suite + fork + differential + Halmos proofs + Rust + pnpm + subgraph + Playwright per viewport",
     "pnpm": 657,
-    "testsAndProofs": 1693,
+    "testsAndProofs": 1748,
     "typescript": 564
   }
 }

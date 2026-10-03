@@ -346,7 +346,7 @@ export interface TestFact {
 export const TESTS: readonly TestFact[] = [
   {
     label: "Foundry",
-    count: "586",
+    count: "607",
     detail:
       "Unit, integration, fuzz, invariant, conformance and audit-regression suites (fork, differential and formal below); 7 more are skipped: settlement rules the StockCollateral example has no use for",
     evidence: [
@@ -389,7 +389,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "397",
+    count: "431",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 33 of them are the opt-in UI audit at five widths",
     evidence: [
@@ -405,7 +405,7 @@ export const TESTS: readonly TestFact[] = [
 // CI fails below 95% lines (.github/workflows/ci.yml).
 export const COVERAGE = {
   lines: "99.3%",
-  branches: "98.9%",
+  branches: "99.0%",
   statements: "99.5%",
   functions: "100%",
   evidence: [
