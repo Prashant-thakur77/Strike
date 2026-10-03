@@ -82,14 +82,14 @@ curl -s -X POST 'https://strike-options.vercel.app/api/mcp?chainId=46630&version
 
 `npx -y @strike-options/mcp` (in the repository: `pnpm --filter @strike/mcp dev`), from [`mcp/src/index.ts`](../mcp/src/index.ts). Settings ([`config.ts`](../mcp/src/config.ts#L41)):
 
-| Variable                                             | Effect                                                                                                                                                            |
-| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `STRIKE_CHAIN_ID`                                    | Chain to use; default 46630 (`421614` for Arbitrum Sepolia)                                                                                                       |
-| `STRIKE_DEPLOYMENT_VERSION`                          | `v2` or `v3`: which of the chain's deployments to use (v3 on 46630); default the SDK's default deployment. In the repository; on npm from the release after 0.9.0 |
-| `STRIKE_AGENT_PRIVATE_KEY`                           | The agent's signer key (0x and 64 hex characters). Without it the write tools are listed but refuse to send                                                       |
-| `STRIKE_MCP_READ_ONLY`                               | `1` or `true`: only the eight read tools are registered and the key is never loaded                                                                               |
-| `ALCHEMY_API_KEY`, `STRIKE_RPC_URL`                  | RPC choice through the SDK's [`rpcEndpointsFor`](../sdk/src/rpc.ts#L101); the public RPC otherwise                                                                |
-| `STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, ... | Address overrides of the default deployment ([list](../sdk/src/deployments.ts#L75))                                                                               |
+| Variable                                             | Effect                                                                                                                        |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `STRIKE_CHAIN_ID`                                    | Chain to use; default 46630 (`421614` for Arbitrum Sepolia)                                                                   |
+| `STRIKE_DEPLOYMENT_VERSION`                          | `v2` or `v3`: which of the chain's deployments to use (v3 on 46630); default the SDK's default deployment. On npm from 0.10.0 |
+| `STRIKE_AGENT_PRIVATE_KEY`                           | The agent's signer key (0x and 64 hex characters). Without it the write tools are listed but refuse to send                   |
+| `STRIKE_MCP_READ_ONLY`                               | `1` or `true`: only the eight read tools are registered and the key is never loaded                                           |
+| `ALCHEMY_API_KEY`, `STRIKE_RPC_URL`                  | RPC choice through the SDK's [`rpcEndpointsFor`](../sdk/src/rpc.ts#L101); the public RPC otherwise                            |
+| `STRIKE_EPOCH_MANAGER`, `STRIKE_AGENT_REGISTRY`, ... | Address overrides of the default deployment ([list](../sdk/src/deployments.ts#L75))                                           |
 
 The eight read tools above, plus seven write tools:
 

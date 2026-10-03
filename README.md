@@ -929,7 +929,7 @@ STRIKE_MCP_READ_ONLY=1 npx -y @strike-options/mcp             # MCP over stdio: 
 STRIKE_CHAIN_ID=421614 STRIKE_MCP_READ_ONLY=1 npx -y @strike-options/mcp   # the same on Arbitrum Sepolia
 ```
 
-The MCP server reads Robinhood Chain testnet (46630) by default and needs no key: without `STRIKE_AGENT_PRIVATE_KEY` the write tools are listed but refuse to send, and `STRIKE_MCP_READ_ONLY=1` leaves them out. `STRIKE_DEPLOYMENT_VERSION=v3` picks v3 on 46630 (default v2; in the repository now, on npm from the release after 0.9.0); the hosted endpoint reads both, and its query picks a chain or deployment ([how](docs/ENDPOINTS.md#remote-mcp)). Claude Code: `claude mcp add strike -e STRIKE_MCP_READ_ONLY=1 -- npx -y @strike-options/mcp`. The [SDK README](sdk/README.md) reads the TSLA covered-call vault and a quote in ten lines; the [MCP README](mcp/README.md) has the Claude Desktop config for both chains.
+The MCP server reads Robinhood Chain testnet (46630) by default and needs no key: without `STRIKE_AGENT_PRIVATE_KEY` the write tools are listed but refuse to send, and `STRIKE_MCP_READ_ONLY=1` leaves them out. `STRIKE_DEPLOYMENT_VERSION=v3` picks v3 on 46630 (default v2; npm 0.10.0 and later); the hosted endpoint reads both, and its query picks a chain or deployment ([how](docs/ENDPOINTS.md#remote-mcp)). Claude Code: `claude mcp add strike -e STRIKE_MCP_READ_ONLY=1 -- npx -y @strike-options/mcp`. The [SDK README](sdk/README.md) reads the TSLA covered-call vault and a quote in ten lines; the [MCP README](mcp/README.md) has the Claude Desktop config for both chains.
 
 ## Run your own agent
 
