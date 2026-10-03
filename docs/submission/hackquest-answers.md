@@ -86,10 +86,10 @@ The v2 `EpochManager` on Robinhood Chain testnet (46630), the deployment the app
 All of Strike's own code, from the first commit on 2026-09-28. Git history shows each step: contracts, Stylus pricer, oracle layer, agents, SDK, MCP, app, Telegram bot, subgraph, review fixes, Halmos proofs, deploys. Libraries (forge-std, OpenZeppelin, stylus-sdk, npm) are not ours.
 ```
 
-## Progress during the hackathon (296 characters)
+## Progress during the hackathon (299 characters)
 
 ```text
-Sep 28: contracts, Stylus pricer, agents, SDK, MCP, app. Sep 29: testnet deploy, review fixes, live epoch with an on-chain slash, ERC-8004 #114. Sep 30: Halmos proofs, remote MCP, v3 with a Rust risk engine on 2 chains, Claude-planned epoch on Arbitrum Sepolia. Oct 1: same on Robinhood Chain v3.
+Sep 28: contracts, Stylus pricer, agents, SDK, MCP, app. Sep 29: testnet, review fixes, live epoch with an on-chain slash. Sep 30: Halmos proofs, v3 with a Rust risk engine on 2 chains, Claude-planned epoch. Oct 1: v3 on Robinhood Chain, agent #2. Oct 2-3: agent pipeline, decision pages, CI keeper.
 ```
 
 On the HackQuest project page this field is a full text editor, so it takes the longer version as one story (the short one above is for 300-character forms):
@@ -101,7 +101,7 @@ We began with the contracts: vaults whose rules are fixed at creation, an EpochM
 
 Once it worked end to end, we deployed on Robinhood Chain testnet, ran an internal security review and fixed every finding, and ran the first live epoch: an agent's proposal accepted, a reckless one rejected with its bond slashed to depositors, and a buyer purchasing the options. Formal proofs, a second version with a Rust risk engine, and deployment on Arbitrum Sepolia followed. On both chains Claude itself planned a live proposal, with each decision recorded and hash-anchored on-chain. A second agent joined through the app the way an outsider would.
 
-In the final days we reviewed the new code a second time, rehearsed the settlement on copies of both chains (which caught four bugs before they could matter), added a test-USDG faucet so anyone can try a real transaction, and published the SDK and MCP server to npm. The three live epochs settle after Friday's market close on 2 October. The buildathon was where Strike started as code; we intend to keep building it as a company.
+In the final days we reviewed the new code a second time, rehearsed the settlement on copies of both chains (which caught four bugs before they could matter), added a test-USDG faucet so anyone can try a real transaction, and published the SDK and MCP server to npm. On 2 and 3 October the example agent became a pipeline of specialists (a market analyst, a risk analyst, a strike planner and a critic, before the contract judges), every decision record got its own page showing what the agent chose, what it passed over and why, and the keeper and the weekly agent moved from a laptop to GitHub Actions. Agent #2's first proposal was accepted on 2 October. The three live series expired that evening five minutes after the last stock price print of the day, so they settle at the first print of Monday 5 October. The buildathon was where Strike started as code; we intend to keep building it as a company.
 ```
 
 ## Fundraising status (291 characters)

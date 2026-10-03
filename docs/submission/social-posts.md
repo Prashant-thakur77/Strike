@@ -44,7 +44,7 @@ Drafts for the build thread. Facts only; every number is from the repo. Each pos
 
 **8/**
 
-> Strike in Telegram: a read-only bot turns the EpochManager's logs into alerts (series proposed, proposal rejected with the slash, options bought, settlement) and answers /vaults, /quote, /agent and /status. 60 tests.
+> Strike in Telegram: a read-only bot turns the EpochManager's logs into alerts (series proposed, proposal rejected with the slash, options bought, settlement) and answers /vaults, /quote, /agent and /status. 62 tests.
 >
 > https://github.com/Prashant-thakur77/Strike/tree/main/bots/telegram
 
@@ -53,6 +53,12 @@ Drafts for the build thread. Facts only; every number is from the repo. Each pos
 > Evidence: 1,498 tests and proofs, 9 of them Halmos proofs, 99.3% line coverage, Rust and Solidity pricers equal to the wei, agent #1 on ERC-8004 (#114 and #253), and an internal review with 11 findings (1 High, 3 Medium, 4 Low, 3 Info), all fixed. Unaudited, testnet only.
 
 **10/**
+
+> Every agent decision has its own page: the mandate rules with their headroom, the strikes it passed over and why, the break-even and model odds, and alternatives graded at settlement. Its hash is checked against the on-chain anchor.
+>
+> https://strike-options.vercel.app/app/decision/46630/2026-10-02-sTSLA-CSP-A2
+
+**11/**
 
 > To try it, start in the playground (no wallet), then spend five minutes with testnet tokens. Tell us what broke:
 >
@@ -67,9 +73,9 @@ Drafts for the build thread. Facts only; every number is from the repo. Each pos
 > You can test the mandate without a wallet: the playground (`/app/playground`) sends your proposal to the live `EpochManager.previewProposal` and shows the verdict. An honest 0.20-delta call is Accepted; a reckless at-the-money put gets `DeltaOutOfBand`. A read-only Telegram bot posts alerts from the contract logs (proposals, rejections with the slash, buys, settlements) and answers `/vaults`, `/quote`, `/agent` and `/status`.
 >
 > - Repo: https://github.com/Prashant-thakur77/Strike
-> - Three live epochs, one on v2 and two on v3 across both chains, each with an accepted proposal, an on-chain rejection with a 10 USDG slash and a buyer; Claude planned the accepted proposal in both v3 epochs: https://github.com/Prashant-thakur77/Strike#the-live-epochs
+> - Three agent-run epochs, one on v2 and two on v3 across both chains, each with an accepted proposal, an on-chain rejection with a 10 USDG slash and a buyer; Claude planned the accepted proposal in both v3 epochs: https://github.com/Prashant-thakur77/Strike#the-live-epochs
 > - Tester guide (starts with the playground, no wallet): https://github.com/Prashant-thakur77/Strike/blob/main/docs/testers.md
-> - Telegram bot: https://github.com/Prashant-thakur77/Strike/tree/main/bots/telegram (`<bot handle>` once deployed)
+> - Telegram bot: https://github.com/Prashant-thakur77/Strike/tree/main/bots/telegram ([@strike_options_bot](https://t.me/strike_options_bot); it runs from the owner's laptop for now, so it answers while that machine is on)
 > - App: https://strike-options.vercel.app
 >
 > It is unaudited and runs on testnet only. Feedback is very welcome, especially from anyone who has integrated stock tokens or Stylus.
