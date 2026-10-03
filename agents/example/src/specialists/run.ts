@@ -1,4 +1,5 @@
 import { BPS, numberToWad } from "@strike/sdk";
+import { keccak256, toBytes } from "viem";
 import {
   type PlannerCall,
   candidateFromCheck,
@@ -149,6 +150,83 @@ export function plannerContradictions(
   ];
 }
 
+/** How many rungs the contract's dry run rejected, by reason (and how many could not be read). */
+export function rejectionCounts(rows: RiskRow[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const r of rows) {
+    if (r.ok) continue;
+    const key = r.error !== undefined ? "unreadable" : (r.reason ?? "unknown");
+    out[key] = (out[key] ?? 0) + 1;
+  }
+  return out;
+}
+
+/** The critic's approval goes stale after this long; a send after it needs a new pass. */
+export const APPROVAL_TTL_MS = 120_000;
+
+export interface PreflightCheck {
+  check: "binding" | "approval-age" | "live-only";
+  code: string;
+  ok: boolean;
+  measured: string;
+  limit: string;
+}
+
+/**
+ * The checks right before propose_epoch: the payload is exactly what the critic passed (bound by a keccak256 digest of
+ * it), the critic's approval is recent, and no dry-run-only flag is on for a send.
+ */
+export function preflightChecks(input: {
+  args: { vault: string; targetDeltaBps: number; premiumBps: number; size: string };
+  approved: { targetDeltaBps: number; premiumBps: number; size: string; expiryIso: string };
+  approvedAgeMs: number;
+  ignoreSession: boolean;
+  sending: boolean;
+}): { proposalDigest: string; checks: PreflightCheck[] } {
+  const { args, approved } = input;
+  const proposalDigest = keccak256(
+    toBytes(
+      JSON.stringify({
+        vault: args.vault,
+        targetDeltaBps: approved.targetDeltaBps,
+        premiumBps: approved.premiumBps,
+        size: approved.size,
+        expiryIso: approved.expiryIso,
+      }),
+    ),
+  );
+  const bound =
+    args.targetDeltaBps === approved.targetDeltaBps &&
+    args.premiumBps === approved.premiumBps &&
+    args.size === approved.size;
+  const checks: PreflightCheck[] = [
+    {
+      check: "binding",
+      code: "PAYLOAD_MISMATCH",
+      ok: bound,
+      measured: bound
+        ? `the payload is the critic's proposal (digest ${proposalDigest.slice(0, 10)}…)`
+        : `payload ${args.targetDeltaBps} bps, ${args.premiumBps} bps, ${args.size} against the critic's ${approved.targetDeltaBps} bps, ${approved.premiumBps} bps, ${approved.size}`,
+      limit: "exactly the delta, premium factor and size the critic passed",
+    },
+    {
+      check: "approval-age",
+      code: "APPROVAL_EXPIRED",
+      ok: input.approvedAgeMs <= APPROVAL_TTL_MS,
+      measured: `the critic passed it ${(input.approvedAgeMs / 1000).toFixed(1)} s ago`,
+      limit: `at most ${APPROVAL_TTL_MS / 1000} s`,
+    },
+    {
+      check: "live-only",
+      code: "DRY_RUN_FLAG_ON_SEND",
+      ok: !(input.sending && input.ignoreSession),
+      measured: input.ignoreSession ? "--ignore-session is on" : "no dry-run-only flag",
+      limit: "--ignore-session never goes with a send",
+    },
+  ];
+  return { proposalDigest, checks };
+}
+
 /**
  * The decision note for a critic modification, in the wording the agent's notes have always used (the app reads the
  * size cap's), so a record's notes and its pipeline say the same thing.
@@ -165,7 +243,8 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
   const { state, journal, say, step } = deps;
   const mandate = state.vault.mandate;
   const vault = state.vault.address;
-  const pipe = new PipelineLog(deps.clock);
+  const clock = deps.clock ?? (() => Date.now());
+  const pipe = new PipelineLog(clock);
   journal.pipeline = pipe.stages;
   const ruleplan =
     opts.profile.name !== "default"
@@ -203,9 +282,10 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
   const noTrade = (
     at: PipelineStageName,
     reasons: string[],
+    codes: string[],
     extra: { table?: RiskTable | null; exact?: RiskRow | null; contradictions?: Contradiction[] } = {},
   ): PipelineOutcome => {
-    const title = STAGE_TITLES[at];
+    const title = at === "contract" ? "Preflight before sending" : STAGE_TITLES[at];
     const summary = `No trade this week: the ${title.toLowerCase()} stopped the run (${reasons.join("; ")}). Nothing was sent.`;
     say(summary);
     if (!journal.decision) {
@@ -230,7 +310,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
       status: "not-sent",
       summary,
       reason: "no-trade",
-      noTrade: { stage: at, reasons },
+      noTrade: { stage: at, reasons, codes },
     });
     pipe.close((name) =>
       name === "contract"
@@ -262,7 +342,8 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
       };
     });
     journal.contradictions = brief.contradictions;
-    if (!brief.go) return noTrade("market", brief.reasons, { contradictions: brief.contradictions });
+    if (!brief.go)
+      return noTrade("market", brief.reasons, brief.codes, { contradictions: brief.contradictions });
 
     // 2. Risk analyst.
     const ladderPremium = opts.llm ? defaultPremiumBps(mandate) : ruleplan.premiumBps;
@@ -325,13 +406,13 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
             ? `${table.rows.length} rungs dry-run, ${accepted} inside the mandate; greeks and stress ${isNotProvided(engine) ? `not provided (${engine.reason})` : `from the risk engine at ${engine.address}`}.`
             : `None of the ${table.rows.length} rungs is inside the mandate.`,
         inputs: { vault, premiumBps: ladderPremium, mandate: mandate.summary, sigma: brief.sigma.value },
-        output: table as unknown as Record<string, unknown>,
+        output: { ...table, rejections: rejectionCounts(table.rows) } as unknown as Record<string, unknown>,
         sources,
         by: "rule",
       };
     });
     if (!table.rows.some((r) => r.ok))
-      return noTrade("risk", ["no rung of the ladder is inside the mandate"], {
+      return noTrade("risk", ["no rung of the ladder is inside the mandate"], ["NO_RUNG_IN_MANDATE"], {
         table,
         contradictions: brief.contradictions,
       });
@@ -408,7 +489,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
       };
     });
     if (!choice)
-      return noTrade("planner", ["no accepted rung to choose"], {
+      return noTrade("planner", ["no accepted rung to choose"], ["NO_RUNG_TO_CHOOSE"], {
         table,
         contradictions: brief.contradictions,
       });
@@ -419,6 +500,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         `Critic${attempt > 1 ? " (retry)" : ""}: check the plan against the mandate and the analysts' numbers`,
       );
       let result!: {
+        approvedAt: number;
         verdict: "pass" | "modify" | "fail";
         check: RiskCheck;
         exact: RiskRow;
@@ -463,13 +545,21 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
               r.premiumBps === modified.premiumBps &&
               !r.error,
           ) ?? null;
-        const rules = criticRules({ brief, check, exact, tableRow, table, failedRule: exactCand.failedRule });
+        const rules = criticRules({
+          brief,
+          check,
+          exact,
+          tableRow,
+          table,
+          failedRule: exactCand.failedRule,
+          cushionSigmas: opts.profile.cushionSigmas,
+        });
         for (const m of modifications) say(`MODIFY ${m.field}: ${m.before} -> ${m.after} (${m.reason})`);
         for (const r of rules) say(`${r.ok ? "ok  " : "VETO"} ${r.rule}: ${r.measured} (limit: ${r.limit})`);
         const vetoes = rules.filter((r) => !r.ok);
         const verdict = vetoes.length > 0 ? "fail" : modifications.length > 0 ? "modify" : "pass";
         const plan = { ...modified, size: check.proposal.size, strike: check.proposal.strike };
-        result = { verdict, check, exact, plan, rules };
+        result = { verdict, check, exact, plan, rules, approvedAt: clock() };
         const conf = confidence(exact, table);
         return {
           verdict,
@@ -517,6 +607,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         return noTrade(
           "critic",
           verdict.rules.filter((r) => !r.ok).map((r) => `${r.rule}: ${r.measured}`),
+          verdict.rules.filter((r) => !r.ok).map((r) => r.code),
           {
             table,
             exact: verdict.exact,
@@ -550,6 +641,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         return noTrade(
           "critic",
           verdict.rules.filter((r) => !r.ok).map((r) => `${r.rule}: ${r.measured}`),
+          verdict.rules.filter((r) => !r.ok).map((r) => r.code),
           {
             table,
             exact: verdict.exact,
@@ -565,6 +657,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         return noTrade(
           "critic",
           verdict.rules.filter((r) => !r.ok).map((r) => `${r.rule}: ${r.measured}`),
+          verdict.rules.filter((r) => !r.ok).map((r) => r.code),
           {
             table,
             exact: verdict.exact,
@@ -588,13 +681,26 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
     journal.confidence = confidence(verdict.exact, table);
     journal.contradictions = [...brief.contradictions, ...plannerContradictions(plannerCands, check)];
 
-    // 5. The contract.
+    // 5. The contract. The payload is bound to what the critic passed, by a digest the record keeps.
     const args = {
       vault,
       targetDeltaBps: final.targetDeltaBps,
       size: check.proposal.size,
       premiumBps: final.premiumBps,
     };
+    const preflight = preflightChecks({
+      args,
+      approved: {
+        targetDeltaBps: final.targetDeltaBps,
+        premiumBps: final.premiumBps,
+        size: check.proposal.size,
+        expiryIso: check.proposal.expiryIso,
+      },
+      approvedAgeMs: clock() - verdict.approvedAt,
+      ignoreSession: opts.ignoreSession,
+      sending: !(opts.dryRun || !deps.propose),
+    });
+    const contractInputs = { ...args, expiryIso: check.proposal.expiryIso, preflight };
     if (opts.dryRun || !deps.propose) {
       const why = opts.ignoreSession
         ? "dry run with --ignore-session (evaluated as if the NYSE were open): nothing was sent"
@@ -605,7 +711,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         attempt: 1,
         verdict: "not-run",
         summary: `not run: ${why}`,
-        inputs: args,
+        inputs: contractInputs,
         output: {},
         sources: [],
         durationMs: 0,
@@ -623,6 +729,26 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
       });
       return { kind: "dry-run", check };
     }
+    const failedPreflight = preflight.checks.filter((c) => !c.ok);
+    if (failedPreflight.length > 0) {
+      pipe.add({
+        stage: "contract",
+        attempt: 1,
+        verdict: "not-run",
+        summary: `not run: the preflight before sending failed (${failedPreflight.map((c) => c.check).join(", ")})`,
+        inputs: contractInputs,
+        output: {},
+        sources: [],
+        durationMs: 0,
+        by: "contract",
+      });
+      return noTrade(
+        "contract",
+        failedPreflight.map((c) => `${c.check}: ${c.measured}`),
+        failedPreflight.map((c) => c.code),
+        { table, exact: verdict.exact, contradictions: journal.contradictions ?? [] },
+      );
+    }
     step("Contract: propose on-chain (proposeByDelta); the mandate is enforced again there");
     let sent!: ProposeResult;
     await stage("contract", 1, async () => {
@@ -635,7 +761,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
           : sent.submitted
             ? `Rejected on-chain (${sent.reason}); ${sent.slashed} USDG slashed from the bond.`
             : `Not submitted: ${sent.reason}.`,
-        inputs: args,
+        inputs: contractInputs,
         output: {
           submitted: sent.submitted,
           accepted: sent.accepted,

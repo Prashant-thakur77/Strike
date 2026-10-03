@@ -17,12 +17,32 @@ export type CriticRuleName = "market" | "mandate" | "cushion" | "yield" | "drift
 
 export interface CriticRule {
   rule: CriticRuleName;
+  /**
+   * The rule's priority, P0 first: P0 safety and evidence (the market brief), P1 the mandate, P2 risk (the cushion),
+   * P3 timing (drift since the risk table), P4 payload integrity (the yield adds up). Every rule is always evaluated;
+   * the priority orders the veto reasons.
+   */
+  priority: "P0" | "P1" | "P2" | "P3" | "P4";
+  /** A stable reason code for a failed rule (also set when it passes, naming what it guards). */
+  code: string;
   ok: boolean;
   /** False when the rule had nothing to compare (it then passes and says why in `measured`). */
   applicable: boolean;
   measured: string;
   limit: string;
+  /** The measured value and the threshold as numbers, when the rule has them (fractions, not percent). */
+  value: number | null;
+  threshold: number | null;
 }
+
+/** Priority and reason code of each rule. */
+export const CRITIC_RULES: Record<CriticRuleName, { priority: CriticRule["priority"]; code: string }> = {
+  market: { priority: "P0", code: "MARKET_NO_GO" },
+  mandate: { priority: "P1", code: "MANDATE_REJECTED" },
+  cushion: { priority: "P2", code: "CUSHION_TOO_THIN" },
+  drift: { priority: "P3", code: "ANALYSIS_DRIFT" },
+  yield: { priority: "P4", code: "YIELD_MISMATCH" },
+};
 
 /** One change the critic made to the plan, inside the mandate. */
 export interface Modification {
@@ -116,14 +136,27 @@ export function criticRules(input: {
   tableRow: RiskRow | null;
   table: RiskTable;
   failedRule: { rule: string; measured: string; limit: string } | null;
+  /** One-sigma moves the break-even must clear (the profile's; default {@link CUSHION_SIGMAS}). */
+  cushionSigmas?: number;
 }): CriticRule[] {
   const { brief, check, exact, tableRow, table } = input;
-  const rules: CriticRule[] = [];
+  const cushionSigmas = input.cushionSigmas ?? CUSHION_SIGMAS;
+  const out: CriticRule[] = [];
+  const rules = {
+    push(
+      r: Omit<CriticRule, "priority" | "code" | "value" | "threshold"> &
+        Partial<Pick<CriticRule, "value" | "threshold">>,
+    ) {
+      out.push({ ...CRITIC_RULES[r.rule], value: null, threshold: null, ...r });
+    },
+  };
 
   rules.push({
     rule: "market",
     ok: brief.go,
     applicable: true,
+    value: brief.checks.filter((c) => !c.ok && !c.waived).length,
+    threshold: 0,
     measured: brief.go
       ? `go${brief.sessionWaived ? " (session waived by --ignore-session: a dry run evaluated as if the NYSE were open)" : ""}`
       : `no-go: ${brief.reasons.join("; ")}`,
@@ -143,7 +176,7 @@ export function criticRules(input: {
   });
 
   const oneSigma = table.sigma * Math.sqrt(tenorYears(table.tenorSeconds));
-  const minCushion = CUSHION_SIGMAS * oneSigma;
+  const minCushion = cushionSigmas * oneSigma;
   const stress = isNotProvided(exact.stress)
     ? `; the engine's ±30% stress costs not provided (${exact.stress.reason})`
     : `; the worst ±30% move (${exact.stress.worstShock > 0 ? "+" : ""}${pctText(exact.stress.worstShock, 0)}) would cost $${exact.stress.worstLossUsd}, ${pctText(exact.stress.shareOfCollateral)} of the collateral, against $${exact.stress.premiumIncomeUsd} of premium`;
@@ -152,7 +185,8 @@ export function criticRules(input: {
       rule: "cushion",
       ok: false,
       applicable: true,
-      measured: "no break-even: the exact dry run gave no strike or premium",
+      threshold: minCushion,
+      measured: "no break-even: the exact dry run gave no strike or premium (missing context fails closed)",
       limit: `at least ${pctText(minCushion)} from spot`,
     });
   } else {
@@ -160,8 +194,10 @@ export function criticRules(input: {
       rule: "cushion",
       ok: exact.breakEvenDistance >= minCushion,
       applicable: true,
+      value: exact.breakEvenDistance,
+      threshold: minCushion,
       measured: `break-even $${exact.breakEven} is ${pctText(exact.breakEvenDistance)} ${table.isCall ? "above" : "below"} spot $${check.spot}${stress}`,
-      limit: `at least ${pctText(minCushion)} (${CUSHION_SIGMAS} x the ${pctText(oneSigma)} one-sigma move to expiry)`,
+      limit: `at least ${pctText(minCushion)} (${cushionSigmas} x the ${pctText(oneSigma)} one-sigma move to expiry)`,
     });
   }
 
@@ -177,6 +213,8 @@ export function criticRules(input: {
     rule: "yield",
     ok: selfOk && tableOk,
     applicable: true,
+    value: rebuilt === null || reported === 0 ? null : Math.abs(rebuilt - reported) / Math.abs(reported),
+    threshold: YIELD_TOLERANCE,
     measured: `risk_check reports ${(reported / 100).toFixed(2)}% of collateral; rebuilt from fair value $${check.measured.fairValue} x ${(check.proposal.premiumBps / 100).toFixed(0)}% over $${check.isCall ? check.spot : check.proposal.strike} it is ${rebuilt === null ? "not computable" : `${(rebuilt / 100).toFixed(2)}%`}${tableYield === null ? "" : `; the risk table had ${(tableYield / 100).toFixed(2)}% for this rung`}`,
     limit: `within ${pctText(YIELD_TOLERANCE, 0)} of the rebuilt yield${tableYield === null ? "" : ` and ${pctText(TABLE_YIELD_TOLERANCE, 0)} of the table's`}`,
   });
@@ -186,6 +224,7 @@ export function criticRules(input: {
       rule: "drift",
       ok: true,
       applicable: false,
+      threshold: DRIFT_LIMIT,
       measured: "not applicable: the risk table has no rung at this delta and premium factor to compare with",
       limit: `strike and spot within ${pctText(DRIFT_LIMIT)} of the risk table`,
     });
@@ -200,11 +239,14 @@ export function criticRules(input: {
       rule: "drift",
       ok: dk <= DRIFT_LIMIT && ds <= DRIFT_LIMIT,
       applicable: true,
+      value: Math.max(dk, ds),
+      threshold: DRIFT_LIMIT,
       measured: `strike $${tableRow.strike} in the risk table, $${check.proposal.strike} now (${pctText(dk, 2)}); spot $${table.spot} then, $${check.spot} now (${pctText(ds, 2)})`,
       limit: `both within ${pctText(DRIFT_LIMIT)}`,
     });
   }
-  return rules;
+  // Every rule is evaluated; the list is in priority order, P0 first.
+  return out.sort((a, b) => a.priority.localeCompare(b.priority));
 }
 
 /** One alternative of the week, with the model numbers it would be graded on once the series settles. */

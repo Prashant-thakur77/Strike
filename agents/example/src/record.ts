@@ -179,7 +179,7 @@ export interface RecordResult {
    * A no-trade decision (status "not-sent"): the specialist that stopped the run and its reasons, e.g. the market
    * analyst's "market closed until Mon 5 Oct 13:30 UTC" or a critic veto.
    */
-  noTrade?: { stage: string; reasons: string[] };
+  noTrade?: { stage: string; reasons: string[]; codes?: string[] };
 }
 
 export interface RecordTrack {
@@ -419,6 +419,12 @@ function stageDetails(st: PipelineStage): string[] {
       out.push(`${String(c.check)}: ${String(c.measured)}; limit: ${String(c.limit)} (${state})`);
     }
     if (isNotProvided(o.mainnet)) out.push(`mainnet Chainlink print: not provided (${o.mainnet.reason})`);
+    const realised = asObj(o.sigma).realised;
+    if (isNotProvided(realised)) out.push(`realised volatility: not provided (${realised.reason})`);
+    else if (typeof asObj(realised).value === "number")
+      out.push(
+        `realised volatility: ${share(asObj(realised).value as number)} a year over ${String(asObj(realised).returns)} daily returns of mainnet Chainlink closes, against the pricer's sigma ${share(Number(asObj(o.sigma).value))}`,
+      );
   } else if (st.stage === "risk") {
     for (const r of asArr(o.rows)) {
       if (r.targetDeltaBps === null || r.targetDeltaBps === undefined) continue;

@@ -56,14 +56,47 @@ export interface MarketReads {
   mirror: FeedRound | NotProvided;
   /** The latest round of the mainnet Chainlink feed the mirror copies (Robinhood Chain mainnet). */
   mainnet: (FeedRound & { chainId: number; feed: string }) | NotProvided;
+  /**
+   * Realised volatility from the mainnet Chainlink feed's closing prints (the round in force at each NYSE close of the
+   * last trading days, from the MarketCalendar), to set against the pricer's sigma. Not provided off mainnet-fed
+   * chains or when the rounds cannot be read.
+   */
+  realised: RealisedVol | NotProvided;
   /** The spot the MCP server's vault_state reported, to cross-check with the direct read. */
   mcpSpot: string | null;
   sources: StageSource[];
 }
 
+/** Annualised realised volatility from daily closes. */
+export interface RealisedVol {
+  /** Annualised, as a fraction (sample standard deviation of daily log returns x sqrt(252)). */
+  value: number;
+  /** The closes used, oldest first: the session close and the price of the round in force then. */
+  closes: { closeIso: string; price: number }[];
+  returns: number;
+}
+
+/** Sessions of closes the realised volatility uses (so this many minus one daily returns). */
+export const REALISED_CLOSES = 11;
+/** The pricer's sigma and the realised volatility disagree when one is more than twice the other. */
+export const SIGMA_RATIO_LIMIT = 2;
+
+/** Realised volatility from closes (oldest first); null with fewer than three closes. */
+export function realisedVolatility(closes: { closeIso: string; price: number }[]): RealisedVol | null {
+  const ok = closes.filter((c) => c.price > 0);
+  if (ok.length < 3) return null;
+  const r: number[] = [];
+  for (let i = 1; i < ok.length; i++) r.push(Math.log(ok[i]!.price / ok[i - 1]!.price));
+  const mean = r.reduce((a, b) => a + b, 0) / r.length;
+  const variance = r.reduce((a, b) => a + (b - mean) ** 2, 0) / (r.length - 1);
+  return { value: Math.sqrt(variance) * Math.sqrt(252), closes: ok, returns: r.length };
+}
+
 /** One go / no-go check: what was measured, the limit, and whether it passed. */
 export interface MarketCheck {
   check: "session" | "feed-status" | "feed-fresh" | "corporate-action" | "sequencer" | "sigma-bounds";
+  /** The reason code when the check fails (MARKET_CLOSED, FEED_STALE, ...). */
+  code: string;
   ok: boolean;
   /** `--ignore-session` (dry runs only) waived this failed check; the record says so. */
   waived?: boolean;
@@ -83,6 +116,8 @@ export interface MarketBrief {
   go: boolean;
   /** The failed checks in words (no-go), or one line saying all passed. */
   reasons: string[];
+  /** The failed checks' reason codes (empty on a go). */
+  codes: string[];
   checks: MarketCheck[];
   contradictions: Contradiction[];
   /** True when `--ignore-session` evaluated the run as if the NYSE were open. */
@@ -96,7 +131,13 @@ export interface MarketBrief {
     ageSeconds: number | null;
     maxAgeSeconds: number;
   };
-  sigma: { value: number; min: number; max: number; source: string };
+  sigma: {
+    value: number;
+    min: number;
+    max: number;
+    source: string;
+    realised: RealisedVol | NotProvided;
+  };
   session: { open: boolean; nextOpenIso: string | null; nextCloseIso: string | null };
   corporateAction:
     MarketReads["corporateAction"] | { provided: true; pending: boolean; effectiveAtIso: string | null };
@@ -104,6 +145,16 @@ export interface MarketBrief {
     MarketReads["sequencer"] | { provided: true; up: boolean; sinceIso: string; graceSeconds: number };
   mainnet: MarketReads["mainnet"];
 }
+
+/** The reason code of each check, used in a no-trade decision. */
+export const MARKET_CODES: Record<MarketCheck["check"], string> = {
+  session: "MARKET_CLOSED",
+  "feed-status": "FEED_UNUSABLE",
+  "feed-fresh": "FEED_STALE",
+  "corporate-action": "CORPORATE_ACTION_PENDING",
+  sequencer: "SEQUENCER_DOWN",
+  "sigma-bounds": "SIGMA_OUT_OF_BOUNDS",
+};
 
 /** How far the mirror may lag the mainnet print it copies (the keeper pushes every 10 minutes when it runs). */
 export const MIRROR_LAG_LIMIT_SECONDS = 30 * 60;
@@ -130,7 +181,12 @@ export function ageLabel(seconds: number): string {
 
 /** The brief and the go / no-go, from the reads. Pure: the same reads give the same brief. */
 export function marketBrief(r: MarketReads, opts: { ignoreSession?: boolean } = {}): MarketBrief {
-  const checks: MarketCheck[] = [];
+  const out: MarketCheck[] = [];
+  const checks = {
+    push(c: Omit<MarketCheck, "code">) {
+      out.push({ ...c, code: MARKET_CODES[c.check] });
+    },
+  };
   const ignoreSession = opts.ignoreSession === true;
 
   const sessionOk = r.session.open;
@@ -233,6 +289,18 @@ export function marketBrief(r: MarketReads, opts: { ignoreSession?: boolean } = 
       limit: `the mirror at most ${ageLabel(MIRROR_LAG_LIMIT_SECONDS)} behind mainnet`,
     });
   }
+  if (!isNotProvided(r.realised) && r.realised.value > 0) {
+    const ratio = r.sigma.value / r.realised.value;
+    contradictions.push({
+      between: [
+        "pricer sigma (EpochManager)",
+        `realised volatility (${r.realised.returns} daily mainnet closes)`,
+      ],
+      agree: ratio <= SIGMA_RATIO_LIMIT && ratio >= 1 / SIGMA_RATIO_LIMIT,
+      measured: `sigma ${(r.sigma.value * 100).toFixed(1)}% against realised ${(r.realised.value * 100).toFixed(1)}% a year`,
+      limit: `neither more than ${SIGMA_RATIO_LIMIT}x the other`,
+    });
+  }
   if (r.mcpSpot !== null && r.oracle.price !== null) {
     const a = Number(r.mcpSpot);
     const b = Number(r.oracle.price);
@@ -245,11 +313,11 @@ export function marketBrief(r: MarketReads, opts: { ignoreSession?: boolean } = 
     });
   }
 
-  const failed = checks.filter((c) => !c.ok && !c.waived);
+  const failed = out.filter((c) => !c.ok && !c.waived);
   const go = failed.length === 0;
   const reasons = go
     ? [
-        `all ${checks.length} checks passed${checks.some((c) => c.waived) ? " (the session check waived by --ignore-session, a dry run)" : ""}`,
+        `all ${out.length} checks passed${out.some((c) => c.waived) ? " (the session check waived by --ignore-session, a dry run)" : ""}`,
       ]
     : failed.map((c) =>
         c.check === "session" && r.session.nextOpen
@@ -260,7 +328,8 @@ export function marketBrief(r: MarketReads, opts: { ignoreSession?: boolean } = 
   return {
     go,
     reasons,
-    checks,
+    codes: failed.map((c) => c.code),
+    checks: out,
     contradictions,
     sessionWaived: ignoreSession && !sessionOk,
     chainTimeIso: iso(r.now),
@@ -272,7 +341,7 @@ export function marketBrief(r: MarketReads, opts: { ignoreSession?: boolean } = 
       ageSeconds: age,
       maxAgeSeconds: r.feed.maxPriceAge,
     },
-    sigma: { ...r.sigma, source: "EpochManager.underlyings(token).sigma" },
+    sigma: { ...r.sigma, source: "EpochManager.underlyings(token).sigma", realised: r.realised },
     session: {
       open: r.session.open,
       nextOpenIso: r.session.nextOpen ? iso(r.session.nextOpen) : null,
@@ -303,6 +372,24 @@ export async function nextSession(
     if (nextClose === null && Number(close) >= now) nextClose = Number(close);
   }
   return { nextOpen, nextClose };
+}
+
+/** The last `n` NYSE session closes at or before `now`, oldest first, from the MarketCalendar (30 days back at most). */
+export async function previousCloses(
+  isTradingDay: (day: bigint) => Promise<boolean>,
+  sessionOf: (day: bigint) => Promise<readonly [bigint, bigint]>,
+  now: number,
+  n = REALISED_CLOSES,
+): Promise<number[]> {
+  const out: number[] = [];
+  const today = Math.floor(now / DAY);
+  for (let i = 0; i < 30 && out.length < n; i++) {
+    const day = BigInt(today - i);
+    if (!(await isTradingDay(day))) continue;
+    const [, close] = await sessionOf(day);
+    if (Number(close) <= now) out.push(Number(close));
+  }
+  return out.reverse();
 }
 
 /** Read the analyst's inputs from the chain (and the mainnet Chainlink feed), for one vault. */
@@ -410,7 +497,12 @@ export async function readMarket(
     mirror = notProvided(`the price feed did not answer latestRoundData (${cleanError(err)})`);
   }
 
-  const mainnet = await readMainnet(v.underlyingSymbol, strike.chainId, env);
+  const closes = await previousCloses(
+    (day) => pc.readContract({ ...cal, functionName: "isTradingDay", args: [day] }),
+    (day) => pc.readContract({ ...cal, functionName: "sessionOf", args: [day] }),
+    nowSec,
+  );
+  const { mainnet, realised } = await readMainnet(v.underlyingSymbol, strike.chainId, env, closes);
   if (!isNotProvided(mainnet))
     sources.push({
       kind: "contract",
@@ -435,20 +527,31 @@ export async function readMarket(
     sequencer,
     mirror,
     mainnet,
+    realised,
     mcpSpot,
     sources,
   };
 }
 
-/** The mainnet Chainlink feed's latest round for a stock symbol, when the chain mirrors one. */
+/**
+ * The mainnet Chainlink feed's latest round for a stock symbol, when the chain mirrors one, and the realised
+ * volatility of its closing prints at `closes` (unix seconds).
+ */
 async function readMainnet(
   symbol: string,
   chainId: number,
   env: NodeJS.ProcessEnv,
-): Promise<MarketReads["mainnet"]> {
+  closes: number[],
+): Promise<{ mainnet: MarketReads["mainnet"]; realised: MarketReads["realised"] }> {
   const feed = MAINNET_CHAINLINK_FEEDS[symbol];
-  if (!feed) return notProvided(`no mainnet Chainlink feed is listed for ${symbol} in strike.config.json`);
-  if (chainId === 31337) return notProvided("a local devnet mirrors no mainnet feed");
+  if (!feed) {
+    const none = notProvided(`no mainnet Chainlink feed is listed for ${symbol} in strike.config.json`);
+    return { mainnet: none, realised: none };
+  }
+  if (chainId === 31337) {
+    const none = notProvided("a local devnet mirrors no mainnet feed");
+    return { mainnet: none, realised: none };
+  }
   const mainnetId = 4663;
   try {
     const chain = getStrikeChain(mainnetId);
@@ -461,18 +564,76 @@ async function readMainnet(
       client.readContract({ address: feed, abi: aggregatorProxyAbi, functionName: "latestRoundData" }),
     ]);
     const [roundId, answer, , updatedAt] = round;
-    const wad =
-      decimals <= 18 ? answer * 10n ** BigInt(18 - decimals) : answer / 10n ** BigInt(decimals - 18);
-    return {
+    const toUsd = (a: bigint) => Number(a) / 10 ** decimals;
+    const mainnet = {
       chainId: mainnetId,
       feed,
       roundId: roundId.toString(),
-      price: formatWad(wad, 4),
+      price: formatWad(
+        decimals <= 18 ? answer * 10n ** BigInt(18 - decimals) : answer / 10n ** BigInt(decimals - 18),
+        4,
+      ),
       updatedAt: Number(updatedAt),
     };
+    let realised: MarketReads["realised"];
+    try {
+      const at = (id: bigint) =>
+        client.readContract({
+          address: feed,
+          abi: aggregatorProxyAbi,
+          functionName: "getRoundData",
+          args: [id],
+        });
+      const prints = await Promise.all(
+        closes.map(async (t) => {
+          const p = await roundAt(at, roundId, BigInt(updatedAt), t);
+          return p === null ? null : { closeIso: new Date(t * 1000).toISOString(), price: toUsd(p) };
+        }),
+      );
+      const vol = realisedVolatility(
+        prints.filter((p): p is { closeIso: string; price: number } => p !== null),
+      );
+      realised =
+        vol ?? notProvided(`fewer than 3 of the last ${closes.length} closes have a mainnet round in force`);
+    } catch (err) {
+      realised = notProvided(`the mainnet feed's past rounds could not be read (${cleanError(err)})`);
+    }
+    return { mainnet, realised };
   } catch (err) {
-    return notProvided(`Robinhood Chain mainnet could not be read (${cleanError(err)})`);
+    const none = notProvided(`Robinhood Chain mainnet could not be read (${cleanError(err)})`);
+    return { mainnet: none, realised: none };
   }
+}
+
+/**
+ * The answer of the round in force at `t`: the newest round of the latest round's phase published at or before `t`,
+ * by binary search over the phase's aggregator round ids. Null when the phase starts after `t`.
+ */
+export async function roundAt(
+  getRound: (id: bigint) => Promise<readonly [bigint, bigint, bigint, bigint, bigint]>,
+  latestId: bigint,
+  latestAt: bigint,
+  t: number,
+): Promise<bigint | null> {
+  const phase = latestId >> 64n;
+  const base = phase << 64n;
+  const last = latestId - base;
+  if (latestAt <= BigInt(t)) {
+    const [, answer] = await getRound(latestId);
+    return answer;
+  }
+  let lo = 1n;
+  let hi = last;
+  let found: bigint | null = null;
+  while (lo <= hi) {
+    const mid = (lo + hi) / 2n;
+    const [, answer, , updatedAt] = await getRound(base + mid);
+    if (updatedAt <= BigInt(t) && updatedAt > 0n) {
+      found = answer;
+      lo = mid + 1n;
+    } else hi = mid - 1n;
+  }
+  return found;
 }
 
 const DECIMALS_ABI = [

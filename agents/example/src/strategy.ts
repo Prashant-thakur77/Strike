@@ -11,12 +11,20 @@ export interface Profile {
   premiumBps: number;
   /** Largest share of the vault's capacity to offer (1: whatever the mandate allows). */
   sizeShare: number;
+  /** One-sigma moves the critic wants between spot and the break-even (default 0.5). */
+  cushionSigmas?: number;
 }
 
 /** The rule-based profiles `--profile` selects. "default" is the 0.20-delta rule below. */
 export const PROFILES: Record<string, Profile> = {
   default: { name: "default", targetDelta: DEFAULT_TARGET_DELTA, premiumBps: BPS, sizeShare: 1 },
-  conservative: { name: "conservative", targetDelta: 0.15, premiumBps: 10_800, sizeShare: 0.5 },
+  conservative: {
+    name: "conservative",
+    targetDelta: 0.15,
+    premiumBps: 10_800,
+    sizeShare: 0.5,
+    cushionSigmas: 0.75,
+  },
 };
 
 /** Parse `--profile` (default "default"). */

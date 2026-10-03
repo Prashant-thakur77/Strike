@@ -20,7 +20,15 @@ import {
   rebuiltYieldBps,
   sizeModification,
 } from "../src/specialists/critic.js";
-import { type MarketReads, marketBrief, nextSession, utcLabel } from "../src/specialists/market.js";
+import {
+  type MarketReads,
+  marketBrief,
+  nextSession,
+  previousCloses,
+  realisedVolatility,
+  roundAt,
+  utcLabel,
+} from "../src/specialists/market.js";
 import { claudeChoice, pickRung, ruleChoice } from "../src/specialists/plan.js";
 import {
   type RiskEngineReader,
@@ -30,7 +38,15 @@ import {
   riskRow,
   riskTable,
 } from "../src/specialists/risk.js";
-import { type ClaudePlan, type PipelineDeps, plannerContext, runPipeline } from "../src/specialists/run.js";
+import {
+  APPROVAL_TTL_MS,
+  type ClaudePlan,
+  type PipelineDeps,
+  plannerContext,
+  preflightChecks,
+  rejectionCounts,
+  runPipeline,
+} from "../src/specialists/run.js";
 import { PROFILES } from "../src/strategy.js";
 import type { ProposeResult, RiskCheck, VaultState } from "../src/types.js";
 
@@ -85,6 +101,14 @@ function reads(over: Partial<MarketReads> = {}): MarketReads {
       roundId: "9",
       price: "370.448",
       updatedAt: MON - 120,
+    },
+    realised: {
+      value: 0.55,
+      closes: [
+        { closeIso: "2026-10-01T20:00:00.000Z", price: 360 },
+        { closeIso: "2026-10-02T20:00:00.000Z", price: 370.448 },
+      ],
+      returns: 10,
     },
     mcpSpot: "370.448",
     sources: [
@@ -189,7 +213,8 @@ describe("market analyst", () => {
 
   it("compares inputs that should agree: the mirror against mainnet, the MCP spot against the oracle", () => {
     const agree = marketBrief(reads());
-    expect(agree.contradictions.map((c) => c.agree)).toEqual([true, true]);
+    expect(agree.contradictions.map((c) => c.agree)).toEqual([true, true, true]);
+    expect(agree.contradictions[1]!.between[0]).toBe("pricer sigma (EpochManager)");
     const lag = marketBrief(
       reads({
         mainnet: {
@@ -204,10 +229,57 @@ describe("market analyst", () => {
     expect(lag.contradictions[0]).toMatchObject({ agree: false });
     expect(lag.contradictions[0]!.measured).toContain("1.0 h after the mirror's last round");
     const spot = marketBrief(reads({ mcpSpot: "371.00" }));
-    expect(spot.contradictions[1]).toMatchObject({ agree: false });
-    const missing = marketBrief(reads({ mainnet: notProvided("RPC down") }));
+    expect(spot.contradictions[2]).toMatchObject({ agree: false });
+    const vol = marketBrief(reads({ realised: { value: 0.25, closes: [], returns: 10 } }));
+    expect(vol.contradictions[1]).toMatchObject({
+      agree: false,
+      measured: "sigma 60.0% against realised 25.0% a year",
+    });
+    const missing = marketBrief(
+      reads({ mainnet: notProvided("RPC down"), realised: notProvided("RPC down") }),
+    );
     expect(missing.contradictions).toHaveLength(1);
+    expect(missing.sigma.realised).toEqual({ provided: false, reason: "RPC down" });
     expect(missing.mainnet).toEqual({ provided: false, reason: "RPC down" });
+  });
+
+  it("computes realised volatility from daily closes, and finds each close's round by binary search", async () => {
+    const closes = [100, 101, 99, 102, 100].map((price, i) => ({ closeIso: `d${i}`, price }));
+    const r = realisedVolatility(closes)!;
+    const rets = [1.01, 99 / 101, 102 / 99, 100 / 102].map(Math.log);
+    const mean = rets.reduce((a, b) => a + b) / 4;
+    const sd = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / 3);
+    expect(r.value).toBeCloseTo(sd * Math.sqrt(252), 12);
+    expect(r.returns).toBe(4);
+    expect(realisedVolatility(closes.slice(0, 2))).toBeNull();
+    // Rounds 1..100 of phase 2, one every 600 s from t0, answer = 1000 + id.
+    const base = 2n << 64n;
+    const t0 = 1_000_000;
+    let reads = 0;
+    const getRound = async (id: bigint) => {
+      reads++;
+      const n = id - base;
+      return [id, 1000n + n, 0n, BigInt(t0 + Number(n) * 600), id] as const;
+    };
+    expect(await roundAt(getRound, base + 100n, BigInt(t0 + 60_000), t0 + 30_100)).toBe(1050n);
+    expect(reads).toBeLessThan(10);
+    expect(await roundAt(getRound, base + 100n, BigInt(t0 + 60_000), t0 + 100)).toBeNull();
+    expect(await roundAt(getRound, base + 100n, BigInt(t0 + 60_000), t0 + 99_999)).toBe(1100n);
+  });
+
+  it("lists the last sessions' closes from the calendar, oldest first", async () => {
+    const isTradingDay = async (day: bigint) =>
+      ![0, 6].includes(new Date(Number(day) * 86_400_000).getUTCDay());
+    const sessionOf = async (day: bigint) => {
+      const open = Number(day) * 86_400 + 13.5 * 3600;
+      return [BigInt(open), BigInt(open + 6.5 * 3600)] as const;
+    };
+    const closes = await previousCloses(isTradingDay, sessionOf, SAT, 3);
+    expect(closes.map((c) => new Date(c * 1000).toISOString())).toEqual([
+      "2026-09-30T20:00:00.000Z",
+      "2026-10-01T20:00:00.000Z",
+      "2026-10-02T20:00:00.000Z",
+    ]);
   });
 
   it("finds the next open and close from the calendar over a weekend", async () => {
@@ -409,8 +481,19 @@ const ruleOf = (rules: ReturnType<typeof criticRules>, name: string) => rules.fi
 describe("critic", () => {
   it("passes a sound plan on all five rules", async () => {
     const rules = criticRules(await criticInput());
-    expect(rules.map((r) => r.rule)).toEqual(["market", "mandate", "cushion", "yield", "drift"]);
+    // Every rule is evaluated, in priority order, each with a reason code and its numbers.
+    expect(rules.map((r) => `${r.priority} ${r.rule} ${r.code}`)).toEqual([
+      "P0 market MARKET_NO_GO",
+      "P1 mandate MANDATE_REJECTED",
+      "P2 cushion CUSHION_TOO_THIN",
+      "P3 drift ANALYSIS_DRIFT",
+      "P4 yield YIELD_MISMATCH",
+    ]);
     expect(rules.every((r) => r.ok)).toBe(true);
+    const cushion = ruleOf(rules, "cushion");
+    expect(cushion.value).toBeGreaterThan(cushion.threshold!);
+    expect(ruleOf(rules, "drift")).toMatchObject({ value: 0, threshold: 0.005 });
+    expect(ruleOf(rules, "market")).toMatchObject({ value: 0, threshold: 0 });
   });
 
   it("vetoes when the market brief does not allow trading", async () => {
@@ -600,11 +683,27 @@ describe("the pipeline end to end", () => {
     expect(p.map((s) => s.stage)).toEqual([...PIPELINE_STAGES]);
     expect(p.map((s) => s.verdict)).toEqual(["pass", "pass", "pass", "pass", "not-run"]);
     expect(p.every((s) => s.by === (s.stage === "contract" ? "contract" : "rule"))).toBe(true);
-    expect(p.slice(0, 4).every((s) => s.durationMs === 5 && s.sources.length > 0)).toBe(true);
+    expect(p.slice(0, 4).every((s) => s.durationMs > 0 && s.sources.length > 0)).toBe(true);
+    // The risk analyst counts the rejections by reason; the planner lists every rung it looked at.
+    expect(p[1]!.output.rejections).toEqual({ DeltaOutOfBand: 2 });
+    const considered = p[2]!.output.considered as { targetDeltaBps: number; selected: boolean }[];
+    expect(considered[0]).toMatchObject({ targetDeltaBps: 2000, selected: true });
+    expect(considered.filter((c) => c.selected)).toHaveLength(1);
+    // The contract stage keeps the payload, bound to the critic's proposal by a digest.
+    const pre = p[4]!.inputs.preflight as {
+      proposalDigest: string;
+      checks: { check: string; ok: boolean }[];
+    };
+    expect(pre.proposalDigest).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(pre.checks.map((c) => [c.check, c.ok])).toEqual([
+      ["binding", true],
+      ["approval-age", true],
+      ["live-only", true],
+    ]);
     expect(record.decision!.candidates!.filter((c) => c.chosen).map((c) => c.targetDeltaBps)).toEqual([2000]);
     expect(record.dryRun).toMatchObject({ ok: true, targetDeltaBps: 2000 });
     expect(record.decision!.confidence?.kind).toBe("model odds");
-    expect(record.decision!.contradictions).toHaveLength(2);
+    expect(record.decision!.contradictions).toHaveLength(3);
     expect(record.result.status).toBe("not-sent");
   });
 
@@ -750,6 +849,80 @@ describe("the pipeline end to end", () => {
     expect(planner.by).toBe("rule");
     expect(planner.narration).toBeUndefined();
     expect(record.decision!.notes.join(" ")).toContain("Claude gave no plan (no credentials)");
+  });
+
+  it("records the no-trade's reason codes: the market's and the critic's", async () => {
+    const closed = await run({}, { market: weekend() });
+    expect(closed.record.result.noTrade!.codes).toEqual(["MARKET_CLOSED"]);
+    const stale = await run(
+      {},
+      { market: reads({ oracle: { status: "StalePrice", price: "370.448", updatedAt: MON - 100_000 } }) },
+    );
+    expect(stale.record.result.noTrade!.codes).toEqual(["FEED_STALE"]);
+  });
+
+  it("does not send when the critic's approval has gone stale, and records the preflight", async () => {
+    let t = 0;
+    const sent: unknown[] = [];
+    const { outcome, record } = await run(
+      { dryRun: false },
+      {
+        clock: () => (t += 61_000), // two readings between the critic's pass and the send: 122 s
+        propose: async (a) => {
+          sent.push(a);
+          return accepted;
+        },
+      },
+    );
+    expect(sent).toHaveLength(0);
+    expect(outcome).toMatchObject({ kind: "no-trade", stage: "contract" });
+    expect(record.result.noTrade).toMatchObject({ stage: "contract", codes: ["APPROVAL_EXPIRED"] });
+    expect(record.result.summary).toContain("the preflight before sending stopped the run");
+    const contract = record.decision!.pipeline!.at(-1)!;
+    expect(contract).toMatchObject({ stage: "contract", verdict: "not-run" });
+    expect(contract.summary).toContain("approval-age");
+  });
+
+  it("checks the payload against the critic's proposal, the approval's age and dry-run-only flags", () => {
+    const approved = {
+      targetDeltaBps: 2000,
+      premiumBps: 10_000,
+      size: "0.1",
+      expiryIso: "2026-10-09T20:00:00.000Z",
+    };
+    const args = { vault: "0x1", targetDeltaBps: 2000, premiumBps: 10_000, size: "0.1" };
+    const ok = preflightChecks({ args, approved, approvedAgeMs: 1000, ignoreSession: false, sending: true });
+    expect(ok.checks.every((c) => c.ok)).toBe(true);
+    const bad = preflightChecks({
+      args: { ...args, size: "0.2" },
+      approved,
+      approvedAgeMs: APPROVAL_TTL_MS + 1,
+      ignoreSession: true,
+      sending: true,
+    });
+    expect(bad.checks.map((c) => [c.code, c.ok])).toEqual([
+      ["PAYLOAD_MISMATCH", false],
+      ["APPROVAL_EXPIRED", false],
+      ["DRY_RUN_FLAG_ON_SEND", false],
+    ]);
+    expect(bad.proposalDigest).toBe(ok.proposalDigest); // the digest is of what the critic approved
+  });
+
+  it("counts the risk table's rejections by reason, with unreadable rungs apart", async () => {
+    const t = await table();
+    expect(rejectionCounts(t.rows)).toEqual({ DeltaOutOfBand: 2 });
+    expect(rejectionCounts([{ ...t.rows[1]!, ok: false, error: "x" }])).toEqual({ unreadable: 1 });
+  });
+
+  it("holds the conservative profile to a wider cushion", async () => {
+    const input = await criticInput(3000);
+    expect(ruleOf(criticRules(input), "cushion").ok).toBe(true);
+    const strict = ruleOf(
+      criticRules({ ...input, cushionSigmas: PROFILES.conservative!.cushionSigmas }),
+      "cushion",
+    );
+    expect(strict.ok).toBe(false);
+    expect(strict.limit).toContain("0.75 x the");
   });
 
   it("records a stage that fails to read as fail, the rest as not run, and stops the run", async () => {

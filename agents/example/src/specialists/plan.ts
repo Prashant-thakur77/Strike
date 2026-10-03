@@ -18,6 +18,32 @@ export interface PlannerChoice {
   /** "ladder": a rung of the risk table; "claude": Claude's own delta (the critic dry-runs it exactly). */
   from: "ladder" | "claude";
   reason: string;
+  /** Every rung the planner looked at, nearest to the desired delta first, with the dry run's verdict. */
+  considered?: {
+    targetDeltaBps: number;
+    ok: boolean;
+    reason: string | null;
+    distanceBps: number;
+    selected: boolean;
+  }[];
+}
+
+/** The rungs ranked by distance from the desired delta (ties: the lower delta first), with the one selected. */
+export function consideredRungs(
+  rows: RiskRow[],
+  desired: number,
+  selected: number | null,
+): NonNullable<PlannerChoice["considered"]> {
+  return rows
+    .filter((r) => r.targetDeltaBps !== null)
+    .map((r) => ({
+      targetDeltaBps: r.targetDeltaBps as number,
+      ok: r.ok && r.error === undefined,
+      reason: r.error !== undefined ? `could not be dry-run: ${r.error}` : r.reason,
+      distanceBps: Math.abs((r.targetDeltaBps as number) - desired),
+      selected: r.targetDeltaBps === selected,
+    }))
+    .sort((a, b) => a.distanceBps - b.distanceBps || a.targetDeltaBps - b.targetDeltaBps);
 }
 
 const dText = (bps: number) => (bps / 10_000).toFixed(2);
@@ -69,6 +95,7 @@ export function ruleChoice(
     size: rung.size,
     from: "ladder",
     reason: why,
+    considered: consideredRungs(rows, plan.targetDeltaBps, rung.targetDeltaBps),
   };
 }
 
@@ -85,6 +112,7 @@ export function claudeChoice(
     strike: rung?.strike ?? null,
     size: rung?.size ?? null,
     from: rung ? "ladder" : "claude",
+    considered: consideredRungs(rows, plan.targetDeltaBps, rung ? plan.targetDeltaBps : null),
     reason: rung
       ? `Claude chose ${dText(plan.targetDeltaBps)} delta at ${(plan.premiumBps / 100).toFixed(0)}% of fair value, a rung of the ladder (its words are the narration).`
       : `Claude chose ${dText(plan.targetDeltaBps)} delta at ${(plan.premiumBps / 100).toFixed(0)}% of fair value, between the ladder's rungs; the critic dry-runs it exactly (its words are the narration).`,
