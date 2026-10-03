@@ -1,3 +1,4 @@
+import { DRY_RUN_FOLDERS } from "./pipeline";
 import {
   decisionRecordHash,
   deploymentsFor,
@@ -476,6 +477,27 @@ export async function loadWhyStrike(
 
 /* ================================================================ one record, by name (the decision page) */
 
+/** A dry run's anchor slot: not anchored by design, so nothing on-chain was read. */
+function unanchored(text: string, epoch: number, agentId: string): AnchorCheck {
+  return {
+    status: "unreadable",
+    via: null,
+    computed: decisionRecordHash(text),
+    onchain: null,
+    latest: null,
+    superseded: false,
+    txProblem: null,
+    claimed: null,
+    contract: null,
+    version: null,
+    agentId,
+    epoch,
+    txHash: null,
+    txUrl: null,
+    error: "a dry run is not anchored",
+  };
+}
+
 export type NamedRecord =
   | { kind: "not-found" }
   | { kind: "invalid"; why: string }
@@ -487,6 +509,10 @@ export type NamedRecord =
       recordUrl: string;
       jsonUrl: string;
       anchor: AnchorCheck;
+      /** The record's JSON as published (the specialist pipeline is read from it: lib/pipeline.ts). */
+      raw: unknown;
+      /** A specialist-pipeline dry run (docs/agent-log/dry-runs): never anchored, so no anchor was checked. */
+      dryRun: boolean;
     };
 
 /**
@@ -500,8 +526,9 @@ export async function loadRecordByName(
   name: string,
   fetchImpl: Fetch = fetch,
   signal?: AbortSignal,
+  dryRun = false,
 ): Promise<NamedRecord> {
-  const folder = RECORD_FOLDERS[chainId];
+  const folder = dryRun ? DRY_RUN_FOLDERS[chainId] : RECORD_FOLDERS[chainId];
   if (!folder) return { kind: "not-found" };
   const text = await fetchRepoFile(`${folder}/${name}.json`, fetchImpl, signal);
   if (text === null) return { kind: "not-found" };
@@ -514,17 +541,19 @@ export async function loadRecordByName(
     return { kind: "invalid", why: "The record names no vault address." };
   }
   const agentId = record.agentId && /^\d+$/.test(record.agentId) ? BigInt(record.agentId) : 0n;
-  const anchor = await checkAnchor(client, chainId, decisionRecordHash(text), {
-    vault: getAddress(record.vault.address),
-    agentId,
-    epoch: record.anchor?.epoch ?? 0,
-    claimed: (record.anchor?.recordHash as Hex | undefined) ?? null,
-    contract: record.anchor?.contract ?? null,
-    txHash:
-      record.anchor?.txHash ??
-      record.transactions.find((t) => t.label === "DecisionLog.record")?.hash ??
-      null,
-  });
+  const anchor = dryRun
+    ? unanchored(text, record.anchor?.epoch ?? 0, record.agentId ?? "")
+    : await checkAnchor(client, chainId, decisionRecordHash(text), {
+        vault: getAddress(record.vault.address),
+        agentId,
+        epoch: record.anchor?.epoch ?? 0,
+        claimed: (record.anchor?.recordHash as Hex | undefined) ?? null,
+        contract: record.anchor?.contract ?? null,
+        txHash:
+          record.anchor?.txHash ??
+          record.transactions.find((t) => t.label === "DecisionLog.record")?.hash ??
+          null,
+      });
   const md = await fetchRepoFile(`${folder}/${name}.md`, fetchImpl, signal).catch(() => null);
   const page = (file: string) =>
     folder === AGENT_LOG_DIR ? recordPageUrl(file) : `${BLOB_BASE}${folder}/${encodeURIComponent(file)}`;
@@ -536,5 +565,7 @@ export async function loadRecordByName(
     recordUrl: page(md ? `${name}.md` : `${name}.json`),
     jsonUrl: page(`${name}.json`),
     anchor,
+    raw: JSON.parse(text) as unknown,
+    dryRun,
   };
 }

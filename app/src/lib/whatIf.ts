@@ -348,13 +348,20 @@ export function consistencyChecks(
   out.push({
     id: "anchor",
     label: "The file is the one the agent anchored",
-    ok: opts.anchor === "match" ? true : opts.anchor === "unreadable" ? null : false,
+    ok:
+      opts.anchor === "match"
+        ? true
+        : opts.anchor === "unreadable" || opts.anchor === "dry-run"
+          ? null
+          : false,
     detail:
       opts.anchor === "match"
         ? "keccak256 of the file equals the hash in its DecisionRecorded event"
-        : opts.anchor === "unreadable"
-          ? "the chain could not be read from this browser"
-          : "the hash does not match its anchor",
+        : opts.anchor === "dry-run"
+          ? "a dry run is not anchored"
+          : opts.anchor === "unreadable"
+            ? "the chain could not be read from this browser"
+            : "the hash does not match its anchor",
   });
   const dry = r.dryRun;
   const st = r.result.status;

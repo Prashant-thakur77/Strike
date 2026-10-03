@@ -20,6 +20,7 @@ import {
   type SeriesHealth,
 } from "@/lib/agentHealth";
 import { decisionPath, isRecordName } from "@/lib/decision";
+import { DRY_RUNS } from "@/lib/pipeline";
 import { fmtDuration, toNumber } from "@/lib/format";
 import type { VaultSummary } from "@/lib/reads";
 import { Skeleton } from "../Skeleton";
@@ -408,6 +409,34 @@ export function NoTradeHistory() {
         compliant strike and did not send, there was nothing to settle, or the run stopped and said why. Each
         is a committed record, most of them anchored on-chain. Robinhood Chain testnet records, the newest{" "}
         {q.data.entries.length}.
+      </p>
+    </div>
+  );
+}
+
+/* ================================================================ specialist pipeline dry runs */
+
+/** Links to the specialist pipeline's dry runs (docs/agent-log/dry-runs): nothing sent, nothing anchored. */
+export function DryRuns() {
+  return (
+    <div className={h.stack} data-testid="dry-runs">
+      <ul className={h.noTradeList} aria-label="Specialist pipeline dry runs">
+        {DRY_RUNS.map((d) => (
+          <li key={`${d.chainId}-${d.name}`} data-testid="dry-run-link">
+            <span className={h.kind}>Dry run</span>
+            <span className="micro micro-muted">
+              {d.chainId === 421614 ? "Arbitrum Sepolia" : "Robinhood Chain testnet"} · {d.name}
+            </span>
+            <Link href={`${decisionPath(d.chainId, d.name)}?dry=1`} className="text-link">
+              {d.what}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <p className={styles.hint}>
+        Runs of the agent&apos;s five stages that sent nothing: each record is committed as the agent wrote it
+        but not anchored, and the page says so. The weekly runs from Monday 5 October write the same stages
+        into anchored records.
       </p>
     </div>
   );

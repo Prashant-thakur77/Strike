@@ -12,7 +12,7 @@ import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
 import { VersionTag } from "../VaultList";
 import { DecisionLog } from "./DecisionLog";
-import { LiveHealth, NoTradeHistory, Performance } from "./HealthViews";
+import { DryRuns, LiveHealth, NoTradeHistory, Performance } from "./HealthViews";
 import { RegisterAgent } from "./RegisterAgent";
 import { SeasonBanner } from "./SeasonBanner";
 import { MetaStrip, MetaStripSkeleton } from "../MetaStrip";
@@ -172,6 +172,14 @@ export function AgentsPage() {
           note="Rejected proposals, runs where the agent did not send, runs with nothing to settle and runs that stopped, from the decision records."
         >
           <NoTradeHistory />
+        </Rail>
+        <Rail
+          index="08"
+          id="dry-runs"
+          label="Specialist pipeline: latest dry runs"
+          note="The market analyst, risk analyst, strike planner, critic and contract on the live vaults, run without sending: the weekend no-trades and the runs evaluated as if the market were open."
+        >
+          <DryRuns />
         </Rail>
       </div>
     </>

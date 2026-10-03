@@ -41,6 +41,7 @@ import {
 } from "@/lib/decision";
 import type { EpochTraceJson } from "@/lib/epochTrace";
 import { REASONS } from "@/lib/labels";
+import { pipelineOf } from "@/lib/pipeline";
 import { WHY_STALE_MS, WhyStrikeError, loadRecordByName, type AnchorCheck } from "@/lib/whyStrike";
 import { Term } from "@/components/ui/Term";
 import { MetaStrip } from "../MetaStrip";
@@ -49,8 +50,10 @@ import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { MandateRules } from "../playground/MandateRules";
 import { AnchorLine, Reasoning } from "../vault/WhyStrikePanel";
+import { PipelineStrip } from "./PipelineStrip";
 import { PricePathChart } from "./PricePathChart";
 import {
+  AgentAlternatives,
   ConsistencyView,
   Modifications,
   NotProvided,
@@ -71,15 +74,23 @@ const opts = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n
 const utc = (t: number) => `${new Date(t * 1000).toISOString().slice(0, 16).replace("T", " ")} UTC`;
 
 /** One decision record on its own page: what the agent chose, why, why not the other strikes, and how it went. */
-export function DecisionPage({ chainId, name }: { chainId: number; name: string }) {
+export function DecisionPage({
+  chainId,
+  name,
+  dryRun = false,
+}: {
+  chainId: number;
+  name: string;
+  dryRun?: boolean;
+}) {
   const client = usePublicClient({ chainId: chainId as 46630 | 421614 }) as PublicClient | undefined;
   const q = useQuery({
-    queryKey: ["decision", chainId, name],
+    queryKey: ["decision", chainId, name, dryRun],
     enabled: !!client,
     staleTime: WHY_STALE_MS,
     gcTime: WHY_STALE_MS * 3,
     retry: 1,
-    queryFn: ({ signal }) => loadRecordByName(client!, chainId, name, fetch, signal),
+    queryFn: ({ signal }) => loadRecordByName(client!, chainId, name, fetch, signal, dryRun),
   });
   const chain = CHAIN_META[chainId as keyof typeof CHAIN_META]?.label ?? `chain ${chainId}`;
 
@@ -159,6 +170,8 @@ export function DecisionPage({ chainId, name }: { chainId: number; name: string 
       recordUrl={d.recordUrl}
       jsonUrl={d.jsonUrl}
       anchor={d.anchor}
+      raw={d.raw}
+      dryRun={d.dryRun}
     />
   );
 }
@@ -173,6 +186,8 @@ function DecisionBody({
   recordUrl,
   jsonUrl,
   anchor,
+  raw,
+  dryRun,
 }: {
   chainId: number;
   chain: string;
@@ -181,8 +196,11 @@ function DecisionBody({
   recordUrl: string;
   jsonUrl: string;
   anchor: AnchorCheck;
+  raw: unknown;
+  dryRun: boolean;
 }) {
   const v = verdictOf(r.result);
+  const pipeline = useMemo(() => pipelineOf(raw), [raw]);
   const VerdictIcon = v.tone === "good" ? Check : v.tone === "bad" ? Ban : Minus;
   const code = recordReasonCode(r);
   const derived = useMemo(() => {
@@ -213,10 +231,15 @@ function DecisionBody({
   const vaultHref = `/app/vault/${r.vault.address}?chain=${chainId}`;
 
   return (
-    <div data-testid="decision-page" data-status={r.result.status} data-anchor={anchor.status}>
+    <div
+      data-testid="decision-page"
+      data-status={r.result.status}
+      data-anchor={dryRun ? "dry-run" : anchor.status}
+      data-dry-run={dryRun || undefined}
+    >
       <PageHero
         theme={isCall ? "call" : "put"}
-        label={`Decision record · ${r.vault.symbol} · ${chain}`}
+        label={`${dryRun ? "Dry run" : "Decision record"} · ${r.vault.symbol} · ${chain}`}
         right={
           <Link href={vaultHref} className={appStyles.back}>
             <ArrowLeft size={12} aria-hidden /> The vault
@@ -274,19 +297,37 @@ function DecisionBody({
           {
             label: "Anchored",
             term: "anchored",
-            value:
-              anchor.status === "match"
+            value: dryRun
+              ? "Dry run"
+              : anchor.status === "match"
                 ? "Hash matches"
                 : anchor.status === "unreadable"
                   ? "Unchecked"
                   : "No match",
-            sub: `epoch ${anchor.epoch} · DecisionLog${anchor.version ? ` ${anchor.version}` : ""}`,
+            sub: dryRun
+              ? "not anchored: nothing was sent"
+              : `epoch ${anchor.epoch} · DecisionLog${anchor.version ? ` ${anchor.version}` : ""}`,
           },
         ]}
       />
       <div className={appStyles.detailBody}>
         <Rail
           index="01"
+          id="specialists"
+          label="Specialists"
+          note="The agent's stages in the order they ran: market analyst, risk analyst, strike planner, critic and the contract, each with its verdict, what it read and what it found."
+        >
+          {pipeline ? (
+            <PipelineStrip pipeline={pipeline} record={r} chainId={chainId} />
+          ) : (
+            <p className={appStyles.hint} data-testid="pipeline-not-recorded">
+              Not recorded: this record was written before the agent ran its specialist stages (decision D45),
+              so there is no stage-by-stage account to show.
+            </p>
+          )}
+        </Rail>
+        <Rail
+          index="02"
           id="chosen"
           label="What it chose and why"
           note="From the anchored record: the planner, its target, the contract's own dry run and the reasoning it wrote before proposing."
@@ -295,7 +336,7 @@ function DecisionBody({
           <Chosen record={r} />
         </Rail>
         <Rail
-          index="02"
+          index="03"
           id="mandate"
           label="Mandate check"
           note="The vault's rules in the order MandateGuard.check runs them, measured on the record's dry run. The contract stops at the first rule that fails; the rest are not reached."
@@ -316,7 +357,7 @@ function DecisionBody({
           {derived.inp ? <Modifications record={r} /> : null}
         </Rail>
         <Rail
-          index="03"
+          index="04"
           id="ladder"
           label="Why not the other strikes"
           note="The same proposal at other target deltas, from just below the mandate's band to just above it, each judged by the mandate's rules."
@@ -337,7 +378,7 @@ function DecisionBody({
           )}
         </Rail>
         <Rail
-          index="04"
+          index="05"
           id="lose"
           label="What would make this week lose"
           note="The settlement price where the option starts costing depositors more than its premium, and the pricing model's odds of getting there."
@@ -358,7 +399,7 @@ function DecisionBody({
           )}
         </Rail>
         <Rail
-          index="05"
+          index="06"
           id="hindsight"
           label="In hindsight"
           note="The price the contracts read since the epoch opened, against the strike and the break-even; after settlement, each ladder row graded at the settlement price the oracle recorded."
@@ -392,7 +433,7 @@ function DecisionBody({
           />
         </Rail>
         <Rail
-          index="06"
+          index="07"
           id="whatif"
           label="What if"
           note="The proposal sent next to keeping cash, half the size and the strikes either side of it, valued for the whole vault: model numbers before settlement, the payout at the settlement price after."
@@ -410,20 +451,39 @@ function DecisionBody({
                     : null
               }
               rowsSource={recorded.length > 0 ? "recorded" : "recomputed"}
+              alternatives={pipeline?.alternatives ?? []}
+            />
+          ) : pipeline?.alternatives.length ? (
+            <AgentAlternatives
+              alternatives={pipeline.alternatives}
+              isCall={r.vault.kind === "covered-call"}
+              settlement={null}
+              sold={r.result.status === "accepted"}
             />
           ) : (
             <Missing why={derived.missing} />
           )}
         </Rail>
         <Rail
-          index="07"
+          index="08"
           id="proof"
           label="Anchor and transactions"
           note="The record's keccak256, rebuilt here from the file on GitHub and checked against its anchoring transaction on-chain, and every transaction the run sent."
         >
           <div className={styles.block} data-testid="decision-proof">
             <SourceLine kinds={["record", "chain"]} />
-            <AnchorLine anchor={anchor} chainId={chainId} />
+            {dryRun ? (
+              <p className={appStyles.hint} data-testid="decision-dry-run-anchor">
+                A dry run of the specialist pipeline: nothing was sent and the record is not anchored, so
+                there is no on-chain hash to check. keccak256 of the file is{" "}
+                <span className="mono" title={anchor.computed}>
+                  {anchor.computed.slice(0, 10)}…
+                </span>
+                .
+              </p>
+            ) : (
+              <AnchorLine anchor={anchor} chainId={chainId} />
+            )}
             {r.transactions.length > 0 ? (
               <ul className={appStyles.factLinks} aria-label="Transactions">
                 {r.transactions.map((t) =>
@@ -453,7 +513,7 @@ function DecisionBody({
             </div>
             <ConsistencyView
               record={r}
-              anchor={anchor.status}
+              anchor={dryRun ? "dry-run" : anchor.status}
               ladderMatches={
                 recorded.length > 0
                   ? recordedMatchesDry(r, recorded)

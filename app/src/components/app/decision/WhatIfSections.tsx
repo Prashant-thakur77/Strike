@@ -5,6 +5,7 @@ import { Check, CircleAlert, Minus } from "lucide-react";
 import type { LogRecord } from "@/lib/agentLog";
 import type { DecisionInputs, LadderRow, LossLine, Pricing } from "@/lib/decision";
 import type { EpochTraceJson } from "@/lib/epochTrace";
+import { gradeAlternative, type Alternative } from "@/lib/pipeline";
 import {
   WHAT_IF_CAVEAT,
   consistencyChecks,
@@ -179,12 +180,15 @@ export function WhatIfView({
   inp,
   rows,
   rowsSource,
+  alternatives = [],
 }: {
   chainId: number;
   record: LogRecord;
   inp: DecisionInputs;
   rows: LadderRow[] | null;
   rowsSource: "recorded" | "recomputed";
+  /** The agent's own alternatives (decision.alternatives, from the specialist pipeline), when the record has them. */
+  alternatives?: Alternative[];
 }) {
   const sold = r.result.status === "accepted";
   const epoch = r.anchor?.epoch ?? null;
@@ -200,6 +204,15 @@ export function WhatIfView({
   const e = trace.data?.epochs.find((x) => x.epoch === String(epoch));
   const price = e?.settlementPrice ? Number(e.settlementPrice) : null;
   const settlement = sold && price !== null && price > 0 ? price : null;
+  if (alternatives.length > 0)
+    return (
+      <AgentAlternatives
+        alternatives={alternatives}
+        isCall={inp.isCall}
+        settlement={settlement}
+        sold={sold}
+      />
+    );
   const w = whatIfBranches(r, inp, rows, settlement);
   const state = settlement !== null ? "graded" : sold ? "model" : "not-sold";
   return (
@@ -324,6 +337,95 @@ export function ConsistencyView({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** The agent's own alternatives, recorded by the specialist pipeline; graded at the settlement price once there is one. */
+export function AgentAlternatives({
+  alternatives,
+  isCall,
+  settlement,
+  sold,
+}: {
+  alternatives: Alternative[];
+  isCall: boolean;
+  settlement: number | null;
+  sold: boolean;
+}) {
+  const fmt = (x: number | null, frac = 2) => (x === null ? "n/a" : usd(x, frac));
+  return (
+    <div
+      className={styles.block}
+      data-testid="decision-whatif"
+      data-state={settlement !== null ? "graded" : sold ? "model" : "not-sold"}
+      data-source="agent"
+    >
+      <SourceLine kinds={settlement !== null ? ["record", "chain"] : ["record", "model"]} />
+      <p className={styles.para}>
+        The alternatives the agent priced itself before deciding, part of the record: the strike it chose,
+        keeping cash, half the size and the rungs either side.{" "}
+        {settlement !== null
+          ? `Graded at the ${usd(settlement)} settlement: premium income minus the payout on each one's size.`
+          : "Each is graded at the settlement price once the series settles."}
+      </p>
+      <div className={appStyles.tableWrap}>
+        <table className={`${appStyles.table} ${styles.ladder}`} aria-label="The agent's alternatives">
+          <thead>
+            <tr>
+              <th scope="col">Alternative</th>
+              <th scope="col">What the agent did</th>
+              <th scope="col">Strike</th>
+              <th scope="col">Size</th>
+              <th scope="col">Premium</th>
+              <th scope="col">Break-even</th>
+              <th scope="col">P(exercise), model odds</th>
+              <th scope="col">Worst ±30% payout</th>
+              {settlement !== null ? <th scope="col">Vault result at {usd(settlement)}</th> : null}
+              <th scope="col">Source</th>
+            </tr>
+          </thead>
+          <tbody>
+            {alternatives.map((a) => {
+              const g = settlement !== null ? gradeAlternative(a, settlement, isCall) : null;
+              return (
+                <tr key={a.name} data-sent={a.taken || undefined} data-testid="whatif-row" data-kind={a.name}>
+                  <th scope="row">{a.name}</th>
+                  <td>
+                    {a.taken ? (
+                      <span className={styles.sent}>taken</span>
+                    ) : a.available === false ? (
+                      "not available"
+                    ) : (
+                      "not taken"
+                    )}
+                  </td>
+                  <td className="mono">{fmt(a.strike)}</td>
+                  <td className="mono">{a.size === null ? "n/a" : opts(a.size)}</td>
+                  <td className="mono">{fmt(a.premiumIncomeUsd)}</td>
+                  <td className="mono">{fmt(a.breakEven)}</td>
+                  <td className="mono">
+                    {a.exerciseProbability === null ? "n/a" : pct(a.exerciseProbability)}
+                  </td>
+                  <td className="mono">{fmt(a.stressLossUsd)}</td>
+                  {settlement !== null ? (
+                    <td
+                      className="mono"
+                      data-sign={g === null ? undefined : g > 0 ? "gain" : g < 0 ? "loss" : undefined}
+                    >
+                      {g === null ? "n/a" : signed(g)}
+                    </td>
+                  ) : null}
+                  <td>{a.source}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className={appStyles.hint} data-testid="whatif-caveat">
+        {WHAT_IF_CAVEAT}
+      </p>
     </div>
   );
 }
