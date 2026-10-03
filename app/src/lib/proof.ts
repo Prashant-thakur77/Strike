@@ -377,8 +377,8 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Telegram bot",
-    count: "62",
-    detail: "Log scanning with range back-off, message formatting, commands, store",
+    count: "93",
+    detail: "Log scanning with range back-off, message formatting, commands across deployments, store",
     evidence: [{ label: "bots/telegram/test", href: ghTree("bots/telegram/test") }],
   },
   {

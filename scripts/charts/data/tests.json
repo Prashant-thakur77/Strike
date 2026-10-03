@@ -42,8 +42,8 @@
         },
         {
           "label": "Telegram bot",
-          "count": 62,
-          "source": "bots/telegram: vitest run --reporter=json, 62 tests"
+          "count": 93,
+          "source": "bots/telegram: vitest run --reporter=json, 93 tests"
         },
         {
           "label": "MCP server",

@@ -93,6 +93,7 @@ The release planned as 1.0.0: the agent as a pipeline of specialists, a decision
 
 ### Fixed
 
+- Telegram bot: `/vaults`, `/quote`, `/agent`, `/status` and the alerts cover every deployment (Robinhood Chain testnet v2 and v3, Arbitrum Sepolia v3, from the SDK's `deploymentsFor`), each labelled with chain and version, with an optional chain and version argument (`/vaults 421614`, `/agent 1 v3`); one alert cursor per deployment, and a state file from the one-deployment bot loads unchanged. A Selling series past its expiry (chain time) read "Selling" before; it now reads "Expired, waiting for settlement" as the app does, and settled, idle and open vaults are described. 93 tests (was 62).
 - App: the live activity feed reads its contracts through Multicall3. Its JSON-RPC batches of 33 to 61 calls drew HTTP 429 from the Robinhood Chain testnet RPC, whose 429 carries a malformed CORS header, so the browser reported a CORS error and the feed failed until the limit cleared.
 - App: `/api/option/{id}` without `chainId` searches every deployment (v2 and v3 on 46630, v3 on 421614). `OptionToken.uri()` carries no chain, so wallets got 404 for v3 series and every Arbitrum Sepolia series; error answers carry the CORS header too.
 - App: the liveness card judges the newest finished run of either trigger that was not cancelled or skipped; `keeper.yml`'s concurrency group cancels a queued scheduled run, which the card had read as "On, last run failed".

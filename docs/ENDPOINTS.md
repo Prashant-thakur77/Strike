@@ -147,18 +147,20 @@ The first live run matched all 19 counted figures of the live `/api/stats` ([ind
 
 ## Telegram bot
 
-[@strike_options_bot](https://t.me/strike_options_bot), from [`bots/telegram`](../bots/telegram/README.md). It holds no keys and only reads. It runs on the owner's laptop, so it answers only while that machine runs it; the AWS hosting in [`infra/aws`](../infra/aws/README.md) is not deployed. Commands are dispatched in [`commands.ts`](../bots/telegram/src/commands.ts#L77).
+[@strike_options_bot](https://t.me/strike_options_bot), from [`bots/telegram`](../bots/telegram/README.md). It holds no keys and only reads. It runs on the owner's laptop, so it answers only while that machine runs it; the AWS hosting in [`infra/aws`](../infra/aws/README.md) is not deployed. Commands are dispatched in [`commands.ts`](../bots/telegram/src/commands.ts#L69).
 
-| Command                      | Reply                                                                                                                            |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `/start`, `/help`            | The command list                                                                                                                 |
-| `/subscribe`, `/unsubscribe` | Turns alerts on or off for this chat                                                                                             |
-| `/vaults`                    | Each vault's epoch and state, TVL and live series (strike, expiry, sold of size)                                                 |
-| `/quote <vault> [amount]`    | The premium for N options (default 1), total and per option, the collateral locked, and whether it can be bought now and why not |
-| `/agent <id>`                | Status, whether it can propose, bond against the minimum, strikes, accepted and rejected proposals, settled epochs, PnL, signer  |
-| `/status`                    | Chain head, NYSE open or closed, each underlying's feed status and price, the alert cursor and the subscriber count              |
+| Command                                     | Reply                                                                                                                                                  |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/start`, `/help`                           | The command list                                                                                                                                       |
+| `/subscribe`, `/unsubscribe`                | Turns alerts (from every deployment) on or off for this chat                                                                                           |
+| `/vaults [chain] [version]`                 | Each vault on every deployment, grouped by chain and labelled ("Robinhood Chain testnet · v3"): epoch and state, TVL, live series or why there is none |
+| `/quote <vault> [amount] [chain] [version]` | The premium for N options (default 1), total and per option, the collateral locked, and whether it can be bought now and why not                       |
+| `/agent <id> [chain] [version]`             | On each registry where the id exists: status, whether it can propose, bond against the minimum, strikes, proposals, settled epochs, PnL, signer        |
+| `/status [chain]`                           | Per chain: head, NYSE open or closed, each deployment's feed status and price and alert cursor; then the subscriber count                              |
 
-Alerts go to every subscribed chat for `EpochOpened`, `SeriesProposed`, `ProposalRejected` (with the reason and the slash), `OptionsBought`, `EpochSettled`, `EpochAborted` and `SeriesCancelled`, each with a transaction link ([`logs.ts`](../bots/telegram/src/logs.ts), [`format.ts`](../bots/telegram/src/format.ts)). `pnpm --filter @strike/telegram-bot dry-run` prints them without a token.
+A Selling series past its expiry (by the chain's clock) reads "Expired, waiting for settlement", as in the app. The bot reads every deployment that [`strike.config.json`](../strike.config.json) lists for a chain that is not local: Robinhood Chain testnet v2 and v3, and Arbitrum Sepolia v3.
+
+Alerts go to every subscribed chat for `EpochOpened`, `SeriesProposed`, `ProposalRejected` (with the reason and the slash), `OptionsBought`, `EpochSettled`, `EpochAborted` and `SeriesCancelled`, each with its deployment and a transaction link ([`logs.ts`](../bots/telegram/src/logs.ts), [`format.ts`](../bots/telegram/src/format.ts)). `pnpm --filter @strike/telegram-bot dry-run` prints them without a token.
 
 ## SDK
 
