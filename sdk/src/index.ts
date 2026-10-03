@@ -67,6 +67,8 @@ export type {
   RecordIdentity,
   SeriesTarget,
 } from "./decisionRecord.js";
+export { DECISION_TOPICS, answerDecisionQuestion, decisionTopicOf } from "./decisionQa.js";
+export type { DecisionAnswer, DecisionCitation, DecisionTopic } from "./decisionQa.js";
 export { createStrikeClient, resolveAddresses } from "./client.js";
 export {
   ALCHEMY_NETWORKS,
