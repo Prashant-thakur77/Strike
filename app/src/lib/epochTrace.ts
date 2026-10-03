@@ -1,6 +1,7 @@
 // The epoch trace on the vault page: every step of the current and the last epoch, each with its transaction and the
 // evidence it carries (the opening snapshot, the anchored decision record, the accepted series or the rejection and
-// its slash, each buy, the settlement price and round, redemptions and claims). The server reads the logs
+// its slash, each buy, the settlement price and round, redemptions and claims, and depositors' own deposits and
+// withdrawals, queued or instant). The server reads the logs
 // (src/lib/epochTraceRead.ts, served by /api/epoch-trace); this file turns decoded logs into the steps. Pure, with no
 // SDK import, so the Playwright specs load it as it is (e2e/trace.spec.ts).
 
@@ -40,7 +41,19 @@ export interface TraceContext {
 }
 
 export type StepKind =
-  "open" | "record" | "rejected" | "accepted" | "buy" | "settle" | "abort" | "pending" | "redeem" | "claim";
+  | "open"
+  | "record"
+  | "rejected"
+  | "accepted"
+  | "buy"
+  | "settle"
+  | "abort"
+  | "pending"
+  | "redeem"
+  | "claim"
+  | "deposit"
+  | "withdraw"
+  | "queue";
 
 export interface TraceStepJson {
   kind: StepKind;
@@ -304,6 +317,66 @@ export function buildTrace(ctx: TraceContext, logs: readonly TraceLog[]): EpochT
           kind: "claim",
           title: "Premium claimed",
           facts: [`${fmtUnits(big(a.amount), ctx.usdgDecimals)} USDG by ${short(String(a.account))}`],
+          tone: "neutral",
+        });
+      }
+    }
+
+    // Depositors' own moves, so a depositor finds their transaction: requests queued during this epoch (by the
+    // request's epoch), and instant deposits and withdrawals made while the vault was unlocked after this epoch closed
+    // and before the next one opened (for epoch 1, also those before it opened).
+    const openedAt = (n: bigint) =>
+      em.find((l) => l.eventName === "EpochOpened" && ofVault(l) && String(l.args.epoch) === n.toString());
+    const thisOpen = openedAt(e);
+    const nextOpen = openedAt(e + 1n);
+    const unlockedWindow = (l: TraceLog) =>
+      (closed !== undefined && order(l, closed) > 0 && (!nextOpen || order(l, nextOpen) < 0)) ||
+      (e === 1n && thisOpen !== undefined && order(l, thisOpen) < 0);
+    const assets = (x: unknown) => `${fmtUnits(big(x), ctx.asset.decimals, 4)} ${ctx.asset.symbol}`;
+    const shares = (x: unknown) => count(fmtUnits(big(x), ctx.shareDecimals, 4), "share");
+    for (const l of own) {
+      const a = l.args;
+      if (l.eventName === "DepositRequested" && String(a.epoch) === key) {
+        add(l, {
+          kind: "queue",
+          title: "Deposit queued",
+          facts: [
+            `${assets(a.assets)} by ${short(String(a.account))}: becomes shares at this epoch's closing price, claimable after settlement`,
+          ],
+          tone: "neutral",
+        });
+      } else if (l.eventName === "DepositRequestCancelled" && String(a.epoch) === key) {
+        add(l, {
+          kind: "queue",
+          title: "Queued deposit cancelled",
+          facts: [`${assets(a.assets)} returned to ${short(String(a.account))}`],
+          tone: "neutral",
+        });
+      } else if (l.eventName === "RedeemRequested" && String(a.epoch) === key) {
+        add(l, {
+          kind: "queue",
+          title: "Withdrawal queued",
+          facts: [
+            `${shares(a.shares)} by ${short(String(a.account))}: paid at this epoch's closing price, claimable after settlement`,
+          ],
+          tone: "neutral",
+        });
+      } else if (l.eventName === "Deposit" && unlockedWindow(l)) {
+        add(l, {
+          kind: "deposit",
+          title:
+            thisOpen && order(l, thisOpen) < 0
+              ? `Deposited before epoch ${key}`
+              : "Deposited (vault unlocked)",
+          facts: [`${assets(a.assets)} for ${shares(a.shares)}, by ${short(String(a.owner))}`],
+          tone: "neutral",
+        });
+      } else if (l.eventName === "Withdraw" && unlockedWindow(l)) {
+        add(l, {
+          kind: "withdraw",
+          title:
+            thisOpen && order(l, thisOpen) < 0 ? `Withdrew before epoch ${key}` : "Withdrew (vault unlocked)",
+          facts: [`${shares(a.shares)} for ${assets(a.assets)}, to ${short(String(a.receiver))}`],
           tone: "neutral",
         });
       }

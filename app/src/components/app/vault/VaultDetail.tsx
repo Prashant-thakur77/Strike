@@ -198,7 +198,7 @@ export function VaultDetail({ address }: { address: Address }) {
               index="07"
               id="trace"
               label="Epoch trace"
-              note="Every step of this epoch and the last, each with its transaction and the evidence it carries: the opening snapshot, the anchored decision record, proposals and slashes, buys, the settlement round checked against mainnet Chainlink, redemptions and claims. Times are UTC."
+              note="Every step of this epoch and the last, each with its transaction and the evidence it carries: the opening snapshot, the anchored decision record, proposals and slashes, buys, the settlement round checked against mainnet Chainlink, redemptions and claims, and deposits and withdrawals, queued or made while the vault was unlocked. Times are UTC."
             >
               <EpochTrace vault={v} />
             </Rail>

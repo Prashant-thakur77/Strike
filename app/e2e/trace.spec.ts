@@ -366,6 +366,90 @@ test.describe("epoch trace from logs", () => {
     expect(buildTrace({ ...CTX, currentEpoch: 0n }, []).epochs).toEqual([]);
   });
 
+  test("a depositor finds their own deposit: queued, before the first epoch and after an abort (QA, 3 Oct)", () => {
+    pure();
+    idx = 0;
+    const T = at("2026-10-01T14:00:00Z");
+    const QA = "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044";
+    const CURATOR = "0x26b277b434B1670f207Afd8946edA9AF78A613Ff";
+    const put = {
+      ...CTX,
+      currentEpoch: 1n,
+      state: 0,
+      isCall: false,
+      asset: { symbol: "USDG", decimals: 6 },
+      shareDecimals: 6,
+    };
+    const t = buildTrace(put, [
+      log(
+        "vault",
+        "Deposit",
+        { sender: CURATOR, owner: CURATOR, assets: 50_000_000n, shares: 50_000_000n },
+        5,
+        T - 600,
+      ),
+      log("epochManager", "EpochOpened", { vault: VAULT, epoch: 1n, spot: usd(358.55) }, 10, T),
+      log("vault", "DepositRequested", { account: QA, epoch: 1n, assets: 2_000_000n }, 11, T + 60),
+      log("vault", "RedeemRequested", { account: CURATOR, epoch: 1n, shares: 1_000_000n }, 12, T + 90),
+      log("epochManager", "EpochAborted", { vault: VAULT, epoch: 1n }, 20, T + 3600),
+      log(
+        "vault",
+        "Deposit",
+        { sender: QA, owner: QA, assets: 5_000_000n, shares: 5_000_000n },
+        30,
+        T + 7200,
+      ),
+      log(
+        "vault",
+        "Withdraw",
+        { sender: QA, receiver: QA, owner: QA, assets: 2_000_000n, shares: 2_000_000n },
+        31,
+        T + 7300,
+      ),
+      // Another vault's deposit is a log of that vault's address, which the reader never fetches; a deposit of this
+      // vault during the epoch cannot happen (deposit reverts while locked).
+    ]);
+    const steps = t.epochs[0]!.steps;
+    expect(steps.map((x) => x.kind)).toEqual([
+      "deposit",
+      "open",
+      "queue",
+      "queue",
+      "abort",
+      "deposit",
+      "withdraw",
+    ]);
+    expect(steps[0]).toMatchObject({ title: "Deposited before epoch 1", tx: tx(5) });
+    expect(steps[0]!.facts).toEqual(["50 USDG for 50 shares, by 0x26b277…13Ff"]);
+    expect(steps[2]!.title).toBe("Deposit queued");
+    expect(steps[2]!.facts[0]).toBe(
+      "2 USDG by 0x7767ca…0044: becomes shares at this epoch's closing price, claimable after settlement",
+    );
+    expect(steps[3]!.title).toBe("Withdrawal queued");
+    expect(steps[5]).toMatchObject({ title: "Deposited (vault unlocked)", tx: tx(30) });
+    expect(steps[5]!.facts).toEqual(["5 USDG for 5 shares, by 0x7767ca…0044"]);
+    expect(steps[6]).toMatchObject({ title: "Withdrew (vault unlocked)", tx: tx(31) });
+    expect(steps[6]!.facts).toEqual(["2 shares for 2 USDG, to 0x7767ca…0044"]);
+
+    // Once epoch 2 opens, the moves after epoch 1 closed stay with epoch 1, and none of them repeat under epoch 2.
+    const two = buildTrace({ ...put, currentEpoch: 2n, state: 1 }, [
+      log("epochManager", "EpochOpened", { vault: VAULT, epoch: 1n, spot: usd(358.55) }, 10, T),
+      log("epochManager", "EpochAborted", { vault: VAULT, epoch: 1n }, 20, T + 3600),
+      log(
+        "vault",
+        "Deposit",
+        { sender: QA, owner: QA, assets: 5_000_000n, shares: 5_000_000n },
+        30,
+        T + 7200,
+      ),
+      log("epochManager", "EpochOpened", { vault: VAULT, epoch: 2n, spot: usd(370) }, 40, T + 86_400),
+    ]);
+    expect(two.epochs.map((e) => e.steps.map((x) => x.kind))).toEqual([
+      ["open"],
+      ["open", "abort", "deposit"],
+    ]);
+  });
+
   test("words the settlement check", () => {
     pure();
     const base = {
@@ -632,7 +716,10 @@ for (const c of LIVE) {
       expect(e1!.steps.find((s) => s.tx === hash)?.kind, `${kind} ${hash}`).toBe(kind);
     }
     const kinds = e1!.steps.map((s) => s.kind);
-    expect(kinds[0]).toBe("open");
+    // The vault's first deposits come before epoch 1 opened; then the opening.
+    const open = kinds.indexOf("open");
+    expect(open).toBeGreaterThanOrEqual(0);
+    expect(kinds.slice(0, open).every((k) => k === "deposit")).toBe(true);
     if (e1!.status === "settled") expect(kinds).toContain("settle");
   });
 }
