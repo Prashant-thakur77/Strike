@@ -30,6 +30,10 @@ const A2_VAULT = JSON.parse(readFileSync(join(ROOT, "video/clips/agent2.json"), 
 // decision pages: agent #2's accepted put of 2 October and agent #1's rejected put of 1 October
 const DECISION_OK = "/app/decision/46630/2026-10-02-sTSLA-CSP-A2";
 const DECISION_REJECTED = "/app/decision/46630/2026-10-01-sTSLA-CSP";
+// dry runs of the specialist pipeline on 3 October (docs/agent-log/dry-runs/, linked from the agents page): planned by
+// Claude as if the NYSE were open, and the weekend run the market analyst stopped
+const DRY_CLAUDE = "/app/decision/46630/2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run-2?dry=1";
+const DRY_CLOSED = "/app/decision/46630/2026-10-03-sTSLA-CSP-dry-run?dry=1";
 // the market-hours scene shows the app as a viewer in Singapore (the buildathon's city) sees it
 const VIEWER_TZ = "Asia/Singapore";
 const U = "U S D G"; // Chatterbox reads "USDG" as a word
@@ -91,6 +95,15 @@ export async function probe(browser) {
     )
     .then((h) => h.jsonValue());
   if (audit[0] !== audit[1]) throw new Error(`price mirror audit: ${audit[0]} of ${audit[1]} rounds match`);
+  // the lessons page: how many lessons, and how many are fixed
+  await page.goto(`${APP}/app/lessons`);
+  const lessons = await page
+    .waitForFunction(
+      () => document.body.innerText.match(/Lessons\s*\n\s*(\d+)\s*\n\s*(\d+) fixed/i)?.slice(1, 3),
+      null,
+      { timeout: 60_000 },
+    )
+    .then((h) => h.jsonValue());
   await ctx.close();
   const { claimsCheck } = await import("./lib/facts.mjs");
   return {
@@ -99,6 +112,8 @@ export async function probe(browser) {
     riskWorst: worst.replace(/,/g, ""),
     ...lose,
     mirrorRounds: audit[0],
+    lessons: lessons[0],
+    lessonsFixed: lessons[1],
     claims: claimsCheck(ROOT),
     ...(await settlementProbe()),
     ...(await mcpProbe()),
@@ -584,6 +599,49 @@ export function scenes(f, live) {
       },
     },
     {
+      id: "runagent",
+      screen:
+        "The playground's \"Run the agent\" on the TSLA cash-secured put: the example agent's rule stages run in the browser against the live vault (market checks, the strike ladder judged by the contract's previewProposal, the profile's pick and the critic), the stage strip and the run line; nothing is sent. Started before the clock, so the scene shows its finished result.",
+      tag: "Playground",
+      minDur: 5.6,
+      lines: [
+        L(
+          "Run the agent does the rule stages live, in your browser, | against the real vault, sending nothing.",
+        ),
+      ],
+      async prepare(page) {
+        await openApp(page, "/app/playground", () =>
+          page
+            .getByRole("button", { name: /^Run the agent$/i })
+            .first()
+            .waitFor({ timeout: 60_000 }),
+        );
+        const run = page.getByRole("button", { name: /^Run the agent$/i }).first();
+        await run.scrollIntoViewIfNeeded();
+        await run.click();
+        await page
+          .getByText(/\d of 5 stages ran/)
+          .first()
+          .waitFor({ timeout: 90_000 });
+        const y = await page
+          .locator('ol[class*="decision_strip"]')
+          .first()
+          .evaluate((el) => el.getBoundingClientRect().top + scrollY);
+        await page.evaluate((y) => window.__v.scrollTo(y, 0), y - 330);
+      },
+      async run(h) {
+        await h.at(0.3);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const strip = document.querySelector('ol[class*="decision_strip"]');
+          const line = v.leaf("^\\d of 5 stages ran", "");
+          const r = v.union([v.rect(strip), v.rect(line)]);
+          v.box(r, { pad: 10, dim: 0.22 });
+          v.zoomRect(r, 1.3);
+        });
+      },
+    },
+    {
       id: "pricing",
       screen: `Agent #2's put vault (sTSLA-CSP-A2, selling its first week), seen from Singapore: "How the buy price is set" with the priced spot (oracle − ${a.spotBufferPct}%, against the buyer), the Black-Scholes fair value, the premium factor and the intrinsic-value floor, each zoomed as it is said; then the market-hours notice in the buy panel, with the next NYSE open in UTC and in the viewer's time zone.`,
       tag: "Pricing",
@@ -979,72 +1037,139 @@ export function scenes(f, live) {
       },
     },
     {
+      id: "pipeline",
+      screen: `A dry run of the agent's specialist pipeline, planned by Claude and evaluated as if the NYSE were open (${DRY_CLAUDE}): the five-stage strip (market analyst, risk analyst, strike planner, critic: PASS; contract: not run) and the run line with the stage times and Claude's recorded usage.`,
+      tag: "Pipeline",
+      lines: [
+        L("The agent now runs five stages: | market, risk, strike planner, critic, then the contract."),
+        L("In this Claude-planned dry run, four passed and nothing was sent; | its token use is on record."),
+      ],
+      async prepare(page) {
+        await openApp(page, DRY_CLAUDE, () =>
+          page
+            .getByText(/stages ran/)
+            .first()
+            .waitFor({ timeout: 60_000 }),
+        );
+        const strip = await page.locator('ol[class*="decision_strip"]').first().innerText();
+        if ((strip.match(/\bPass\b/gi) ?? []).length !== 4 || !/not run/i.test(strip))
+          throw new Error(`stage strip changed: ${strip.replace(/\s+/g, " ")}`);
+        await page
+          .getByText(/Claude used \d+ calls/)
+          .first()
+          .waitFor({ timeout: 30_000 });
+        await scrollToText(page, /^Specialists$/i, 120);
+      },
+      async run(h) {
+        await h.chunk(0, 1, -0.3);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const strip = document.querySelector('ol[class*="decision_strip"]');
+          v.box(strip, { pad: 10, dim: 0.22 });
+          v.zoom(strip, 1.35);
+        });
+        await h.chunk(1, 1, -0.4);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          document.querySelectorAll(".__vbox").forEach((d) => d.remove());
+          const line = v.leaf("^4 of 5 stages ran", "");
+          v.box(line, { pad: 10, dim: 0.22 });
+          v.zoom(line, 1.6);
+        });
+      },
+    },
+    {
+      id: "notrade",
+      screen: `The weekend dry run of the same pipeline (${DRY_CLOSED}): the market analyst stops it with MARKET_CLOSED, "No trade", and the four later stages read "Not run".`,
+      tag: "Pipeline",
+      lines: [L("On the weekend, the market analyst said no trade; | the rest never ran.")],
+      async prepare(page) {
+        await openApp(page, DRY_CLOSED, () =>
+          page
+            .getByText(/^No trade: stopped by the market analyst/)
+            .first()
+            .waitFor({ timeout: 60_000 }),
+        );
+        await scrollToText(page, /^Specialists$/i, 120);
+      },
+      async run(h) {
+        await h.at(0.2);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const strip = document.querySelector('ol[class*="decision_strip"]');
+          const why = v.leaf("^No trade: stopped by the market analyst", "");
+          const r = v.union([v.rect(strip), v.rect(why)]);
+          v.box(r, { pad: 10, dim: 0.22 });
+          v.zoomRect(r, 1.35);
+        });
+      },
+    },
+    {
       id: "decision",
-      screen: `Agent #2's decision page for 2 October (${DECISION_OK}): the accepted $342.91 put, the mandate check rule by rule with the headroom left, the "why not the other strikes" ladder, and "what would make this week lose" (below $${live.breakEven}, ${live.odds}% model odds), read from the page at render time.`,
+      screen: `Agent #2's decision page for 2 October (${DECISION_OK}): the mandate check rule by rule with the headroom left, the "why not the other strikes" ladder, "what would make this week lose" (below $${live.breakEven}, ${live.odds}% model odds) with its stress rows, and the "what if" alternatives, read from the page at render time.`,
       tag: "Decision page",
       lines: [
-        L(
-          "Each proposal gets a decision page. | Agent two's put on October 2:",
-          "Each proposal gets a decision page. | Agent two's put on October second:",
-        ),
-        L("each mandate rule it passed, | with the headroom left."),
+        L("Agent two's accepted put: | each mandate rule, with the headroom left."),
         L("Why not the other strikes: | the same proposal at each delta, judged by the rules."),
         L(
-          `And what would make this week lose: | TSLA below $${live.breakEven}, | ${Math.round(Number(live.odds))}% odds under the model.`,
-          `And what would make this week lose: | Tesla below ${sayUsd(live.breakEven)}, | ${sayInt(Math.round(Number(live.odds)))} percent odds under the model.`,
+          `What would make the week lose: | TSLA below $${live.breakEven}, ${Math.round(Number(live.odds))}% model odds, | then stress rows and what-ifs.`,
+          `What would make the week lose: | Tesla below ${sayUsd(live.breakEven)}, ${sayInt(Math.round(Number(live.odds)))} percent model odds, | then stress rows and what-ifs.`,
         ),
       ],
       async prepare(page) {
         await openApp(page, DECISION_OK, () =>
           page.getByText("Model odds of exercise", { exact: false }).first().waitFor({ timeout: 60_000 }),
         );
-        await page
-          .getByText(`settles below $${live.breakEven}`, { exact: false })
-          .first()
-          .waitFor({ timeout: 30_000 });
-        await page.locator("table").first().waitFor({ timeout: 30_000 });
+        for (const t of [`settles below $${live.breakEven}`, "What if it had sold half as many options"])
+          await page.getByText(t, { exact: false }).first().waitFor({ timeout: 30_000 });
+        await scrollToText(page, /^Mandate check$/i, 70);
       },
       async run(h) {
-        const focus = (src, scale = 1.45, up = 0) =>
+        const focus = (src, scale = 1.45) =>
           h.page.evaluate(
-            ([src, scale, up]) => {
+            ([src, scale]) => {
               const v = window.__v;
               document.querySelectorAll(".__vbox").forEach((d) => d.remove());
-              let el = v.leaf(src, "i");
+              const el = v.leaf(src, "i");
               if (!el) throw new Error(`no element matches /${src}/`);
-              for (let i = 0; i < up; i++) el = el.parentElement;
               v.box(el, { pad: 10, dim: 0.22 });
               v.zoom(el, scale);
             },
-            [src, scale, up],
+            [src, scale],
           );
-        await h.chunk(0, 1, -0.2);
-        await focus("^Accepted$", 1.6);
+        /** The first table below a section heading, boxed, zoomed on its left part. */
+        const table = (heading, frac, scale) =>
+          h.page.evaluate(
+            ([heading, frac, scale]) => {
+              const v = window.__v;
+              document.querySelectorAll(".__vbox").forEach((d) => d.remove());
+              const top = v.rect(v.leaf(heading, "i")).y;
+              const t = [...document.querySelectorAll("table")].find((x) => v.rect(x).y > top);
+              const r = v.rect(t);
+              v.box(r, { pad: 10, dim: 0.22 });
+              v.zoomRect({ x: r.x, y: r.y, w: r.w * frac, h: r.h }, scale);
+            },
+            [heading, frac, scale],
+          );
+        await h.chunk(0, 1, -0.3);
+        await focus("^Headroom: \\$[\\d.]+ \\(", 1.5);
         await h.cue(1, -0.4);
         await h.unbox();
         await h.unzoom(250);
-        await h.scrollTo(/^Mandate check$/i, { offset: 70, ms: 700 });
+        await h.scrollTo(/^Why not the other strikes$/i, { offset: 70, ms: 600 });
         await h.chunk(1, 1, -0.3);
-        await focus("^Headroom: \\$[\\d.]+ \\(", 1.5);
-        await h.cue(2, -0.5);
+        await table("^Why not the other strikes$", 0.66, 1.45);
+        await h.cue(2, -0.4);
         await h.unbox();
         await h.unzoom(250);
-        await h.scrollTo(/^Why not the other strikes$/i, { offset: 70, ms: 700 });
+        await h.scrollTo(/^What would make this week lose$/i, { offset: 70, ms: 600 });
         await h.chunk(2, 1, -0.3);
-        await h.page.evaluate(() => {
-          const v = window.__v;
-          const r = v.rect(document.querySelector("table"));
-          v.box(r, { pad: 10, dim: 0.22 });
-          v.zoomRect({ x: r.x, y: r.y, w: r.w * 0.66, h: r.h }, 1.45);
-        });
-        await h.cue(3, -0.5);
-        await h.unbox();
-        await h.unzoom(250);
-        await h.scrollTo(/^What would make this week lose$/i, { offset: 70, ms: 700 });
-        await h.chunk(3, 1, -0.3);
         await focus("lose money on this series if TSLA settles below", 1.4);
-        await h.chunk(3, 2, -0.3);
-        await focus("^Model odds of exercise", 1.5);
+        await h.chunk(2, 2, -0.3);
+        await h.unbox();
+        await h.unzoom(200);
+        await h.scrollTo(/^What if$/i, { offset: 70, ms: 600 });
+        await table("^What if$", 0.72, 1.4);
       },
     },
     {
@@ -1052,8 +1177,7 @@ export function scenes(f, live) {
       screen: `Agent #1's rejected put of 1 October (${DECISION_REJECTED}): the verdict, then the mandate check with the delta band rule marked FAILS and the rule after it NOT REACHED.`,
       tag: "Decision page",
       lines: [
-        L("Agent one's forced put: | rejected, delta out of band."),
-        L("The check stops there; | later rules are never reached."),
+        L("Agent one's forced put was rejected: | the check stops at the delta band; later rules never run."),
       ],
       async prepare(page) {
         await openApp(page, DECISION_REJECTED, () =>
@@ -1064,11 +1188,11 @@ export function scenes(f, live) {
         await h.at(0.3);
         await h.box(/^Rejected$/, { pad: 12, dim: 0.22 });
         await h.zoom(/^Rejected$/, { scale: 1.5 });
-        await h.cue(1, -0.6);
+        await h.chunk(0, 1, -0.7);
         await h.unbox();
         await h.unzoom(250);
-        await h.scrollTo(/^Delta band/, { offset: 380, ms: 600 });
-        await h.cue(1, 0.1);
+        await h.scrollTo(/^Delta band/, { offset: 380, ms: 500 });
+        await h.chunk(0, 1, 0.1);
         await h.page.evaluate(() => {
           const v = window.__v;
           const fail = v.leaf("^Delta band", "").closest("li");
@@ -1250,6 +1374,41 @@ export function scenes(f, live) {
           v.box(el, { pad: 10, dim: 0.25 });
           v.zoom(el, 1.8);
         }, live.mirrorRounds);
+      },
+    },
+    {
+      id: "lessons",
+      screen: `\`/app/lessons\`: ${live.lessons} lessons from the live runs (${live.lessonsFixed} fixed, read at render time), each with what happened, its evidence, what changed and the test that guards it.`,
+      tag: "Lessons",
+      lines: [
+        L(
+          `${live.lessons} lessons from the live runs, | each with evidence, the fix and its test.`,
+          `${sayInt(live.lessons)} lessons from the live runs, | each with evidence, the fix and its test.`,
+        ),
+      ],
+      async prepare(page) {
+        await openApp(page, "/app/lessons", () =>
+          page
+            .getByText(/^Guarded by$/i)
+            .first()
+            .waitFor({ timeout: 60_000 }),
+        );
+      },
+      async run(h) {
+        await h.at(0.2);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const meta = document.querySelector('dl[class*="metaGrid"]');
+          v.box(meta, { pad: 8, dim: 0.2 });
+        });
+        await h.chunk(0, 1, -0.4);
+        await h.unbox();
+        await h.scrollTo(/^A rejected proposal said/, { offset: 130, ms: 700 });
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const li = v.leaf("^A rejected proposal said", "").closest("li");
+          v.box(li, { pad: 8, dim: 0.2 });
+        });
       },
     },
     // ============================================================================================ competition
@@ -1494,10 +1653,10 @@ function signingScene(f) {
     tag: "Run an agent",
     kind: "clip",
     clip: "video/clips/signing.mp4",
-    // the 33.5 s take plays 1.45 times faster (the block waits and the explorer load); the lines keep their places
+    // the 33.5 s take plays 1.6 times faster (the block waits and the explorer load); the lines keep their places
     // in it: `pre` holds the last two until the screen they describe (signing.json has the take's own line times)
-    clipSpeed: 1.45,
-    minDur: 23.1,
+    clipSpeed: 1.6,
+    minDur: 20.9,
     lines: [
       L("Anyone can run an agent, with no permission."),
       L(
@@ -1509,7 +1668,7 @@ function signingScene(f) {
       L(
         `Now it can propose. | Every rejected proposal costs it ${f.slash} USDG.`,
         `Now it can propose. | Every rejected proposal costs it ${sayInt(f.slash)} ${U}.`,
-        { pre: 1.5 },
+        { pre: 0.6 },
       ),
     ],
     context: signingContext,
@@ -1530,9 +1689,9 @@ export const poster = { scene: "surface3d", at: 24 };
 export const gifScene = "flow3d";
 export const timing = { lead: 0.08, gap: 0.1, tail: 0.15 };
 export const crf = 24;
-/** The demo reads faster than the pitch: every take sped up 28% with Rubber Band (formants kept), to fit the
+/** The demo reads faster than the pitch: every take sped up 32% with Rubber Band (formants kept), to fit the
  *  decision pages, the settlement state and the proof page's liveness checks into about five and a half minutes. */
-export const tts = { speed: 1.28, speed_max_cps: 22.5, max_cps: 19 };
+export const tts = { speed: 1.32, speed_max_cps: 23, max_cps: 19 };
 /** The music bed (video/narration/music.py, CC0): ducked under the voice, -16 LUFS overall. */
 export const music = { seed: 7, speech_lufs: -31, gap_db: 5, fade_in: 2, fade_out: 3 };
 
@@ -1542,7 +1701,7 @@ export const scriptDoc = {
 
 The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (${total.toFixed(1)} s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by \`node video/record.mjs demo\` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
 
-The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 28% faster with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of \`scripts/check-claims.mjs\`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
+The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 32% faster with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of \`scripts/check-claims.mjs\`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
 
 ## Chapters
 
