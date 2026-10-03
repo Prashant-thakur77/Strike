@@ -118,7 +118,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^5.0.2
-        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.27.7)(tsx@4.23.15)(yaml@2.8.1))
+        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.8.1))
 
   mcp:
     dependencies:
@@ -185,8 +185,8 @@ importers:
         specifier: ^10.3.1
         version: 10.3.1
       undici:
-        specifier: ^7.16.0
-        version: 7.16.0
+        specifier: ^7.29.1
+        version: 7.30.0
       viem:
         specifier: ^2.56.9
         version: 2.56.9(typescript@5.9.3)(zod@4.6.5)
@@ -211,7 +211,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^5.0.2
-        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.8.1))
+        version: 5.0.2(@types/node@22.20.4)(vite@8.3.1(@types/node@22.20.4)(esbuild@0.27.7)(tsx@4.23.15)(yaml@2.8.1))
 
   subgraph:
     devDependencies:
@@ -3694,6 +3694,10 @@ packages:
 
   undici@7.16.0:
     resolution: {integrity: sha512-QEg3HPMll0o3t2ourKwOeUAZ159Kn9mx5pnzHRQO8+Wixmh88YdZRiIwat0iNzNNXn0yoEtXJqFpyW7eM8BV7g==}
+    engines: {node: '>=20.18.1'}
+
+  undici@7.30.0:
+    resolution: {integrity: sha512-dkrQXeHSaoamnItlYbmzG0wFYrM0ZwDxCIg0A7aKjTyyhh9svRzCNFEzV+Vm05/yehjCzjDZ31KXfGEjYSztDQ==}
     engines: {node: '>=20.18.1'}
 
   universalify@2.0.1:
@@ -7293,6 +7297,8 @@ snapshots:
   undici-types@6.21.0: {}
 
   undici@7.16.0: {}
+
+  undici@7.30.0: {}
 
   universalify@2.0.1: {}
 

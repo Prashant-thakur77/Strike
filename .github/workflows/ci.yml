@@ -83,6 +83,21 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
 
+  audit:
+    # Production dependencies against the npm advisory database, from the lockfile (no install): a high or critical
+    # advisory fails the job. Its own job, so a registry outage does not hide the test results.
+    name: Dependency audit (fail on high)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: pnpm audit --prod --audit-level high
+        run: pnpm audit --prod --audit-level high
+
   differential:
     name: Differential (Stylus Rust vs Solidity pricer)
     runs-on: ubuntu-latest
