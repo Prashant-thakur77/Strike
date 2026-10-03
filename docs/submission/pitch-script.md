@@ -1,10 +1,8 @@
-# Pitch video script (2:02)
+# Pitch video script (2:12)
 
-The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (122.6 s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by `node video/record.mjs pitch` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
+The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (132.7 s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by `node video/record.mjs pitch` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
 
-The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): 264 words in 123 s (129 words a minute). Every number is read from README.md at render time. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
-
-The quotes below are what the rendered video says, so they keep the figures of its render on the morning of 1 October (UTC), before the third epoch ran. Since then: the count of tests and proofs is 1,385 (the video says 891); Robinhood Chain testnet also ran a v3 epoch on 1 October in which Claude planned the accepted proposal again, so Claude has planned two accepted proposals (Arbitrum Sepolia at a $364.29 strike, Robinhood Chain v3 at $369.36); and the buyers in the three epochs paid 10.01, 8.91 and 7.38 USDG. None of the three epochs has settled yet (expiry Friday 2 October, 20:00 UTC).
+The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): 287 words in 133 s (130 words a minute). Every number is read from README.md at render time, and the count of verified transactions from a live run of `scripts/check-claims.mjs`. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
 
 ## 0:00 to 0:09 · Slide 1: Strike
 
@@ -44,14 +42,14 @@ The quotes below are what the rendered video says, so they keep the figures of i
 
 > We take 10% of a week's positive net premium, half to the agent, and nothing on a losing week.
 
-## 1:31 to 1:45 · Slide 14: Evidence, not claims
+## 1:31 to 1:51 · Slide 14: Evidence, not claims
 
-> Behind it: 891 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
+> Behind it: 1,385 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
 >
-> It is not audited yet.
+> CI re-checks all 160 transactions the docs cite, on-chain. It is not audited yet.
 
-## 1:45 to 2:02 · Slide 16: The ask
+## 1:51 to 2:12 · Slide 16: The ask
 
-> Next: an external audit, then a capped mainnet vault. We are asking for a place at Founder House Singapore, and introductions to wallets and market makers.
+> We are building Strike as a company on Robinhood Chain and Arbitrum. Funding buys an external audit and the first capped mainnet vault. We are asking for a place at Founder House Singapore, and introductions to wallets and market makers.
 >
 > Try the playground at strike-options.vercel.app.

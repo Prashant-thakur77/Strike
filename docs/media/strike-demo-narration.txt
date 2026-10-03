@@ -4,21 +4,25 @@ Now imagine an agent picking the strike each week, held to the rules by a contra
 
 Weekly premium in USDG. An AI agent picks the strike, inside a mandate. Break it, and its bond goes to depositors. Rust on Stylus does the math. Live on Robinhood Chain and Arbitrum Sepolia.
 
-Inside one week: Depositors fill a vault with a fixed mandate. An agent reads it via MCP and dry-runs. It proposes delta, expiry, size and price. The Epoch Manager checks the mandate at guarded oracle prices. Rust on Stylus solves and stress-tests the strike. If it passes, buyers pay premium in USDG. If not, the bond is slashed to depositors. Decisions are hashed on-chain; the agent has an ERC-8004 identity. Friday's close settles; depositors get the premium, less a fee. Same contracts on Robinhood Chain and Arbitrum Sepolia.
+Inside one week: Depositors fill a vault with a fixed mandate. An agent reads it via MCP and dry-runs. It proposes delta, expiry, size and price. The Epoch Manager checks it at guarded oracle prices. Rust on Stylus solves and stress-tests the strike. If it passes, buyers pay premium in USDG. If not, the bond is slashed to depositors. Decisions are hashed on-chain; the agent has an ERC-8004 identity. Friday's close settles; depositors get the premium, less a fee. Same contracts on Robinhood Chain and Arbitrum Sepolia.
 
-Say Maya opens the Tesla vault. This week it sold the $369.86 call: four options, 10.01 USDG. At or below the strike, Maya keeps it; the buyer profits above $372.36.
+Say Maya opens the Tesla vault. Its first week sold the $369.86 call: four options, 10.01 USDG. At or below the strike, Maya keeps it; the buyer profits above $372.36.
 
 The limits are in the contract: Delta 0.10 to 0.35, at least 95% of fair value, at least 0.05% yield, at most 80% sold, 1 to 8 days, fixed for good.
 
 The playground tests proposals live, no wallet. An honest 0.20-delta call: accepted. A reckless at-the-money strike: rejected, delta out of band. A real one costs the agent 10 USDG, paid to depositors.
 
-Buyers pay at the moment they buy: oracle spot moved 0.5% against them, Black-Scholes, times the agent's factor. Never below intrinsic value, so stale prices can't be picked off.
+Buyers pay at the moment they buy: oracle spot moved 0.5% against them, Black-Scholes, times the agent's factor. Never below intrinsic value, so stale prices can't be picked off. Buying waits for the NYSE open, shown in your own time zone.
 
-The vault ran live on September 29. The seller agent asked for 0.20 delta; the contract solved $369.86, accepted. A reckless agent forced an at-the-money put: rejected, 10 USDG slashed, bond 60 to 50.
+Live on September 29, the seller agent asked for 0.20 delta; the contract solved $369.86, accepted. A reckless agent forced an at-the-money put: rejected, 10 USDG slashed, bond 60 to 50.
 
 The explorer says Success: a rejection isn't a revert, and 10 USDG left the bond.
 
-On Arbitrum Sepolia, Claude planned the proposal. Via Claude Code and Strike's MCP server, it read the vault and dry-ran five candidates. It chose 0.20 delta at 105% of fair value, and wrote why: mid-band, safe from small moves. The contract solved $364.29: accepted.
+The call expired Friday at 20:00 UTC; it has not settled yet. It settles at the first mainnet Chainlink print after expiry; the contract rejects any other price. The last print, at 19:55, came before expiry. The epoch trace shows each step's transaction, and what is pending.
+
+Anyone can run an agent, with no permission. Here a test wallet registers an agent and bonds 60 USDG, above the 50 minimum. The wallet signs each step: register, then bond. Each one waits for its block on Robinhood Chain testnet. Now it can propose. Every rejected proposal costs it 10 USDG.
+
+On Arbitrum Sepolia, Claude planned it: via Strike's MCP server, it read the vault and dry-ran five candidates. It chose 0.20 delta at 105% of fair value, and wrote why: mid-band, safe from small moves. The contract solved $364.29: accepted.
 
 On Arbiscan: a successful call from the agent's signer. The same run slashed a reckless put 10 USDG, and a buyer took all 4 calls.
 
@@ -26,15 +30,19 @@ In 3D: Across, Tesla's price. Back, days left. Up, a share's value. At expiry it
 
 The math is Rust, on Arbitrum Stylus. Solving a strike takes 48 Black-Scholes runs: 6.5 times less gas than Solidity, 3.3 times less per proposal.
 
-Every run leaves a decision record. Its hash is anchored in the DecisionLog; rehash the file, and it matches the chain.
+Every run leaves a decision record. Its hash is anchored in the DecisionLog; rehash the file, and it matches the chain. CI re-checks every cited transaction: 160 of 160 verified.
 
-Its ERC-8004 identity: 114 on Robinhood Chain testnet, 253 on Arbitrum Sepolia. Anyone can join, no allow-list.
+Each proposal gets a decision page. Agent two's put on October 2: each mandate rule it passed, with the headroom left. Why not the other strikes: the same proposal at each delta, judged by the rules. And what would make this week lose: TSLA below $340.20, 17% odds under the model.
+
+Agent one's forced put: rejected, delta out of band. The check stops there; later rules are never reached.
+
+Its ERC-8004 identity: 114 on Robinhood Chain testnet, 253 on Arbitrum Sepolia.
 
 The monitor, live on mainnet: Nvidia's multiplier, 1.000775, is already in the price, so Strike never applies it twice.
 
 Over 403 weeks since 2019, covered calls cut volatility 25 to 46%, but lagged holding everywhere: Tesla 23.1% a year, against 44.0% held. And it assumes full weekly sales.
 
-The proof page: 891 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed.
+The proof page: 1,385 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
 
 Who else is here? Stonkhouse and Archer Markets on Robinhood Chain are order books: traders pick strike and price. Ribbon, Derive and Thetanuts sell crypto options by auction, order book or RFQ. Tilt's AI manages vaults, with no options; its sources don't say what limits it on-chain.
 
