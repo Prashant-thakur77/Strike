@@ -41,8 +41,20 @@ import {
   strikeVaultAbi,
   vaultCapacity,
   wadToNumber,
+  answerDecisionQuestion,
+  decisionRecordHash,
+  deploymentsFor,
+  loadStrikeConfig,
+  rawGithubUrl,
+  recordAnchorOf,
+  recordIdentityOf,
+  rpcEndpointsFor,
+  statement,
+  statementCsv,
+  transportFromEndpoints,
+  verifyDecisionAnchor,
 } from "@strike/sdk";
-import { type Address, erc20Abi, getAddress, isAddress } from "viem";
+import { type Address, type PublicClient, createPublicClient, erc20Abi, getAddress, isAddress } from "viem";
 import { z } from "zod";
 import {
   type DeploymentLabel,
@@ -112,6 +124,15 @@ export interface StrikeMcpOptions {
    * `readOnly`): the tool is not registered. `endpoint` is the risk report's URL without a query.
    */
   x402?: { payer: X402Payer; endpoint: string };
+  /**
+   * A public client per chain for wallet_statement (which reads every Strike chain) and explain_decision's on-chain
+   * check. Default: the SDK's endpoints for that chain (Alchemy first when ALCHEMY_API_KEY is set, then the public RPC).
+   */
+  publicClientFor?: (chainId: number) => PublicClient;
+  /** The indexer's base URL for wallet_statement (services/indexer); default: log scans on each chain. */
+  indexerUrl?: string;
+  /** fetch for explain_decision's record download (tests pass a fake). */
+  fetch?: typeof fetch;
 }
 
 // Plain paths (not `new URL(literal, import.meta.url)`), so bundlers do not try to pull the file in as an asset.
@@ -142,6 +163,8 @@ export const READ_ONLY_TOOLS = [
   "risk_check",
   "agent_stats",
   "series_risk",
+  "wallet_statement",
+  "explain_decision",
 ] as const;
 const DEFAULT_TARGET_DELTA = 0.2;
 
@@ -658,6 +681,104 @@ async function resolveUnderlying(
   throw new StrikeError(
     `unknown stock token "${ref}"; known on chain ${chainId}: ${known.join(", ") || "none"} (or pass its 0x address)`,
   );
+}
+
+// ------------------------------------------------------------------ statement and decision records
+
+const statementClients = new Map<number, PublicClient>();
+/** The SDK's endpoints for a chain (Alchemy first when ALCHEMY_API_KEY is set), one client per chain. */
+function defaultStatementClient(chainId: number): PublicClient {
+  let pc = statementClients.get(chainId);
+  if (!pc) {
+    pc = createPublicClient({
+      chain: getStrikeChain(chainId),
+      transport: transportFromEndpoints(
+        rpcEndpointsFor(chainId, { ALCHEMY_API_KEY: process.env.ALCHEMY_API_KEY }),
+        {
+          retryCount: 1,
+          timeout: 20_000,
+        },
+      ),
+    }) as PublicClient;
+    statementClients.set(chainId, pc);
+  }
+  return pc;
+}
+
+/** Where explain_decision may download a record from: Strike's own repository, nothing else. */
+function recordUrl(ref: string): string {
+  const repo = new URL(loadStrikeConfig().services.repository);
+  const [, owner, name] = repo.pathname.split("/");
+  const rawBase = `https://raw.githubusercontent.com/${owner}/${name}/`;
+  const trimmed = ref.trim();
+  if (/^(docs\/agent-log\/)[\w./-]+\.json$/.test(trimmed) && !trimmed.includes("..")) {
+    return `${rawBase}main/${trimmed}`;
+  }
+  const raw = rawGithubUrl(trimmed) ?? trimmed;
+  if (!raw.startsWith(rawBase) || raw.includes("..") || !raw.endsWith(".json")) {
+    throw new StrikeError(
+      `explain_decision reads records from Strike's repository only (${repo.href}, a .json under docs/agent-log), or pass the record JSON`,
+    );
+  }
+  return raw;
+}
+
+async function loadDecisionRecord(p: {
+  record?: Record<string, unknown> | string;
+  url?: string;
+  fetch: typeof fetch;
+}): Promise<{ record: unknown; source: string }> {
+  if (p.record !== undefined) {
+    if (typeof p.record !== "string") return { record: p.record, source: "given" };
+    try {
+      return { record: JSON.parse(p.record), source: "given" };
+    } catch {
+      throw new StrikeError("record is not valid JSON");
+    }
+  }
+  if (!p.url) throw new StrikeError("give the record (JSON) or its url");
+  const url = recordUrl(p.url);
+  const res = await p.fetch(url, { headers: { Accept: "application/json" } });
+  if (!res.ok) throw new StrikeError(`could not fetch ${url}: HTTP ${res.status}`);
+  const text = await res.text();
+  if (text.length > 2_000_000) throw new StrikeError("the record is too large");
+  try {
+    return { record: JSON.parse(text), source: url };
+  } catch {
+    throw new StrikeError(`${url} is not JSON`);
+  }
+}
+
+/** The anchoring transaction checked on the record's chain against every DecisionLog deployed there. */
+async function checkRecordAnchor(
+  record: unknown,
+  clientFor: (chainId: number) => PublicClient,
+): Promise<Record<string, unknown>> {
+  const anchor = recordAnchorOf(record);
+  const id = recordIdentityOf(record);
+  const agentId = (record as { agent?: { agentId?: unknown } })?.agent?.agentId;
+  if (!anchor || !id || (typeof agentId !== "string" && typeof agentId !== "number")) {
+    return { status: "no-anchor", detail: "the record names no anchor, chain, vault or agent" };
+  }
+  const decisionLogs = deploymentsFor(id.chainId).flatMap((d) => (d.decisionLog ? [d.decisionLog] : []));
+  if (!decisionLogs.length)
+    return { status: "no-anchor", detail: `no DecisionLog is deployed on chain ${id.chainId}` };
+  const check = await verifyDecisionAnchor(clientFor(id.chainId), {
+    decisionLogs,
+    agentId: BigInt(agentId),
+    vault: id.vault,
+    epoch: anchor.epoch,
+    recordHash: decisionRecordHash(record),
+    txHash: anchor.txHash,
+  });
+  return {
+    status: check.status,
+    via: check.via,
+    chainId: id.chainId,
+    decisionLog: check.decisionLog,
+    txHash: anchor.txHash || null,
+    superseded: check.superseded,
+  };
 }
 
 /**
@@ -2330,6 +2451,146 @@ export function createStrikeMcpServer(options: StrikeMcpOptions): McpServer {
           nextStep: `Deposit ${collateral} into it, then during NYSE hours run risk_check and propose_epoch with vault "${symbol}" from agent #${agentId}'s signer key.`,
         });
       }),
+  );
+
+  server.registerTool(
+    "wallet_statement",
+    {
+      title: "Wallet statement",
+      description:
+        "A wallet's Strike statement across every deployment (Robinhood Chain testnet v2 and v3, Arbitrum Sepolia v3), whatever chain this server reads: deposits and queued deposits, withdrawals, premium claims, option buys and redemptions, agent bonds and slashes, slashes paid into vaults it deposited in, x402 payments to Strike, and faucet and gas drips. Each row has the date (UTC), chain, deployment, vault, action, amounts with their tokens and the transaction with an explorer link; then totals per token and, for each row type, the `cast` commands that check a row with no Strike code. A statement of on-chain records only. format csv also returns the CSV text the app's /api/statement serves.",
+      inputSchema: {
+        address: z.string().describe("The wallet (0x address)"),
+        from: z
+          .string()
+          .optional()
+          .describe("Start, inclusive: YYYY-MM-DD (UTC), an ISO time or unix seconds"),
+        to: z.string().optional().describe("End, inclusive: YYYY-MM-DD means the end of that UTC day"),
+        format: z.enum(["json", "csv"]).optional().describe("json (default) or csv"),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(1000)
+          .optional()
+          .describe("Most recent rows to return (default 200); totals always cover every row in the period"),
+      },
+      outputSchema: {
+        kind: z.literal("strike.statement"),
+        version: z.literal(1),
+        address: z.string(),
+        from: z.string().nullable(),
+        to: z.string().nullable(),
+        generatedAt: z.string(),
+        rows: z
+          .array(z.record(z.string(), z.unknown()))
+          .describe("Oldest first; the last `limit` of the period"),
+        rowCount: z.number().describe("Rows in the period (before `limit`)"),
+        truncated: z.boolean(),
+        totals: z.array(z.record(z.string(), z.unknown())),
+        checks: z.array(
+          z.object({ action: z.string(), description: z.string(), event: z.string(), command: z.string() }),
+        ),
+        sources: z.array(z.record(z.string(), z.unknown())),
+        errors: z.array(z.object({ chainId: z.number(), error: z.string() })),
+        note: z.string(),
+        csv: z.string().optional(),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ address, from, to, format, limit }) =>
+      run(async () => {
+        const s = await statement(address, {
+          from: from ?? null,
+          to: to ?? null,
+          publicClientFor: options.publicClientFor ?? defaultStatementClient,
+          indexerUrl: options.indexerUrl ?? null,
+        });
+        const max = limit ?? 200;
+        const rows = s.rows.slice(-max);
+        const body: Record<string, unknown> = {
+          ...s,
+          rows,
+          rowCount: s.rows.length,
+          truncated: s.rows.length > rows.length,
+        };
+        if (format === "csv") body.csv = statementCsv(s);
+        return result(body);
+      }),
+  );
+
+  server.registerTool(
+    "explain_decision",
+    {
+      title: "Explain a decision record",
+      description:
+        "Answer a question about one agent decision record using only that record and the vault mandate it carries, with no language model: why this strike, what would make it lose, whether it was within the mandate, what happened on-chain, the premium, the alternatives, the market, the anchor and the agent's track record. Every figure in the answer is followed by the record field it came from, and `citations` lists each field and its value. A question the record cannot answer is refused (refused: true) with the list of what it can. The record's hash is rebuilt and compared with its anchor (hashMatches); verify: true also checks the anchoring transaction on the record's chain. Give the record as JSON, as a link to a record in Strike's repository (github.com/.../blob/... or raw.githubusercontent.com), or as a repository path such as docs/agent-log/2026-10-01-sTSLA-CC.json. To phrase a longer answer with your own model, use only the returned citations and say which field each statement comes from.",
+      inputSchema: {
+        question: z.string().min(1).max(500),
+        record: z
+          .union([z.record(z.string(), z.unknown()), z.string()])
+          .optional()
+          .describe("The record JSON (object or text)"),
+        url: z
+          .string()
+          .optional()
+          .describe("A link to the record in Strike's repository, or its repository path"),
+        verify: z.boolean().optional().describe("Also check the anchoring transaction on the record's chain"),
+      },
+      outputSchema: {
+        question: z.string(),
+        topic: z.string().nullable(),
+        answer: z.string(),
+        citations: z.array(z.object({ path: z.string(), value: z.string() })),
+        refused: z.boolean(),
+        hashMatches: z.boolean().nullable(),
+        topics: z.array(z.object({ topic: z.string(), example: z.string() })),
+        source: z.string(),
+        anchorCheck: z.record(z.string(), z.unknown()).nullable(),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ question, record, url, verify }) =>
+      run(async () => {
+        const parsed = await loadDecisionRecord({ record, url, fetch: options.fetch ?? fetch });
+        const answer = answerDecisionQuestion(parsed.record, question);
+        let anchorCheck: Record<string, unknown> | null = null;
+        if (verify)
+          anchorCheck = await checkRecordAnchor(
+            parsed.record,
+            options.publicClientFor ?? defaultStatementClient,
+          );
+        return result({ ...answer, source: parsed.source, anchorCheck });
+      }),
+  );
+
+  server.registerPrompt(
+    "explain_decision",
+    {
+      title: "Explain a Strike decision record",
+      description:
+        "Ask about one agent decision record and get an answer grounded only in that record's fields, each cited.",
+      argsSchema: {
+        record: z.string().describe("A link to the record, its repository path, or its JSON"),
+        question: z.string().describe("What you want to know, e.g. Why this strike?"),
+      },
+    },
+    ({ record, question }) => ({
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: [
+              `Call the explain_decision tool with question ${JSON.stringify(question)} and ${record.trim().startsWith("{") ? "record" : "url"} ${JSON.stringify(record)}, with verify: true.`,
+              "Answer only from the tool's answer and citations. After each statement, name the record field it comes from in brackets, as the tool does.",
+              "If the tool refused, say the record cannot answer that and list what it can. Do not add market views, forecasts or facts from anywhere else.",
+              "If hashMatches is false or anchorCheck.status is not match, say first that the record does not match its on-chain anchor.",
+            ].join("\n"),
+          },
+        },
+      ],
+    }),
   );
 
   if (options.x402 && !options.readOnly) {

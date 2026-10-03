@@ -49,6 +49,8 @@ export interface ReadOnlyMcpOptions {
   skillText?: string;
   /** How long identical RPC reads are shared between requests, in ms (default 10 000). */
   cacheTtlMs?: number;
+  /** The indexer's base URL for wallet_statement (default: log scans on each chain). */
+  indexerUrl?: string;
 }
 
 /** RPC methods whose answers may be shared for a few seconds: reads only, never anything that sends. */
@@ -237,12 +239,21 @@ export async function handleReadOnlyMcpRequest(
         : undefined;
   let built: DeploymentClient[] | undefined;
   const deployments = () => (built ??= readOnlyClients(chainId, rpc, options.cacheTtlMs, version));
+  // wallet_statement and explain_decision read other chains too: the same cached read clients, per chain.
+  const rpcFor = (cid: number) =>
+    typeof options.rpcEndpoints === "function"
+      ? options.rpcEndpoints(cid)
+      : cid === chainId
+        ? rpc
+        : undefined;
   const server = createStrikeMcpServer({
     chainId,
     readOnly: true,
     skillText: options.skillText,
     client: () => deployments()[0]!.client,
     deployments,
+    publicClientFor: (cid) => readOnlyClient(cid, rpcFor(cid), options.cacheTtlMs).viem.publicClient,
+    indexerUrl: options.indexerUrl,
   });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

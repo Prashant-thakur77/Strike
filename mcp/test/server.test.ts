@@ -369,6 +369,7 @@ describe("Strike MCP server", () => {
       "agent_stats",
       "buy_options",
       "create_vault",
+      "explain_decision",
       "hedge_plan",
       "list_vaults",
       "propose_epoch",
@@ -381,6 +382,7 @@ describe("Strike MCP server", () => {
       "settle_epoch",
       "strike_info",
       "vault_state",
+      "wallet_statement",
     ]);
     for (const t of tools) {
       expect(t.outputSchema, t.name).toBeDefined();

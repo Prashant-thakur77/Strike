@@ -16,6 +16,7 @@ const server = createStrikeMcpServer({
   readOnly: config.readOnly,
   client: () => (cached ??= clientFromConfig(config)),
   x402: x402FromEnv(config),
+  indexerUrl: process.env.STRIKE_INDEXER_URL || undefined,
 });
 
 const transport = new StdioServerTransport();
