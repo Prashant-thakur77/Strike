@@ -4,6 +4,7 @@ import { IndexerService } from "../src/service.js";
 import type { StateReader } from "../src/tvl.js";
 import { Writer } from "../src/writer.js";
 import {
+  CAROL,
   FakeChain,
   POPULATED_EVENTS,
   SERIES_ID,
@@ -180,6 +181,11 @@ describe("HTTP API", () => {
     const put = (await svc.api.inject({ method: "GET", url: `/events?vault=${a.putVault}` })).json();
     // Emitted by the put vault (deposit, request, withdrawal) or naming it (created, opened, rejected, aborted).
     expect(put.events).toHaveLength(7);
+    // A wallet's events: every one names it in an argument (the wallet statement reads these).
+    const carol = (await svc.api.inject({ method: "GET", url: `/events?account=${CAROL}` })).json();
+    expect(carol.events.length).toBeGreaterThan(0);
+    for (const e of carol.events) expect(Object.values(e.args)).toContain(CAROL.toLowerCase());
+    expect(carol.events.map((e: { event: string }) => e.event)).toContain("OptionsBought");
     const none = (await svc.api.inject({ method: "GET", url: "/events?chain=421614" })).json();
     expect(none).toEqual({ events: [], nextCursor: null });
   });
@@ -189,6 +195,7 @@ describe("HTTP API", () => {
       "limit=0",
       "limit=501",
       "vault=0x123",
+      "account=0x123",
       "cursor=nope",
       "type=DROP%20TABLE",
       "chain=abc",

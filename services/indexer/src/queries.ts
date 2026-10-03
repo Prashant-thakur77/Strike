@@ -9,6 +9,8 @@ export interface EventQuery {
   types?: string[];
   /** Events emitted by this vault or naming it in their arguments. */
   vault?: string;
+  /** Events naming this address in any argument (a depositor, buyer, owner, recipient...). */
+  account?: string;
   deployment?: string;
   limit: number;
   cursor?: string;
@@ -84,6 +86,10 @@ export async function queryEvents(
   if (q.vault) {
     const v = p(q.vault.toLowerCase());
     where.push(`(address = ${v} OR args ->> 'vault' = ${v})`);
+  }
+  if (q.account) {
+    const v = p(q.account.toLowerCase());
+    where.push(`EXISTS (SELECT 1 FROM jsonb_each_text(args) kv WHERE kv.value = ${v})`);
   }
   if (q.cursor) {
     const c = decodeCursor(q.cursor);

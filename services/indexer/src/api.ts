@@ -58,6 +58,13 @@ function vaultParam(q: Query): string | undefined {
   return v.toLowerCase();
 }
 
+function accountParam(q: Query): string | undefined {
+  const v = q.account;
+  if (v === undefined || v === "") return undefined;
+  if (!ADDRESS.test(v)) throw new BadRequest("account must be a 0x address");
+  return v.toLowerCase();
+}
+
 export function buildApi(deps: ApiDeps): FastifyInstance {
   const app = Fastify({
     loggerInstance: deps.log as unknown as FastifyBaseLogger,
@@ -202,6 +209,7 @@ export function buildApi(deps: ApiDeps): FastifyInstance {
       chain: chainParam(q),
       types,
       vault: vaultParam(q),
+      account: accountParam(q),
       deployment: q.deployment || undefined,
       limit: intParam(q, "limit", { min: 1, max: 500, fallback: 50 })!,
       cursor: q.cursor || undefined,
