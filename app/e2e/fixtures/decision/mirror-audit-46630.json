@@ -1,0 +1,143 @@
+{
+  "chainId": 46630,
+  "checkedAt": "2026-10-03T06:03:07.000Z",
+  "feeds": [
+    {
+      "symbol": "TSLA",
+      "rounds": [
+        {
+          "roundId": "1",
+          "price": "369",
+          "updatedAt": 1790629879,
+          "status": "deploy-seed"
+        },
+        {
+          "roundId": "2",
+          "price": "352.453",
+          "updatedAt": 1790700322,
+          "status": "match"
+        },
+        {
+          "roundId": "3",
+          "price": "350.005",
+          "updatedAt": 1790777939,
+          "status": "match"
+        },
+        {
+          "roundId": "4",
+          "price": "348.24",
+          "updatedAt": 1790780880,
+          "status": "match"
+        },
+        {
+          "roundId": "5",
+          "price": "350.23",
+          "updatedAt": 1790783341,
+          "status": "match"
+        },
+        {
+          "roundId": "6",
+          "price": "355.88",
+          "updatedAt": 1790820282,
+          "status": "match"
+        },
+        {
+          "roundId": "7",
+          "price": "357.66999999",
+          "updatedAt": 1790830845,
+          "status": "match"
+        },
+        {
+          "roundId": "8",
+          "price": "355.8108",
+          "updatedAt": 1790842308,
+          "status": "match"
+        },
+        {
+          "roundId": "9",
+          "price": "355.86",
+          "updatedAt": 1790861741,
+          "status": "match"
+        },
+        {
+          "roundId": "10",
+          "price": "356.27",
+          "updatedAt": 1790865222,
+          "status": "match"
+        },
+        {
+          "roundId": "11",
+          "price": "358.5505",
+          "updatedAt": 1790865762,
+          "status": "match"
+        },
+        {
+          "roundId": "12",
+          "price": "358.28",
+          "updatedAt": 1790867832,
+          "status": "match"
+        },
+        {
+          "roundId": "13",
+          "price": "356.3938",
+          "updatedAt": 1790868943,
+          "status": "match"
+        },
+        {
+          "roundId": "14",
+          "price": "356.264",
+          "updatedAt": 1790877285,
+          "status": "match"
+        },
+        {
+          "roundId": "15",
+          "price": "354.904",
+          "updatedAt": 1790884517,
+          "status": "match"
+        },
+        {
+          "roundId": "16",
+          "price": "356.68",
+          "updatedAt": 1790900632,
+          "status": "match"
+        },
+        {
+          "roundId": "17",
+          "price": "372.61125",
+          "updatedAt": 1790954999,
+          "status": "match"
+        },
+        {
+          "roundId": "18",
+          "price": "370.4712",
+          "updatedAt": 1790966510,
+          "status": "match"
+        },
+        {
+          "roundId": "19",
+          "price": "372.48",
+          "updatedAt": 1790967530,
+          "status": "match"
+        },
+        {
+          "roundId": "20",
+          "price": "374.37",
+          "updatedAt": 1790970061,
+          "status": "match"
+        },
+        {
+          "roundId": "21",
+          "price": "372.495",
+          "updatedAt": 1790970871,
+          "status": "match"
+        },
+        {
+          "roundId": "22",
+          "price": "370.448",
+          "updatedAt": 1790970931,
+          "status": "match"
+        }
+      ]
+    }
+  ]
+}

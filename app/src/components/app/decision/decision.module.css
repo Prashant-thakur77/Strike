@@ -188,3 +188,24 @@
 .check[data-ok="unknown"] svg {
   color: var(--fg-muted);
 }
+
+/* The price path: the model's one-sigma range and the feed's rounds. */
+.band {
+  fill: color-mix(in srgb, var(--fg) 7%, transparent);
+}
+
+.dotMatched {
+  fill: var(--fg);
+}
+
+.dotUnmatched {
+  fill: var(--bg);
+  stroke: var(--loss-c);
+  stroke-width: 2;
+}
+
+/* One column that may shrink below the chart's last measured width, so the plot follows the page on phones. */
+.pathFigure {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}

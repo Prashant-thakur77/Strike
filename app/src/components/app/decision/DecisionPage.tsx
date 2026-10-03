@@ -49,6 +49,7 @@ import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import { MandateRules } from "../playground/MandateRules";
 import { AnchorLine, Reasoning } from "../vault/WhyStrikePanel";
+import { PricePathChart } from "./PricePathChart";
 import {
   ConsistencyView,
   Modifications,
@@ -360,8 +361,22 @@ function DecisionBody({
           index="05"
           id="hindsight"
           label="In hindsight"
-          note="After settlement: each ladder row graded at the settlement price the oracle recorded."
+          note="The price the contracts read since the epoch opened, against the strike and the break-even; after settlement, each ladder row graded at the settlement price the oracle recorded."
         >
+          {derived.inp ? (
+            <div className={styles.block}>
+              <PricePathChart
+                chainId={chainId}
+                symbol={r.vault.underlying}
+                openedAt={derived.inp.openedAt}
+                expiry={derived.inp.expiry}
+                spot={derived.inp.spot}
+                sigma={derived.inp.sigma}
+                strike={derived.loss.strike}
+                breakEven={derived.loss.breakEven}
+              />
+            </div>
+          ) : null}
           <Hindsight
             chainId={chainId}
             record={r}
