@@ -4,7 +4,7 @@
 
 Strike is unaudited software. The descriptions below are taken from the repository's specification ([design.md](design.md)), its contracts and its tests. Where this paper states a protocol fact, the linked file is its source. Backtest figures come from [backtest.md](backtest.md) and can be reproduced with `python3 research/backtest.py`.
 
-**Status (1 October 2026).** Strike runs on two testnets. The v2 contracts that this paper describes run on Robinhood Chain testnet (chain 46630) and are what the app, SDK and MCP server read by default. v3 adds a fee high-water mark, EIP-712 signer consent and a Stylus risk engine; it runs next to v2 on Robinhood Chain testnet and on Arbitrum Sepolia (chain 421614), where the stock tokens are test tokens with a faucet. Three agent-run epochs are live, one per deployment. Each has an accepted proposal, an out-of-mandate proposal rejected with 10 USDG slashed, and a buyer. In both v3 epochs the accepted proposal was planned by Claude, using only Strike's read-only tools. None of the three has settled yet; all expire on Friday 2 October at 20:00 UTC. Addresses and transactions are in [DEPLOYMENTS.md](DEPLOYMENTS.md).
+**Status (3 October 2026).** Strike runs on two testnets. The v2 contracts that this paper describes run on Robinhood Chain testnet (chain 46630) and are what the app, SDK and MCP server read by default. v3 adds a fee high-water mark, EIP-712 signer consent and a Stylus risk engine; it runs next to v2 on Robinhood Chain testnet and on Arbitrum Sepolia (chain 421614), where the stock tokens are test tokens with a faucet. Three agent-run epochs ran, one per deployment. Each has an accepted proposal, an out-of-mandate proposal rejected with 10 USDG slashed, and a buyer. In both v3 epochs the accepted proposal was planned by Claude, using only Strike's read-only tools. None of the three has settled yet: their series expired on Friday 2 October at 20:00 UTC, after the day's last mainnet print at 19:55:31 UTC, so they settle at the first print of Monday 5 October (§5). A second agent, from a fresh wallet, had its first proposal accepted on 2 October. Addresses and transactions are in [DEPLOYMENTS.md](DEPLOYMENTS.md).
 
 ## Abstract
 
@@ -190,6 +190,10 @@ $$(1 - \beta_{\min}/10^4) \cdot F \cdot \lfloor c\, s_{\max}/10^4 \rfloor,$$
 
 which is 5% of the model premium under the demo mandate, and at most 10% under any mandate the contract accepts ($\beta_{\min} \ge 9\,000$). The intrinsic floor also keeps an in-the-money option from being sold below its exercise value. In the backtest, selling at 95% instead of 100% of fair value cost depositors 0.1–0.75 percentage points of annual return. A curator who does not want to allow this sets $\beta_{\min} = 10^4$.
 
+### 3.3 The off-chain agent
+
+The contract does not care how a proposal was chosen; the example agent in this repository shows one way to choose it so that every step can be checked ([decisions.md D45](decisions.md)). It runs five stages. A market analyst reads the oracle's status and age, the NYSE session, any pending corporate action, the sequencer feed and the volatility bounds, and says go or no-go. A risk analyst dry-runs a ladder of target deltas through `previewProposal` and asks the Stylus risk engine for each rung's greeks and payout under ±30% shocks, the break-even and the model probability of exercise. A strike planner picks a rung inside the mandate, by a fixed rule or by Claude with read-only tools. A critic applies five rules in priority order (market, mandate, break-even cushion against a one-sigma move, drift since the risk table, yield) and may veto. The contract is the last stage. A veto or a no-go is recorded as a no-trade decision and costs nothing, while a proposal the contract rejects costs the slash, so the off-chain checks are worth running before $\pi$ is sent. Each stage's inputs, outputs and sources go into the decision record, whose hash is anchored in `DecisionLog` before the proposal.
+
 ## 4. Pricing
 
 ### 4.1 Model and representation
@@ -281,7 +285,7 @@ The trust assumptions are stated plainly:
 
 - Chainlink publishes correct prices per raw token;
 - the issuer can pause tokens and change multipliers;
-- the admin can list tokens, set bounded parameters and pause; it has no function that moves user funds, but until a settlement price is recorded it could pick that price by swapping the feed or the oracle, so this holds only for an honest admin (a Safe on mainnet);
+- the admin can list tokens, set bounded parameters and pause; it has no function that moves user funds, but until a settlement price is recorded it could pick that price by swapping the feed or the oracle, so this holds only for an honest admin (on mainnet a Safe behind a 73-day timelock, [decisions.md D43](decisions.md), so a change cannot land inside a running epoch);
 - the guardian can only return funds to depositors and buyers;
 - USDG is treated as exactly $1.
 

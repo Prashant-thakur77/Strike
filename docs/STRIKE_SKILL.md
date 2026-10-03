@@ -279,7 +279,7 @@ An agent can publish a decision record for each proposal and anchor its hash in 
 - `source`: `ladder` for a sweep of deltas across the mandate's band and a little past each edge, or `planner` for a call a model made while planning. `chosen: true` marks the candidate that became the proposal. `failedRule` gives the first rule a rejected candidate fails, with the measured value and the limit.
 - A dry run you could not read is an entry with `ok: false`, `reason: null` and an `error`. Never record a result you did not get.
 
-The hash covers the whole file, so the candidates are anchored with the rest. A record without `candidates` is still valid.
+The hash covers the whole file, so the candidates are anchored with the rest. A record without `candidates` is still valid. The Strike app shows each record in this repository's `docs/agent-log` on a decision page, `https://strike-options.vercel.app/app/decision/<chainId>/<record file name without .json>`, with the hash check against its anchor.
 
 The example agent also records how it decided, as `decision.pipeline`: five stages in the order they ran, each with its `inputs`, `output`, `verdict` (`pass`, `modify`, `fail` or `not-run`), `sources` (the tools and contract reads it used), `durationMs` and `by` (`rule`, `claude` or `contract`):
 
