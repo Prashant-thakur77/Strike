@@ -1,0 +1,1439 @@
+{
+  "chainId": 46630,
+  "chainName": "Robinhood Chain testnet",
+  "explorer": "https://explorer.testnet.chain.robinhood.com",
+  "generatedAt": "2026-10-03T17:17:29.765Z",
+  "deployments": [
+    {
+      "key": "46630-v2",
+      "version": "v2",
+      "deployBlock": 125880607,
+      "head": 128265408,
+      "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+      "contracts": [
+        {
+          "name": "EpochManager",
+          "kind": "EpochManager",
+          "address": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Set the oracle (setOracle), the pricer (setPricer), the spot buffer (at most 200 bps), volatility bounds, the fee manager and timings (bounded); list tokens. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds. Before a settlement price is recorded it can choose it by swapping the oracle (setOracle), and it sets sale prices through setPricer: \"cannot move user funds\" holds only for an honest admin.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x57b8f66f10280a007716824b52750ebde1191433203fa7de24ec803ca5ac624d",
+                  "grantBlock": 125880728
+                }
+              ]
+            },
+            {
+              "role": "GUARDIAN_ROLE",
+              "hash": "0x55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a5041",
+              "can": "Pause new epochs, proposals and buys; cancel a series only after expiry + settlementGrace with no settlement price recorded.",
+              "cannot": "Block settlement or idle withdrawals; take funds.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x57b8f66f10280a007716824b52750ebde1191433203fa7de24ec803ca5ac624d",
+                  "grantBlock": 125880728
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Update sigma within bounds (at most 25% per update, once an hour); open epochs.",
+              "cannot": "Anything else.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xfc21951cdd31a2e6571ba2a42457f6f798ad132d7b5ba92b7c614b22d94fb0df",
+                  "grantBlock": 125880826
+                }
+              ]
+            },
+            {
+              "role": "FACTORY_ROLE",
+              "hash": "0xdfbefbf47cfe66b701d8cfdbce1de81c821590819cb07e71cb01b6602fb0ee27",
+              "can": "Register new vaults.",
+              "cannot": null,
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x5665e02878fa592513c1633af2f07b08cf606bec",
+                  "label": "VaultFactory v2",
+                  "kind": "contract",
+                  "grantTx": "0x7ef5faf4c61a88c0f99372938333468855bbcbf042fa54cfead19fbd5c23a920",
+                  "grantBlock": 125880800
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "StockOracle",
+          "kind": "StockOracle",
+          "address": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "List tokens and feeds (setFeed); set the calendar and the sequencer feed. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds. Before a settlement price is recorded it can choose it by pointing the token at another feed (setFeed). Once a settlement price is recorded it is final.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x5fb075a43f093b42154bd749de178f3b887c3e7b0acce4221193641c68fb5614",
+                  "grantBlock": 125880694
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AgentRegistry",
+          "kind": "AgentRegistry",
+          "address": "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Ban an agent (setStatus), set the ERC-8004 registries and the registry parameters. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds.",
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x16ce2f7f4e86150af13457576559848725e9693c9f27ccfdf8dc083890a7f041",
+                  "grantBlock": 125880724
+                }
+              ]
+            },
+            {
+              "role": "SLASHER_ROLE",
+              "hash": "0x12b42e8a160f6064dc959c6f251e3af0750ad213dbecf573b4710d67d6c28e39",
+              "can": "Slash bonds, record results.",
+              "cannot": null,
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x5a3b58df27e4dd5e0fa6493d90ff653e0e199c99",
+                  "label": "EpochManager v2",
+                  "kind": "contract",
+                  "grantTx": "0x04fca424653caa98ff47d03b69857180c2f15a48834488f7578ee34f7a72782e",
+                  "grantBlock": 125880793
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "FeeManager",
+          "kind": "FeeManager",
+          "address": "0x6b23819bC44EEbE1BD004208c0F00f2ed002B621",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Change fees (capped at 30%) and redirect the treasury (setFees, setTreasury). Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds.",
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xe718748c7b979d29f4345dfb3caad354dc230a82aa84ea4ad93bb25fb324b689",
+                  "grantBlock": 125880710
+                }
+              ]
+            },
+            {
+              "role": "DEPOSITOR_ROLE",
+              "hash": "0x8f4f2da22e8ac8f11e15f9fc141cddbb5deea8800186560abb6e68c5496619a9",
+              "can": "Credit performance fees to an agent and the treasury (creditFees).",
+              "cannot": null,
+              "source": "contracts/src/core/FeeManager.sol",
+              "holders": [
+                {
+                  "address": "0x5a3b58df27e4dd5e0fa6493d90ff653e0e199c99",
+                  "label": "EpochManager v2",
+                  "kind": "contract",
+                  "grantTx": "0x5c8069cd13f9d8feb238cb29bca5bfe88bc6161ed4b1c5527117bae2701eadfb",
+                  "grantBlock": 125880785
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "MarketCalendar",
+          "kind": "MarketCalendar",
+          "address": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
+          "sharedWith": ["v3"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke CALENDAR_ROLE. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds.",
+              "source": "contracts/src/oracle/MarketCalendar.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x882c7cddaa5842017fb30a4a0bd0d00b8bd7719961586026b48bdea665c30b6c",
+                  "grantBlock": 125880687
+                }
+              ]
+            },
+            {
+              "role": "CALENDAR_ROLE",
+              "hash": "0xa7beeccc2f83e5590af78a024189bc684a462d590dfc72713bba72c1e1ffb057",
+              "can": "Mark NYSE holidays and early closes (setHolidays, setEarlyCloses).",
+              "cannot": null,
+              "source": "contracts/src/oracle/MarketCalendar.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x882c7cddaa5842017fb30a4a0bd0d00b8bd7719961586026b48bdea665c30b6c",
+                  "grantBlock": 125880687
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "OptionToken",
+          "kind": "OptionToken",
+          "address": "0x557060266F4aE09ae723541AC8E7E27A99B0c9DB",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Rewire which contract mints and burns options (setManager); set the metadata URI (setURI).",
+              "cannot": null,
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x0ba72ba893a067c755621c4c7269d1a0bece482744b1630b0876099cbe1fb3a4",
+                  "grantBlock": 125880718
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "VaultFactory",
+          "kind": "VaultFactory",
+          "address": "0x5665E02878fA592513C1633af2F07b08cF606beC",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Raise the ceiling on deposit caps (setMaxDepositCap).",
+              "cannot": "Change a vault's mandate: it is fixed when the vault is created.",
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x5ccacbb6f771cb67b078b0e8740003070af7f1588ca0e3cab48952a61bc01a71",
+                  "grantBlock": 125880743
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AMD MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+          "sharedWith": ["v3"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x709c12d31f52d6c25bc325ea43b622c719be9753043afe4d9ec8fe6fd3275c97",
+                  "grantBlock": 125881124
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x709c12d31f52d6c25bc325ea43b622c719be9753043afe4d9ec8fe6fd3275c97",
+                  "grantBlock": 125881124
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0x7d41e02285b791fb5ac91e39fe0b61a8c2c65953b9001605c15994f6f6121978",
+                  "grantBlock": 127773237
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AMZN MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0x698a624940DdAfA8380dbF933AbC1c2908796877",
+          "sharedWith": ["v3"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x4e7968f040646f19848d277c4beaff4cdc0d46c18c930c11699afec49974921e",
+                  "grantBlock": 125880914
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x4e7968f040646f19848d277c4beaff4cdc0d46c18c930c11699afec49974921e",
+                  "grantBlock": 125880914
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0xb744d270fad2690774336866721f260254fd2372f33b9f91631e55b6d58c6a78",
+                  "grantBlock": 127773265
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "NFLX MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0xc7e34AC0E39663b580Fe044c04F2b7aa7949b30D",
+          "sharedWith": ["v3"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x6c6acfda1130f605519b21c7262ffcc27b4355a8184eed4f06635dd148a2b0e0",
+                  "grantBlock": 125881036
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x6c6acfda1130f605519b21c7262ffcc27b4355a8184eed4f06635dd148a2b0e0",
+                  "grantBlock": 125881036
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "PLTR MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0x2992a2661f4eb802EFF63a985914a80D262c5291",
+          "sharedWith": ["v3"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xacb1fe6088811472fc0008d2affad4600223b2d966679942ef9eccb5beccb4b3",
+                  "grantBlock": 125880964
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xacb1fe6088811472fc0008d2affad4600223b2d966679942ef9eccb5beccb4b3",
+                  "grantBlock": 125880964
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0x958368a4402c551def55f220d228450e5d35b06c4244da8755b705caf3fdc858",
+                  "grantBlock": 127773293
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "TSLA MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+          "sharedWith": ["v3"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xf3f48b3da8a86ee6ba5d71743738418ba00bdaeda67975daac9197ab520975f8",
+                  "grantBlock": 125880841
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xf3f48b3da8a86ee6ba5d71743738418ba00bdaeda67975daac9197ab520975f8",
+                  "grantBlock": 125880841
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0xdbae1bb9ba98081da3547e590a65e43a836da0ed99e3739b476f89b3857e3603",
+                  "grantBlock": 127773316
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "UsdgDrip",
+          "kind": "UsdgDrip",
+          "address": "0x1f3778BfC474419f154AD543625A711d90985632",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "owner",
+              "hash": null,
+              "can": "Refill and sweep the test-USDG faucet (refill, sweep).",
+              "cannot": null,
+              "source": "contracts/src/testnet/UsdgDrip.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b",
+                  "grantBlock": 127311607
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "roleFree": [
+        {
+          "name": "DecisionLog",
+          "address": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+          "why": "only an agent's current signer may record"
+        },
+        {
+          "name": "Pricer (Solidity reference)",
+          "address": "0x4261d47E6487e2533EdB9D5F91242F28121d5A1A",
+          "why": "pure math, no admin"
+        },
+        {
+          "name": "Stylus pricer",
+          "address": "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c",
+          "why": "pure math, no admin (Rust source)"
+        }
+      ],
+      "actions": [
+        {
+          "contract": "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+          "contractName": "TSLA MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0xdbae1bb9ba98081da3547e590a65e43a836da0ed99e3739b476f89b3857e3603",
+          "block": 127773316,
+          "timestamp": 1790974894,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x2992a2661f4eb802EFF63a985914a80D262c5291",
+          "contractName": "PLTR MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0x958368a4402c551def55f220d228450e5d35b06c4244da8755b705caf3fdc858",
+          "block": 127773293,
+          "timestamp": 1790974888,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x698a624940DdAfA8380dbF933AbC1c2908796877",
+          "contractName": "AMZN MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0xb744d270fad2690774336866721f260254fd2372f33b9f91631e55b6d58c6a78",
+          "block": 127773265,
+          "timestamp": 1790974882,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+          "contractName": "AMD MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0x7d41e02285b791fb5ac91e39fe0b61a8c2c65953b9001605c15994f6f6121978",
+          "block": 127773237,
+          "timestamp": 1790974876,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x1f3778BfC474419f154AD543625A711d90985632",
+          "contractName": "UsdgDrip",
+          "event": "OwnershipTransferred",
+          "summary": "Owner set to Deployer",
+          "count": 1,
+          "tx": "0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b",
+          "block": 127311607,
+          "timestamp": 1790893131,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "PricerSet",
+          "summary": "Pricer set to Stylus pricer v2",
+          "count": 1,
+          "tx": "0x5cb6ed2640f6842cf8d745802654424d6fd2fa9288f47cc002cc1e1aee32eeaa",
+          "block": 125882222,
+          "timestamp": 1790630244,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "SpotBufferSet",
+          "summary": "Spot buffer of AMD stock token v2, v3 set to 50 bps",
+          "count": 1,
+          "tx": "0x50668251dae2f4fff08db5a1edcf94afdf9b5af147e171c47ef2611effcc0c15",
+          "block": 125881184,
+          "timestamp": 1790630008,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "SigmaSet",
+          "summary": "Sigma of AMD stock token v2, v3 set to 55% (bounds 20% to 200%)",
+          "count": 1,
+          "tx": "0x5c8043c4ffff1260915087210edbd05cc7580dfc366579ff4607ffe83f23099c",
+          "block": 125881180,
+          "timestamp": 1790630006,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "UnderlyingSet",
+          "summary": "Listed token AMD stock token v2, v3",
+          "count": 1,
+          "tx": "0x8baed46015855df5612f6a06f5fcd32d8afbd261b56c42ddb8b02235d855193c",
+          "block": 125881170,
+          "timestamp": 1790630005,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89",
+          "contractName": "StockOracle",
+          "event": "FeedSet",
+          "summary": "Feed of AMD stock token v2, v3 set to AMD MirrorFeed v2, v3 (max price age 25 h)",
+          "count": 1,
+          "tx": "0x5b1a80907baffd928559acee20a7669ec191856c647b199ba593522f591bfd13",
+          "block": 125881154,
+          "timestamp": 1790630002,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+          "contractName": "AMD MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted DEFAULT_ADMIN_ROLE to Deployer and 1 more RoleGranted in the same transaction",
+          "count": 2,
+          "tx": "0x709c12d31f52d6c25bc325ea43b622c719be9753043afe4d9ec8fe6fd3275c97",
+          "block": 125881124,
+          "timestamp": 1790629994,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "SpotBufferSet",
+          "summary": "Spot buffer of NFLX stock token v2, v3 set to 50 bps",
+          "count": 1,
+          "tx": "0x6b3178177d7f87142998e75db99f745a23b37609de94ac14ed317ddeec9df81c",
+          "block": 125881111,
+          "timestamp": 1790629991,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "SigmaSet",
+          "summary": "Sigma of NFLX stock token v2, v3 set to 40% (bounds 20% to 200%)",
+          "count": 1,
+          "tx": "0x8a44710d2e65996083255a0a9f8130036ab0958f4f560ef9af1ca33fbcf36528",
+          "block": 125881099,
+          "timestamp": 1790629987,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99",
+          "contractName": "EpochManager",
+          "event": "UnderlyingSet",
+          "summary": "Listed token NFLX stock token v2, v3",
+          "count": 1,
+          "tx": "0x56db274b8c47ebddd58f10a5673a73dfc5ee670a29737832676c95c5b2e749ce",
+          "block": 125881087,
+          "timestamp": 1790629984,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89",
+          "contractName": "StockOracle",
+          "event": "FeedSet",
+          "summary": "Feed of NFLX stock token v2, v3 set to NFLX MirrorFeed v2, v3 (max price age 25 h)",
+          "count": 1,
+          "tx": "0x0f9927e4a842d70a9a70050072a63d532de51a29686d9022859aa0d38709c39a",
+          "block": 125881077,
+          "timestamp": 1790629982,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        }
+      ],
+      "actionCount": 48,
+      "unknown": [],
+      "warnings": []
+    },
+    {
+      "key": "46630-v3",
+      "version": "v3",
+      "deployBlock": 126713718,
+      "head": 128265408,
+      "deployer": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+      "contracts": [
+        {
+          "name": "EpochManager",
+          "kind": "EpochManager",
+          "address": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Set the oracle (setOracle), the pricer (setPricer), the spot buffer (at most 200 bps), volatility bounds, the fee manager and timings (bounded); list tokens. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds. Before a settlement price is recorded it can choose it by swapping the oracle (setOracle), and it sets sale prices through setPricer: \"cannot move user funds\" holds only for an honest admin.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x15baa6651d955aa75aabb7f9e186fef98013df4f9452dc21065a4c64580b563d",
+                  "grantBlock": 126713881
+                }
+              ]
+            },
+            {
+              "role": "GUARDIAN_ROLE",
+              "hash": "0x55435dd261a4b9b3364963f7738a7a662ad9c84396d64be3365284bb7f0a5041",
+              "can": "Pause new epochs, proposals and buys; cancel a series only after expiry + settlementGrace with no settlement price recorded.",
+              "cannot": "Block settlement or idle withdrawals; take funds.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x15baa6651d955aa75aabb7f9e186fef98013df4f9452dc21065a4c64580b563d",
+                  "grantBlock": 126713881
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Update sigma within bounds (at most 25% per update, once an hour); open epochs.",
+              "cannot": "Anything else.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x89ce7592edf8b25d3b5be7094235d2fc4cb8126e0fa099acce50d00765449e90",
+                  "grantBlock": 126714019
+                }
+              ]
+            },
+            {
+              "role": "FACTORY_ROLE",
+              "hash": "0xdfbefbf47cfe66b701d8cfdbce1de81c821590819cb07e71cb01b6602fb0ee27",
+              "can": "Register new vaults.",
+              "cannot": null,
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x97ab9ed707758fc23b4e59132d97ab7cb9fb215e",
+                  "label": "VaultFactory v3",
+                  "kind": "contract",
+                  "grantTx": "0xd71556fb873e98d0dc1db99ad37720c0b9e9b8efdc399163fc58469f0af64e4e",
+                  "grantBlock": 126713998
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "StockOracle",
+          "kind": "StockOracle",
+          "address": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "List tokens and feeds (setFeed); set the calendar and the sequencer feed. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds. Before a settlement price is recorded it can choose it by pointing the token at another feed (setFeed). Once a settlement price is recorded it is final.",
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x3a010ca5f7d9a49baf705ece7a6c3220c9c5df8420961747c5ed129fc9b835fe",
+                  "grantBlock": 126713796
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AgentRegistry",
+          "kind": "AgentRegistry",
+          "address": "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Ban an agent (setStatus), set the ERC-8004 registries and the registry parameters. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds.",
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xb09bbedebd45abe87c7d56b4dbe62b0d24759e6579fd4eb91a8ef6f7fa3813be",
+                  "grantBlock": 126713851
+                }
+              ]
+            },
+            {
+              "role": "SLASHER_ROLE",
+              "hash": "0x12b42e8a160f6064dc959c6f251e3af0750ad213dbecf573b4710d67d6c28e39",
+              "can": "Slash bonds, record results.",
+              "cannot": null,
+              "source": "docs/audit-readiness.md#roles-and-trust",
+              "holders": [
+                {
+                  "address": "0x256d4546486368dcb23e94758b4cb500c215929f",
+                  "label": "EpochManager v3",
+                  "kind": "contract",
+                  "grantTx": "0xfbf6797521fdad9dab4982fd234867d1d69fc514f36aa1e4c4c461a91e9b0ab1",
+                  "grantBlock": 126713978
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "FeeManager",
+          "kind": "FeeManager",
+          "address": "0x8DBE22eAa3CEFC367C435ce2b6F779fabe7D2Fa7",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Change fees (capped at 30%) and redirect the treasury (setFees, setTreasury). Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds.",
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x76489ff9c4a6debe78ec65af5e4026343b2acda06db3a373434dddb7d0ee4cea",
+                  "grantBlock": 126713833
+                }
+              ]
+            },
+            {
+              "role": "DEPOSITOR_ROLE",
+              "hash": "0x8f4f2da22e8ac8f11e15f9fc141cddbb5deea8800186560abb6e68c5496619a9",
+              "can": "Credit performance fees to an agent and the treasury (creditFees).",
+              "cannot": null,
+              "source": "contracts/src/core/FeeManager.sol",
+              "holders": [
+                {
+                  "address": "0x256d4546486368dcb23e94758b4cb500c215929f",
+                  "label": "EpochManager v3",
+                  "kind": "contract",
+                  "grantTx": "0x1861d3f8a7050da892a4f452590eae9235cc0529ff2629f44a6be6bb9ff8ddaa",
+                  "grantBlock": 126713959
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "MarketCalendar",
+          "kind": "MarketCalendar",
+          "address": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4",
+          "sharedWith": ["v2"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke CALENDAR_ROLE. Every DEFAULT_ADMIN_ROLE also grants and revokes the other roles of its contract.",
+              "cannot": "Change a vault's mandate, set sigma outside the bounds it set, or change a settlement price once it is recorded. It has no function that moves user funds.",
+              "source": "contracts/src/oracle/MarketCalendar.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x882c7cddaa5842017fb30a4a0bd0d00b8bd7719961586026b48bdea665c30b6c",
+                  "grantBlock": 125880687
+                }
+              ]
+            },
+            {
+              "role": "CALENDAR_ROLE",
+              "hash": "0xa7beeccc2f83e5590af78a024189bc684a462d590dfc72713bba72c1e1ffb057",
+              "can": "Mark NYSE holidays and early closes (setHolidays, setEarlyCloses).",
+              "cannot": null,
+              "source": "contracts/src/oracle/MarketCalendar.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x882c7cddaa5842017fb30a4a0bd0d00b8bd7719961586026b48bdea665c30b6c",
+                  "grantBlock": 125880687
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "OptionToken",
+          "kind": "OptionToken",
+          "address": "0xfbeb6cf8350C182c7895165A8Fdd3D9884aB46B6",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Rewire which contract mints and burns options (setManager); set the metadata URI (setURI).",
+              "cannot": null,
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x37b33d9c094b7bef7e0d96c6df974c396ff802b2568ffac68f26ce10e51b499d",
+                  "grantBlock": 126713843
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "VaultFactory",
+          "kind": "VaultFactory",
+          "address": "0x97ab9ed707758Fc23b4e59132d97Ab7cb9fb215e",
+          "sharedWith": [],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Raise the ceiling on deposit caps (setMaxDepositCap).",
+              "cannot": "Change a vault's mandate: it is fixed when the vault is created.",
+              "source": "docs/trust-model.md#stage-2-later-renounce-what-is-no-longer-needed",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xcba7117fd49463516ef2a8df2ba086429e3314fc097c5f4ebfd0afa1d6808703",
+                  "grantBlock": 126713905
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AMD MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+          "sharedWith": ["v2"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x709c12d31f52d6c25bc325ea43b622c719be9753043afe4d9ec8fe6fd3275c97",
+                  "grantBlock": 125881124
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x709c12d31f52d6c25bc325ea43b622c719be9753043afe4d9ec8fe6fd3275c97",
+                  "grantBlock": 125881124
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0x7d41e02285b791fb5ac91e39fe0b61a8c2c65953b9001605c15994f6f6121978",
+                  "grantBlock": 127773237
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "AMZN MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0x698a624940DdAfA8380dbF933AbC1c2908796877",
+          "sharedWith": ["v2"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x4e7968f040646f19848d277c4beaff4cdc0d46c18c930c11699afec49974921e",
+                  "grantBlock": 125880914
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x4e7968f040646f19848d277c4beaff4cdc0d46c18c930c11699afec49974921e",
+                  "grantBlock": 125880914
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0xb744d270fad2690774336866721f260254fd2372f33b9f91631e55b6d58c6a78",
+                  "grantBlock": 127773265
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "NFLX MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0xc7e34AC0E39663b580Fe044c04F2b7aa7949b30D",
+          "sharedWith": ["v2"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x6c6acfda1130f605519b21c7262ffcc27b4355a8184eed4f06635dd148a2b0e0",
+                  "grantBlock": 125881036
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0x6c6acfda1130f605519b21c7262ffcc27b4355a8184eed4f06635dd148a2b0e0",
+                  "grantBlock": 125881036
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "PLTR MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0x2992a2661f4eb802EFF63a985914a80D262c5291",
+          "sharedWith": ["v2"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xacb1fe6088811472fc0008d2affad4600223b2d966679942ef9eccb5beccb4b3",
+                  "grantBlock": 125880964
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xacb1fe6088811472fc0008d2affad4600223b2d966679942ef9eccb5beccb4b3",
+                  "grantBlock": 125880964
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0x958368a4402c551def55f220d228450e5d35b06c4244da8755b705caf3fdc858",
+                  "grantBlock": 127773293
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "TSLA MirrorFeed",
+          "kind": "MirrorFeed",
+          "address": "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+          "sharedWith": ["v2"],
+          "roles": [
+            {
+              "role": "DEFAULT_ADMIN_ROLE",
+              "hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+              "can": "Grant and revoke KEEPER_ROLE on the feed (testnet only).",
+              "cannot": null,
+              "source": "contracts/src/testnet/MirrorFeed.sol",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xf3f48b3da8a86ee6ba5d71743738418ba00bdaeda67975daac9197ab520975f8",
+                  "grantBlock": 125880841
+                }
+              ]
+            },
+            {
+              "role": "KEEPER_ROLE",
+              "hash": "0xfc8737ab85eb45125971625a9ebdb75cc78e01d5c1fa80c4c6e5203f47bc4fab",
+              "can": "Push MirrorFeed rounds (testnet only). Every value is checked against the mainnet Chainlink round it copies by the price mirror audit; when it pushes is trusted.",
+              "cannot": "Anything else.",
+              "source": "docs/trust-model.md#the-table",
+              "holders": [
+                {
+                  "address": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+                  "label": "Deployer",
+                  "kind": "deployer",
+                  "grantTx": "0xf3f48b3da8a86ee6ba5d71743738418ba00bdaeda67975daac9197ab520975f8",
+                  "grantBlock": 125880841
+                },
+                {
+                  "address": "0x317a604e853af6c124a0c871783fad2d797aff76",
+                  "label": "CI keeper key",
+                  "kind": "keeper",
+                  "grantTx": "0xdbae1bb9ba98081da3547e590a65e43a836da0ed99e3739b476f89b3857e3603",
+                  "grantBlock": 127773316
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "roleFree": [
+        {
+          "name": "DecisionLog",
+          "address": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+          "why": "only an agent's current signer may record"
+        },
+        {
+          "name": "Pricer (Solidity reference)",
+          "address": "0x2B6A2A51bd802Ed11bE7c0B954a7Ec9287c362d0",
+          "why": "pure math, no admin"
+        },
+        {
+          "name": "Stylus pricer",
+          "address": "0x61158d98c6c2b7ccb22755a098d0da2bbcf2a4ec",
+          "why": "pure math, no admin (Rust source)"
+        }
+      ],
+      "actions": [
+        {
+          "contract": "0x5476cb08769f406dE95F6171AcC1F5FE88431230",
+          "contractName": "TSLA MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0xdbae1bb9ba98081da3547e590a65e43a836da0ed99e3739b476f89b3857e3603",
+          "block": 127773316,
+          "timestamp": 1790974894,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x2992a2661f4eb802EFF63a985914a80D262c5291",
+          "contractName": "PLTR MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0x958368a4402c551def55f220d228450e5d35b06c4244da8755b705caf3fdc858",
+          "block": 127773293,
+          "timestamp": 1790974888,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x698a624940DdAfA8380dbF933AbC1c2908796877",
+          "contractName": "AMZN MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0xb744d270fad2690774336866721f260254fd2372f33b9f91631e55b6d58c6a78",
+          "block": 127773265,
+          "timestamp": 1790974882,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0xf7f60670f8D45a648b2844aF1d25c2C6C02ffA4E",
+          "contractName": "AMD MirrorFeed",
+          "event": "RoleGranted",
+          "summary": "Granted KEEPER_ROLE to CI keeper key",
+          "count": 1,
+          "tx": "0x7d41e02285b791fb5ac91e39fe0b61a8c2c65953b9001605c15994f6f6121978",
+          "block": 127773237,
+          "timestamp": 1790974876,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "PricerSet",
+          "summary": "Pricer set to Stylus pricer v3",
+          "count": 1,
+          "tx": "0x086c2ec2d3eec2d4c389c6890bea06a2df7a1aa5140eecf9e3e27a0da100f309",
+          "block": 126723182,
+          "timestamp": 1790777196,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "SpotBufferSet",
+          "summary": "Spot buffer of AMD stock token v2, v3 set to 50 bps",
+          "count": 1,
+          "tx": "0xb755f5c2a817cd3ea50d8af98a152951888c543d61b5bab43e26e24f3bf8d7c4",
+          "block": 126714272,
+          "timestamp": 1790775836,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "SigmaSet",
+          "summary": "Sigma of AMD stock token v2, v3 set to 55% (bounds 20% to 200%)",
+          "count": 1,
+          "tx": "0xcba044e21c21b6e276bcac30ae52f9d83b21cefdf6db54f357e0370d4034031d",
+          "block": 126714256,
+          "timestamp": 1790775832,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "UnderlyingSet",
+          "summary": "Listed token AMD stock token v2, v3",
+          "count": 1,
+          "tx": "0x1dbf7f7209f98d6a7faebc845d332f50d3298f21500b037a1cc37d3510625afb",
+          "block": 126714240,
+          "timestamp": 1790775829,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A",
+          "contractName": "StockOracle",
+          "event": "FeedSet",
+          "summary": "Feed of AMD stock token v2, v3 set to AMD MirrorFeed v2, v3 (max price age 25 h)",
+          "count": 1,
+          "tx": "0x530ee2e176197bb9302fd1dd9692989be57bf55bad3fcd21a11b75a2a72998fa",
+          "block": 126714224,
+          "timestamp": 1790775825,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "SpotBufferSet",
+          "summary": "Spot buffer of NFLX stock token v2, v3 set to 50 bps",
+          "count": 1,
+          "tx": "0x1ebe55874332a195f1d2434cd89f7c9581f9be29501d89dde7c2c812e69bfb35",
+          "block": 126714203,
+          "timestamp": 1790775822,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "SigmaSet",
+          "summary": "Sigma of NFLX stock token v2, v3 set to 40% (bounds 20% to 200%)",
+          "count": 1,
+          "tx": "0xe74b7e0c43e19bfde2a1c553ef0523cd80d1bc5544e7a1efceef7feb79995c63",
+          "block": 126714195,
+          "timestamp": 1790775821,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "UnderlyingSet",
+          "summary": "Listed token NFLX stock token v2, v3",
+          "count": 1,
+          "tx": "0xb11513982c38153160bba96f28ac41f21cfda7fcf952794a7405a28b1177a2ae",
+          "block": 126714174,
+          "timestamp": 1790775817,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A",
+          "contractName": "StockOracle",
+          "event": "FeedSet",
+          "summary": "Feed of NFLX stock token v2, v3 set to NFLX MirrorFeed v2, v3 (max price age 25 h)",
+          "count": 1,
+          "tx": "0x4740f2c34fc0c2b50c07f50d1dc2976357f85b9648d0a4dda17807ee6f2c0b10",
+          "block": 126714158,
+          "timestamp": 1790775814,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "SpotBufferSet",
+          "summary": "Spot buffer of PLTR stock token v2, v3 set to 50 bps",
+          "count": 1,
+          "tx": "0x517d42ed2511dde84de2089936d00e60dbef4f2866b69fc7141fd00430608876",
+          "block": 126714139,
+          "timestamp": 1790775811,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        },
+        {
+          "contract": "0x256D4546486368dCb23E94758b4cb500c215929F",
+          "contractName": "EpochManager",
+          "event": "SigmaSet",
+          "summary": "Sigma of PLTR stock token v2, v3 set to 70% (bounds 20% to 200%)",
+          "count": 1,
+          "tx": "0x25a3c5235aa112923dc37f677049923195a8f140ac96211770ef76f67ec6e738",
+          "block": 126714122,
+          "timestamp": 1790775807,
+          "from": "0x26b277b434b1670f207afd8946eda9af78a613ff",
+          "fromLabel": "Deployer"
+        }
+      ],
+      "actionCount": 47,
+      "unknown": [],
+      "warnings": []
+    }
+  ],
+  "errors": []
+}

@@ -24,6 +24,7 @@ const ROUTES = [
   "/app/backtest",
   "/app/monitor",
   "/app/glossary",
+  "/app/governance",
 ];
 
 const DRY_RUN = "/app/decision/46630/2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run?dry=1";

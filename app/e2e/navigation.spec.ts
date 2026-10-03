@@ -161,6 +161,7 @@ test("the footer links every page, the docs, GitHub and the judges' tour", async
     "Portfolio",
     "Glossary",
     "Lessons",
+    "Governance",
     "Mainnet waitlist",
   ]);
   const project = footer.getByRole("navigation", { name: "Project links" });
