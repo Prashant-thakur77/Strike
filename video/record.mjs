@@ -194,7 +194,7 @@ async function main() {
       continue;
     }
     if (s.kind === "clip" && !LIVE_SIGN) {
-      srcs.push({ path: join(ROOT, s.clip), start: 0 });
+      srcs.push({ path: join(ROOT, s.clip), start: 0, speed: s.clipSpeed ?? 1 });
       continue;
     }
     const metaPath = join(WORK, "raw", s.id, "meta.json");

@@ -499,7 +499,8 @@
         inset: 0;
         flex-direction: column;
         justify-content: center;
-        padding: 0 120px 20px;
+        /* centred above the caption bar (150 px), so the badge is never under it */
+        padding: 0 120px 150px;
       }
       .close .logo {
         font: 800 64px/1 var(--sans);
@@ -514,15 +515,15 @@
       .close h1 {
         font: 800 96px/0.97 var(--sans);
         letter-spacing: -0.045em;
-        margin: 0 0 70px;
+        margin: 0 0 44px;
         max-width: 1640px;
       }
       .close .links {
         display: flex;
         flex-direction: column;
-        gap: 26px;
+        gap: 22px;
         border-top: 1px solid #294040;
-        padding-top: 44px;
+        padding-top: 36px;
       }
       .close .app {
         font: 700 60px/1 var(--mono);

@@ -351,9 +351,9 @@ const CHECKS = [
   ],
   [
     "docs/submission/pitch-script.md",
-    "since the render",
-    /the count of tests and proofs is ([\d,]+) \(the video says/g,
-    ["totals.testsAndProofs"],
+    "the narration (written by the render)",
+    /> Behind it: ([\d,]+) tests and proofs, ([\d.]+)% line coverage/g,
+    ["totals.testsAndProofs", "coverage.lines"],
   ],
   [
     "docs/audit-readiness.md",

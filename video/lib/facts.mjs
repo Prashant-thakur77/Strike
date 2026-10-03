@@ -1,5 +1,6 @@
 // Every number the videos say, read from README.md at render time (and a few from the live app), so a stale number
 // fails the render instead of being spoken. A missing pattern throws: fix the pattern or the README, never hardcode.
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -32,6 +33,11 @@ export function readmeFacts(root) {
     /^\| `EpochManager\.proposeByDelta` \(whole transaction\)\s*\|\s*([\d,]+)\s*\|\s*([\d,]+)\s*\|/m,
   );
   if (!gasProp) throw new Error("README.md: gas row for proposeByDelta not found");
+  // the README's total must be the canonical one in docs/evidence/facts.json (scripts/check-numbers.mjs writes it)
+  const canonical = JSON.parse(readFileSync(join(root, "docs/evidence/facts.json"), "utf8")).totals
+    .testsAndProofs;
+  if (Number(evidence[1].replace(/,/g, "")) !== canonical)
+    throw new Error(`README.md says ${evidence[1]} tests and proofs, docs/evidence/facts.json ${canonical}`);
   return {
     testsTotal: evidence[1].replace(/,/g, ""),
     coverage: evidence[2],
@@ -99,6 +105,21 @@ export function readmeFacts(root) {
       /The internal review found (\d+) issues and all are fixed/,
     ),
   };
+}
+
+/** Run the live claims test (scripts/check-claims.mjs: every transaction the docs and the app cite, fetched from its
+ *  chain) and return its count. Throws unless every cited transaction verified. */
+export function claimsCheck(root) {
+  const r = spawnSync(process.execPath, [join(root, "scripts/check-claims.mjs")], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  const m = `${r.stdout}`.match(/(\d+) of (\d+) cited transactions verified \(([^)]*)\)/);
+  if (r.status !== 0 || !m || m[1] !== m[2])
+    throw new Error(
+      `check-claims.mjs: exit ${r.status}, ${m ? m[0] : "no summary line"}\n${r.stdout}\n${r.stderr}`,
+    );
+  return { verified: m[1], cited: m[2], line: m[0] };
 }
 
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];

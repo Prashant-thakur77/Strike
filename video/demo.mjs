@@ -5,8 +5,9 @@
 // editing a line re-times its scene. Numbers come from README.md and the epoch logs (facts, facts.arb) or the live
 // app and chain, read at render time. Plan and reasons: docs/submission/demo-script.md.
 //
-// Adding a scene is one entry in the list returned by scenes(). The Friday settlement (2 October, after 20:00 UTC)
-// is left out until it has happened; its slot is marked "FRIDAY SETTLEMENT" below, with what the scene should show.
+// Adding a scene is one entry in the list returned by scenes(). The settle scene shows the walkthrough vault's week as
+// /api/status reports it at render time: while it waits for its settlement price, the vault page's "Expired, settling"
+// state and the epoch trace; the render stops if the series has settled, so the video never shows a stale state.
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -24,6 +25,13 @@ const REJECT_TX = "0x3df523aae815e10cba8f5f99076f9cb348745e7657dd1f1338820af0469
 const CC_VAULT = JSON.parse(
   readFileSync(join(ROOT, "contracts/deployments/46630-vaults.json"), "utf8"),
 ).TSLA_covered_call;
+// sTSLA-CSP-A2, the vault agent #2 created on 1 October (v2 on 46630), selling its first week in the video
+const A2_VAULT = JSON.parse(readFileSync(join(ROOT, "video/clips/agent2.json"), "utf8")).vault;
+// decision pages: agent #2's accepted put of 2 October and agent #1's rejected put of 1 October
+const DECISION_OK = "/app/decision/46630/2026-10-02-sTSLA-CSP-A2";
+const DECISION_REJECTED = "/app/decision/46630/2026-10-01-sTSLA-CSP";
+// the market-hours scene shows the app as a viewer in Singapore (the buildathon's city) sees it
+const VIEWER_TZ = "Asia/Singapore";
 const U = "U S D G"; // Chatterbox reads "USDG" as a word
 const EM = "Eepok Manager"; // "Epoch Manager" as Chatterbox should say it (Whisper hears "epoch manager")
 // a desktop Chrome user agent for Arbiscan, whose bot check stops a headless one
@@ -56,13 +64,67 @@ export async function probe(browser) {
       timeout: 60_000,
     })
     .then((h) => h.jsonValue());
+  // agent #2's decision page: where the week starts losing and the model's odds, as the page computes them
+  await page.goto(`${APP}${DECISION_OK}`);
+  const lose = await page
+    .waitForFunction(
+      () => {
+        const t = document.body.innerText;
+        const be = t.match(/lose money on this series if TSLA settles below \$([\d,]+\.\d\d)/)?.[1];
+        const odds = t.match(/Model odds of exercise:\s*([\d.]+)%/)?.[1];
+        return be && odds ? { breakEven: be.replace(/,/g, ""), odds } : null;
+      },
+      null,
+      { timeout: 60_000 },
+    )
+    .then((h) => h.jsonValue());
+  // the proof page's price mirror audit (Robinhood Chain testnet): every mirrored round checked against mainnet
+  await page.goto(`${APP}/app/proof`);
+  const audit = await page
+    .waitForFunction(
+      () =>
+        document.body.innerText
+          .match(/(\d+) of (\d+) rounds match Robinhood Chain mainnet Chainlink/)
+          ?.slice(1, 3),
+      null,
+      { timeout: 90_000 },
+    )
+    .then((h) => h.jsonValue());
+  if (audit[0] !== audit[1]) throw new Error(`price mirror audit: ${audit[0]} of ${audit[1]} rounds match`);
   await ctx.close();
+  const { claimsCheck } = await import("./lib/facts.mjs");
   return {
     nvdaMultiplier: mult,
     nvdaMultiplierSaid: Number(mult).toFixed(6),
     riskWorst: worst.replace(/,/g, ""),
+    ...lose,
+    mirrorRounds: audit[0],
+    claims: claimsCheck(ROOT),
+    ...(await settlementProbe()),
     ...(await mcpProbe()),
     ...(await anchorProbe()),
+  };
+}
+
+/** The walkthrough vault's week from /api/status: settled or not, its expiry and the TSLA feed's last print. */
+async function settlementProbe() {
+  const st = await (await fetch(`${APP}/api/status`)).json();
+  const chain = st.chains.find((c) => c.chainId === 46630);
+  const vault = chain.deployments.flatMap((d) => d.vaults).find((v) => v.address === CC_VAULT);
+  const feed = chain.feeds.find((f) => f.symbol === "TSLA");
+  if (!vault || !feed) throw new Error("/api/status: no sTSLA-CC vault or TSLA feed on 46630");
+  const hhmm = (s) => new Date(s * 1000).toISOString().slice(11, 16);
+  const settled =
+    vault.lastSettlement && Number(vault.lastSettlement.epoch) >= Number(vault.epoch)
+      ? vault.lastSettlement
+      : null;
+  return {
+    settled, // null while the series waits for its settlement price
+    expiry: vault.expiry,
+    expiryHhmm: vault.expiry ? hhmm(vault.expiry) : null,
+    lastPrint: feed.updatedAt,
+    lastPrintHhmm: hhmm(feed.updatedAt),
+    marketOpen: chain.marketOpen,
   };
 }
 
@@ -83,9 +145,11 @@ async function mcpProbe() {
   return { mcpTools: tools, skillHead: skill.slice(0, 3) };
 }
 
-/** Re-hash the Claude-planned decision record and read its anchor from the DecisionLog on Arbitrum Sepolia. */
+/** Re-hash the Claude-planned decision record and read its anchor from the DecisionLog on Arbitrum Sepolia: the
+ *  DecisionRecorded event of the anchoring transaction (latestHash moves on when a later record for the same epoch,
+ *  such as the settlement's, is anchored; the event of the original anchor stays). */
 async function anchorProbe() {
-  const { keccak256, toBytes, createPublicClient, http, parseAbi } = require("viem");
+  const { keccak256, toBytes, createPublicClient, http, parseAbi, parseEventLogs } = require("viem");
   const rec = JSON.parse(
     readFileSync(join(ROOT, "docs/agent-log/arbitrum-sepolia/2026-09-30-sTSLA-CC.json"), "utf8"),
   );
@@ -98,15 +162,22 @@ async function anchorProbe() {
   };
   const recomputed = keccak256(toBytes(`${JSON.stringify(unanchored, null, 2)}\n`));
   const client = createPublicClient({ transport: http(ARB_RPC) });
-  const onchain = await client.readContract({
-    address: anchor.contract,
-    abi: parseAbi(["function latestHash(uint256,address,uint64) view returns (bytes32)"]),
-    functionName: "latestHash",
-    args: [BigInt(rec.agent.agentId), rec.vault.address, BigInt(anchor.epoch)],
-  });
+  const receipt = await client.getTransactionReceipt({ hash: anchor.txHash });
+  const ev = parseEventLogs({
+    abi: parseAbi([
+      "event DecisionRecorded(uint256 indexed agentId, address indexed vault, uint64 indexed epoch, bytes32 recordHash, string uri, uint256 timestamp)",
+    ]),
+    logs: receipt.logs.filter((l) => l.address.toLowerCase() === anchor.contract.toLowerCase()),
+  }).find(
+    (e) =>
+      e.args.agentId === BigInt(rec.agent.agentId) &&
+      e.args.vault.toLowerCase() === rec.vault.address.toLowerCase() &&
+      e.args.epoch === BigInt(anchor.epoch),
+  );
+  const onchain = ev?.args.recordHash;
   if (recomputed !== anchor.recordHash || onchain !== anchor.recordHash)
     throw new Error(`anchor: file ${anchor.recordHash}, recomputed ${recomputed}, on-chain ${onchain}`);
-  return { anchorHash: onchain };
+  return { anchorHash: onchain, anchorBlock: String(receipt.blockNumber) };
 }
 
 async function nvdaMultiplier(page) {
@@ -136,20 +207,21 @@ async function openApp(page, path, ready) {
   await page.evaluate(() => document.fonts.ready);
 }
 
-/** Box and zoom on the card around a label (its parent element, `up` levels up). */
-async function focusCard(h, re, { up = 1, scale = 1.45, dim = 0.22 } = {}) {
+/** Box and zoom on the card around a label (its parent element, `up` levels up, or its closest `closest`). */
+async function focusCard(h, re, { up = 1, scale = 1.45, dim = 0.22, closest = null } = {}) {
   await h.page.evaluate(
-    ([src, flags, up, scale, dim]) => {
+    ([src, flags, up, scale, dim, closest]) => {
       const v = window.__v;
       document.querySelectorAll(".__vbox").forEach((d) => d.remove());
       let el = v.leaf(src, flags);
       if (!el) throw new Error(`no element matches /${src}/`);
-      for (let i = 0; i < up; i++) el = el.parentElement;
+      if (closest) el = el.closest(closest);
+      else for (let i = 0; i < up; i++) el = el.parentElement;
       const r = v.rect(el);
       v.box(r, { pad: 10, dim });
       v.zoomRect(r, scale);
     },
-    [re.source, re.flags, up, scale, dim],
+    [re.source, re.flags, up, scale, dim, closest],
   );
 }
 
@@ -362,8 +434,8 @@ export function scenes(f, live) {
         L("An agent reads it via MCP and dry-runs.", "An agent reads it via M C P and dry-runs."),
         L("It proposes delta, expiry, size and price."),
         L(
-          "The Epoch Manager checks the mandate at guarded oracle prices.",
-          `The ${EM} checks the mandate at guarded oracle prices.`,
+          "The Epoch Manager checks it at guarded oracle prices.",
+          `The ${EM} checks it at guarded oracle prices.`,
         ),
         L("Rust on Stylus solves and stress-tests the strike."),
         L("If it passes, buyers pay premium in USDG.", `If it passes, buyers pay premium in ${U}.`),
@@ -390,13 +462,13 @@ export function scenes(f, live) {
     {
       id: "vault",
       chapter: "Walkthrough: one depositor's week",
-      screen: `The TSLA covered-call vault page: zoom on the $${f.strike} strike and the ${f.premium} USDG premium collected, then the payoff chart with a zoom on the $372.36 breakeven.`,
+      screen: `The TSLA covered-call vault page (its first week, expired and waiting for settlement): zoom on the $${f.strike} strike and the ${f.premium} USDG premium collected, then the payoff chart with a zoom on the $372.36 breakeven.`,
       tag: "Vault",
       lines: [
         L("Say Maya opens the Tesla vault."),
         L(
-          `This week it sold the $${f.strike} call: | four options, ${f.premium} USDG.`,
-          `This week it sold the ${sayUsd(f.strike)} call: | four options, ${sayDec(f.premium)} ${U}.`,
+          `Its first week sold the $${f.strike} call: | four options, ${f.premium} USDG.`,
+          `Its first week sold the ${sayUsd(f.strike)} call: | four options, ${sayDec(f.premium)} ${U}.`,
         ),
         L(
           "At or below the strike, Maya keeps it; | the buyer profits above $372.36.",
@@ -405,7 +477,7 @@ export function scenes(f, live) {
       ],
       async prepare(page) {
         await openApp(page, `/app/vault/${CC_VAULT}`, () =>
-          page.getByText("How the buy price is set").first().waitFor({ timeout: 60_000 }),
+          page.getByText("Breakeven $372.36").first().waitFor({ timeout: 60_000 }),
         );
         for (const t of [`$${f.strike}`, "Breakeven $372.36", "4 of 4 sold", `${f.premium} USDG`])
           await page.getByText(t, { exact: false }).first().waitFor({ timeout: 30_000 });
@@ -418,13 +490,13 @@ export function scenes(f, live) {
       async run(h) {
         await h.cue(1, 0.2);
         await h.zoom(h.page.locator('[class*="seriesStrike"]').first(), { scale: 1.5 });
-        await h.chunk(1, 1, 0.6);
+        await h.chunk(1, 1, -0.5);
         await h.box(new RegExp(`^${f.premium.replace(".", "\\.")} USDG$`), { pad: 10, dim: 0.15 });
         await h.zoom(new RegExp(`^${f.premium.replace(".", "\\.")} USDG$`), { scale: 1.8 });
-        await h.cue(2, -0.5);
+        await h.cue(2, -0.1);
         await h.unbox();
         await h.unzoom(300);
-        await h.scrollTo(/^Result at expiry/, { offset: 110, ms: 900 });
+        await h.scrollTo(/^Result at expiry/, { offset: 110, ms: 800 });
         await h.chunk(2, 1, -0.2);
         await h.box(/^Breakeven \$372\.36$/, { pad: 8, dim: 0.12 });
         await h.zoom(/^Breakeven \$372\.36$/, { scale: 1.6 });
@@ -513,42 +585,61 @@ export function scenes(f, live) {
     },
     {
       id: "pricing",
-      screen: `The vault page, "How the buy price is set": the priced spot (oracle + ${a.spotBufferPct}% against the buyer), the Black-Scholes fair value, the premium factor and the intrinsic-value floor, each zoomed as it is said.`,
+      screen: `Agent #2's put vault (sTSLA-CSP-A2, selling its first week), seen from Singapore: "How the buy price is set" with the priced spot (oracle − ${a.spotBufferPct}%, against the buyer), the Black-Scholes fair value, the premium factor and the intrinsic-value floor, each zoomed as it is said; then the market-hours notice in the buy panel, with the next NYSE open in UTC and in the viewer's time zone.`,
       tag: "Pricing",
+      timezoneId: VIEWER_TZ,
       lines: [
         L(
           `Buyers pay at the moment they buy: | oracle spot moved ${a.spotBufferPct}% against them, | Black-Scholes, times the agent's factor.`,
           `Buyers pay at the moment they buy: | oracle spot moved ${sayDec(a.spotBufferPct)} percent against them, | Black Scholes, times the agent's factor.`,
         ),
         L("Never below intrinsic value, | so stale prices can't be picked off."),
+        live.marketOpen
+          ? L("Sales stop before the NYSE close, | shown in the viewer's own time zone.")
+          : L("Buying waits for the NYSE open, | shown in your own time zone."),
       ],
       async prepare(page) {
-        await openApp(page, `/app/vault/${CC_VAULT}`, () =>
+        await openApp(page, `/app/vault/${A2_VAULT}`, () =>
           page.getByText("How the buy price is set", { exact: false }).first().waitFor({ timeout: 60_000 }),
         );
-        await page.getByText(`+ ${a.spotBufferPct}%`, { exact: false }).first().waitFor({ timeout: 30_000 });
+        await page
+          .getByText(`${a.spotBufferPct}%, against the buyer`, { exact: false })
+          .first()
+          .waitFor({ timeout: 30_000 });
+        // the notice must show the viewer's own time (it is left out when the viewer is on UTC)
+        await page.getByTestId("market-hours-local").first().waitFor({ timeout: 30_000 });
+        const open = (await page.getByTestId("market-hours").first().getAttribute("data-open")) === "true";
+        if (open !== live.marketOpen)
+          throw new Error(`market open on the page: ${open}, at probe: ${live.marketOpen}`);
         await scrollToText(page, /^How the buy price is set$/i, 300);
       },
       async run(h) {
-        await h.at(0.4);
+        await h.at(0.3);
         await focusCard(h, /^How the buy price is set$/i, { scale: 1.15, dim: 0.12 });
         await h.chunk(0, 1, -0.2);
-        await focusCard(h, /^Priced spot$/i, { scale: 1.6 });
+        await focusCard(h, /^Priced spot$/i, { scale: 1.6, closest: "li" });
         await h.chunk(0, 2, -0.2);
-        await focusCard(h, /^Fair value$/i, { scale: 1.5 });
+        await focusCard(h, /^Fair value$/i, { scale: 1.6, closest: "li" });
         await h.cue(1, -0.2);
         await h.page.evaluate(() => {
           const v = window.__v;
           document.querySelectorAll(".__vbox").forEach((d) => d.remove());
-          const el = v.leaf("never below intrinsic value", "i");
+          const el = v.leaf("^never below intrinsic value \\(", "i").closest("li");
           v.box(el, { pad: 10, dim: 0.22 });
           v.zoom(el, 1.7);
         });
+        await h.cue(2, -0.5);
+        await h.unbox();
+        await h.unzoom(300);
+        await h.scrollTo(h.page.getByTestId("market-hours").first(), { offset: 380, ms: 700 });
+        await h.chunk(2, 1, -0.3);
+        await h.box(h.page.getByTestId("market-hours").first(), { pad: 12, dim: 0.25 });
+        await h.zoom(h.page.getByTestId("market-hours").first(), { scale: 1.45 });
       },
     },
     {
       id: "epoch",
-      chapter: "Live on Robinhood Chain testnet, 29 September",
+      chapter: "Live on Robinhood Chain testnet",
       screen: `A terminal replay of the real run on 29 September ([testnet-epochs/2026-09-29.md](../testnet-epochs/2026-09-29.md)), opening half-printed: the seller agent's \`proposeByDelta\` accepted at $${f.strike}, then the reckless agent's forced put rejected and its bond going from ${f.bondBefore} to ${f.bondAfter} USDG.`,
       tag: "Live epoch",
       kind: "replay",
@@ -558,10 +649,9 @@ export function scenes(f, live) {
         sublabel: "docs/testnet-epochs/2026-09-29.md",
       },
       lines: [
-        L("The vault ran live on September 29.", "The vault ran live on September twenty-ninth."),
         L(
-          `The seller agent asked for 0.20 delta; | the contract solved $${f.strike}, accepted.`,
-          `The seller agent asked for zero point two oh delta; | the contract solved ${sayUsd(f.strike)}. Accepted.`,
+          `Live on September 29, the seller agent asked for 0.20 delta; | the contract solved $${f.strike}, accepted.`,
+          `Live on September twenty-ninth, the seller agent asked for zero point two oh delta; | the contract solved ${sayUsd(f.strike)}. Accepted.`,
         ),
         L("A reckless agent forced an at-the-money put:"),
         L(
@@ -584,12 +674,12 @@ export function scenes(f, live) {
       },
       async run(h, env) {
         const t = (until, pause) => h.page.evaluate(([u, p]) => window.__term.type(u, p), [until, pause]);
-        await h.cue(1, 0.2);
+        await h.at(0.6);
         await t("^\\s*Verdict: None", 70);
-        await h.chunk(1, 1, -0.6);
+        await h.chunk(0, 1, -0.6);
         await t("^\\s*Accepted", 70);
         await h.page.evaluate(() => window.__term.mark("^\\s*Accepted", "hl"));
-        await h.cue(2, -0.5);
+        await h.cue(1, -0.5);
         await h.page.evaluate(
           (seg) => {
             window.__term.load(seg);
@@ -602,10 +692,10 @@ export function scenes(f, live) {
           },
         );
         await t("^\\s*A careful agent", 70);
-        await h.cue(3, -0.8);
+        await h.cue(2, -0.8);
         await t("REJECTED", 70);
         await h.page.evaluate(() => window.__term.mark("REJECTED", "hlbad"));
-        await h.chunk(3, 1, -0.4);
+        await h.chunk(2, 1, -0.4);
         await t("^\\s*Agent now", 60);
         await h.page.evaluate(() => window.__term.mark("^\\s*Agent now", "hlbad"));
       },
@@ -649,10 +739,7 @@ export function scenes(f, live) {
         });
       },
     },
-    // FRIDAY SETTLEMENT: after 20:00 UTC on Friday 2 October, add one scene here, e.g. { id: "settle", kind: "replay",
-    // replay: { mode: "terminal", ... }, lines: [...] } replaying the keeper's settle and the buyer's --redeem from the
-    // epoch logs (docs/testnet-epochs/), with the settlement price and payouts read from the log the same way as
-    // epochLog() in record.mjs. Nothing else in the list has to change.
+    settleScene(f, live),
     signingScene(f),
     {
       id: "claude",
@@ -666,10 +753,9 @@ export function scenes(f, live) {
         sublabel: "docs/testnet-epochs/2026-09-30-arbitrum-sepolia.md",
       },
       lines: [
-        L("On Arbitrum Sepolia, Claude planned the proposal."),
         L(
-          `Via Claude Code and Strike's MCP server, | it read the vault | and dry-ran ${f.arbCandidatesWord} candidates.`,
-          `Via Claude Code and Strike's M C P server, | it read the vault | and dry-ran ${sayInt(a.candidates.length)} candidates.`,
+          `On Arbitrum Sepolia, Claude planned it: | via Strike's MCP server, it read the vault | and dry-ran ${f.arbCandidatesWord} candidates.`,
+          `On Arbitrum Sepolia, Claude planned it: | via Strike's M C P server, it read the vault | and dry-ran ${sayInt(a.candidates.length)} candidates.`,
         ),
         L(
           `It chose ${a.delta} delta at ${a.premiumPct}% of fair value, | and wrote why: | mid-band, safe from small moves.`,
@@ -697,18 +783,18 @@ export function scenes(f, live) {
       async run(h) {
         const t = (until, pause) => h.page.evaluate(([u, p]) => window.__term.type(u, p), [until, pause]);
         const mark = (re, cls = "hl") => h.page.evaluate(([r, c]) => window.__term.mark(r, c), [re, cls]);
-        await h.cue(1, -0.2);
-        await t("^\\s*Claude Code \\d", 140);
-        await h.chunk(1, 1, -0.2);
+        await h.at(0.3);
+        await t("^\\s*Claude Code \\d", 120);
+        await h.chunk(0, 1, -0.2);
         await t("Claude calls vault_state", 100);
-        await h.chunk(1, 2, -0.3);
-        await t("Claude calls agent_stats", 180);
-        await h.cue(2, -0.3);
+        await h.chunk(0, 2, -0.3);
+        await t("Claude calls agent_stats", 160);
+        await h.cue(1, -0.3);
         await t("^\\s*Claude's plan", 100);
         await mark("^\\s*Claude's plan");
-        await h.chunk(2, 1, -0.2);
+        await h.chunk(1, 1, -0.2);
         await t("^\\s*Why:", 100);
-        await h.cue(3, -0.6);
+        await h.cue(2, -0.6);
         await t("^\\s*Accepted", 70);
         await mark("^\\s*Accepted");
       },
@@ -830,7 +916,7 @@ export function scenes(f, live) {
     {
       id: "decisionlog",
       chapter: "Decision records, identity and the multiplier trap",
-      screen: `A terminal: the Claude-planned decision record (planner, target, the start of the reasoning), then its keccak256 recomputed from the published file and the DecisionLog's \`latestHash\` read from Arbitrum Sepolia at render time; both are ${live.anchorHash.slice(0, 10)}…`,
+      screen: `A terminal: the Claude-planned decision record (planner, target, the start of the reasoning), then its keccak256 recomputed from the published file and the DecisionRecorded event of its anchoring transaction, read from Arbitrum Sepolia at render time; both are ${live.anchorHash.slice(0, 10)}…`,
       tag: "DecisionLog",
       kind: "replay",
       replay: {
@@ -843,6 +929,10 @@ export function scenes(f, live) {
         L(
           "Its hash is anchored in the DecisionLog; | rehash the file, and it matches the chain.",
           "Its hash is anchored in the Decision Log; | rehash the file, and it matches the chain.",
+        ),
+        L(
+          `CI re-checks every cited transaction: | ${live.claims.verified} of ${live.claims.cited} verified.`,
+          `C I re-checks every cited transaction: | ${sayInt(live.claims.verified)} of ${sayInt(live.claims.cited)} verified.`,
         ),
       ],
       async prepare(page) {
@@ -869,26 +959,134 @@ export function scenes(f, live) {
         await t("Recomputed", 80);
         await h.chunk(1, 1, -0.3);
         await h.page.evaluate((seg) => window.__term.more(seg), {
-          command: `cast call ${a.anchor.contract.slice(0, 10)}… "latestHash(uint256,address,uint64)" ${a.agentId} ${a.vault.slice(0, 8)}… ${a.anchor.epoch}`,
+          command: `cast receipt ${a.anchor.txHash.slice(0, 10)}… (DecisionLog ${a.anchor.contract.slice(0, 8)}…, DecisionRecorded)`,
           lines: [
-            `On-chain latestHash ${live.anchorHash}`,
+            `On-chain recordHash ${live.anchorHash}`,
             "Match: the published record is the one the agent anchored.",
           ],
         });
         await t("Match", 140);
         await h.page.evaluate(() => window.__term.mark("^Match", "hl"));
+        await h.cue(2, -0.3);
+        // scripts/check-claims.mjs, run at render time: its own summary line
+        await h.page.evaluate((seg) => window.__term.more(seg), {
+          command: "node scripts/check-claims.mjs",
+          lines: [live.claims.line],
+        });
+        await h.chunk(2, 1, -0.4);
+        await t("verified", 60);
+        await h.page.evaluate(() => window.__term.mark("verified", "hl"));
+      },
+    },
+    {
+      id: "decision",
+      screen: `Agent #2's decision page for 2 October (${DECISION_OK}): the accepted $342.91 put, the mandate check rule by rule with the headroom left, the "why not the other strikes" ladder, and "what would make this week lose" (below $${live.breakEven}, ${live.odds}% model odds), read from the page at render time.`,
+      tag: "Decision page",
+      lines: [
+        L(
+          "Each proposal gets a decision page. | Agent two's put on October 2:",
+          "Each proposal gets a decision page. | Agent two's put on October second:",
+        ),
+        L("each mandate rule it passed, | with the headroom left."),
+        L("Why not the other strikes: | the same proposal at each delta, judged by the rules."),
+        L(
+          `And what would make this week lose: | TSLA below $${live.breakEven}, | ${Math.round(Number(live.odds))}% odds under the model.`,
+          `And what would make this week lose: | Tesla below ${sayUsd(live.breakEven)}, | ${sayInt(Math.round(Number(live.odds)))} percent odds under the model.`,
+        ),
+      ],
+      async prepare(page) {
+        await openApp(page, DECISION_OK, () =>
+          page.getByText("Model odds of exercise", { exact: false }).first().waitFor({ timeout: 60_000 }),
+        );
+        await page
+          .getByText(`settles below $${live.breakEven}`, { exact: false })
+          .first()
+          .waitFor({ timeout: 30_000 });
+        await page.locator("table").first().waitFor({ timeout: 30_000 });
+      },
+      async run(h) {
+        const focus = (src, scale = 1.45, up = 0) =>
+          h.page.evaluate(
+            ([src, scale, up]) => {
+              const v = window.__v;
+              document.querySelectorAll(".__vbox").forEach((d) => d.remove());
+              let el = v.leaf(src, "i");
+              if (!el) throw new Error(`no element matches /${src}/`);
+              for (let i = 0; i < up; i++) el = el.parentElement;
+              v.box(el, { pad: 10, dim: 0.22 });
+              v.zoom(el, scale);
+            },
+            [src, scale, up],
+          );
+        await h.chunk(0, 1, -0.2);
+        await focus("^Accepted$", 1.6);
+        await h.cue(1, -0.4);
+        await h.unbox();
+        await h.unzoom(250);
+        await h.scrollTo(/^Mandate check$/i, { offset: 70, ms: 700 });
+        await h.chunk(1, 1, -0.3);
+        await focus("^Headroom: \\$[\\d.]+ \\(", 1.5);
+        await h.cue(2, -0.5);
+        await h.unbox();
+        await h.unzoom(250);
+        await h.scrollTo(/^Why not the other strikes$/i, { offset: 70, ms: 700 });
+        await h.chunk(2, 1, -0.3);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const r = v.rect(document.querySelector("table"));
+          v.box(r, { pad: 10, dim: 0.22 });
+          v.zoomRect({ x: r.x, y: r.y, w: r.w * 0.66, h: r.h }, 1.45);
+        });
+        await h.cue(3, -0.5);
+        await h.unbox();
+        await h.unzoom(250);
+        await h.scrollTo(/^What would make this week lose$/i, { offset: 70, ms: 700 });
+        await h.chunk(3, 1, -0.3);
+        await focus("lose money on this series if TSLA settles below", 1.4);
+        await h.chunk(3, 2, -0.3);
+        await focus("^Model odds of exercise", 1.5);
+      },
+    },
+    {
+      id: "rejected",
+      screen: `Agent #1's rejected put of 1 October (${DECISION_REJECTED}): the verdict, then the mandate check with the delta band rule marked FAILS and the rule after it NOT REACHED.`,
+      tag: "Decision page",
+      lines: [
+        L("Agent one's forced put: | rejected, delta out of band."),
+        L("The check stops there; | later rules are never reached."),
+      ],
+      async prepare(page) {
+        await openApp(page, DECISION_REJECTED, () =>
+          page.getByText("NOT REACHED", { exact: false }).first().waitFor({ timeout: 60_000 }),
+        );
+      },
+      async run(h) {
+        await h.at(0.3);
+        await h.box(/^Rejected$/, { pad: 12, dim: 0.22 });
+        await h.zoom(/^Rejected$/, { scale: 1.5 });
+        await h.cue(1, -0.6);
+        await h.unbox();
+        await h.unzoom(250);
+        await h.scrollTo(/^Delta band/, { offset: 380, ms: 600 });
+        await h.cue(1, 0.1);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const fail = v.leaf("^Delta band", "").closest("li");
+          const r = v.union([v.rect(fail), v.rect(fail.nextElementSibling ?? fail)]);
+          v.box(r, { pad: 12, dim: 0.25 });
+          v.zoomRect(r, 1.3);
+        });
       },
     },
     {
       id: "agents",
-      screen: `\`/app/agents\` leaderboard: zoom on agent #1's ERC-8004 #${f.identity} link, then on its ${f.bondAfter} USDG bond.`,
+      screen: `\`/app/agents\` leaderboard: agent #1's row opened, a zoom on its ERC-8004 identity (#${f.identity} on Robinhood Chain testnet).`,
       tag: "ERC-8004",
       lines: [
         L(
           `Its ERC-8004 identity: | ${f.identity} on Robinhood Chain testnet, ${f.arbIdentity} on Arbitrum Sepolia.`,
           `Its E R C eighty oh four identity: | ${f.identity === "114" ? "one-fourteen" : sayInt(f.identity)} on Robinhood Chain testnet, ${f.arbIdentity === "253" ? "two-fifty-three" : sayInt(f.arbIdentity)} on Arbitrum Sepolia.`,
         ),
-        L("Anyone can join, no allow-list."),
       ],
       async prepare(page) {
         await openApp(page, "/app/agents", () =>
@@ -901,17 +1099,29 @@ export function scenes(f, live) {
       },
       async run(h) {
         await h.at(0.5);
-        const row = h.page.getByRole("button", { name: /about agent 1$/ }).first();
+        // agent #1's row on the v2 registry (agent #2's row above it opens by default)
+        const row = h.page.getByRole("button", { name: /about agent 1\b/i }).first();
         if ((await row.getAttribute("aria-expanded").catch(() => null)) === "false") await row.click();
         await h.at(0.9);
-        await focusCard(h, /^ERC-8004 identity$/i, { scale: 1.7 });
+        await h.page.evaluate((id) => {
+          const v = window.__v;
+          document.querySelectorAll(".__vbox").forEach((d) => d.remove());
+          // the open panel whose identity is agent #1's
+          // the label is a <dt> ("ERC-8004", its glossary note, "identity"); its cell holds the id
+          const el = [...document.querySelectorAll("dt")]
+            .filter(
+              (dt) => /^ERC-8004/.test(dt.textContent.trim()) && /identity$/i.test(dt.textContent.trim()),
+            )
+            .map((dt) => dt.parentElement)
+            .find((cell) => cell.textContent.includes(`#${id}`) && cell.getClientRects().length);
+          if (!el) throw new Error(`no open panel with ERC-8004 #${id}`);
+          const r = v.rect(el);
+          v.box(r, { pad: 10, dim: 0.22 });
+          v.zoomRect(r, 1.7);
+        }, f.identity);
         await h.chunk(0, 1, 0.6);
         await h.unbox();
         await h.unzoom(400);
-        await h.cue(1, -0.3);
-        // "Testnet agents welcome. ... No permission needed": the open-join banner at the top of the page
-        await h.scrollTo(/^Testnet agents welcome\.?$/i, { offset: 260, ms: 900 });
-        await focusCard(h, /^Testnet agents welcome\.?$/i, { scale: 1.4 });
       },
     },
     {
@@ -962,7 +1172,7 @@ export function scenes(f, live) {
           page.getByText(`${f.backtestWeeks} weeks`).first().waitFor({ timeout: 60_000 }),
         );
         await page.locator("#bt-equity-body svg").waitFor();
-        const stock = page.getByRole("group", { name: "Stock" });
+        const stock = page.getByRole("group", { name: "Stock", exact: true }).first();
         const y = await stock.evaluate((el) => el.getBoundingClientRect().top + scrollY);
         await page.evaluate((y) => window.__v.scrollTo(y - 110, 0), y);
       },
@@ -980,13 +1190,18 @@ export function scenes(f, live) {
     },
     {
       id: "proof",
-      screen: `\`/app/proof\`: the headline tiles (deployment, Foundry tests, coverage, internal review), then the pricer read from the chain when the page loads.`,
+      screen: `\`/app/proof\`: the headline tiles (deployment, Foundry tests, coverage, internal review), then "Running by itself" (read from both testnets, mainnet and GitHub by /api/status: price age, each vault's epoch and last settlement, the scheduled keeper and weekly agent) and its price mirror audit: ${live.mirrorRounds} of ${live.mirrorRounds} mirrored rounds match Robinhood Chain mainnet Chainlink, read at render time.`,
       tag: "Proof",
       lines: [
         L("The proof page:"),
         L(
-          `${f.testsTotal} tests and proofs, | ${f.coverage}% line coverage, | ${sayInt(f.halmos)} Halmos proofs, | all ${f.reviewFindings} review findings fixed.`,
+          `${Number(f.testsTotal).toLocaleString("en-US")} tests and proofs, | ${f.coverage}% line coverage, | ${sayInt(f.halmos)} Halmos proofs, | all ${f.reviewFindings} review findings fixed.`,
           `${sayInt(f.testsTotal)} tests and proofs, | ${sayDec(f.coverage)} percent line coverage, | ${sayInt(f.halmos)} Halmos proofs, | all ${sayInt(f.reviewFindings)} review findings fixed.`,
+        ),
+        L("Running by itself reads both testnets: | prices, each vault's week, | the scheduled jobs."),
+        L(
+          `The mirror audit checks every copied price: | ${live.mirrorRounds} of ${live.mirrorRounds} rounds match mainnet Chainlink.`,
+          `The mirror audit checks every copied price: | ${sayInt(live.mirrorRounds)} of ${sayInt(live.mirrorRounds)} rounds match mainnet Chainlink.`,
         ),
       ],
       async prepare(page) {
@@ -996,6 +1211,13 @@ export function scenes(f, live) {
             .first()
             .waitFor({ timeout: 60_000 }),
         );
+        await page
+          .getByText(`${live.mirrorRounds} of ${live.mirrorRounds} rounds match`, { exact: false })
+          .first()
+          .waitFor({ timeout: 90_000 })
+          .catch(() => {
+            throw new Error(`the mirror audit no longer reads ${live.mirrorRounds} of ${live.mirrorRounds}`);
+          });
         await scrollToText(page, /^Deployment$/i, 260);
       },
       async run(h) {
@@ -1005,6 +1227,22 @@ export function scenes(f, live) {
         await focusCard(h, /^Coverage$/i, { scale: 1.6 });
         await h.chunk(1, 3, -0.2);
         await focusCard(h, /^Internal review$/i, { scale: 1.6 });
+        await h.cue(2, -0.4);
+        await h.unbox();
+        await h.unzoom(250);
+        await h.scrollTo(/^Running by itself$/i, { offset: 60, ms: 700 });
+        await h.chunk(2, 1, -0.2);
+        // the Robinhood Chain testnet card: prices, the mirror audit and each vault's week
+        await focusCard(h, /^Newest mirrored round$/i, { up: 1, scale: 1.6, dim: 0.18 });
+        await h.cue(3, -0.2);
+        await h.page.evaluate((n) => {
+          const v = window.__v;
+          document.querySelectorAll(".__vbox").forEach((d) => d.remove());
+          const el = v.leaf(`${n} of ${n} rounds match Robinhood Chain mainnet Chainlink`, "");
+          if (!el) throw new Error("no mirror audit line");
+          v.box(el, { pad: 10, dim: 0.25 });
+          v.zoom(el, 1.8);
+        }, live.mirrorRounds);
       },
     },
     // ============================================================================================ competition
@@ -1113,7 +1351,7 @@ export function scenes(f, live) {
           ["The multiplier trap", "Never applied; tested on a fork of mainnet"],
           ["Trusting an agent", "Immutable mandate, bond and slashing"],
           ["Gas for on-chain pricing", `Rust on Stylus: a ${f.stylusSolverX}× cheaper strike solver`],
-          ["Not done yet", `No external audit; testnet only; both epochs settle ${f.expiryDay}`],
+          ["Not done yet", "No external audit; testnet only"],
         ],
       },
       lines: [
@@ -1159,6 +1397,87 @@ export function scenes(f, live) {
   ];
 }
 
+/** The walkthrough vault's week after its Friday expiry, as the chain stands at render time. While the series waits
+ *  for its settlement price: the vault page's settlement panel and the epoch trace. Once it has settled, this scene
+ *  must be rewritten to show the settled trace and the decision page's "In hindsight"; until then the render stops. */
+function settleScene(f, live) {
+  if (live.settled)
+    throw new Error(
+      `sTSLA-CC settled (${JSON.stringify(live.settled)}): show the settled epoch trace and "In hindsight" in settleScene`,
+    );
+  if (!live.expiry || live.expiry * 1000 > Date.now()) throw new Error("sTSLA-CC has not expired yet");
+  if (live.lastPrint >= live.expiry)
+    throw new Error("a TSLA print at or after expiry exists: settlement is possible");
+  const day = new Date(live.expiry * 1000).toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" });
+  const sayHhmm = (hm) => {
+    const [hh, mm] = hm.split(":").map(Number);
+    return `${sayInt(hh)}${mm ? ` ${mm < 10 ? `oh ${sayInt(mm)}` : sayInt(mm)}` : " hundred"}`;
+  };
+  return {
+    id: "settle",
+    screen: `The same covered-call vault page after the ${day} ${live.expiryHhmm} UTC expiry, unsettled at render time (from /api/status): the "Expired, settling" panel, why it waits (the first mainnet Chainlink print at or after expiry; settle reverts with InvalidSettlementRound for any other round), the last print at ${live.lastPrintHhmm} UTC, then the epoch trace with each step's transaction and "Settlement pending".`,
+    tag: "Settlement",
+    lines: [
+      L(
+        `The call expired ${day} at ${live.expiryHhmm} UTC; | it has not settled yet.`,
+        `The call expired ${day} at ${sayHhmm(live.expiryHhmm)} U T C; | it has not settled yet.`,
+      ),
+      L(
+        "It settles at the first mainnet Chainlink print after expiry; | the contract rejects any other price.",
+      ),
+      L(
+        `The last print, at ${live.lastPrintHhmm}, came before expiry.`,
+        `The last print, at ${sayHhmm(live.lastPrintHhmm)}, came before expiry.`,
+      ),
+      L("The epoch trace shows each step's transaction, | and what is pending."),
+    ],
+    async prepare(page) {
+      await openApp(page, `/app/vault/${CC_VAULT}`, () =>
+        page
+          .getByText("Waiting for the settlement price", { exact: false })
+          .first()
+          .waitFor({ timeout: 60_000 }),
+      );
+      for (const t of ["Expired, settling", `Last print: `, "InvalidSettlementRound", "Settlement pending"])
+        await page.getByText(t, { exact: false }).first().waitFor({ timeout: 30_000 });
+      await scrollToText(page, /Waiting for the settlement price\.?$/, 260);
+    },
+    async run(h) {
+      const focus = (src) =>
+        h.page.evaluate((src) => {
+          const v = window.__v;
+          document.querySelectorAll(".__vbox").forEach((d) => d.remove());
+          const el = v.leaf(src, "");
+          if (!el) throw new Error(`no element matches /${src}/`);
+          v.box(el, { pad: 10, dim: 0.22 });
+          v.zoom(el, 1.45);
+        }, src);
+      await h.at(0.3);
+      await focus("^Expired .*Waiting for the settlement price\\.?$");
+      await h.cue(1, -0.2);
+      await focus("^It settles at the first Chainlink");
+      await h.cue(2, -0.2);
+      await focus("^Last print: ");
+      await h.cue(3, -0.5);
+      await h.unbox();
+      await h.unzoom(300);
+      await h.scrollTo(/^Epoch trace$/i, { offset: 120, ms: 800 });
+      await h.page.evaluate(() => {
+        const v = window.__v;
+        const r = v.rect(v.leaf("^Settlement pending$", "").closest("ol, ul"));
+        v.zoomRect({ x: r.x, y: r.y, w: r.w, h: Math.min(r.h, 640) }, 1.3);
+      });
+      await h.chunk(3, 1, -0.3);
+      await h.page.evaluate(() => {
+        const v = window.__v;
+        const step = v.leaf("^Settlement pending$", "").closest("li");
+        v.box(step, { pad: 10, dim: 0.22 });
+        v.zoom(step, 1.4);
+      });
+    },
+  };
+}
+
 /** Recorded once with a real signature (`--live-sign`), then replayed from video/clips on every render. */
 function signingScene(f) {
   return {
@@ -1168,7 +1487,10 @@ function signingScene(f) {
     tag: "Run an agent",
     kind: "clip",
     clip: "video/clips/signing.mp4",
-    minDur: 33.5,
+    // the 33.5 s take plays 1.45 times faster (the block waits and the explorer load); the lines keep their places
+    // in it: `pre` holds the last two until the screen they describe (signing.json has the take's own line times)
+    clipSpeed: 1.45,
+    minDur: 23.1,
     lines: [
       L("Anyone can run an agent, with no permission."),
       L(
@@ -1176,17 +1498,11 @@ function signingScene(f) {
         `Here a test wallet registers an agent | and bonds sixty ${U}, above the fifty minimum.`,
       ),
       L("The wallet signs each step: | register, then bond."),
-      L(
-        "Each one waits for its block on Robinhood Chain testnet.",
-        "Each one waits for its block on Robinhood Chain testnet.",
-        {
-          pre: 1.6,
-        },
-      ),
+      L("Each one waits for its block on Robinhood Chain testnet."),
       L(
         `Now it can propose. | Every rejected proposal costs it ${f.slash} USDG.`,
         `Now it can propose. | Every rejected proposal costs it ${sayInt(f.slash)} ${U}.`,
-        { pre: 4.6 },
+        { pre: 1.5 },
       ),
     ],
     context: signingContext,
@@ -1207,8 +1523,9 @@ export const poster = { scene: "surface3d", at: 24 };
 export const gifScene = "flow3d";
 export const timing = { lead: 0.08, gap: 0.1, tail: 0.15 };
 export const crf = 24;
-/** The demo reads a little faster than the pitch: every take sped up 12% with Rubber Band (formants kept). */
-export const tts = { speed: 1.12, speed_max_cps: 19.5, max_cps: 19 };
+/** The demo reads faster than the pitch: every take sped up 28% with Rubber Band (formants kept), to fit the
+ *  decision pages, the settlement state and the proof page's liveness checks into about five and a half minutes. */
+export const tts = { speed: 1.28, speed_max_cps: 22.5, max_cps: 19 };
 /** The music bed (video/narration/music.py, CC0): ducked under the voice, -16 LUFS overall. */
 export const music = { seed: 7, speech_lufs: -31, gap_db: 5, fade_in: 2, fade_out: 3 };
 
@@ -1218,7 +1535,7 @@ export const scriptDoc = {
 
 The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (${total.toFixed(1)} s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by \`node video/record.mjs demo\` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
 
-The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains, the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 12% faster with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier is read from the live monitor, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
+The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 28% faster with Rubber Band (formants kept): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of \`scripts/check-claims.mjs\`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
 
 ## Chapters
 

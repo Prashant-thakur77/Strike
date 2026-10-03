@@ -368,7 +368,7 @@ export async function recordScene(browser, scene, tl, work, env) {
     viewport: { width: W, height: H },
     deviceScaleFactor: 1,
     colorScheme: "light",
-    timezoneId: "UTC",
+    timezoneId: scene.timezoneId ?? "UTC", // a scene may show the app in a viewer's own time zone
     bypassCSP: true,
     recordVideo: { dir, size: { width: W, height: H } },
     ...(scene.userAgent ? { userAgent: scene.userAgent, locale: "en-US" } : {}),
@@ -570,15 +570,18 @@ export function segment(scene, tl, src, out) {
     return;
   }
   const pad = `tpad=stop_mode=clone:stop_duration=${Math.ceil(tl.dur + 2)}`;
+  // a pre-recorded clip may play faster than it was recorded (scene.clipSpeed), e.g. the signing take's block waits
+  const speed = src.speed ?? 1;
+  const fast = speed !== 1 ? `setpts=PTS/${speed},` : "";
   ff([
     "-ss",
     src.start.toFixed(3),
     "-i",
     src.path,
     "-t",
-    dur,
+    (tl.dur * speed).toFixed(3),
     "-vf",
-    `fps=30,scale=${W}:${H}:flags=lanczos,${pad},trim=duration=${dur},format=yuv420p,${fades}`,
+    `${fast}fps=30,scale=${W}:${H}:flags=lanczos,${pad},trim=duration=${dur},format=yuv420p,${fades}`,
     ...enc,
   ]);
 }
