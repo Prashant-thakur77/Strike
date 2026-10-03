@@ -163,6 +163,71 @@
   border-top: 1px solid var(--rule-strong);
 }
 
+/* ---------------------------------------------------------------- sign-up: the form and the privacy notice */
+
+.join {
+  scroll-margin-top: calc(var(--nav-h) - 24px);
+}
+
+.joinGrid {
+  display: grid;
+  gap: var(--sp-xl);
+  margin-top: var(--sp-l);
+}
+
+.formCol {
+  min-width: 0;
+  /* Room for the tallest step, so the page below does not jump as steps change. */
+  min-height: 420px;
+}
+
+.privacy {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.privacyTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.privacy dl {
+  display: grid;
+}
+
+.privacyRow {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.privacyRow dt {
+  font-size: 1rem;
+  font-weight: 650;
+}
+
+.privacyRow dd {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--fg-muted);
+}
+
+@media (min-width: 960px) {
+  .joinGrid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 4fr);
+    column-gap: calc(var(--gutter) * 2);
+    align-items: start;
+  }
+  .formCol {
+    min-height: 460px;
+  }
+}
+
 /* ---------------------------------------------------------------- 01: the staged plan */
 
 .stages {

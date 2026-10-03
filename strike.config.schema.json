@@ -44,7 +44,7 @@
         "waitlistForm": {
           "type": "string",
           "pattern": "^$|^https://(docs\\.google\\.com/forms/|forms\\.gle/|tally\\.so/)[^\\s@]+$",
-          "description": "The mainnet waitlist's sign-up form, run by the team on Google Forms or Tally (https), which /waitlist links to; empty until it exists. Not a secret: a public link. Strike's code stores no emails or personal data (D46)."
+          "description": "Unused fallback: a team-run Google Forms or Tally sign-up link (https), or empty. Since 3 October sign-up is the form on /waitlist, which stores encrypted entries in a private Vercel Blob store (D46); the app does not read this field. Not a secret: a public link."
         },
         "repository": {
           "$ref": "#/definitions/httpsUrl",

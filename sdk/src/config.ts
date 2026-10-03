@@ -57,7 +57,9 @@ export type StrikeSecretRole =
   | "anthropicKey"
   | "claudeCodeToken"
   | "arbiscanKey"
-  | "githubToken";
+  | "githubToken"
+  | "blobToken"
+  | "waitlistSalt";
 
 /** strike.config.json (version 1). */
 export interface StrikeConfig {
@@ -71,7 +73,7 @@ export interface StrikeConfig {
     mcp: string;
     indexer: { port: number };
     telegramBot: string;
-    /** The mainnet waitlist's sign-up form (Google Forms or Tally), linked from /waitlist; "" until it exists. */
+    /** Unused fallback: a team-run Google Forms or Tally sign-up link, or "". /waitlist has its own form since D46. */
     waitlistForm: string;
     repository: string;
   };

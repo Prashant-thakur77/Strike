@@ -16,6 +16,7 @@
     "@strike/mcp": "workspace:*",
     "@strike/sdk": "workspace:*",
     "@tanstack/react-query": "^5.104.0",
+    "@vercel/blob": "^2.8.0",
     "lucide-react": "^1.48.0",
     "motion": "^13.4.4",
     "next": "^16.3.6",

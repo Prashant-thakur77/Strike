@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, Plus } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUpRight, Lock, Plus } from "lucide-react";
 import { Footer } from "@/components/site/Footer";
 import { SiteNav } from "@/components/site/SiteNav";
 import { SectionHead } from "@/components/ui/SectionHead";
+import { WaitlistForm } from "@/components/waitlist/WaitlistForm";
 import { REPO_URL } from "@/lib/config";
 import {
   BENEFITS,
@@ -11,11 +12,12 @@ import {
   EVIDENCE,
   FACTS_DATE,
   FACTS_SOURCE,
+  PRIVACY,
   STAGES,
   STATUS_LABEL,
   TELEGRAM_BOT,
+  TELEGRAM_BOT_HANDLE,
   TRY_TODAY,
-  waitlistCta,
 } from "@/lib/waitlist";
 import landing from "@/components/landing/landing.module.css";
 import styles from "./waitlist.module.css";
@@ -23,26 +25,25 @@ import styles from "./waitlist.module.css";
 export const metadata: Metadata = {
   title: "Mainnet waitlist",
   description:
-    "Join the waitlist for Strike on Robinhood Chain mainnet: one capped options vault after an external audit. Sign-up is the Strike team's own form; Strike's app stores no personal data.",
+    "Join the waitlist for Strike on Robinhood Chain mainnet: one capped options vault after an external audit. Sign up on the page; each entry is encrypted so only the Strike team can read it.",
 };
 
 const NEW_TAB = <span className="sr-only"> (opens in a new tab)</span>;
 
-/** /waitlist: Strike's mainnet launch page. Sign-up is the team's own form (D46); this page stores nothing. */
+/** /waitlist: Strike's mainnet launch page, with the sign-up form inline (D46): entries are encrypted for the team. */
 export default function WaitlistPage() {
-  const cta = waitlistCta();
   const STATUS = [
     ["Testnets", `Live on ${EVIDENCE[0].value}`],
     ["External audit", "Not started"],
     ["Mainnet vault", "Not deployed"],
-    ["Sign-up", cta.kind === "form" ? "Open" : "Opens shortly"],
+    ["Sign-up", "Open"],
   ] as const;
 
   return (
     <>
       <SiteNav />
       <main id="main">
-        {/* Hero: the headline, the form button and the Telegram option, all above the fold on a phone. */}
+        {/* Hero: the headline, the button to the form below and the Telegram option, all above the fold on a phone. */}
         <section className={`theme-paper ${styles.hero}`} aria-labelledby="waitlist-title">
           <div className={`gutter ${styles.heroGrid}`}>
             <div className={styles.heroMain}>
@@ -58,19 +59,11 @@ export default function WaitlistPage() {
                 picking the strike inside a mandate the contract enforces.
               </p>
               <div className={styles.actions}>
-                <a
-                  href={cta.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`pill ${styles.primary}`}
-                  data-testid="waitlist-primary"
-                  data-kind={cta.kind}
-                >
-                  {cta.label} <ArrowUpRight aria-hidden />
-                  {NEW_TAB}
+                <a href="#join" className={`pill ${styles.primary}`} data-testid="waitlist-primary">
+                  Join the waitlist <ArrowDown aria-hidden />
                 </a>
                 <p className={styles.note} data-testid="waitlist-note">
-                  {cta.note}
+                  Five short steps, about a minute. We&apos;ll contact you when the first mainnet vault opens.
                 </p>
                 <a
                   href={TELEGRAM_BOT}
@@ -99,6 +92,38 @@ export default function WaitlistPage() {
                 The plan <ArrowRight size={12} aria-hidden />
               </a>
             </aside>
+          </div>
+        </section>
+
+        {/* Sign-up: the form, one question per step, next to the privacy notice. */}
+        <section
+          id="join"
+          className={`theme-ink ${styles.section} ${styles.join}`}
+          aria-labelledby="join-title"
+        >
+          <div className="gutter">
+            <SectionHead label="Join the waitlist" right="Non-US persons only" hideRightOnMobile />
+            <h2 id="join-title" className="sr-only">
+              Join the waitlist
+            </h2>
+            <div className={styles.joinGrid}>
+              <div className={styles.formCol}>
+                <WaitlistForm telegramBot={TELEGRAM_BOT} />
+              </div>
+              <aside id="privacy" className={styles.privacy} aria-labelledby="privacy-title">
+                <h3 id="privacy-title" className={`micro ${styles.privacyTitle}`}>
+                  <Lock size={14} aria-hidden /> Privacy notice
+                </h3>
+                <dl>
+                  {PRIVACY.map((p) => (
+                    <div key={p.term} className={styles.privacyRow}>
+                      <dt>{p.term}</dt>
+                      <dd>{p.text}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </aside>
+            </div>
           </div>
         </section>
 
@@ -297,12 +322,17 @@ export default function WaitlistPage() {
                 </summary>
                 <div className={styles.answer}>
                   <p>
-                    Only to the sign-up form, which the Strike team runs
-                    {cta.provider ? ` on ${cta.provider}` : " on Google Forms or Tally"}. Strike&apos;s app
-                    stores nothing: this page is a link to the form, and the app has no user database or
-                    mailing list.
+                    Into the form on this page. Our server encrypts each entry with the Strike team&apos;s
+                    public key and keeps it in a private store; only the team, holding the private key, can
+                    read it. Details are in the{" "}
+                    <a href="#privacy" className="text-link">
+                      privacy notice
+                    </a>
+                    .
                   </p>
-                  <p>We use your details only to contact you about the mainnet launch.</p>
+                  <p>
+                    We use your details only to contact you about the mainnet launch, and we never share them.
+                  </p>
                 </div>
               </details>
               <details className={styles.qa}>
@@ -344,8 +374,8 @@ export default function WaitlistPage() {
                 </summary>
                 <div className={styles.answer}>
                   <p>
-                    Reply to any message we send you, or email or message the team on Telegram, and we delete
-                    your entry. No reason needed.
+                    Reply to any message we send you, or message {TELEGRAM_BOT_HANDLE} on Telegram, and we
+                    delete your entry. No reason needed.
                   </p>
                 </div>
               </details>

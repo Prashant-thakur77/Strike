@@ -151,6 +151,8 @@ export const bundledStrikeConfig: StrikeConfig = {
     "anthropicKey": "ANTHROPIC_API_KEY",
     "claudeCodeToken": "CLAUDE_CODE_OAUTH_TOKEN",
     "arbiscanKey": "ARBISCAN_API_KEY",
-    "githubToken": "GITHUB_TOKEN"
+    "githubToken": "GITHUB_TOKEN",
+    "blobToken": "BLOB_READ_WRITE_TOKEN",
+    "waitlistSalt": "WAITLIST_SALT"
   }
 };

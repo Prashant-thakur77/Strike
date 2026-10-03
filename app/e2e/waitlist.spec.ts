@@ -7,19 +7,20 @@ import {
   EVIDENCE,
   STAGES,
   STATUS_LABEL,
+  PRIVACY,
   TELEGRAM_BOT,
+  TELEGRAM_BOT_HANDLE,
   TRY_TODAY,
-  waitlistCta,
 } from "../src/lib/waitlist";
 import { horizontalOverflow } from "./helpers";
 
-// /waitlist, the mainnet waitlist (D46). Sign-up is the team's own form, services.waitlistForm in strike.config.json;
-// while that is empty the button says "Sign-up opens shortly" and goes to the Telegram bot. The page stores nothing.
+// /waitlist, the mainnet waitlist (D46). The sign-up form is inline (#join, waitlist-form.spec.ts tests it step by
+// step; waitlist-api.spec.ts tests the route's logic), with a privacy notice beside it; the hero's button scrolls to it.
 // Mobile first: no horizontal scroll at 360, 390 and 414 px, the hero's button above the fold, 44px tap targets and
 // 16px body text.
 
 const config = JSON.parse(readFileSync(join(__dirname, "..", "..", "strike.config.json"), "utf8")) as {
-  services: { waitlistForm: string; telegramBot: string };
+  services: { telegramBot: string };
 };
 const facts = JSON.parse(
   readFileSync(join(__dirname, "..", "..", "docs", "evidence", "facts.json"), "utf8"),
@@ -92,40 +93,33 @@ test("renders every section: hero, plan, benefits, try it, Telegram, questions a
   expect(errors).toEqual([]);
 });
 
-test("the primary button opens the configured form in a new tab, or the Telegram fallback while it is empty", async ({
+test("the primary button goes to the form on the page, and the privacy notice sits beside it", async ({
   page,
 }) => {
-  const want = waitlistCta(config.services.waitlistForm);
   await page.goto("/waitlist");
   const primary = page.getByTestId("waitlist-primary");
-  await expect(primary).toHaveAttribute("href", want.href);
-  await expect(primary).toHaveAttribute("target", "_blank");
-  await expect(primary).toHaveAttribute("rel", /noopener/);
-  await expect(primary).toHaveAccessibleName(`${want.label} (opens in a new tab)`);
-  await expect(page.getByTestId("waitlist-note")).toHaveText(want.note);
-  if (config.services.waitlistForm) {
-    await expect(primary).toHaveAttribute("data-kind", "form");
-    await expect(primary).toContainText("Join the waitlist");
-    await expect(page.getByTestId("waitlist-note")).toHaveText(
-      "Takes a minute. We'll contact you when the first mainnet vault opens.",
-    );
-  } else {
-    await expect(primary).toHaveAttribute("data-kind", "fallback");
-    await expect(primary).toContainText("Sign-up opens shortly");
-    await expect(primary).toHaveAttribute("href", config.services.telegramBot);
-  }
-});
+  await expect(primary).toHaveAttribute("href", "#join");
+  await expect(primary).not.toHaveAttribute("target");
+  await expect(primary).toHaveAccessibleName("Join the waitlist");
+  await expect(page.getByTestId("waitlist-note")).toContainText(
+    "We'll contact you when the first mainnet vault opens.",
+  );
+  const signup = page.locator('[aria-labelledby="status-title"] dl > div').filter({ hasText: "Sign-up" });
+  await expect(signup.locator("dd")).toHaveText("Open");
 
-test("waitlistCta: a form link, a Tally link and the empty fallback", () => {
-  const google = waitlistCta("https://forms.gle/Ab12Cd34");
-  expect(google).toMatchObject({ kind: "form", label: "Join the waitlist", provider: "Google Forms" });
-  expect(google.note).toBe("Takes a minute. We'll contact you when the first mainnet vault opens.");
-  expect(waitlistCta("https://tally.so/r/w4AbCd").provider).toBe("Tally");
-  expect(waitlistCta("  ")).toMatchObject({
-    kind: "fallback",
-    label: "Sign-up opens shortly",
-    href: TELEGRAM_BOT,
-  });
+  await primary.click();
+  await expect(page).toHaveURL(/#join$/);
+  await expect(page.locator("#join form")).toBeVisible();
+  await expect(page.getByLabel("What's your email?")).toBeFocused();
+
+  // The privacy notice: what, why, who, how long, removal.
+  const notice = page.locator("#privacy");
+  await expect(notice.getByRole("heading", { name: "Privacy notice" })).toBeAttached();
+  await expect(notice.locator("dt")).toHaveText(PRIVACY.map((p) => p.term));
+  await expect(notice).toContainText("Only the Strike team");
+  await expect(notice).toContainText("launch plus 12 months");
+  await expect(notice).toContainText(`message ${TELEGRAM_BOT_HANDLE} on Telegram`);
+  expect(TELEGRAM_BOT_HANDLE).toBe(`@${config.services.telegramBot.split("/").pop()}`);
 });
 
 test("the questions open and close from the keyboard, and the eligibility answer is the footer's sentence", async ({
@@ -155,7 +149,8 @@ test("the questions open and close from the keyboard, and the eligibility answer
     await item.locator("summary").click();
     await expect(item).toHaveAttribute("open");
   }
-  await expect(page.locator("#faq")).toContainText("Strike's app stores nothing");
+  await expect(page.locator("#faq")).toContainText("only the team, holding the private key, can read it");
+  await expect(page.locator("#faq")).toContainText(`message ${TELEGRAM_BOT_HANDLE} on Telegram`);
   await expect(page.locator("#faq")).toContainText("Covered calls give up upside for income.");
   await expect(page.locator("#faq")).toContainText("Not yet.");
 });

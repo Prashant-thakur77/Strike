@@ -1,6 +1,6 @@
-// The mainnet waitlist page, /waitlist (D46). Sign-up happens on the team's own form (strike.config.json
-// services.waitlistForm, a Google Forms or Tally link); Strike's code collects and stores no emails or personal data,
-// and this page only links out. The testnet figures come from docs/evidence/facts.json, which
+// The mainnet waitlist page, /waitlist (D46). Sign-up is the form on the page (components/waitlist/WaitlistForm.tsx),
+// which POSTs to /api/waitlist; each entry is encrypted with the team's public key and kept in a private Vercel Blob
+// store (lib/waitlistServer.ts). The testnet figures come from docs/evidence/facts.json, which
 // scripts/check-numbers.mjs measures, so they change with it.
 //
 // Data only (no SDK import), so the Playwright specs can load it as CommonJS.
@@ -11,35 +11,32 @@ const REPO = strikeConfig.services.repository;
 
 export const TELEGRAM_BOT = strikeConfig.services.telegramBot;
 
-/** What the hero's primary button does: open the form, or, until there is one, point at the Telegram bot. */
-export interface WaitlistCta {
-  href: string;
-  label: string;
-  note: string;
-  /** "form" when a sign-up form is configured, "fallback" while services.waitlistForm is empty. */
-  kind: "form" | "fallback";
-  /** Who runs the form, for the FAQ ("Google Forms", "Tally"), or null without one. */
-  provider: string | null;
-}
+/** The bot's @name, for the privacy notice ("message @strike_options_bot"). */
+export const TELEGRAM_BOT_HANDLE = `@${TELEGRAM_BOT.replace(/^https:\/\/t\.me\//, "").replace(/\/.*$/, "")}`;
 
-export function waitlistCta(formUrl: string = strikeConfig.services.waitlistForm): WaitlistCta {
-  const url = formUrl.trim();
-  if (!url)
-    return {
-      href: TELEGRAM_BOT,
-      label: "Sign-up opens shortly",
-      note: "The sign-up form opens shortly. Until then, the Telegram bot posts launch alerts.",
-      kind: "fallback",
-      provider: null,
-    };
-  return {
-    href: url,
-    label: "Join the waitlist",
-    note: "Takes a minute. We'll contact you when the first mainnet vault opens.",
-    kind: "form",
-    provider: /^https:\/\/tally\.so\//.test(url) ? "Tally" : "Google Forms",
-  };
-}
+/** The privacy notice next to the form: what is stored, who can read it, how long, and how to be removed. */
+export const PRIVACY = [
+  {
+    term: "What we store",
+    text: "Your email, the interests you pick, and the optional name, Telegram handle, wallet address and note, with the two confirmations and the time you signed up. Nothing else is stored with it: not your IP address (the rate limit keeps a keyed hash of it in server memory for up to 10 minutes) and no cookies.",
+  },
+  {
+    term: "Why",
+    text: "Only to contact you about Strike's mainnet launch: when the audit report is out and when the first vault opens.",
+  },
+  {
+    term: "Who can read it",
+    text: "Only the Strike team. Each entry is encrypted on our server before it is stored, with a key whose private half the team holds outside the app; the app itself can write entries but cannot read them back. The store is private, and the file name is a keyed hash, not your email.",
+  },
+  {
+    term: "How long",
+    text: "Until the mainnet launch plus 12 months, then deleted.",
+  },
+  {
+    term: "Removal",
+    text: `Reply to any message we send you, or message ${TELEGRAM_BOT_HANDLE} on Telegram, and we delete your entry. No reason needed.`,
+  },
+] as const;
 
 const chains = new Set(Object.keys(facts.deployments).map((k) => k.split("-")[0]));
 
