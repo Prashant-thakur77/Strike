@@ -22,10 +22,10 @@ Weekly options vaults for Robinhood Chain stock tokens, paid in USDG. A bonded A
 DeFi (options, structured products) and AI agents
 ```
 
-## Tags (142 characters)
+## Tags (147 characters)
 
 ```text
-DeFi, Options, AI Agents, Robinhood Chain, Arbitrum Sepolia, Stock Tokens, USDG, Arbitrum Stylus, MCP, ERC-4626, ERC-8004, Formal Verification
+DeFi, Options, AI Agents, RWA, Robinhood Chain, Arbitrum Sepolia, Stock Tokens, USDG, Arbitrum Stylus, MCP, ERC-4626, ERC-8004, Formal Verification
 ```
 
 ## Detailed description (288 characters)
@@ -35,6 +35,15 @@ Stock-token options vaults paid in USDG. An AI agent only proposes; the contract
 ```
 
 Aimed at the Promising Products track (AI agents, new financial primitives). The README has the long version: 1,607 tests and proofs (527 Foundry tests, 9 Halmos-proven properties), 99.3% line coverage, three live epochs (Claude planned the accepted proposal in the two v3 ones), and agent #1 linked to ERC-8004 identities #114 (Robinhood Chain testnet) and #253 (Arbitrum Sepolia). Judges can start at [JUDGES.md](../JUDGES.md).
+
+How Strike fits the buildathon's workshop themes, for the long-form fields and for judges who ask:
+
+- Tokenized RWAs: Strike pays weekly income on tokenized stocks, which are real-world assets, and its `SafeStockFeed` handles their traps (the ERC-8056 multiplier, weekend price freezes, two pause flags, corporate actions).
+- The wedge: stock-token holders on Robinhood Chain who want income. The options venues on the chain have the holder pick each strike or do not say who does; in Strike a bonded agent picks it and the contract holds it to an on-chain mandate, which is the hard part to copy. No outside users yet.
+- Security: an internal review with every finding fixed, Halmos proofs, an adversarial suite with a mutation check, a threat model; no external audit yet ([JUDGES.md](../JUDGES.md#how-strike-maps-to-the-workshop-themes)).
+- Governance: today one deployer key holds the testnet admin roles and is trusted; on mainnet the admin is a Safe behind a 73-day timelock ([D43](../decisions.md#d43--on-mainnet-the-admin-is-a-safe-behind-a-73-day-timelock-2026-10-02)), written and tested, not yet run.
+- Agentic, on Arbitrum: Stylus (Rust) strike solver and risk engine, a pipeline of specialist agents, an MCP server on npm and hosted.
+- After the buildathon: x402 payments for agents, onboarding without test ETH and Pendle yield on idle put collateral are being built on their own branches, and Dune queries for the mainnet stock-token market are written and not yet published ([Roadmap after the buildathon](../../README.md#roadmap-after-the-buildathon)).
 
 ## Link to frontend / demo (257 characters)
 

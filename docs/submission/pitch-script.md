@@ -69,3 +69,7 @@ Screen: The founder, Prashant Thakur, to camera ([strike-founder.mp4](../media/s
 > We are building Strike as a company on Robinhood Chain and Arbitrum. Funding buys an external audit and the first capped mainnet vault. We are asking for a place at Founder House Singapore, and introductions to wallets and market makers.
 >
 > Try the playground at strike-options.vercel.app.
+
+## Workshop themes in this pitch
+
+The video is rendered; this maps its lines to the buildathon's workshop themes. Tokenized RWAs and the wedge: the hook asks stock-token holders, and slides 2 and 3 say a stock token earns nothing extra and has traps Strike handles. What makes the wedge hard to copy: slide 5, the agent proposes and the contract checks the mandate and slashes the bond. Agentic, on Arbitrum: slide 4 (Stylus) and slide 9 (Claude planned the accepted proposal on Arbitrum). Security: slide 14. Governance (a Safe behind a 73-day timelock on mainnet, a trusted deployer key on the testnets today) and the work after the buildathon (x402, onboarding without test ETH, Pendle, Dune) are not in the narration; they are in [JUDGES.md](../JUDGES.md#how-strike-maps-to-the-workshop-themes) and the README's [Roadmap after the buildathon](../../README.md#roadmap-after-the-buildathon).

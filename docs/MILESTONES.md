@@ -4,7 +4,7 @@ We are building Strike as a company, and these four milestones are its first ste
 
 A milestone plan for the buildathon's milestone-based grant (up to $30,000, [HackQuest](https://www.hackquest.io/hackathons/Arbitrum-Open-House-Singapore-Online-Buildathon)) and for the milestone half of any prize. Each milestone ends in something a reviewer can check on-chain or on GitHub without asking us. Timelines count weeks from the start of funding; with funding from October 2026, the plan ends around February 2027. The budget split is a draft for the owner to confirm.
 
-It follows the roadmap in the README and the deck: v3 with the Stylus risk engine on Robinhood Chain testnet and Arbitrum Sepolia, then a capped mainnet vault after an audit. Where Strike stands today is in the README's [What works, what does not yet, what we cut](../README.md#what-works-what-does-not-yet-what-we-cut).
+It follows the roadmap in the README and the deck: v3 with the Stylus risk engine on Robinhood Chain testnet and Arbitrum Sepolia, then a capped mainnet vault after an audit. Where Strike stands today is in the README's [What works, what does not yet, what we cut](../README.md#what-works-what-does-not-yet-what-we-cut). The work started right after the buildathon (x402 payments for agents, onboarding without test ETH, yield on idle put collateral through Pendle, Dune queries for the stock-token market, the bot on AWS) is in the README's [Roadmap after the buildathon](../README.md#roadmap-after-the-buildathon), and how each workshop theme maps to Strike is in [JUDGES.md](JUDGES.md#how-strike-maps-to-the-workshop-themes).
 
 The first two milestones of the original plan were finished during the buildathon (30 September and 1 October 2026), so they ask for no money. Their $11,000 moved to the work that is still open: making v3 the main version, running and settling it week after week, a larger audit scope (the risk engine doubled the Rust code), and support for outside agents.
 
@@ -87,14 +87,14 @@ Deliverables:
 
 - An audit by an outside firm. The grant covers part of it ($14,000 in this split), and the rest is requested from the [Arbitrum Security Program](https://blog.arbitrum.foundation/introducing-the-arbitrum-security-program-apply-to-secure-your-smart-contracts/), which [audit-readiness.md](audit-readiness.md) is prepared for. The Foundation opened it on 28 September 2026: about $7.8M over 12 months, AI-assisted screening before a full audit, subsidised audits from 13 firms, and projects that have not launched yet can apply. The application is a [Tally form](https://tally.so/r/3xzEzv), and the Foundation expects about one month between approval and the start of the audit, so it goes in the week after the buildathon results.
 - Every High and Medium finding fixed with a regression test, as was done for the internal review ([review-2026-09-29.md](security/review-2026-09-29.md)).
-- One TSLA covered-call vault on Robinhood Chain mainnet (4663) with a `depositCap` agreed in advance, admin and guardian roles held by a Safe multisig, and the real Chainlink feed (no `MirrorFeed`).
+- One TSLA covered-call vault on Robinhood Chain mainnet (4663) with a `depositCap` agreed in advance, the admin roles held by a `TimelockController` with a 73-day delay that only a Safe multisig can drive, the guardian role held by the Safe ([D43](decisions.md#d43--on-mainnet-the-admin-is-a-safe-behind-a-73-day-timelock-2026-10-02), [staged path](trust-model.md#staged-path-for-the-admin-keys)), and the real Chainlink feed (no `MirrorFeed`).
 - Four weekly epochs run and settled on it.
 
 Acceptance criteria:
 
 - The audit report is published in `docs/security/`, with each finding's status and the commit that fixed it.
 - `contracts/deployments/4663.json` lists the addresses; each is verified on the Robinhood Chain explorer.
-- The vault's `depositCap` and the Safe's `hasRole` on each admin role are readable on-chain.
+- The vault's `depositCap`, the timelock's `hasRole` on each admin role, its `getMinDelay()` of 73 days and the Safe's proposer and executor roles are readable on-chain.
 - Four settlement transactions are linked from `docs/DEPLOYMENTS.md`.
 
 Budget: $14,000 toward the audit; $3,000 for mainnet gas, seed collateral, monitoring and the Safe setup.
@@ -121,7 +121,7 @@ Budget: releases and docs, and tester and agent-builder support.
 
 ## Later, not in this plan
 
-- Lend idle put collateral through an ERC-4626 USDG vault, so collateral earns while it waits (today it earns nothing; see the README's [comparison with USDG lending](../README.md#against-usdg-lending)).
+- Lend idle put collateral, so collateral earns while it waits (today it earns nothing; see the README's [comparison with USDG lending](../README.md#against-usdg-lending)). A first design, Pendle PT-USDG through a fork-tested adapter prototype, is being built on branch `pendle` and is not deployed; an ERC-4626 USDG vault is the other option.
 - Put spreads to lower the collateral a put vault needs, and more tickers.
 - A USDG gas paymaster.
 - The same vaults on Arbitrum One for tokenized stocks from other issuers.
