@@ -29,7 +29,7 @@ Finished during the buildathon. The fixes on the [`v3-contracts`](https://github
 - Every contract has verified source on Blockscout (the two test stock tokens on Sourcify), and the Stylus program passes `cargo stylus verify` on both chains ([DEPLOYMENTS.md](DEPLOYMENTS.md)).
 - One live epoch on each chain (30 September on Arbitrum Sepolia, 1 October on Robinhood Chain testnet): Claude planned the accepted 0.20-delta call, an at-the-money put was rejected and 10 USDG slashed, a separate buyer bought 4 calls, and both decision records are anchored in that chain's DecisionLog.
 
-Moved to milestones 1 and 2: the settlement and redeem transactions (the first series expire on Friday 2026-10-02 at 20:00 UTC), a second epoch on the same vault to show the high-water mark, merging `v3-contracts` into `main`, and moving the SDK, MCP server, app and subgraph to v3 on Robinhood Chain testnet.
+Moved to milestones 1 and 2: the settlement and redeem transactions (the first series expired on Friday 2026-10-02 at 20:00 UTC, after the day's last mainnet print, and settle at the first print of Monday 5 October), a second epoch on the same vault to show the high-water mark, merging `v3-contracts` into `main`, and moving the SDK, MCP server, app and subgraph to v3 on Robinhood Chain testnet.
 
 ## Done: Stylus risk engine in the proposal path
 
@@ -65,7 +65,7 @@ One live epoch shows the contracts work; eight in a row show they can be operate
 
 Deliverables:
 
-- The keeper and the weekly agent workflow enabled on both chains, with Claude planning each proposal.
+- The keeper and the weekly agent workflow enabled on both chains (done on 2 October; the keeper loops on the laptop are stopped), with Claude planning each proposal (not yet: the GitHub job has no Claude secret, so it plans with a rule).
 - Eight consecutive weekly epochs on each chain, each opened, proposed, sold where there is demand, settled and redeemed.
 - A later epoch on the same vault that shows the high-water mark at work: no fee on a week that only wins back an earlier loss.
 - The subgraph deployed to a hosted indexer ([indexing.md](indexing.md)), and the [Telegram bot](../bots/telegram/README.md) hosted and posting settlement and rejection alerts.
