@@ -15,6 +15,7 @@ import {
   planningSystem,
 } from "./llm.js";
 import type { Plan } from "./strategy.js";
+import { type LlmUsage, claudeCodeUsage } from "./usage.js";
 
 // The Claude Code planner: the same planning job as planWithClaude (llm.ts), run by the `claude` CLI in print mode,
 // so a Claude Pro/Max subscription (`claude` logged in, or CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`) pays
@@ -67,6 +68,8 @@ export interface ClaudeCodePlan {
   reason: string | null;
   /** The model Claude Code reported (its init message), else the one requested. */
   model: string;
+  /** What the run used, from the stream's result message; absent when no Claude Code process ran. */
+  usage?: LlmUsage;
 }
 
 /** The JSON Schema Claude Code's structured output must match: submit_plan's bounds. */
@@ -357,11 +360,13 @@ export async function planWithClaudeCode(opts: ClaudeCodeOptions): Promise<Claud
     pending: new Map(),
     capture: opts.capture,
   };
-  const done = (plan: Plan | null, reason: string | null): ClaudeCodePlan => ({
-    plan,
-    reason,
-    model: state.model ?? requested,
-  });
+  let ran = false;
+  const done = (plan: Plan | null, reason: string | null): ClaudeCodePlan => {
+    const model = state.model ?? requested;
+    // Usage only when a process ran and spoke: a result message, or at least an init message without one.
+    const usage = state.result || (ran && state.model) ? claudeCodeUsage(state.result, model) : undefined;
+    return { plan, reason, model, ...(usage ? { usage } : {}) };
+  };
 
   // An empty working directory: no CLAUDE.md or project settings to pick up, and a private place for the config.
   const dir = await mkdtemp(join(tmpdir(), "strike-claude-code-"));
@@ -402,6 +407,7 @@ export async function planWithClaudeCode(opts: ClaudeCodeOptions): Promise<Claud
       let child: ChildProcess;
       try {
         child = spawn(exe, args, { cwd: dir, env: claudeCodeEnv(env), stdio: ["pipe", "pipe", "pipe"] });
+        ran = true;
       } catch (error) {
         resolve({ code: null, error: error as NodeJS.ErrnoException, timedOut: false, stderr: "" });
         return;

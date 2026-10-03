@@ -18,6 +18,7 @@ import {
   isNotProvided,
 } from "../pipeline.js";
 import type { PlannerKind } from "../planner.js";
+import type { LlmUsage } from "../usage.js";
 import {
   type Plan,
   type Profile,
@@ -48,8 +49,8 @@ import { type RiskEngineReader, type RiskRow, type RiskTable, riskRow, riskTable
 
 /** What Claude's planner returned (through the API or Claude Code), with the risk_check calls it made. */
 export type ClaudePlan =
-  | { plan: Plan; kind: PlannerKind; model: string; label: string; calls: PlannerCall[] }
-  | { plan: null; reason: string; calls: PlannerCall[] };
+  | { plan: Plan; kind: PlannerKind; model: string; label: string; calls: PlannerCall[]; usage?: LlmUsage }
+  | { plan: null; reason: string; calls: PlannerCall[]; usage?: LlmUsage };
 
 export interface PipelineOptions {
   /** --llm: Claude chooses the plan (planClaude must be given). */
@@ -440,6 +441,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
     await stage("planner", 1, async () => {
       if (opts.llm && deps.planClaude) {
         const res = await deps.planClaude(plannerContext(brief, table));
+        if (res.usage) journal.llm = res.usage;
         plannerCands = plannerCandidates(res.calls, mandate, state.blockTimeIso);
         if (plannerCands.length > 0) journal.plannerDryRuns(plannerCands);
         if (res.plan) {
@@ -470,6 +472,7 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
             ],
             by: "claude",
             narration: { by: "claude", label: res.label, text: res.plan.reasoning },
+            ...(res.usage ? { usage: res.usage } : {}),
           };
         }
         say(`Claude gave no plan (${res.reason}); the rule planner chooses.`);
@@ -497,6 +500,8 @@ export async function runPipeline(opts: PipelineOptions, deps: PipelineDeps): Pr
         output: (choice ?? {}) as Record<string, unknown>,
         sources: [{ kind: "sdk", name: `profile ${opts.profile.name}` }],
         by: "rule",
+        // Claude was called and gave no plan: its tokens were still spent, so the stage that called it keeps them.
+        ...(journal.llm ? { usage: journal.llm } : {}),
       };
     });
     if (!choice)

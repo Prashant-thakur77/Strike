@@ -7,11 +7,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { type PlannerCall, plannerCandidates } from "../src/candidates.js";
 import { CLAUDE_MODEL, planWithClaude } from "../src/llm.js";
+import type { LlmUsage } from "../src/usage.js";
 
 // planWithClaude against a scripted local Messages API (no network, no key) and a small in-memory MCP server:
 // checks the request shape, that MCP tool results are fed back to Claude, and that only read-only tools are offered.
 
-type Reply = { content: unknown[]; stop_reason: string };
+type Reply = { content: unknown[]; stop_reason: string; usage?: Record<string, unknown> };
 let replies: Reply[] = [];
 const requests: { headers: IncomingHttpHeaders; body: Record<string, unknown> }[] = [];
 let api: Server;
@@ -26,7 +27,7 @@ function message(r: Reply) {
     content: r.content,
     stop_reason: r.stop_reason,
     stop_sequence: null,
-    usage: { input_tokens: 10, output_tokens: 10 },
+    usage: r.usage ?? { input_tokens: 10, output_tokens: 10 },
   };
 }
 
@@ -240,5 +241,90 @@ describe("planWithClaude", () => {
     const lines: string[] = [];
     expect(await planWithClaude({ mcp, vault: "0xV", skill: "", narrate: (l) => lines.push(l) })).toBeNull();
     expect(lines).toContain("Claude declined to plan this epoch.");
+  });
+
+  it("reports the API's usage, summed over every response, with cache fields and no invented price", async () => {
+    const use = (input: number, output: number, read: number, created: number) => ({
+      input_tokens: input,
+      output_tokens: output,
+      cache_read_input_tokens: read,
+      cache_creation_input_tokens: created,
+    });
+    replies = [
+      {
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", id: "u1", name: "vault_state", input: { vault: "0xV" } }],
+        usage: use(1200, 80, 0, 3000),
+      },
+      {
+        stop_reason: "tool_use",
+        content: [
+          {
+            type: "tool_use",
+            id: "u2",
+            name: "submit_plan",
+            input: { targetDeltaBps: 2000, premiumBps: 10_500, reasoning: "Balanced." },
+          },
+        ],
+        usage: use(300, 150, 3000, 0),
+      },
+      { stop_reason: "end_turn", content: [{ type: "text", text: "Done." }], usage: use(50, 10, 3000, 0) },
+    ];
+    const usages: LlmUsage[] = [];
+    const plan = await planWithClaude({
+      mcp,
+      vault: "0xV",
+      skill: "",
+      narrate: () => {},
+      onUsage: (u) => usages.push(u),
+    });
+    expect(plan).toMatchObject({ targetDeltaBps: 2000 });
+    expect(usages).toHaveLength(1);
+    expect(usages[0]).toMatchObject({
+      planner: "api",
+      model: CLAUDE_MODEL,
+      calls: 3,
+      inputTokens: 1550,
+      outputTokens: 240,
+      cacheReadTokens: 6000,
+      cacheCreationTokens: 3000,
+      costUsd: { provided: false, reason: expect.stringContaining("not a price") },
+    });
+    expect(typeof usages[0]?.durationMs).toBe("number");
+    expect(usages[0]?.source).toContain("3 responses");
+  });
+
+  it("writes {provided: false, reason} for a figure a response left out, and still reports on a refusal", async () => {
+    replies = [
+      {
+        stop_reason: "tool_use",
+        content: [{ type: "tool_use", id: "n1", name: "vault_state", input: { vault: "0xV" } }],
+        usage: { input_tokens: 700, output_tokens: 40 },
+      },
+      { stop_reason: "refusal", content: [], usage: { input_tokens: 20, output_tokens: 5 } },
+    ];
+    const usages: LlmUsage[] = [];
+    const plan = await planWithClaude({
+      mcp,
+      vault: "0xV",
+      skill: "",
+      narrate: () => {},
+      onUsage: (u) => usages.push(u),
+    });
+    expect(plan).toBeNull();
+    expect(usages[0]).toMatchObject({ calls: 2, inputTokens: 720, outputTokens: 45 });
+    expect(usages[0]?.cacheReadTokens).toEqual({
+      provided: false,
+      reason: "2 of 2 API responses did not report cache_read_input_tokens",
+    });
+  });
+
+  it("reports no usage when the API never answered", async () => {
+    replies = [];
+    const usages: LlmUsage[] = [];
+    await expect(
+      planWithClaude({ mcp, vault: "0xV", skill: "", narrate: () => {}, onUsage: (u) => usages.push(u) }),
+    ).rejects.toThrow();
+    expect(usages).toEqual([]);
   });
 });

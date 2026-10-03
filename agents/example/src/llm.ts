@@ -5,6 +5,7 @@ import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { z } from "zod";
 import { type PlannerCall, cleanError } from "./candidates.js";
 import type { Plan } from "./strategy.js";
+import { ApiUsageTally, type LlmUsage } from "./usage.js";
 
 /** The Claude model that plans each epoch. */
 export const CLAUDE_MODEL = "claude-opus-5";
@@ -123,8 +124,12 @@ export async function planWithClaude(opts: {
   capture?: (call: PlannerCall) => void;
   /** The specialists' computed facts (market brief, risk table) to plan from; see {@link plannerPrompt}. */
   context?: string;
+  /** Called once when the run ends (a plan, a refusal or an error), with the usage the API reported. */
+  onUsage?: (usage: LlmUsage) => void;
 }): Promise<Plan | null> {
   const anthropic = new Anthropic();
+  const tally = new ApiUsageTally();
+  const started = Date.now();
   const { tools } = await opts.mcp.listTools();
   const readTools = tools.filter((t) => PLANNING_TOOLS.has(t.name) && t.annotations?.readOnlyHint === true);
   const submitted: { plan?: Plan } = {};
@@ -169,20 +174,26 @@ export async function planWithClaude(opts: {
     max_iterations: 12,
   });
 
-  for await (const message of runner) {
-    for (const block of message.content) {
-      if (block.type === "text" && block.text.trim()) opts.narrate(`Claude: ${block.text.trim()}`);
-      else if (block.type === "tool_use")
-        opts.narrate(`Claude calls ${block.name} ${JSON.stringify(block.input)}`);
-      else if (block.type === "fallback")
-        opts.narrate(`(${block.from.model} declined; ${block.to.model} continued)`);
+  try {
+    for await (const message of runner) {
+      tally.add(message);
+      for (const block of message.content) {
+        if (block.type === "text" && block.text.trim()) opts.narrate(`Claude: ${block.text.trim()}`);
+        else if (block.type === "tool_use")
+          opts.narrate(`Claude calls ${block.name} ${JSON.stringify(block.input)}`);
+        else if (block.type === "fallback")
+          opts.narrate(`(${block.from.model} declined; ${block.to.model} continued)`);
+      }
+      if (message.stop_reason === "refusal") {
+        opts.narrate("Claude declined to plan this epoch.");
+        return null;
+      }
     }
-    if (message.stop_reason === "refusal") {
-      opts.narrate("Claude declined to plan this epoch.");
-      return null;
-    }
+    return submitted.plan ?? null;
+  } finally {
+    const usage = tally.toUsage(CLAUDE_MODEL, Date.now() - started);
+    if (usage) opts.onUsage?.(usage);
   }
-  return submitted.plan ?? null;
 }
 
 /** A short, human reason for an Anthropic API failure (typed errors, most specific first). */

@@ -20,6 +20,7 @@ import { readMarket as readMarketReads } from "./specialists/market.js";
 import { riskEngineFor } from "./specialists/risk.js";
 import { type ClaudePlan, type PipelineOutcome, runPipeline } from "./specialists/run.js";
 import { type PlannerKind, parsePlanner, plannerLabel, selectPlanner } from "./planner.js";
+import type { LlmUsage } from "./usage.js";
 import { type RecordAction, type RecordAnchorer, txUrl, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
@@ -199,6 +200,7 @@ async function planWithClaudeFor(
   context: string,
 ): Promise<ClaudePlan> {
   const calls: PlannerCall[] = [];
+  let usage: LlmUsage | undefined;
   const choice = selectPlanner(opts.planner);
   if (!choice.kind) return { plan: null, reason: `Claude is unavailable: ${choice.reason}`, calls };
   const kind = choice.kind;
@@ -216,8 +218,15 @@ async function planWithClaudeFor(
       context,
     });
     if (res.plan)
-      return { plan: res.plan, kind, model: res.model, label: plannerLabel(kind, res.model), calls };
-    return { plan: null, reason: `Claude Code gave no plan (${res.reason})`, calls };
+      return {
+        plan: res.plan,
+        kind,
+        model: res.model,
+        label: plannerLabel(kind, res.model),
+        calls,
+        usage: res.usage,
+      };
+    return { plan: null, reason: `Claude Code gave no plan (${res.reason})`, calls, usage: res.usage };
   }
   try {
     const plan = await planWithClaude({
@@ -227,11 +236,13 @@ async function planWithClaudeFor(
       narrate,
       capture: (c) => calls.push(c),
       context,
+      onUsage: (u) => (usage = u),
     });
-    if (plan) return { plan, kind, model: CLAUDE_MODEL, label: plannerLabel(kind, CLAUDE_MODEL), calls };
-    return { plan: null, reason: "Claude submitted no plan", calls };
+    if (plan)
+      return { plan, kind, model: CLAUDE_MODEL, label: plannerLabel(kind, CLAUDE_MODEL), calls, usage };
+    return { plan: null, reason: "Claude submitted no plan", calls, usage };
   } catch (err) {
-    return { plan: null, reason: `Claude is unavailable (${describeClaudeError(err)})`, calls };
+    return { plan: null, reason: `Claude is unavailable (${describeClaudeError(err)})`, calls, usage };
   }
 }
 

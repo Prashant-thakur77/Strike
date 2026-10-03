@@ -15,6 +15,7 @@ import {
 } from "./record.js";
 import { markChosen } from "./candidates.js";
 import type { PipelineStage } from "./pipeline.js";
+import type { LlmUsage } from "./usage.js";
 import type { Alternative, Confidence } from "./specialists/critic.js";
 import type { Contradiction } from "./specialists/market.js";
 import type { AgentStats, ProposeResult, RiskCheck, VaultState } from "./types.js";
@@ -38,6 +39,8 @@ export class Journal {
   track: RecordTrack | null = null;
   /** The specialist pipeline (propose runs); see src/specialists/run.ts. */
   pipeline: PipelineStage[] | null = null;
+  /** What the `--llm` Claude call used (null in rule mode); attached to the decision as `llm`. */
+  llm: LlmUsage | null = null;
   alternatives: Alternative[] | null = null;
   confidence: Confidence | null = null;
   contradictions: Contradiction[] | null = null;
@@ -86,6 +89,7 @@ export class Journal {
     const out: RecordDecision = { ...d };
     if (all.length > 0) out.candidates = this.chosenPlan ? markChosen(all, this.chosenPlan) : all;
     if (this.pipeline && this.pipeline.length > 0) out.pipeline = this.pipeline;
+    if (this.llm) out.llm = this.llm;
     if (this.alternatives && this.alternatives.length > 0) out.alternatives = this.alternatives;
     if (this.pipeline && this.pipeline.length > 0) out.confidence = this.confidence;
     if (this.contradictions && this.contradictions.length > 0) out.contradictions = this.contradictions;

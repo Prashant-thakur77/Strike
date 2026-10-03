@@ -14,6 +14,7 @@ import {
 } from "../src/claudeCode.js";
 import type { PlannerCall } from "../src/candidates.js";
 import { parsePlanner, plannerLabel, selectPlanner } from "../src/planner.js";
+import { claudeCodeUsage, usageText } from "../src/usage.js";
 
 // planWithClaudeCode against a scripted `claude` process (spawn is injected): the argv it builds, the files it hands
 // the CLI, and every failure path coming back as `plan: null` with a reason.
@@ -146,7 +147,9 @@ describe("planWithClaudeCode", () => {
         result({ structured_output: PLAN, result: JSON.stringify(PLAN) }),
       ],
     });
-    expect(res).toEqual({ plan: PLAN, reason: null, model: "claude-opus-5" });
+    expect(res).toMatchObject({ plan: PLAN, reason: null, model: "claude-opus-5" });
+    // This scripted result carries no usage block, so nothing is invented for it.
+    expect(res.usage).toMatchObject({ planner: "claude-code", inputTokens: { provided: false } });
     expect(said).toContain("Claude: Reading the vault.");
     expect(said).toContain('Claude calls vault_state {"vault":"0xVault"}');
     expect(said).toContain('Claude calls risk_check {"targetDeltaBps":1800,"premiumBps":10500}');
@@ -268,6 +271,85 @@ describe("planWithClaudeCode", () => {
     expect(interpretResult({ type: "result", subtype: "success", result: "I think 0.2" }).reason).toMatch(
       /no plan/,
     );
+  });
+});
+
+describe("planWithClaudeCode usage", () => {
+  // The result message as `claude -p --output-format stream-json --verbose` prints it (checked against Claude Code
+  // 2.1.263): usage, total_cost_usd, num_turns and duration_ms beside the structured output.
+  const REAL = {
+    structured_output: PLAN,
+    result: JSON.stringify(PLAN),
+    num_turns: 5,
+    duration_ms: 41_250,
+    duration_api_ms: 30_100,
+    total_cost_usd: 0.4127,
+    usage: {
+      input_tokens: 9,
+      output_tokens: 2_310,
+      cache_creation_input_tokens: 21_400,
+      cache_read_input_tokens: 88_900,
+      server_tool_use: { web_search_requests: 0 },
+    },
+  };
+
+  it("takes the tokens, turns, time and cost from the stream's result message", async () => {
+    const { res } = await run({ lines: [init(), result(REAL)] });
+    expect(res.plan).toEqual(PLAN);
+    expect(res.usage).toEqual({
+      planner: "claude-code",
+      model: "claude-opus-5",
+      calls: 5,
+      inputTokens: 9,
+      outputTokens: 2_310,
+      cacheReadTokens: 88_900,
+      cacheCreationTokens: 21_400,
+      costUsd: 0.4127,
+      durationMs: 41_250,
+      source: expect.stringContaining("stream-json result message"),
+    });
+    expect(usageText(res.usage!)).toBe(
+      "5 calls, 9 input tokens, 2,310 output tokens, 88,900 cache-read tokens, 21,400 cache-creation tokens, $0.4127 (Claude Code's list-price estimate), 41.3 s",
+    );
+  });
+
+  it("still reports what a failed run used", async () => {
+    const { res } = await run({
+      lines: [
+        init(),
+        result({ subtype: "error_max_turns", is_error: true, ...REAL, structured_output: undefined }),
+      ],
+    });
+    expect(res.plan).toBeNull();
+    expect(res.usage).toMatchObject({ calls: 5, inputTokens: 9, costUsd: 0.4127 });
+  });
+
+  it("writes {provided: false, reason} for a field the result lacks, and never a zero", async () => {
+    const { res } = await run({
+      lines: [init(), result({ structured_output: PLAN, usage: { input_tokens: 12 } })],
+    });
+    expect(res.usage).toMatchObject({
+      inputTokens: 12,
+      outputTokens: { provided: false, reason: "the result message has no usage.output_tokens" },
+      cacheReadTokens: { provided: false },
+      costUsd: { provided: false, reason: "the result message has no total_cost_usd" },
+      durationMs: { provided: false },
+      calls: { provided: false },
+    });
+  });
+
+  it("marks every figure not provided when the stream ended with no result, and gives none if nothing ran", async () => {
+    const cut = await run({ lines: [init()], code: 1 });
+    expect(cut.res.plan).toBeNull();
+    expect(cut.res.usage).toMatchObject({
+      planner: "claude-code",
+      calls: { provided: false, reason: "the Claude Code run ended without a result message" },
+      inputTokens: { provided: false },
+      costUsd: { provided: false },
+    });
+    const missing = await run({ error: Object.assign(new Error("nope"), { code: "ENOENT" }) });
+    expect(missing.res.usage).toBeUndefined();
+    expect(claudeCodeUsage(null, "m").outputTokens).toMatchObject({ provided: false });
   });
 });
 

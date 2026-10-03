@@ -4,6 +4,8 @@
 // read-only tools, direct contract reads, the SDK's Black-Scholes); Claude, when it runs, only chooses the plan and
 // writes text that is labelled as narration. A stage the run never reached is recorded as "not-run" with the reason.
 
+import type { LlmUsage } from "./usage.js";
+
 /** The stages, in pipeline order. */
 export const PIPELINE_STAGES = ["market", "risk", "planner", "critic", "contract"] as const;
 export type PipelineStageName = (typeof PIPELINE_STAGES)[number];
@@ -64,6 +66,11 @@ export interface PipelineStage {
   by: StageBy;
   /** Claude's words, labelled; present only when Claude wrote any. */
   narration?: StageNarration;
+  /**
+   * What the Claude call behind this stage used (tokens, calls, time, and a price where the source gives one); the
+   * planner stage of an `--llm` run only. The same figures as `decision.llm`.
+   */
+  usage?: LlmUsage;
 }
 
 /** A value a stage could not get, recorded as such instead of a default. */

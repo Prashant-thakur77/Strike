@@ -49,6 +49,7 @@ import {
 } from "../src/specialists/run.js";
 import { PROFILES } from "../src/strategy.js";
 import type { ProposeResult, RiskCheck, VaultState } from "../src/types.js";
+import type { LlmUsage } from "../src/usage.js";
 
 // The specialist pipeline: each specialist on fixtures (go / no-go, the risk table, every critic rule), the pipeline
 // end to end on a fake MCP server and chain, and the record: hashed with and without `pipeline`, rendered, labelled.
@@ -865,6 +866,67 @@ describe("the pipeline end to end", () => {
     expect(md).toContain(
       "Narration by Claude via Claude Code CLI, model claude-opus-5 (Claude's words, not a computed number):",
     );
+  });
+
+  it("records what Claude used: decision.llm and the planner stage's usage; rule mode has no llm field", async () => {
+    const usage: LlmUsage = {
+      planner: "claude-code",
+      model: "claude-opus-5",
+      calls: 4,
+      inputTokens: 11,
+      outputTokens: 1_900,
+      cacheReadTokens: 50_000,
+      cacheCreationTokens: 12_000,
+      costUsd: 0.31,
+      durationMs: 33_000,
+      source: "Claude Code stream-json result message",
+    };
+    const claude: ClaudePlan = {
+      plan: { targetDeltaBps: 2500, premiumBps: 10_000, reasoning: "0.25 earns more." },
+      kind: "claude-code",
+      model: "claude-opus-5",
+      label: "Claude via Claude Code CLI, model claude-opus-5",
+      calls: [],
+      usage,
+    };
+    const { record } = await run({ llm: true }, { planClaude: async () => claude });
+    expect(record.decision!.llm).toEqual(usage);
+    const planner = record.decision!.pipeline!.find((s) => s.stage === "planner")!;
+    expect(planner.usage).toEqual(usage);
+    for (const s of record.decision!.pipeline!.filter((x) => x.stage !== "planner"))
+      expect(s.usage).toBeUndefined();
+    expect(unanchoredJson(record)).toContain('"inputTokens": 11');
+    const md = formatRecordMarkdown(record);
+    expect(md).toContain("- **Claude usage:** 4 calls, 11 input tokens, 1,900 output tokens");
+    expect(md).toContain("  - Claude usage: 4 calls");
+    // Without the field the hash is the one older agents would compute.
+    const { llm: _l, ...rest } = record.decision!;
+    expect(recordHash({ ...record, decision: rest })).not.toBe(recordHash(record));
+    expect(unanchoredJson({ ...record, decision: rest })).not.toContain('"llm"');
+
+    const rule = await run({ llm: false });
+    expect(rule.record.decision!.llm).toBeUndefined();
+    expect(unanchoredJson(rule.record)).not.toContain('"llm"');
+    expect(rule.record.decision!.pipeline!.every((s) => s.usage === undefined)).toBe(true);
+  });
+
+  it("keeps the tokens Claude spent when it gave no plan and the rule planner chose", async () => {
+    const usage: LlmUsage = {
+      planner: "api",
+      model: "claude-opus-5",
+      calls: 2,
+      inputTokens: 900,
+      outputTokens: { provided: false, reason: "2 of 2 API responses did not report output_tokens" },
+      durationMs: 4_000,
+      source: "Messages API usage objects, summed over 2 responses",
+    };
+    const { record } = await run(
+      { llm: true },
+      { planClaude: async () => ({ plan: null, reason: "Claude submitted no plan", calls: [], usage }) },
+    );
+    expect(record.decision!.llm).toEqual(usage);
+    expect(record.decision!.pipeline!.find((s) => s.stage === "planner")!.usage).toEqual(usage);
+    expect(formatRecordMarkdown(record)).toContain("output tokens not provided");
   });
 
   it("with --llm and no plan from Claude, the rule planner chooses and the record says why", async () => {

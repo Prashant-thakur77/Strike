@@ -6,6 +6,7 @@ import { type PipelineStage, STAGE_TITLES, isNotProvided } from "./pipeline.js";
 import type { Alternative, Confidence } from "./specialists/critic.js";
 import type { Contradiction } from "./specialists/market.js";
 import type { MandateView } from "./types.js";
+import { type LlmUsage, usageText } from "./usage.js";
 
 // The agent's decision record: what it saw, what it decided and why, what it sent and what happened. `--log <dir>`
 // writes one per run as markdown (for people) and JSON (for the app).
@@ -115,6 +116,12 @@ export interface RecordDecision {
    * Part of the hashed JSON like every other field.
    */
   pipeline?: PipelineStage[];
+  /**
+   * What the Claude call used when `--llm` planned: tokens, calls, time and, from Claude Code, its list-price cost
+   * estimate, as the API or the stream reported them (a figure not reported is `{ provided: false, reason }`). Absent
+   * in rule-mode runs and in older records; hashed like every other field, so those keep their hash.
+   */
+  llm?: LlmUsage;
   /**
    * What the week could have been, with the model numbers it is graded on at settlement: the chosen strike, kept cash,
    * half the size, one ladder step nearer to spot and one farther (src/specialists/critic.ts).
@@ -330,6 +337,7 @@ function decisionSection(d: RecordDecision | null, action: RecordAction): string
   }[d.strategy];
   const lines = [`- **Strategy:** ${strategy}`];
   if (d.planner) lines.push(`- **Planner:** ${d.planner.label}`);
+  if (d.llm) lines.push(`- **Claude usage:** ${usageText(d.llm)} (${d.llm.source})`);
   if (d.targetDeltaBps !== null) {
     lines.push(
       `- **Target:** ${deltaText(d.targetDeltaBps)} delta${d.premiumBps !== null ? ` at ${pct(d.premiumBps)} of Black-Scholes fair value` : ""}`,
@@ -516,6 +524,7 @@ function pipelineSection(d: RecordDecision | null): string[] {
       `- **${STAGE_TITLES[st.stage]}${st.attempt > 1 ? ` (attempt ${st.attempt})` : ""}**${meta}: ${VERDICT_TEXT[st.verdict]}. ${summary[0]?.toUpperCase() ?? ""}${summary.slice(1)}`,
     );
     for (const l of stageDetails(st)) lines.push(`  - ${oneLine(l)}`);
+    if (st.usage) lines.push(`  - Claude usage: ${usageText(st.usage)}`);
     if (st.narration) {
       lines.push(`  - Narration by ${st.narration.label} (Claude's words, not a computed number):`, "");
       for (const l of st.narration.text.trim().split("\n"))
