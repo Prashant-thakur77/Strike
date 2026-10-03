@@ -72,8 +72,8 @@
       "items": [
         {
           "label": "End-to-end, per viewport",
-          "count": 438,
-          "source": "app: npx playwright test --list reports 876 runs in 43 files = 438 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
+          "count": 449,
+          "source": "app: npx playwright test --list reports 898 runs in 43 files = 449 tests x 2 viewports (desktop 1440x900, mobile 390x844), 33 of them the opt-in UI audit (ui-audit.spec.ts, UI_AUDIT=1, desktop only); pure-function and HTTP-only tests (mcp.spec.ts among them) skip the mobile run; the register spec runs its v2 or its 3 v3 tests depending on the devnet's AgentRegistry"
         }
       ]
     }

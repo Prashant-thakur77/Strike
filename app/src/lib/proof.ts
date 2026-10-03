@@ -390,7 +390,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "438",
+    count: "449",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 33 of them are the opt-in UI audit at five widths",
     evidence: [
