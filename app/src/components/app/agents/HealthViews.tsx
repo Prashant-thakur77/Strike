@@ -28,6 +28,7 @@ import type { VaultSummary } from "@/lib/reads";
 import { Skeleton } from "../Skeleton";
 import styles from "../app.module.css";
 import h from "./health.module.css";
+import { TableWrap } from "../TableWrap";
 
 const TELEGRAM_BOT = "https://t.me/strike_options_bot";
 
@@ -114,7 +115,7 @@ export function LiveHealth() {
           during US market hours.
         </p>
       ) : (
-        <div className={styles.tableWrap}>
+        <TableWrap stack>
           <table className={styles.table} aria-label="Live series health">
             <thead>
               <tr>
@@ -146,7 +147,7 @@ export function LiveHealth() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       )}
       <p className={styles.hint}>
         Spot is the price feed the contracts read (the mirrored mainnet Chainlink round); cushion is how far
@@ -277,7 +278,7 @@ export function Performance() {
           ? " The first settlements land at the first mainnet price print after each series' expiry; until then every figure below is the on-chain zero, not a placeholder."
           : ""}
       </p>
-      <div className={styles.tableWrap}>
+      <TableWrap stack>
         <table className={styles.table} aria-label="Agent performance">
           <thead>
             <tr>
@@ -321,7 +322,7 @@ export function Performance() {
             })}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <p className={styles.hint}>
         Settled epochs and PnL are <code className="mono">AgentRegistry.track(agentId)</code>: the contract
         adds each epoch&apos;s premium minus payout for depositors, before fees, when the series settles.
@@ -460,7 +461,7 @@ export function WeekByWeek() {
   );
   return (
     <div className={h.stack} data-testid="weekly" data-weeks={weeks.length}>
-      <div className={styles.tableWrap}>
+      <TableWrap stack>
         <table className={styles.table} aria-label="Week by week">
           <thead>
             <tr>
@@ -508,7 +509,7 @@ export function WeekByWeek() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <p className={h.verdict} data-testid="weekly-recommendation">
         {reviewRecommendation(settled)}
       </p>

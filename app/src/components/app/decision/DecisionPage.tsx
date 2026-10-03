@@ -63,6 +63,7 @@ import {
 } from "./WhatIfSections";
 import appStyles from "../app.module.css";
 import styles from "./decision.module.css";
+import { TableWrap } from "../TableWrap";
 
 /** The SDK's pricing (sdk/src/pricing.ts): the float port of the on-chain Black-Scholes pricer. */
 const SDK_PRICING: Pricing = { blackScholes, strikeForDelta, roundStrikeToCent, normCdf };
@@ -666,7 +667,7 @@ function PlannerCalls({ record: r }: { record: LogRecord }) {
         contract&apos;s <code className="mono">previewProposal</code>, in call order, part of the anchored
         record
       </h3>
-      <div className={appStyles.tableWrap}>
+      <TableWrap stack>
         <table className={`${appStyles.table} ${styles.ladder}`}>
           <thead>
             <tr>
@@ -703,7 +704,7 @@ function PlannerCalls({ record: r }: { record: LogRecord }) {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
     </div>
   );
 }
@@ -735,7 +736,7 @@ function RecordedLadder({
           ? ` ${unread} rung${unread === 1 ? "" : "s"} could not be read and ${unread === 1 ? "is" : "are"} left out.`
           : ""}
       </p>
-      <div className={appStyles.tableWrap}>
+      <TableWrap stack>
         <table className={`${appStyles.table} ${styles.ladder}`} aria-label="Strike ladder the agent dry-ran">
           <thead>
             <tr>
@@ -755,7 +756,7 @@ function RecordedLadder({
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
     </div>
   );
 }
@@ -813,7 +814,7 @@ function LadderView({
       </p>
       {c.ok ? (
         <>
-          <div className={appStyles.tableWrap}>
+          <TableWrap stack>
             <table className={`${appStyles.table} ${styles.ladder}`} aria-label="Strike ladder, recomputed">
               <thead>
                 <tr>
@@ -833,7 +834,7 @@ function LadderView({
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableWrap>
           <p className={appStyles.hint}>
             Inputs, all from the anchored record: {underlying} spot {usd(inp.spot)} and σ{" "}
             {(inp.sigma * 100).toFixed(0)}% (the epoch-open snapshot),{" "}
@@ -1070,7 +1071,7 @@ function Graded({
       <p className={appStyles.hint} data-testid="hindsight-caveat">
         {HINDSIGHT_CAVEAT}
       </p>
-      <div className={appStyles.tableWrap}>
+      <TableWrap stack>
         <table
           className={`${appStyles.table} ${styles.ladder}`}
           aria-label={`Ladder graded at the ${usd(price)} settlement`}
@@ -1115,7 +1116,7 @@ function Graded({
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <p className={appStyles.hint}>
         {sent
           ? `The proposal sent: ${opts(inp.dry.size)} options at ${usd(sent.net, 4)} each is about ${usd(sent.net * inp.dry.size)} for the vault before fees, if every option was bought. `

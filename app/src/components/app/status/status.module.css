@@ -57,7 +57,7 @@
 
 .sub {
   margin: 0;
-  font-size: 0.85rem;
+  font-size: max(0.85rem, var(--fs-floor-meta));
   line-height: 1.5;
   color: var(--fg-muted);
   overflow-wrap: anywhere;
@@ -165,7 +165,7 @@
 
 .scheduleDetail {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: max(0.95rem, var(--fs-floor-note));
   line-height: 1.5;
 }
 
@@ -189,7 +189,7 @@
 .small {
   max-width: 52em;
   margin: 0;
-  font-size: 0.85rem;
+  font-size: max(0.85rem, var(--fs-floor-meta));
   line-height: 1.5;
   color: var(--fg-muted);
 }
@@ -228,5 +228,23 @@
   .vaults li > .vaultCell:first-of-type,
   .vaultCell + .vaultCell {
     grid-column: 1 / -1;
+  }
+}
+
+/* A 44px hit area on touch screens, the look unchanged (mobile pass, 3 Oct; as .text-link in globals.css). */
+@media (pointer: coarse) {
+  .link,
+  .vaultName {
+    position: relative;
+  }
+  .link::after,
+  .vaultName::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
   }
 }

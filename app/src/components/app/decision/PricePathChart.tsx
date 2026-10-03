@@ -6,6 +6,7 @@ import { oneSigmaRange, priceAt, pricePath, type AuditRound } from "@/lib/priceP
 import { Skeleton } from "../Skeleton";
 import appStyles from "../app.module.css";
 import styles from "./decision.module.css";
+import { TableWrap } from "../TableWrap";
 
 const M = { top: 30, right: 18, bottom: 46, left: 64 };
 const HEIGHT = 300;
@@ -227,7 +228,7 @@ export function PricePathChart({
       </figcaption>
       <details className={appStyles.payoffTable}>
         <summary className="micro">Show as a table</summary>
-        <div className={appStyles.tableWrap}>
+        <TableWrap stack>
           <table className={appStyles.table}>
             <thead>
               <tr>
@@ -248,7 +249,7 @@ export function PricePathChart({
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       </details>
     </figure>
   );

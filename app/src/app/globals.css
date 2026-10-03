@@ -58,6 +58,9 @@
   --fs-small: 0.875rem;
   --fs-label: 0.6875rem;
   --fs-nav: 0.8125rem;
+  /* Used as font-size: max(<size>, var(--fs-floor-note)): no floor on wide screens, see the phone overrides below. */
+  --fs-floor-note: 0rem;
+  --fs-floor-meta: 0rem;
 }
 
 @media (max-width: 640px) {
@@ -68,8 +71,12 @@
     --fs-h2: clamp(2.4rem, 12.5vw, 4.4rem);
     --fs-manifesto: clamp(2.35rem, 10.6vw, 4.4rem);
     --fs-quote: clamp(1.9rem, 9vw, 3.3rem);
-    --fs-label: 0.625rem;
-    --fs-nav: 0.6875rem;
+    /* Labels and the nav grow on phones, not shrink: 12px is the floor for any text (mobile pass, 3 Oct). */
+    --fs-label: 0.75rem;
+    --fs-nav: 0.75rem;
+    /* Floors for running text set in rem below the body size: notes and hints read at 16px, meta lines at 14px. */
+    --fs-floor-note: 1rem;
+    --fs-floor-meta: 0.875rem;
   }
 }
 
@@ -584,6 +591,31 @@ svg {
   transition:
     background 0.22s var(--ease-ui),
     color 0.22s var(--ease-ui);
+}
+
+/* Compact controls keep their look on touch screens but get a 44px-tall hit area, like .text-link and .pill-small. */
+@media (pointer: coarse) {
+  .chip,
+  a.mono {
+    position: relative;
+  }
+  /* "Show as a table" and the like: padding, not an overlay, so the hit area never covers what follows. */
+  summary.micro {
+    padding-block: 15px;
+  }
+  .input-row input {
+    min-height: 44px;
+  }
+  .chip::after,
+  a.mono::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
 }
 
 .chip[aria-pressed="true"] {

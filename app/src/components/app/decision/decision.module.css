@@ -41,7 +41,7 @@
 }
 
 .check {
-  font-size: 0.88rem;
+  font-size: max(0.88rem, var(--fs-floor-note));
   line-height: 1.5;
   max-width: 52em;
 }
@@ -131,7 +131,7 @@
 }
 
 .para {
-  font-size: 0.95rem;
+  font-size: max(0.95rem, var(--fs-floor-note));
   line-height: 1.55;
   max-width: 48em;
   color: var(--fg-muted);
@@ -154,7 +154,7 @@
 
 /* Where a section's figures come from. */
 .source {
-  font-size: 0.82rem;
+  font-size: max(0.82rem, var(--fs-floor-meta));
   line-height: 1.45;
   color: var(--fg-muted);
   max-width: 52em;

@@ -209,7 +209,7 @@
 
 .railNote {
   max-width: 22em;
-  font-size: 0.9rem;
+  font-size: max(0.9rem, var(--fs-floor-note));
   line-height: 1.45;
   color: var(--fg-muted);
 }
@@ -365,7 +365,7 @@
 }
 
 .hint {
-  font-size: 0.9rem;
+  font-size: max(0.9rem, var(--fs-floor-note));
   line-height: 1.5;
   color: var(--fg-muted);
   max-width: 44em;
@@ -621,7 +621,7 @@
   border: 1px solid var(--rule-strong);
   border-radius: 4px;
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: max(0.72rem, var(--fs-label));
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.4;
@@ -1129,10 +1129,83 @@
 
 /* ================================================================ tables */
 
+/* A wide table scrolls inside its wrapper, never the page; a shadow marks the edge that has more columns (the covers
+   scroll with the content and hide the shadow at either end). */
 .tableWrap {
   max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  background:
+    linear-gradient(to right, var(--bg, var(--paper)) 40%, transparent) left / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--bg, var(--paper)) 40%, transparent) right / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), transparent) left / 12px 100% no-repeat
+      scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), transparent) right / 12px 100% no-repeat
+      scroll;
+}
+
+/* TableWrap stack: below 640px one card per row, each cell with its column's heading (data-label). */
+@media (max-width: 640px) {
+  .tableWrap[data-stack] {
+    background: none;
+  }
+  .tableWrap[data-stack] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .tableWrap[data-stack] table,
+  .tableWrap[data-stack] tbody,
+  .tableWrap[data-stack] tr {
+    display: block;
+    width: 100%;
+  }
+  .tableWrap[data-stack] tbody tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .tableWrap[data-stack] tbody th,
+  .tableWrap[data-stack] tbody td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    width: 100%;
+    padding: 5px 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: right !important;
+  }
+  /* The row's own heading is the card's title: no label, left-aligned, in body type. */
+  .tableWrap[data-stack] tbody th[scope="row"] {
+    justify-content: flex-start;
+    padding-top: 0;
+    color: var(--fg);
+    font-size: 1rem;
+    font-weight: 650;
+    letter-spacing: 0;
+    text-align: left !important;
+    text-transform: none;
+  }
+  .tableWrap[data-stack] tbody th[scope="row"]::before {
+    content: none;
+  }
+  .tableWrap[data-stack] tbody [data-label]::before {
+    content: attr(data-label);
+    flex: 0 0 42%;
+    color: var(--fg-muted);
+    font-family: var(--font-sans, inherit);
+    font-size: var(--fs-label);
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    line-height: 1.4;
+    text-align: left;
+    text-transform: uppercase;
+  }
 }
 
 .table {
@@ -1243,7 +1316,7 @@
   background: var(--tone-agent);
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: max(0.72rem, var(--fs-label));
   letter-spacing: -0.01em;
   white-space: nowrap;
 }
@@ -2669,7 +2742,7 @@ a.idChip:hover {
 .riskLead {
   display: grid;
   gap: 6px;
-  font-size: 0.95rem;
+  font-size: max(0.95rem, var(--fs-floor-note));
   line-height: 1.5;
 }
 
@@ -2794,14 +2867,14 @@ a.idChip:hover {
   display: grid;
   gap: 6px;
   max-width: 48em;
-  font-size: 0.92rem;
+  font-size: max(0.92rem, var(--fs-floor-note));
   line-height: 1.5;
 }
 
 .riskFoot {
   padding-top: 14px;
   border-top: 1px solid var(--rule);
-  font-size: 0.82rem;
+  font-size: max(0.82rem, var(--fs-floor-meta));
   line-height: 1.5;
   color: var(--fg-muted);
 }
@@ -2839,7 +2912,7 @@ a.idChip:hover {
 
 .whyLead {
   max-width: 52em;
-  font-size: 0.95rem;
+  font-size: max(0.95rem, var(--fs-floor-note));
   line-height: 1.5;
 }
 
@@ -2964,7 +3037,7 @@ a.idChip:hover {
   gap: 6px;
   padding-top: 14px;
   border-top: 1px solid var(--rule);
-  font-size: 0.86rem;
+  font-size: max(0.86rem, var(--fs-floor-meta));
   line-height: 1.55;
   color: var(--fg-muted);
 }
@@ -3178,9 +3251,40 @@ a.idChip:hover {
   background: none;
   color: var(--fg);
   font: inherit;
-  font-size: 0.85rem;
+  /* 16px on phones: iOS zooms the page into any field set smaller. */
+  font-size: max(0.85rem, var(--fs-floor-note));
 }
 
 .logSearch {
   max-width: 100%;
+}
+
+/* ------------------------------------------------------------------ touch targets (mobile pass, 3 Oct) */
+
+/* On touch screens every control is at least 44px tall: compact buttons grow, and links that sit in a line of text
+   keep their size with a 44px hit area around them (as .text-link and .pill-small in globals.css). */
+@media (pointer: coarse) {
+  .rowToggle,
+  .logChip,
+  .logSearch input,
+  .pageIndexLink {
+    min-height: 44px;
+  }
+  .logWhyToggle {
+    min-height: 44px;
+  }
+  .back,
+  .heroAddr a {
+    position: relative;
+  }
+  .back::after,
+  .heroAddr a::after {
+    content: "";
+    position: absolute;
+    left: -4px;
+    right: -4px;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
 }

@@ -11,7 +11,7 @@
 }
 
 .leadNote {
-  font-size: 0.9rem;
+  font-size: max(0.9rem, var(--fs-floor-note));
   line-height: 1.45;
   color: var(--fg-muted);
 }
@@ -186,7 +186,7 @@
 }
 
 .sub {
-  font-size: 0.82rem;
+  font-size: max(0.82rem, var(--fs-floor-meta));
   line-height: 1.4;
   color: var(--fg-muted);
   overflow-wrap: anywhere;
@@ -226,7 +226,7 @@
 
 .round .kv {
   margin-top: 6px;
-  font-size: 0.72rem;
+  font-size: max(0.72rem, var(--fs-label));
 }
 
 .verdict {

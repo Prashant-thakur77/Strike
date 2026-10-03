@@ -134,7 +134,7 @@
 
 .fact {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: max(0.86rem, var(--fs-floor-note));
   line-height: 1.5;
   color: var(--fg-muted);
   overflow-wrap: anywhere;
@@ -164,7 +164,7 @@
   flex-wrap: wrap;
   gap: 4px 16px;
   margin: 4px 0 0;
-  font-size: 0.82rem;
+  font-size: max(0.82rem, var(--fs-floor-meta));
 }
 
 .links:empty {
@@ -197,4 +197,20 @@
   display: grid;
   gap: 12px;
   justify-items: start;
+}
+
+/* A 44px hit area on touch screens, the look unchanged (mobile pass, 3 Oct; as .text-link in globals.css). */
+@media (pointer: coarse) {
+  .link {
+    position: relative;
+  }
+  .link::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
 }

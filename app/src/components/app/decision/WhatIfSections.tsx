@@ -17,6 +17,7 @@ import {
 import { Skeleton } from "../Skeleton";
 import appStyles from "../app.module.css";
 import styles from "./decision.module.css";
+import { TableWrap } from "../TableWrap";
 
 const usd = (x: number, frac = 2) =>
   `${x < 0 ? "−" : ""}$${Math.abs(x).toLocaleString("en-US", { minimumFractionDigits: frac, maximumFractionDigits: frac })}`;
@@ -66,7 +67,7 @@ export function Modifications({ record: r }: { record: LogRecord }) {
           guard or rule profile changes a plan, and this record has none.
         </p>
       ) : (
-        <div className={appStyles.tableWrap}>
+        <TableWrap stack>
           <table className={`${appStyles.table} ${styles.ladder}`} aria-label="Changes before sending">
             <thead>
               <tr>
@@ -91,7 +92,7 @@ export function Modifications({ record: r }: { record: LogRecord }) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       )}
     </div>
   );
@@ -118,7 +119,7 @@ export function StressView({
       <h3 className="micro micro-muted">
         Stress: if {underlying} settles {inp.isCall ? "above" : "below"} the snapshot spot
       </h3>
-      <div className={appStyles.tableWrap}>
+      <TableWrap stack>
         <table className={`${appStyles.table} ${styles.ladder}`} aria-label="Stress scenarios">
           <thead>
             <tr>
@@ -152,7 +153,7 @@ export function StressView({
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <p className={appStyles.hint}>
         Arithmetic on the record&apos;s {usd(loss.strike)} strike and {usd(loss.premium, 4)} premium per
         option
@@ -232,7 +233,7 @@ export function WhatIfView({
           The settlement could not be read from the epoch trace, so the branches show model numbers.
         </p>
       ) : null}
-      <div className={appStyles.tableWrap}>
+      <TableWrap stack>
         <table className={`${appStyles.table} ${styles.ladder}`} aria-label="What-if branches">
           <thead>
             <tr>
@@ -260,7 +261,7 @@ export function WhatIfView({
             ))}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <p className={appStyles.hint} data-testid="whatif-caveat">
         {WHAT_IF_CAVEAT}
         {rows && rowsSource === "recomputed"
@@ -369,7 +370,7 @@ export function AgentAlternatives({
           ? `Graded at the ${usd(settlement)} settlement: premium income minus the payout on each one's size.`
           : "Each is graded at the settlement price once the series settles."}
       </p>
-      <div className={appStyles.tableWrap}>
+      <TableWrap stack>
         <table className={`${appStyles.table} ${styles.ladder}`} aria-label="The agent's alternatives">
           <thead>
             <tr>
@@ -422,7 +423,7 @@ export function AgentAlternatives({
             })}
           </tbody>
         </table>
-      </div>
+      </TableWrap>
       <p className={appStyles.hint} data-testid="whatif-caveat">
         {WHAT_IF_CAVEAT}
       </p>

@@ -46,7 +46,7 @@
 
 .head {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: max(0.98rem, var(--fs-floor-note));
   font-weight: 600;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -57,7 +57,7 @@
   flex-wrap: wrap;
   gap: 4px 14px;
   margin: 0;
-  font-size: 0.82rem;
+  font-size: max(0.82rem, var(--fs-floor-meta));
   line-height: 1.45;
   color: var(--fg-muted);
   overflow-wrap: anywhere;
@@ -65,7 +65,7 @@
 
 .note {
   margin: 0;
-  font-size: 0.86rem;
+  font-size: max(0.86rem, var(--fs-floor-meta));
   line-height: 1.5;
   color: var(--fg-muted);
   overflow-wrap: anywhere;
@@ -83,4 +83,20 @@
 .stripSub {
   display: grid;
   gap: 2px;
+}
+
+/* A 44px hit area on touch screens, the look unchanged (mobile pass, 3 Oct; as .text-link in globals.css). */
+@media (pointer: coarse) {
+  .link {
+    position: relative;
+  }
+  .link::after {
+    content: "";
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: 50%;
+    height: 44px;
+    transform: translateY(-50%);
+  }
 }

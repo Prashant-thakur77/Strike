@@ -43,7 +43,7 @@
 
 .lead {
   max-width: 34em;
-  font-size: 0.88rem;
+  font-size: max(0.88rem, var(--fs-floor-note));
   line-height: 1.45;
   color: var(--fg-muted);
 }

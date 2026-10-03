@@ -69,12 +69,12 @@
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 0.88rem;
+  font-size: max(0.88rem, var(--fs-floor-meta));
   overflow-wrap: anywhere;
 }
 
 .note {
-  font-size: 0.85rem;
+  font-size: max(0.85rem, var(--fs-floor-meta));
   color: var(--fg-muted);
 }
 

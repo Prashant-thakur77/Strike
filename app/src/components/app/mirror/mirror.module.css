@@ -46,7 +46,7 @@
 
 .meta {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: max(0.8rem, var(--fs-floor-meta));
   color: var(--muted-ink);
   overflow-wrap: anywhere;
 }
@@ -98,9 +98,17 @@
   font-weight: 600;
 }
 
+/* Scrolls inside, never the page; the shadow marks the edge with more columns (as app.module.css .tableWrap). */
 .tableWrap {
   max-width: 100%;
   overflow-x: auto;
+  background:
+    linear-gradient(to right, var(--bg, var(--paper)) 40%, transparent) left / 28px 100% no-repeat local,
+    linear-gradient(to left, var(--bg, var(--paper)) 40%, transparent) right / 28px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0, 0, 0, 0.16), transparent) left / 12px 100% no-repeat
+      scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0, 0, 0, 0.16), transparent) right / 12px 100% no-repeat
+      scroll;
 }
 
 .table {
@@ -209,7 +217,7 @@
 .small {
   margin: 0;
   max-width: 60em;
-  font-size: var(--fs-small);
+  font-size: max(var(--fs-small), var(--fs-floor-meta));
   line-height: 1.55;
   color: var(--fg-muted);
 }

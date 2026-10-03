@@ -16,7 +16,7 @@
 }
 
 .leadNote {
-  font-size: 0.9rem;
+  font-size: max(0.9rem, var(--fs-floor-note));
   line-height: 1.45;
   color: var(--fg-muted);
 }
@@ -455,7 +455,7 @@
 }
 
 .tipNote {
-  font-size: 0.72rem;
+  font-size: max(0.72rem, var(--fs-label));
   color: var(--muted-ink);
 }
 
@@ -599,4 +599,11 @@
 
 .sources a {
   overflow-wrap: anywhere;
+}
+
+/* 44px on touch screens (mobile pass, 3 Oct). */
+@media (pointer: coarse) {
+  .viewToggle {
+    min-height: 44px;
+  }
 }

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type PointerEvent } from "react";
-import { breakeven, payoffAt } from "@/lib/payoff";
+import { breakeven, payoffAt, placeLabel } from "@/lib/payoff";
 import styles from "../app.module.css";
+import { TableWrap } from "../TableWrap";
 
 interface PayoffChartProps {
   isCall: boolean;
@@ -100,9 +101,17 @@ export function PayoffChart({
   const yTicks = ticks(yLo, yHi, 6);
   const narrow = width < 480;
 
-  // Labels at the top: the strike's anchored away from the breakeven, the spot's away from the strike.
+  // Labels at the top: the strike's anchored away from the breakeven, the spot's away from the strike, each flipped
+  // to the other side when the preferred one would run it past the chart's edge (a 360px phone cut "Spot now $370.45"
+  // off on the right; mobile pass, 3 Oct).
   const beRight = be >= strike;
   const spotRight = spot >= strike;
+  const strikeText = `Strike ${usd(strike)}`;
+  const beText = `${narrow ? "B/E" : "Breakeven"} ${usd(be)}`;
+  const spotText = `${spotLabel} ${usd(spot)}`;
+  const strikeAt = placeLabel(x(strike), strikeText, beRight ? "end" : "start", width);
+  const beAt = placeLabel(x(be), beText, beRight ? "start" : "end", width);
+  const spotAt = placeLabel(x(spot), spotText, spotRight ? "start" : "end", width);
 
   const last = payoffAt(isCall, strike, isCall ? xHi : xLo, premium);
   const endX = isCall ? xHi : xLo;
@@ -184,31 +193,16 @@ export function PayoffChart({
 
           {/* markers */}
           <line x1={x(strike)} x2={x(strike)} y1={M.top - 8} y2={M.top + h} className={styles.pStrike} />
-          <text
-            x={x(strike) + (beRight ? -6 : 6)}
-            y={M.top - 26}
-            textAnchor={beRight ? "end" : "start"}
-            className={styles.pMark}
-          >
-            Strike {usd(strike)}
+          <text x={strikeAt.x} y={M.top - 26} textAnchor={strikeAt.anchor} className={styles.pMark}>
+            {strikeText}
           </text>
           <line x1={x(be)} x2={x(be)} y1={M.top - 8} y2={M.top + h} className={styles.pBreakeven} />
-          <text
-            x={x(be) + (beRight ? 6 : -6)}
-            y={M.top - 26}
-            textAnchor={beRight ? "start" : "end"}
-            className={styles.pMark}
-          >
-            {narrow ? "B/E" : "Breakeven"} {usd(be)}
+          <text x={beAt.x} y={M.top - 26} textAnchor={beAt.anchor} className={styles.pMark}>
+            {beText}
           </text>
           <line x1={x(spot)} x2={x(spot)} y1={M.top + 4} y2={M.top + h} className={styles.pSpot} />
-          <text
-            x={x(spot) + (spotRight ? 6 : -6)}
-            y={M.top - 10}
-            textAnchor={spotRight ? "start" : "end"}
-            className={styles.pMarkMuted}
-          >
-            {spotLabel} {usd(spot)}
+          <text x={spotAt.x} y={M.top - 10} textAnchor={spotAt.anchor} className={styles.pMarkMuted}>
+            {spotText}
           </text>
 
           {/* series */}
@@ -267,7 +261,7 @@ export function PayoffChart({
       </figcaption>
       <details className={styles.payoffTable}>
         <summary className="micro">Show as a table</summary>
-        <div className={styles.tableWrap}>
+        <TableWrap stack>
           <table className={styles.table}>
             <thead>
               <tr>
@@ -308,7 +302,7 @@ export function PayoffChart({
               })}
             </tbody>
           </table>
-        </div>
+        </TableWrap>
       </details>
     </figure>
   );

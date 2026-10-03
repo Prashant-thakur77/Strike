@@ -67,3 +67,27 @@ export function buyPrice(i: BuyPriceInput, fairValue: FairValue): BuyPrice {
     floorBinds: intrinsic > scaled,
   };
 }
+
+/** About how wide a 12px Inter Tight label is (used only to keep it inside the chart). */
+const labelWidth = (text: string) => text.length * 6.8;
+
+/**
+ * Where a marker's label goes: 6px to the preferred side of the marker at `px`, or to the other side when the
+ * preferred side would cross the chart's edge (and that side fits).
+ */
+export function placeLabel(
+  px: number,
+  text: string,
+  prefer: "start" | "end",
+  width: number,
+): { x: number; anchor: "start" | "end" } {
+  const fits = (side: "start" | "end") =>
+    side === "start" ? px + 6 + labelWidth(text) <= width - 2 : px - 6 - labelWidth(text) >= 2;
+  const side =
+    fits(prefer) || !fits(prefer === "start" ? "end" : "start")
+      ? prefer
+      : prefer === "start"
+        ? "end"
+        : "start";
+  return { x: px + (side === "start" ? 6 : -6), anchor: side };
+}

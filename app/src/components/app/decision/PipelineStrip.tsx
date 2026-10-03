@@ -18,6 +18,7 @@ import {
 } from "@/lib/pipeline";
 import appStyles from "../app.module.css";
 import styles from "./decision.module.css";
+import { TableWrap } from "../TableWrap";
 
 const obj = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -215,7 +216,7 @@ function Ok({ ok, waived, applicable = true }: { ok: unknown; waived?: unknown; 
 
 function Table({ label, head, children }: { label: string; head: string[]; children: ReactNode }) {
   return (
-    <div className={appStyles.tableWrap}>
+    <TableWrap stack>
       <table className={`${appStyles.table} ${styles.ladder}`} aria-label={label}>
         <thead>
           <tr>
@@ -228,7 +229,7 @@ function Table({ label, head, children }: { label: string; head: string[]; child
         </thead>
         <tbody>{children}</tbody>
       </table>
-    </div>
+    </TableWrap>
   );
 }
 
