@@ -97,7 +97,7 @@ export function readmeFacts(root) {
     expiryDay: pick(
       md,
       "expiry day",
-      /The Arbitrum Sepolia and 29 September epochs expire on (Friday \d+ \w+); neither has settled yet/,
+      /The Arbitrum Sepolia and 29 September epochs expired? on (Friday \d+ \w+); neither has settled yet/,
     ),
     reviewIssues: pick(
       md,
