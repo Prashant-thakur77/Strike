@@ -1,0 +1,22 @@
+# Narrator reference clips: sources and licences
+
+These clips are voice prompts for Chatterbox TTS (`audio_prompt_path` in [`../synth.py`](../synth.py)). Each one comes from a source whose licence allows speech-synthesis use, or from the owner with consent. All are 24 kHz mono, 16-bit, trimmed, joined with 0.32 s of silence and normalised to −20 LUFS (peaks ≤ −1 dBFS). They were made on 3 October 2026.
+
+**Rule:** never add a clip of a real person's voice taken from YouTube or any other source without that person's consent or a licence that allows voice synthesis. Reference videos are studied for style numbers only, and their audio is deleted afterwards.
+
+| File | Speaker | Source and utterances | Licence | Attribution needed |
+|---|---|---|---|---|
+| `ljspeech.wav` (15.8 s) | LJSpeech's single reader | [LJ Speech Dataset 1.1](https://keithito.com/LJ-Speech-Dataset/) (Keith Ito and Linda Johnson, 2017), read from the [`MikhailT/lj-speech`](https://huggingface.co/datasets/MikhailT/lj-speech) mirror: LJ001-0123, LJ006-0208, LJ005-0089, LJ001-0098 | Public domain (the dataset page says it is in the public domain in the USA and likely elsewhere; the source texts and LibriVox recordings are public domain) | No; credit it anyway |
+| `librittsr-6241.wav` (17.4 s) | LibriTTS-R speaker 6241 (male, American, labelled "fast"), chapter 61943 | [LibriTTS-R](https://www.openslr.org/141/) dev-clean, read from [`mythicinfinity/libritts_r`](https://huggingface.co/datasets/mythicinfinity/libritts_r): 6241_61943_000033_000001, …000035_000001, …000034_000000, …000038_000000 | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) | Yes, if used in a render |
+| `librittsr-6313.wav` (17.1 s) | LibriTTS-R speaker 6313 (female, American, 70% of utterances labelled "expressive and animated"), chapter 76958 | Same dataset: 6313_76958_000073_000003, …000094_000000, …000084_000000, …000019_000000 | CC BY 4.0 | Yes, if used in a render |
+| `librittsr-7850.wav` (14.8 s) | LibriTTS-R speaker 7850 (female, American), chapter 286674 | Same dataset: 7850_286674_000002_000003, …000006_000004 | CC BY 4.0 | Yes, if used in a render |
+| `owner.wav` (15.1 s) | The project's founder (the repository owner) | Cut from the owner's own founder recording (`~/.cache/strike-founder/raw.mp4`, 9.70–24.78 s: "Now, stock tokens are arriving on chain … makes the strike each week"), high-pass 80 Hz, light FFT denoise (`afftdn=nr=10:nf=-42`), low-pass 11 kHz | Used with the owner's consent, for the owner's own videos only. Not licensed to anyone else. | No |
+
+The current production narrator is `../voice-ref-bright.wav`, Chatterbox's own built-in voice (synthetic, MIT-licensed model), so it needs no attribution beyond crediting Chatterbox.
+
+The speakers were picked on the [Parler-TTS speaker descriptions of LibriTTS-R](https://huggingface.co/datasets/parler-tts/libritts-r-filtered-speaker-descriptions) (CC BY 4.0): speakers with at least 40 utterances, SNR above 40 dB and PESQ above 3.3, ranked by pitch variation, the share of utterances labelled "expressive and animated" and the share labelled "fast". Within each speaker the most expressive utterances of one chapter were used, the liveliest first, because Chatterbox conditions on the first 6 s (prosody) and 10 s (timbre) of the prompt.
+
+## Attribution text (for `docs/media/CREDITS.md`, only when a clip is used in a render)
+
+- **LJSpeech:** "Narrator voice prompted with clips from the LJ Speech Dataset (Keith Ito and Linda Johnson, 2017), public domain."
+- **LibriTTS-R:** "Narrator voice prompted with clips of LibriTTS-R speaker <id> (Y. Koizumi et al., 'LibriTTS-R: A Restored Multi-Speaker Text-to-Speech Corpus', Interspeech 2023; derived from LibriTTS by H. Zen et al. and LibriVox recordings), licensed under CC BY 4.0, https://creativecommons.org/licenses/by/4.0/. Clips were trimmed, joined and loudness-normalised."

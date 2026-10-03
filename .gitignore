@@ -65,3 +65,9 @@ docs/research-final-week.md
 
 # forge run from the repo root (fuzz failure cache)
 /cache/
+
+# Founder voice reference (never public) and unchosen music candidates (local only)
+video/narration/refs/owner.wav
+video/music/*.mp3
+video/music/*.ogg
+video/music/*.wav

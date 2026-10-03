@@ -92,7 +92,10 @@ export function timeline(scenes, narr, defaults = {}) {
     const lines = (s.lines ?? []).map((l, i) => {
       const take = takes[i];
       if (!take) throw new Error(`no narration for ${s.id} line ${i}`);
-      if (i > 0) t += gap;
+      // D.gapAfter (opt-in, e.g. { "?": 0.75, ".": 0.6, ";": 0.4 }): the gap follows how the previous line ends, so
+      // pauses vary as in a human read instead of one fixed gap (targets: .internal/docs/reference-videos.md).
+      // A scene's own `gap` still wins; `pre` on a line adds a held pause before a reveal.
+      if (i > 0) t += s.gap ?? D.gapAfter?.[s.lines[i - 1].text.trim().slice(-1)] ?? gap;
       t += l.pre ?? 0;
       const start = t;
       t += take.dur;
