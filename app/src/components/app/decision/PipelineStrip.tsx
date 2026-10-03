@@ -96,6 +96,7 @@ export function PipelineStrip({
           </li>
         ))}
       </ol>
+      <RunLine stages={p.stages} />
       {stages[open] ? <StageCard stage={stages[open]!} pipeline={p} record={r} chainId={chainId} /> : null}
     </div>
   );
@@ -506,5 +507,22 @@ function ContractBody({ st, chainId }: { st: Stage; chainId: number }) {
         </p>
       ) : null}
     </>
+  );
+}
+
+/** How the run was spent, from the record's own timings: time per stage and who ran each. Token use is not recorded. */
+function RunLine({ stages }: { stages: Stage[] }) {
+  const ran = stages.filter((x) => x.verdict !== "not-run");
+  const total = ran.reduce((t, x) => t + (x.durationMs ?? 0), 0);
+  const by = (k: string) => ran.filter((x) => x.by === k).length;
+  const claude = stages.find((x) => x.narration)?.narration?.label ?? null;
+  return (
+    <p className={appStyles.hint} data-testid="pipeline-run">
+      {ran.length} of {stages.length} stage{stages.length === 1 ? "" : "s"} ran, {ms(total)} in all (
+      {ran.map((x) => `${STAGE_LABEL[x.stage] ?? x.stage} ${ms(x.durationMs)}`).join(", ") || "none"}); agent
+      code ran {by("rule")}, Claude {by("claude")}
+      {claude ? ` (${claude})` : ""}, the contract {by("contract")}. The record does not carry token counts,
+      so none are shown.
+    </p>
   );
 }

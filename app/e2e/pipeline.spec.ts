@@ -187,7 +187,10 @@ test("an as-if-open dry run: the risk table, the critic's rules and confidence, 
 
 test("the Claude-planned dry run keeps Claude's words in a narration box", async ({ page }) => {
   await openDry(page, 46630, CLAUDE);
-  await page.getByTestId("pipeline-chip").nth(2).click();
+  const chips = page.getByTestId("pipeline-chip");
+  await expect(page.getByTestId("pipeline-run")).toContainText("Claude 1");
+  await expect(page.getByTestId("pipeline-run")).toContainText("does not carry token counts");
+  await chips.nth(2).click();
   await expect(page.getByTestId("pipeline-stage")).toContainText("by Claude");
   await expect(page.getByTestId("pipeline-narration")).toContainText("Claude's words, not a computed number");
 });
