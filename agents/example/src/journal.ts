@@ -14,6 +14,9 @@ import {
   txUrl,
 } from "./record.js";
 import { markChosen } from "./candidates.js";
+import type { PipelineStage } from "./pipeline.js";
+import type { Alternative, Confidence } from "./specialists/critic.js";
+import type { Contradiction } from "./specialists/market.js";
 import type { AgentStats, ProposeResult, RiskCheck, VaultState } from "./types.js";
 
 /**
@@ -33,6 +36,13 @@ export class Journal {
   readonly transactions: RecordTx[] = [];
   result: RecordResult | null = null;
   track: RecordTrack | null = null;
+  /** The specialist pipeline (propose runs); see src/specialists/run.ts. */
+  pipeline: PipelineStage[] | null = null;
+  alternatives: Alternative[] | null = null;
+  confidence: Confidence | null = null;
+  contradictions: Contradiction[] | null = null;
+  /** Set on a --dry-run: labels the record and its file name. */
+  run: DecisionRecord["run"] | null = null;
 
   constructor(
     readonly action: RecordAction,
@@ -64,13 +74,22 @@ export class Journal {
     this.chosenPlan = { targetDeltaBps: plan.targetDeltaBps, premiumBps: plan.premiumBps };
   }
 
-  /** The decision with its candidates (Claude's calls, then the ladder), or the decision as it is. */
+  /**
+   * The decision with its candidates (Claude's calls, then the ladder) and, for a pipeline run, the stages, the
+   * alternatives, the computed confidence and the contradictions checked. Fields with nothing to say are left out, so
+   * a record without them is byte-for-byte what older agents wrote.
+   */
   private decisionWithCandidates(): RecordDecision | null {
     const d = this.decision;
     if (!d) return null;
     const all = [...this.plannerCandidates, ...this.ladderCandidates];
-    if (all.length === 0) return d;
-    return { ...d, candidates: this.chosenPlan ? markChosen(all, this.chosenPlan) : all };
+    const out: RecordDecision = { ...d };
+    if (all.length > 0) out.candidates = this.chosenPlan ? markChosen(all, this.chosenPlan) : all;
+    if (this.pipeline && this.pipeline.length > 0) out.pipeline = this.pipeline;
+    if (this.alternatives && this.alternatives.length > 0) out.alternatives = this.alternatives;
+    if (this.pipeline && this.pipeline.length > 0) out.confidence = this.confidence;
+    if (this.contradictions && this.contradictions.length > 0) out.contradictions = this.contradictions;
+    return out;
   }
 
   /** Add a note to the decision (a mandate-guard correction, a fallback, a suggestion taken). */
@@ -134,6 +153,7 @@ export class Journal {
       transactions: this.transactions,
       result,
       trackRecord: this.track,
+      ...(this.run ? { run: this.run } : {}),
     };
   }
 }

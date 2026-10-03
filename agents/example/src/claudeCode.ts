@@ -6,7 +6,14 @@ import { delimiter, join } from "node:path";
 import { getDefaultEnvironment } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { z } from "zod";
 import { type PlannerCall, cleanError } from "./candidates.js";
-import { CLAUDE_MODEL, type Narrate, PLANNING_TOOLS, planSchema, planningSystem } from "./llm.js";
+import {
+  CLAUDE_MODEL,
+  type Narrate,
+  PLANNING_TOOLS,
+  planSchema,
+  plannerPrompt,
+  planningSystem,
+} from "./llm.js";
 import type { Plan } from "./strategy.js";
 
 // The Claude Code planner: the same planning job as planWithClaude (llm.ts), run by the `claude` CLI in print mode,
@@ -48,6 +55,8 @@ export interface ClaudeCodeOptions {
   env?: NodeJS.ProcessEnv;
   /** Called with each `risk_check` Claude Code made (arguments and result), for the decision record. */
   capture?: (call: PlannerCall) => void;
+  /** The specialists' computed facts to plan from (llm.ts plannerPrompt). */
+  context?: string;
   /** For tests. */
   spawn?: typeof nodeSpawn;
 }
@@ -375,7 +384,10 @@ export async function planWithClaudeCode(opts: ClaudeCodeOptions): Promise<Claud
       model: requested,
       maxTurns: opts.maxTurns ?? CLAUDE_CODE_MAX_TURNS,
     });
-    const prompt = `Plan this week's proposal for vault ${opts.vault}. Start with vault_state, dry-run with risk_check, then hand back the plan.`;
+    const prompt = plannerPrompt(
+      `Plan this week's proposal for vault ${opts.vault}. Start with vault_state, dry-run with risk_check, then hand back the plan.`,
+      opts.context,
+    );
 
     const exe = opts.claudePath ?? claudeExecutable(env);
     const spawn = opts.spawn ?? nodeSpawn;

@@ -2,6 +2,9 @@ import { existsSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { getStrikeChain, strikeExplorerUrl } from "@strike/sdk";
+import { type PipelineStage, STAGE_TITLES, isNotProvided } from "./pipeline.js";
+import type { Alternative, Confidence } from "./specialists/critic.js";
+import type { Contradiction } from "./specialists/market.js";
 import type { MandateView } from "./types.js";
 
 // The agent's decision record: what it saw, what it decided and why, what it sent and what happened. `--log <dir>`
@@ -105,6 +108,22 @@ export interface RecordDecision {
    * when nothing was dry-run. The record hash covers it like every other field.
    */
   candidates?: RecordCandidate[];
+  /**
+   * The specialist pipeline of a propose run: market analyst, risk analyst, strike planner, critic and contract, in
+   * the order they ran, each with its inputs, output, verdict, sources, duration and who did it (src/pipeline.ts). A
+   * stage the run never reached is "not-run" with the reason. Absent in older records and in reckless and settle runs.
+   * Part of the hashed JSON like every other field.
+   */
+  pipeline?: PipelineStage[];
+  /**
+   * What the week could have been, with the model numbers it is graded on at settlement: the chosen strike, kept cash,
+   * half the size, one ladder step nearer to spot and one farther (src/specialists/critic.ts).
+   */
+  alternatives?: Alternative[];
+  /** Computed, not self-reported: the model odds that the chosen option expires worthless. */
+  confidence?: Confidence | null;
+  /** Inputs that should agree, compared: the mirror against the mainnet print, the MCP's spot against the oracle's. */
+  contradictions?: Contradiction[];
 }
 
 /**
@@ -156,6 +175,11 @@ export interface RecordResult {
   fee?: string;
   /** Who sent the settlement: this agent, or the keeper (or anyone) before it ran. */
   settledBy?: "agent" | "keeper";
+  /**
+   * A no-trade decision (status "not-sent"): the specialist that stopped the run and its reasons, e.g. the market
+   * analyst's "market closed until Mon 5 Oct 13:30 UTC" or a critic veto.
+   */
+  noTrade?: { stage: string; reasons: string[] };
 }
 
 export interface RecordTrack {
@@ -213,6 +237,11 @@ export interface DecisionRecord {
   trackRecord: RecordTrack | null;
   /** Present when the record was anchored on-chain (`--anchor`). */
   anchor?: RecordAnchor;
+  /**
+   * Present on a `--dry-run` record only: nothing was sent and the record is not anchored. `ignoreSession` marks a run
+   * evaluated as if the NYSE were open (`--ignore-session`), which the agent never allows with a send.
+   */
+  run?: { dryRun: true; ignoreSession: boolean; note: string };
 }
 
 /** The chain's block explorer base URL from strike.config.json, or null (local devnet, unknown chain). */
@@ -235,10 +264,14 @@ export function chainName(chainId: number): string {
   }
 }
 
-/** File name (without extension) of a record: `<YYYY-MM-DD>-<vault symbol>`. */
-export function recordBaseName(record: Pick<DecisionRecord, "date" | "vault">): string {
+/**
+ * File name (without extension) of a record: `<YYYY-MM-DD>-<vault symbol>`, with `-dry-run` (or `-as-if-open-dry-run`
+ * for `--ignore-session`) for a dry run.
+ */
+export function recordBaseName(record: Pick<DecisionRecord, "date" | "vault" | "run">): string {
   const symbol = record.vault.symbol.replace(/[^A-Za-z0-9._-]/g, "_");
-  return `${record.date}-${symbol}`;
+  const suffix = record.run ? (record.run.ignoreSession ? "-as-if-open-dry-run" : "-dry-run") : "";
+  return `${record.date}-${symbol}${suffix}`;
 }
 
 const pct = (bps: number) => `${(bps / 100).toFixed(2).replace(/\.?0+$/, "")}%`;
@@ -359,9 +392,172 @@ function candidatesSection(d: RecordDecision | null): string[] {
   return lines;
 }
 
+const VERDICT_TEXT: Record<PipelineStage["verdict"], string> = {
+  pass: "PASS",
+  modify: "MODIFY",
+  fail: "FAIL",
+  "not-run": "NOT RUN",
+};
+const BY_TEXT: Record<PipelineStage["by"], string> = {
+  rule: "agent code",
+  claude: "Claude",
+  contract: "the contract",
+};
+const share = (x: number) => `${(x * 100).toFixed(1)}%`;
+type Obj = Record<string, unknown>;
+const asObj = (v: unknown): Obj => (typeof v === "object" && v !== null ? (v as Obj) : {});
+const asArr = (v: unknown): Obj[] => (Array.isArray(v) ? (v as Obj[]) : []);
+const msText = (ms: number) => (ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`);
+
+/** The lines under one stage: its checks, rows, choice, rules, narration and sources. */
+function stageDetails(st: PipelineStage): string[] {
+  const out: string[] = [];
+  const o = st.output;
+  if (st.stage === "market") {
+    for (const c of asArr(o.checks)) {
+      const state = c.ok ? "ok" : c.waived ? "failed, waived by --ignore-session (dry run)" : "failed";
+      out.push(`${String(c.check)}: ${String(c.measured)}; limit: ${String(c.limit)} (${state})`);
+    }
+    if (isNotProvided(o.mainnet)) out.push(`mainnet Chainlink print: not provided (${o.mainnet.reason})`);
+  } else if (st.stage === "risk") {
+    for (const r of asArr(o.rows)) {
+      if (r.targetDeltaBps === null || r.targetDeltaBps === undefined) continue;
+      const head = `${deltaText(Number(r.targetDeltaBps))} delta`;
+      if (typeof r.error === "string") {
+        out.push(`${head}: could not be dry-run (${oneLine(r.error)})`);
+        continue;
+      }
+      const parts = [
+        `strike $${String(r.strike)}`,
+        r.ok ? "inside the mandate" : `outside the mandate (${code(String(r.reason))})`,
+        r.yieldBps !== null ? `yield ${pct(Number(r.yieldBps))}` : null,
+        typeof r.exerciseProbability === "number"
+          ? `model P(exercise) ${share(r.exerciseProbability)}`
+          : null,
+        r.breakEven
+          ? `break-even $${String(r.breakEven)} (${share(Number(r.breakEvenDistance))} from spot)`
+          : null,
+      ].filter((x): x is string => x !== null);
+      const stress = asObj(r.stress);
+      parts.push(
+        isNotProvided(stress)
+          ? `stress not provided (${oneLine(stress.reason)})`
+          : `worst ±30% payout $${String(stress.worstLossUsd)} (${share(Number(stress.shareOfCollateral))} of collateral)`,
+      );
+      const g = asObj(r.greeks);
+      if (!isNotProvided(g) && typeof g.delta === "number")
+        parts.push(
+          `greeks per option: delta ${g.delta.toFixed(4)}, gamma ${Number(g.gamma).toFixed(5)}, vega ${Number(g.vega).toFixed(3)}, theta ${Number(g.theta).toFixed(3)} a day`,
+        );
+      out.push(`${head}: ${parts.join(", ")}`);
+    }
+    const engine = asObj(o.engine);
+    out.push(
+      isNotProvided(engine)
+        ? `Risk engine: not provided (${engine.reason})`
+        : `Risk engine: ${code(String(engine.address))} (${String(engine.via)})`,
+    );
+  } else if (st.stage === "planner") {
+    if (typeof o.targetDeltaBps === "number")
+      out.push(
+        `Chose ${deltaText(o.targetDeltaBps)} delta at ${pct(Number(o.premiumBps))} of fair value${o.strike ? `, strike $${String(o.strike)}` : ""}${o.size ? `, ${shortDecimal(String(o.size))} options` : ""}`,
+      );
+  } else if (st.stage === "critic") {
+    for (const m of asArr(o.modifications))
+      out.push(
+        `MODIFY ${String(m.field)}: ${String(m.before)} to ${String(m.after)} (${oneLine(String(m.reason))})`,
+      );
+    for (const r of asArr(o.rules)) {
+      const state = r.ok ? (r.applicable === false ? "not applicable" : "ok") : "VETO";
+      out.push(`${String(r.rule)}: ${oneLine(String(r.measured))}; limit: ${String(r.limit)} (${state})`);
+    }
+    const c = asObj(o.confidence);
+    if (typeof c.worthlessProbability === "number")
+      out.push(
+        `Model odds the option expires worthless: ${share(c.worthlessProbability)} (${oneLine(String(c.basis))})`,
+      );
+  }
+  if (st.sources.length) {
+    const src = st.sources.map(
+      (x) =>
+        `${x.name}${x.address ? ` at ${code(x.address)}` : ""}${x.chainId ? ` (chain ${x.chainId})` : ""}`,
+    );
+    out.push(`Sources: ${src.join(", ")}`);
+  }
+  return out;
+}
+
+/** The specialist pipeline, one list item per stage (empty when the record has none). */
+function pipelineSection(d: RecordDecision | null): string[] {
+  const stages = d?.pipeline ?? [];
+  if (stages.length === 0) return [];
+  const lines = [
+    "Each specialist has its own inputs and tools; every number below was computed from those tools. Claude's words, where present, are labelled as narration.",
+    "",
+  ];
+  for (const st of stages) {
+    const meta = st.verdict === "not-run" ? "" : ` (${BY_TEXT[st.by]}, ${msText(st.durationMs)})`;
+    lines.push(
+      `- **${STAGE_TITLES[st.stage]}${st.attempt > 1 ? ` (attempt ${st.attempt})` : ""}**${meta}: ${VERDICT_TEXT[st.verdict]}. ${oneLine(st.summary)}`,
+    );
+    for (const l of stageDetails(st)) lines.push(`  - ${oneLine(l)}`);
+    if (st.narration) {
+      lines.push(`  - Narration by ${st.narration.label} (Claude's words, not a computed number):`, "");
+      for (const l of st.narration.text.trim().split("\n"))
+        lines.push(l.trim() ? `    > ${l.trimEnd()}` : "    >");
+      lines.push("");
+    }
+  }
+  if (lines.at(-1) === "") lines.pop();
+  return lines;
+}
+
+/** The alternatives to grade at settlement, and the contradictions checked. */
+function alternativesSection(d: RecordDecision | null): string[] {
+  const alts = d?.alternatives ?? [];
+  if (alts.length === 0) return [];
+  const lines: string[] = [
+    "Model numbers for what the week could have been, to grade against the settlement price:",
+    "",
+  ];
+  for (const a of alts) {
+    if (!a.available) {
+      lines.push(`- **${a.name}:** not available (${a.reason ?? "no numbers"})`);
+      continue;
+    }
+    const parts = [
+      a.strike ? `strike $${a.strike}` : "no option sold",
+      `${shortDecimal(a.size)} options`,
+      `premium $${a.premiumIncomeUsd}`,
+      a.breakEven ? `break-even $${a.breakEven}` : null,
+      a.exerciseProbability !== null ? `model P(exercise) ${share(a.exerciseProbability)}` : null,
+      a.stressLossUsd !== null ? `worst ±30% payout $${a.stressLossUsd}` : null,
+    ].filter((x): x is string => x !== null);
+    lines.push(
+      `- **${a.name}${a.taken ? " (what the agent did)" : ""}:** ${parts.join(", ")}. Source: ${oneLine(a.source)}.`,
+    );
+  }
+  const cs = d?.contradictions ?? [];
+  if (cs.length) {
+    lines.push("", "Inputs that should agree, compared:", "");
+    for (const c of cs)
+      lines.push(
+        `- ${c.between.join(" against ")}: ${c.agree ? "agree" : "DISAGREE"}. ${oneLine(c.measured)} (limit: ${c.limit}).`,
+      );
+  }
+  return lines;
+}
+
+/** "No trade" for a no-trade decision, else the status's title. */
+const resultTitle = (r: RecordResult) => (r.noTrade ? "No trade" : STATUS_TITLE[r.status]);
+
 function resultSection(r: RecordResult): string[] {
-  const lines = [`**${STATUS_TITLE[r.status]}.** ${oneLine(r.summary)}`];
+  const lines = [`**${resultTitle(r)}.** ${oneLine(r.summary)}`];
   const facts: string[] = [];
+  if (r.noTrade)
+    facts.push(
+      `- **Stopped by:** the ${(STAGE_TITLES[r.noTrade.stage as PipelineStage["stage"]] ?? r.noTrade.stage).toLowerCase()} (${r.noTrade.reasons.map(oneLine).join("; ")})`,
+    );
   if (r.seriesId) facts.push(`- **Series:** ${code(r.seriesId)}`);
   if (r.strike) facts.push(`- **Strike:** $${r.strike}`);
   if (r.expiryIso) facts.push(`- **Expiry:** ${r.expiryIso}`);
@@ -394,12 +590,13 @@ function trackSection(t: RecordTrack | null): string[] {
 export function formatRecordMarkdown(r: DecisionRecord): string {
   const v = r.vault;
   const lines = [
-    `# ${v.symbol} ${ACTION_TITLE[r.action]}, ${r.date}`,
+    `# ${v.symbol} ${ACTION_TITLE[r.action]}${r.run ? " (dry run)" : ""}, ${r.date}`,
     "",
+    ...(r.run ? [`**Dry run.** ${r.run.note}`, ""] : []),
     `- **Date:** ${r.date} (chain time ${r.chainTimeIso})`,
     `- **Chain:** ${r.chain.name} (${r.chain.id})`,
     `- **Agent:** ${r.agent.agentId ? `#${r.agent.agentId}` : "unknown"}${r.agent.signer ? `, signer ${code(r.agent.signer)}` : ""}`,
-    `- **Result:** ${STATUS_TITLE[r.result.status].toLowerCase()}`,
+    `- **Result:** ${resultTitle(r.result).toLowerCase()}`,
     "",
     "## Vault and mandate",
     "",
@@ -419,6 +616,10 @@ export function formatRecordMarkdown(r: DecisionRecord): string {
     "",
     ...dryRunSection(r.dryRun),
     "",
+    ...(r.decision?.pipeline?.length ? ["## Specialists", "", ...pipelineSection(r.decision), ""] : []),
+    ...(r.decision?.alternatives?.length
+      ? ["## Alternatives to grade at settlement", "", ...alternativesSection(r.decision), ""]
+      : []),
     ...(r.decision?.candidates?.length
       ? ["## Alternatives it dry-ran", "", ...candidatesSection(r.decision), ""]
       : []),

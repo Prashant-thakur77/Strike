@@ -45,6 +45,19 @@ The protocol's own guide for agents follows.
 ${skill}`;
 }
 
+/**
+ * The planning request, with the specialists' facts when there are any: the market analyst's brief and the risk
+ * analyst's table, computed from tools. Claude chooses from them; the critic then checks its choice.
+ */
+export function plannerPrompt(base: string, context?: string): string {
+  if (!context) return base;
+  return `${base}
+
+The agent's market analyst and risk analyst already measured this week with the same read-only tools and the risk engine contract. Their results follow as JSON (computed, not estimated). Choose a rung inside the mandate (ok: true), weighing yield against the model probability of exercise, the break-even distance and the ±30% stress share of collateral. An independent critic re-checks your choice before anything is sent.
+
+${context}`;
+}
+
 /** The structured result of an MCP tool call, or the JSON in its text. Null when there is neither. */
 export function toolResultData(res: { structuredContent?: unknown; content?: unknown }): unknown {
   if (res.structuredContent !== undefined && res.structuredContent !== null) return res.structuredContent;
@@ -108,6 +121,8 @@ export async function planWithClaude(opts: {
   narrate: Narrate;
   /** Called with each `risk_check` Claude makes (arguments and result), for the decision record. */
   capture?: (call: PlannerCall) => void;
+  /** The specialists' computed facts (market brief, risk table) to plan from; see {@link plannerPrompt}. */
+  context?: string;
 }): Promise<Plan | null> {
   const anthropic = new Anthropic();
   const { tools } = await opts.mcp.listTools();
@@ -145,7 +160,10 @@ export async function planWithClaude(opts: {
     messages: [
       {
         role: "user",
-        content: `Plan this week's proposal for vault ${opts.vault}. Start with vault_state, dry-run with risk_check, then submit_plan.`,
+        content: plannerPrompt(
+          `Plan this week's proposal for vault ${opts.vault}. Start with vault_state, dry-run with risk_check, then submit_plan.`,
+          opts.context,
+        ),
       },
     ],
     max_iterations: 12,

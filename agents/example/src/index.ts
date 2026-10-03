@@ -10,27 +10,25 @@ import {
   readClient,
   settleWait,
 } from "./chain.js";
-import { describeCandidate, type PlannerCall, plannerCandidates, runLadder } from "./candidates.js";
+import type { PlannerCall } from "./candidates.js";
 import { Journal, marketInputs } from "./journal.js";
 import { type PlannerMcp, planWithClaudeCode } from "./claudeCode.js";
 import { CLAUDE_MODEL, describeClaudeError, planWithClaude } from "./llm.js";
 import { type StrikeMcp, connectStrikeMcp, strikeMcpCommand } from "./mcp.js";
 import { joinStrike, parseBond, parseVaultSpec } from "./onboard.js";
+import { readMarket as readMarketReads } from "./specialists/market.js";
+import { riskEngineFor } from "./specialists/risk.js";
+import { type ClaudePlan, type PipelineOutcome, runPipeline } from "./specialists/run.js";
 import { type PlannerKind, parsePlanner, plannerLabel, selectPlanner } from "./planner.js";
 import { type RecordAction, type RecordAnchorer, txUrl, writeRecord } from "./record.js";
 import {
   DEFAULT_TARGET_DELTA,
   PROFILES,
-  type Plan,
   type Profile,
   atTheMoneyStrike,
-  capSize,
-  deterministicPlan,
-  enforceMandate,
   parseProfile,
   pickVault,
   profileLabel,
-  profilePlan,
 } from "./strategy.js";
 import type {
   AgentStats,
@@ -46,7 +44,10 @@ const HELP = `Strike example agent: picks a weekly strike through the Strike MCP
 
 Usage: pnpm --filter @strike/agent-example start [options]
 
-  (default)          Propose this epoch's option at 0.20 delta, after a dry run.
+  (default)          Propose this epoch's option through the specialist pipeline: the market analyst
+                     (go / no-go), the risk analyst (ladder, greeks, ±30% stress), the strike planner
+                     (0.20 delta by default), the critic (can modify inside the mandate or veto), then
+                     the contract. A no-go or a veto is a recorded no-trade decision (exit 0).
   --reckless         Propose an at-the-money strike with force: true to show the contract
                      rejecting it and slashing the agent's bond.
   --llm              Let Claude choose the target delta and premium factor; falls back to the
@@ -54,8 +55,12 @@ Usage: pnpm --filter @strike/agent-example start [options]
                      Claude Code CLI (\`claude\`, logged in with a Claude subscription, or
                      CLAUDE_CODE_OAUTH_TOKEN from \`claude setup-token\`).
   --planner <p>      With --llm: force the planner, api or claude-code.
-  --dry-run          Propose run up to the final dry run, then stop: nothing is sent (works
-                     without STRIKE_AGENT_PRIVATE_KEY).
+  --dry-run          Propose run through every specialist, then stop: nothing is sent (works
+                     without STRIKE_AGENT_PRIVATE_KEY). With --log the record is named
+                     <date>-<symbol>-dry-run and says it is a dry run.
+  --ignore-session   With --dry-run only: evaluate as if the NYSE were open, so the specialists after
+                     the market analyst run on a weekend. The record says so (its name ends in
+                     -as-if-open-dry-run). Never allowed with a send.
   --settle           Settle the vault's expired series. Nothing is sent and no decision record is
                      written before expiry (exit 0), or after it while the price feed has no
                      round at or after expiry (exit 75, "try again later").
@@ -185,24 +190,18 @@ function plannerMcp(): PlannerMcp {
   return url ? { kind: "http", url } : { kind: "stdio", ...strikeMcpCommand() };
 }
 
-/** Ask Claude (through the API or Claude Code) for a plan; null with a note when there is none. */
-async function planWithLlm(
+/** Ask Claude for a plan, given the specialists' context (the market brief and the risk table). */
+async function planWithClaudeFor(
   mcp: StrikeMcp,
   state: VaultState,
   opts: DecideOptions,
   log: Narrator,
-  notes: string[],
-  calls: PlannerCall[],
-): Promise<{ plan: Plan; kind: PlannerKind; model: string } | null> {
+  context: string,
+): Promise<ClaudePlan> {
+  const calls: PlannerCall[] = [];
   const choice = selectPlanner(opts.planner);
-  if (!choice.kind) {
-    log.say(`Claude is unavailable (${choice.reason}); using the default strategy.`);
-    notes.push(`Claude was unavailable (${choice.reason}); the agent used the default strategy.`);
-    return null;
-  }
+  if (!choice.kind) return { plan: null, reason: `Claude is unavailable: ${choice.reason}`, calls };
   const kind = choice.kind;
-  const via = kind === "api" ? "the Claude API" : "the Claude Code CLI";
-  log.step(`Ask Claude for this epoch's plan (via ${via})`);
   const skill = await mcp.client.readResource({ uri: "strike://skill" });
   const text = skill.contents.map((c) => ("text" in c ? c.text : "")).join("\n");
   const narrate = (l: string) => log.say(l);
@@ -214,11 +213,11 @@ async function planWithLlm(
       mcp: plannerMcp(),
       model: process.env.STRIKE_CLAUDE_CODE_MODEL?.trim() || undefined,
       capture: (c) => calls.push(c),
+      context,
     });
-    if (res.plan) return { plan: res.plan, kind, model: res.model };
-    log.say(`Claude Code gave no plan (${res.reason}); using the default strategy.`);
-    notes.push(`Claude Code gave no plan (${res.reason}); the agent used the default strategy.`);
-    return null;
+    if (res.plan)
+      return { plan: res.plan, kind, model: res.model, label: plannerLabel(kind, res.model), calls };
+    return { plan: null, reason: `Claude Code gave no plan (${res.reason})`, calls };
   }
   try {
     const plan = await planWithClaude({
@@ -227,91 +226,26 @@ async function planWithLlm(
       skill: text,
       narrate,
       capture: (c) => calls.push(c),
+      context,
     });
-    if (plan) return { plan, kind, model: CLAUDE_MODEL };
-    log.say("Claude submitted no plan; using the default strategy.");
-    notes.push("Claude submitted no plan; the agent used the default strategy.");
+    if (plan) return { plan, kind, model: CLAUDE_MODEL, label: plannerLabel(kind, CLAUDE_MODEL), calls };
+    return { plan: null, reason: "Claude submitted no plan", calls };
   } catch (err) {
-    log.say(`Claude is unavailable (${describeClaudeError(err)}); using the default strategy.`);
-    notes.push(`Claude was unavailable (${describeClaudeError(err)}); the agent used the default strategy.`);
+    return { plan: null, reason: `Claude is unavailable (${describeClaudeError(err)})`, calls };
   }
-  return null;
-}
-
-async function decide(
-  mcp: StrikeMcp,
-  state: VaultState,
-  opts: DecideOptions,
-  log: Narrator,
-  journal: Journal,
-): Promise<Plan> {
-  const mandate = state.vault.mandate;
-  const notes: string[] = [];
-  const calls: PlannerCall[] = [];
-  const llm = opts.llm ? await planWithLlm(mcp, state, opts, log, notes, calls) : null;
-  // Whatever Claude dry-ran is recorded, even when it then gave no plan: those reads happened.
-  if (calls.length > 0) journal.plannerDryRuns(plannerCandidates(calls, mandate, state.blockTimeIso));
-  if (llm) {
-    const { plan: enforced, adjustments } = enforceMandate(llm.plan, mandate);
-    const label = plannerLabel(llm.kind, llm.model);
-    for (const a of adjustments) log.say(`Mandate guard in the agent code adjusted Claude's plan: ${a}`);
-    log.say(
-      `Claude's plan: ${delta(enforced.targetDeltaBps)} delta at ${pct(enforced.premiumBps)} of fair value (${label})`,
-    );
-    log.say(`Why: ${enforced.reasoning}`);
-    journal.decided({
-      strategy: "claude",
-      targetDeltaBps: enforced.targetDeltaBps,
-      premiumBps: enforced.premiumBps,
-      reasoning: enforced.reasoning,
-      notes: [
-        `${label}.`,
-        ...adjustments.map((a) => `Mandate guard in the agent code adjusted Claude's plan: ${a}.`),
-      ],
-      planner: { kind: llm.kind, model: llm.model, label },
-    });
-    return enforced;
-  }
-  const profile = opts.profile;
-  const named = profile.name !== "default";
-  log.step(`Choose the target delta${named ? ` (profile: ${profile.name})` : ""}`);
-  const plan = named ? profilePlan(profile, mandate) : deterministicPlan(mandate, opts.targetDelta);
-  log.say(plan.reasoning);
-  journal.decided({
-    strategy: "default",
-    targetDeltaBps: plan.targetDeltaBps,
-    premiumBps: plan.premiumBps,
-    reasoning: plan.reasoning,
-    notes,
-    planner: { kind: "rule", model: profile.name, label: profileLabel(profile) },
-  });
-  return plan;
 }
 
 /**
- * Dry-run the ladder: the final plan's premium factor at several target deltas across the mandate's band and a little
- * beyond each edge, through the read-only `risk_check`. The journal keeps the contract's verdict for each, so the
- * record shows the strikes the agent passed over, not only the one it chose. Never stops the run.
+ * A propose run: the specialist pipeline (src/specialists/run.ts), then propose_epoch unless a stage stopped the run
+ * or it is a dry run. Returns the pipeline's outcome; a no-trade decision is an outcome, not an error.
  */
-async function dryRunLadder(mcp: StrikeMcp, state: VaultState, plan: Plan, log: Narrator, journal: Journal) {
-  log.step("Dry-run the alternatives (ladder across the mandate's delta band)");
-  try {
-    const rungs = await runLadder({
-      call: (args) => mcp.call<RiskCheck>("risk_check", { vault: state.vault.address, ...args }),
-      mandate: state.vault.mandate,
-      blockTimeIso: state.blockTimeIso,
-      premiumBps: plan.premiumBps,
-      chosenDeltaBps: plan.targetDeltaBps,
-    });
-    journal.ladderDryRuns(rungs);
-    for (const c of rungs)
-      log.say(describeCandidate({ ...c, chosen: c.targetDeltaBps === plan.targetDeltaBps }));
-  } catch (err) {
-    log.say(`The ladder could not be dry-run (${String(err)}); the record keeps only the chosen dry run.`);
-  }
-}
-
-async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: Narrator, journal: Journal) {
+async function propose(
+  mcp: StrikeMcp,
+  vault: string,
+  opts: DecideOptions & { ignoreSession: boolean },
+  log: Narrator,
+  journal: Journal,
+): Promise<PipelineOutcome> {
   const state = await readVault(mcp, vault, log, journal);
   if (state.vault.epochState === "Selling") {
     const message = `${state.vault.symbol} is already selling this week's series; settle it after expiry first`;
@@ -319,96 +253,36 @@ async function propose(mcp: StrikeMcp, vault: string, opts: DecideOptions, log: 
     throw new Error(message);
   }
   if (!state.agent.active) throw new Error(`agent #${state.agent.agentId} cannot propose (bond or strikes)`);
-
-  let plan = await decide(mcp, state, opts, log, journal);
-
-  log.step("Compute the strike (risk_check suggestion)");
-  let check = await mcp.call<RiskCheck>("risk_check", {
-    vault,
-    targetDeltaBps: plan.targetDeltaBps,
-    premiumBps: plan.premiumBps,
-  });
-  const kind = check.isCall ? "call" : "put";
-  log.say(
-    `At spot $${check.spot}, a ${delta(plan.targetDeltaBps)}-delta ${kind} expiring ${check.proposal.expiryIso} strikes at $${check.proposal.strike}.`,
+  const env = chainEnv(journal.chainId);
+  const outcome = await runPipeline(
+    {
+      llm: opts.llm,
+      profile: opts.profile,
+      targetDelta: opts.targetDelta,
+      dryRun: opts.dryRun === true,
+      ignoreSession: opts.ignoreSession,
+    },
+    {
+      state,
+      journal,
+      riskCheck: (args) => mcp.call<RiskCheck>("risk_check", args),
+      readMarket: () => readMarketReads(readClient(env), state.vault.address, state.spot.price, env),
+      riskEngine: (spotWad) => riskEngineFor(readClient(env), { spot: spotWad }),
+      planClaude: opts.llm ? (context) => planWithClaudeFor(mcp, state, opts, log, context) : undefined,
+      propose: opts.dryRun ? undefined : (args) => mcp.call<ProposeResult>("propose_epoch", args),
+      say: (l) => log.say(l),
+      step: (t) => log.step(t),
+    },
   );
-  log.say(
-    `Fair value $${check.measured.fairValue} per option (${pct(check.measured.yieldBps)} of collateral); offer ${check.proposal.size} of ${check.measured.capacity} options.`,
-  );
-  // A profile that offers less than the mandate allows caps the size at its share of capacity.
-  const share = opts.profile.sizeShare;
-  const sized = (offered: string): string => {
-    if (share >= 1) return offered;
-    const capped = capSize(offered, check.measured.capacity, share);
-    if (capped === offered) return offered;
-    const pctText = `${Math.round(share * 100)}% of capacity`;
-    log.say(`Profile "${opts.profile.name}" offers at most ${pctText}: size ${offered} → ${capped}.`);
-    journal.note(`Profile "${opts.profile.name}" capped the size at ${pctText}: ${offered} → ${capped}.`);
-    return capped;
-  };
-  let size = sized(check.proposal.size);
-  if (!check.ok) {
-    log.say(`Not compliant (${check.reason}): ${check.explanation}`);
-    const s = check.suggestion;
-    journal.dryRan(check);
-    journal.note(`The first dry run was not compliant (${check.reason}): ${check.explanation}`);
-    if (!s?.ok) {
-      await dryRunLadder(mcp, state, plan, log, journal);
-      journal.finish({
-        status: "not-sent",
-        summary: "No compliant proposal found, so the agent did not propose.",
-        reason: check.reason,
-      });
-      throw new Error("no compliant proposal found; not proposing");
-    }
-    log.say(`Taking the suggestion: ${delta(s.targetDeltaBps)} delta, strike $${s.strike}, size ${s.size}.`);
-    journal.note(
-      `Took the risk check's suggestion: ${delta(s.targetDeltaBps)} delta at ${pct(s.premiumBps)} of fair value, size ${s.size}.`,
-    );
-    if (journal.decision) {
-      journal.decision.targetDeltaBps = s.targetDeltaBps;
-      journal.decision.premiumBps = s.premiumBps;
-    }
-    plan = { ...plan, targetDeltaBps: s.targetDeltaBps, premiumBps: s.premiumBps };
-    size = sized(s.size);
+  if (outcome.kind === "sent") {
+    const res = outcome.result;
+    if (res.openTxHash) log.say(`Opened the epoch (tx ${res.openTxHash}); the vault is locked.`);
+    log.say(res.explanation);
+    if (res.txHash) log.say(`tx ${res.txHash}`);
+    if (!res.accepted) throw new Error(`proposal rejected: ${res.reason}`);
+    await trackRecord(mcp, log, state.agent.agentId, journal);
   }
-
-  log.step("Dry run the exact proposal");
-  const args = { vault, targetDeltaBps: plan.targetDeltaBps, size, premiumBps: plan.premiumBps };
-  check = await mcp.call<RiskCheck>("risk_check", args);
-  log.say(`Verdict: ${check.reason}. ${check.explanation}`);
-  journal.dryRan(check);
-  if (!check.ok) {
-    await dryRunLadder(mcp, state, plan, log, journal);
-    journal.finish({
-      status: "not-sent",
-      summary: `The dry run failed (${check.reason}); a careful agent does not propose.`,
-      reason: check.reason,
-    });
-    throw new Error("the dry run failed; a careful agent does not propose");
-  }
-  journal.chose(plan);
-  await dryRunLadder(mcp, state, plan, log, journal);
-  if (opts.dryRun) {
-    log.say("--dry-run: stopping here; nothing was sent.");
-    journal.finish({
-      status: "not-sent",
-      summary: "Dry run only (--dry-run): the proposal passed the risk check and was not sent.",
-      strike: check.proposal.strike,
-      expiryIso: check.proposal.expiryIso,
-      size: check.proposal.size,
-    });
-    return;
-  }
-
-  log.step("Propose on-chain (proposeByDelta)");
-  const res = await mcp.call<ProposeResult>("propose_epoch", args);
-  journal.proposed(res, "proposeByDelta", check.proposal.expiryIso);
-  if (res.openTxHash) log.say(`Opened the epoch (tx ${res.openTxHash}); the vault is locked.`);
-  log.say(res.explanation);
-  if (res.txHash) log.say(`tx ${res.txHash}`);
-  if (!res.accepted) throw new Error(`proposal rejected: ${res.reason}`);
-  await trackRecord(mcp, log, state.agent.agentId, journal);
+  return outcome;
 }
 
 async function reckless(mcp: StrikeMcp, vault: string, log: Narrator, journal: Journal) {
@@ -612,6 +486,7 @@ async function main() {
       llm: { type: "boolean" },
       planner: { type: "string" },
       "dry-run": { type: "boolean" },
+      "ignore-session": { type: "boolean" },
       settle: { type: "boolean" },
       status: { type: "boolean" },
       vault: { type: "string" },
@@ -671,6 +546,9 @@ async function main() {
     throw new Error("--dry-run goes with a propose run (the default mode or --llm)");
   }
   if (dryRun && values.anchor) throw new Error("--dry-run sends nothing, so it cannot --anchor");
+  const ignoreSession = values["ignore-session"] === true;
+  if (ignoreSession && !dryRun)
+    throw new Error("--ignore-session is for dry runs only (--dry-run): a send always needs an open market");
   const bond = values.register ? parseBond(values.bond) : undefined;
   const createVault =
     values["create-vault"] !== undefined ? parseVaultSpec(values["create-vault"]) : undefined;
@@ -731,20 +609,39 @@ async function main() {
       throw new Error("set STRIKE_AGENT_PRIVATE_KEY (the agent signer's key) to act");
     const action: RecordAction = values.settle ? "settle" : values.reckless ? "reckless" : "propose";
     const journal = new Journal(action, info.chainId, info.agentAddress);
+    if (dryRun) {
+      journal.run = {
+        dryRun: true,
+        ignoreSession,
+        note: ignoreSession
+          ? "Dry run with --ignore-session: evaluated as if the NYSE were open; nothing was sent and the record is not anchored."
+          : "Dry run: nothing was sent and the record is not anchored.",
+      };
+    }
     const anchor = values.anchor ? chainAnchorer(info.chainId) : undefined;
     let failure: string | undefined;
     let waiting = false;
     try {
       if (values.settle) await settle(mcp, vault, log, journal, logDir !== undefined);
       else if (values.reckless) await reckless(mcp, vault, log, journal);
-      else
-        await propose(
+      else {
+        const outcome = await propose(
           mcp,
           vault,
-          { llm: values.llm === true, planner, targetDelta, profile, dryRun },
+          { llm: values.llm === true, planner, targetDelta, profile, dryRun, ignoreSession },
           log,
           journal,
         );
+        if (outcome.kind === "no-trade") {
+          const title = `No trade (${outcome.stage})`;
+          const text = `${outcome.reasons.join("; ")}. Nothing was sent; the decision is recorded${logDir ? "" : " (with --log)"}.`;
+          console.log(
+            process.env.GITHUB_ACTIONS === "true"
+              ? `::notice title=${title}::${text}`
+              : `\n${title}. ${text}`,
+          );
+        }
+      }
     } catch (err) {
       if (err instanceof NothingToSettleYet) {
         waiting = true;
