@@ -70,6 +70,7 @@ const EVENTS = parseAbi([
   "event MaxDepositCapSet(uint256 maxDepositCap)",
   "event Refilled(address indexed from, uint256 amount)",
   "event Swept(address indexed to, uint256 amount)",
+  "event RelayerSet(address indexed relayer, bool allowed)",
   "event UIMultiplierUpdated(uint256 oldMultiplier, uint256 newMultiplier, uint256 effectiveAtTimestamp)",
 ]);
 
@@ -77,6 +78,7 @@ const READS = parseAbi([
   "function hasRole(bytes32 role, address account) view returns (bool)",
   "function owner() view returns (address)",
   "function supportsInterface(bytes4 interfaceId) view returns (bool)",
+  "function isRelayer(address relayer) view returns (bool)",
 ]);
 
 /** IAccessControl's ERC-165 id. */
@@ -180,7 +182,7 @@ async function readDeployment(
   for (const c of contracts) {
     const granted = everGranted(roleEvents, c.address);
     const known = KIND_ROLES[c.kind]
-      .filter((r) => r !== "owner")
+      .filter((r) => r !== "owner" && r !== "relayer")
       .map((r) => ROLE_HASH[r as keyof typeof ROLE_HASH]);
     const hashes = [...new Set<string>([...known, ...granted.keys()])];
     for (const hash of hashes) {
@@ -189,6 +191,7 @@ async function readDeployment(
       for (const account of cands) probes.push({ contract: c, role: roleName(hash), hash, account });
     }
     if (KIND_ROLES[c.kind].includes("owner")) roleSlots.push({ contract: c, role: "owner", hash: null });
+    if (KIND_ROLES[c.kind].includes("relayer")) roleSlots.push({ contract: c, role: "relayer", hash: null });
   }
   const answers = await client.multicall({
     contracts: probes.map((p) => ({
@@ -226,6 +229,34 @@ async function readDeployment(
     ),
   );
 
+  // GasDrip relayers: everyone a RelayerSet log ever allowed, plus the team's keys, asked `isRelayer` at the head.
+  const relayed = contracts.filter((c) => KIND_ROLES[c.kind].includes("relayer"));
+  const relayers = await Promise.all(
+    relayed.map(async (c) => {
+      const sets = myLogs.filter(
+        (l) => l.contract.toLowerCase() === c.address.toLowerCase() && l.eventName === "RelayerSet",
+      );
+      const cands = [...new Set([...sets.map((l) => String(l.args.relayer).toLowerCase()), ...teamKeys])];
+      const answers = await client.multicall({
+        contracts: cands.map((a) => ({
+          address: c.address as Address,
+          abi: READS,
+          functionName: "isRelayer" as const,
+          args: [a as Address] as const,
+        })),
+        allowFailure: true,
+        blockNumber: head,
+      });
+      const holders = cands.filter((_, i) => answers[i]?.status === "success" && answers[i]?.result === true);
+      const grants = new Map<string, { tx: string; block: number }>();
+      for (const h of holders) {
+        const last = sets.filter((l) => String(l.args.relayer).toLowerCase() === h && l.args.allowed).at(-1);
+        if (last) grants.set(h, { tx: last.tx, block: last.block });
+      }
+      return { holders, grants };
+    }),
+  );
+
   const warnings: string[] = [];
   const unknown: GovDeploymentJson["unknown"] = [];
   const byContract = new Map<string, GovRoleJson[]>();
@@ -234,7 +265,11 @@ async function readDeployment(
     const info = roleInfo(c.kind, slot.role);
     let holders: string[];
     let grants = new Map<string, { tx: string; block: number }>();
-    if (slot.hash === null) {
+    if (slot.role === "relayer") {
+      const r = relayers[relayed.indexOf(c)]!;
+      holders = r.holders;
+      grants = r.grants;
+    } else if (slot.hash === null) {
       const owner = owners[owned.indexOf(c)];
       holders = owner ? [owner] : [];
       const last = myLogs

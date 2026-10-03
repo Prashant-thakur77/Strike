@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { keccak256, toBytes } from "viem";
 import strikeConfig from "../../strike.config.json";
 import {
-  CI_KEEPER_KEY,
+  CI_KEEPER_ADDRESS,
   GOV_DEPLOYMENTS,
   GOV_ERROR_TTL_MS,
   GOV_TTL_MS,
@@ -142,20 +142,22 @@ test("governance: holders are the grants the logs leave, replayed in chain order
     ev(KEEPER, DEPLOYER, true, 10, 1),
     ev(ADMIN, DEPLOYER, true, 10, 0),
     ev(KEEPER, other, true, 20),
-    ev(KEEPER, CI_KEEPER_KEY, true, 40),
-    ev(KEEPER, CI_KEEPER_KEY, false, 50),
-    ev(KEEPER, CI_KEEPER_KEY, true, 60),
+    ev(KEEPER, CI_KEEPER_ADDRESS, true, 40),
+    ev(KEEPER, CI_KEEPER_ADDRESS, false, 50),
+    ev(KEEPER, CI_KEEPER_ADDRESS, true, 60),
   ];
   const roles = holdersFromEvents(events).get(FEED.toLowerCase())!;
   expect([...roles.get(ADMIN)!.keys()]).toEqual([DEPLOYER.toLowerCase()]);
   const keepers = roles.get(KEEPER)!;
-  expect([...keepers.keys()].sort()).toEqual([DEPLOYER.toLowerCase(), CI_KEEPER_KEY.toLowerCase()].sort());
+  expect([...keepers.keys()].sort()).toEqual(
+    [DEPLOYER.toLowerCase(), CI_KEEPER_ADDRESS.toLowerCase()].sort(),
+  );
   // The re-grant is the one in force, and the revoked account is gone.
-  expect(keepers.get(CI_KEEPER_KEY.toLowerCase())!.block).toBe(60);
+  expect(keepers.get(CI_KEEPER_ADDRESS.toLowerCase())!.block).toBe(60);
   expect(keepers.has(other.toLowerCase())).toBe(false);
   // Everyone ever granted is still a candidate for hasRole, revoked or not.
   expect([...everGranted(events, FEED).get(KEEPER)!].sort()).toEqual(
-    [DEPLOYER, other, CI_KEEPER_KEY].map((a) => a.toLowerCase()).sort(),
+    [DEPLOYER, other, CI_KEEPER_ADDRESS].map((a) => a.toLowerCase()).sort(),
   );
 });
 
@@ -163,7 +165,7 @@ test("governance: the label book names the team's keys and Strike's contracts, a
   test.skip(test.info().project.name !== "desktop", "pure function: one project is enough");
   const rh = labelBook(46630);
   expect(labelOf(rh, DEPLOYER)).toEqual({ label: "Deployer", kind: "deployer" });
-  expect(labelOf(rh, CI_KEEPER_KEY.toUpperCase().replace("0X", "0x"))).toEqual({
+  expect(labelOf(rh, CI_KEEPER_ADDRESS.toUpperCase().replace("0X", "0x"))).toEqual({
     label: "CI keeper key",
     kind: "keeper",
   });
@@ -212,7 +214,7 @@ test("governance: every staged-path test link lands on that test's line", () => 
 test("governance: admin events read as one plain line, folded per transaction", () => {
   test.skip(test.info().project.name !== "desktop", "pure function: one project is enough");
   const name = nameFrom(labelBook(46630));
-  expect(describeAction("RoleGranted", { role: KEEPER, account: CI_KEEPER_KEY }, name)).toBe(
+  expect(describeAction("RoleGranted", { role: KEEPER, account: CI_KEEPER_ADDRESS }, name)).toBe(
     "Granted KEEPER_ROLE to CI keeper key",
   );
   expect(describeAction("PricerSet", { pricer: "0x60e947b8d2c2c34b95d88d02f0a06aefb6ccd04c" }, name)).toBe(

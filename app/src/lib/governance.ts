@@ -35,6 +35,8 @@ export interface GovDeploymentRecord {
   stylusPricer?: string;
   decisionLog?: string;
   usdgDrip?: string;
+  gasDrip?: string;
+  gasDripRelayer?: string;
   riskLens?: string;
   stocks: Record<string, { token: string; feed: string }>;
   agent?: { agentId: number; signer: string; owner?: string };
@@ -98,8 +100,8 @@ export const ROLE_HASH = {
 } as const;
 
 export type AccessRole = keyof typeof ROLE_HASH;
-/** An AccessControl role, or `owner` for an Ownable contract. */
-export type RoleName = AccessRole | "owner";
+/** An AccessControl role, `owner` for an Ownable contract, or `relayer` for GasDrip's `isRelayer` list. */
+export type RoleName = AccessRole | "owner" | "relayer";
 
 const ROLE_BY_HASH = new Map(Object.entries(ROLE_HASH).map(([name, hash]) => [hash, name as AccessRole]));
 
@@ -119,7 +121,8 @@ export type ContractKind =
   | "VaultFactory"
   | "MirrorFeed"
   | "TestStockToken"
-  | "UsdgDrip";
+  | "UsdgDrip"
+  | "GasDrip";
 
 /** Every privileged role each contract defines (contracts/src). */
 export const KIND_ROLES: Record<ContractKind, readonly RoleName[]> = {
@@ -133,6 +136,7 @@ export const KIND_ROLES: Record<ContractKind, readonly RoleName[]> = {
   MirrorFeed: ["DEFAULT_ADMIN_ROLE", "KEEPER_ROLE"],
   TestStockToken: ["DEFAULT_ADMIN_ROLE"],
   UsdgDrip: ["owner"],
+  GasDrip: ["owner", "relayer"],
 };
 
 export const KIND_SOURCE: Record<ContractKind, string> = {
@@ -146,6 +150,7 @@ export const KIND_SOURCE: Record<ContractKind, string> = {
   MirrorFeed: "contracts/src/testnet/MirrorFeed.sol",
   TestStockToken: "contracts/src/testnet/TestStockToken.sol",
   UsdgDrip: "contracts/src/testnet/UsdgDrip.sol",
+  GasDrip: "contracts/src/testnet/GasDrip.sol",
 };
 
 export interface RoleInfo {
@@ -262,6 +267,19 @@ export const ROLE_INFO: Record<ContractKind, Partial<Record<RoleName, RoleInfo>>
       source: KIND_SOURCE.UsdgDrip,
     },
   },
+  GasDrip: {
+    owner: {
+      can: "Allow or remove relayers and sweep the drip's ETH (setRelayer, sweep).",
+      cannot: "Raise the amount per drip or the daily cap: both are fixed at deployment (amount, dailyCap).",
+      source: KIND_SOURCE.GasDrip,
+    },
+    relayer: {
+      can: "Send drip(to): 0.0001 test ETH to a new wallet. Held by the app's /api/gas-drip relayer key (D48).",
+      cannot:
+        "Drip an address twice, drip to one holding 0.0001 ETH or more, or send more than 20 drips in a UTC day: the contract refuses each (AlreadyDripped, HasGas, DailyCapReached).",
+      source: "docs/decisions.md",
+    },
+  },
 };
 
 /** The role text for a contract kind; a role the contract does not define gets a plain notice. */
@@ -321,6 +339,7 @@ export function deploymentContracts(d: GovDeploymentRecord): GovContract[] {
     out.push({ name: `${symbol} TestStockToken`, kind: "TestStockToken", address: s.token, probe: true });
   }
   if (d.usdgDrip) out.push({ name: "UsdgDrip", kind: "UsdgDrip", address: d.usdgDrip });
+  if (d.gasDrip) out.push({ name: "GasDrip", kind: "GasDrip", address: d.gasDrip });
   return out;
 }
 
@@ -335,7 +354,7 @@ export function sharedWith(d: GovDeploymentRecord, address: string): string[] {
 // ------------------------------------------------------------------ holder labels
 
 /** The CI keeper key: KEEPER_ROLE on the mirrored MirrorFeeds and nothing else (docs/DEPLOYMENTS.md#ci-keeper-key). */
-export const CI_KEEPER_KEY = "0x317a604e853af6C124a0C871783FAd2d797AfF76";
+export const CI_KEEPER_ADDRESS = "0x317a604e853af6C124a0C871783FAd2d797AfF76";
 
 export type HolderKind = "deployer" | "keeper" | "agent" | "team" | "contract" | "unknown";
 
@@ -357,7 +376,8 @@ export function labelBook(chainId: number): Map<string, HolderLabel> {
   };
   const deps = govDeploymentsOn(chainId);
   for (const d of deps) put(d.deployer, { label: "Deployer", kind: "deployer" });
-  put(CI_KEEPER_KEY, { label: "CI keeper key", kind: "keeper" });
+  put(CI_KEEPER_ADDRESS, { label: "CI keeper key", kind: "keeper" });
+  for (const d of deps) put(d.gasDripRelayer, { label: "Gas drip relayer", kind: "team" });
   for (const d of deps) {
     if (d.agent?.signer) put(d.agent.signer, { label: `Agent #${d.agent.agentId} signer`, kind: "agent" });
   }
@@ -479,6 +499,7 @@ export const ADMIN_EVENTS: Record<ContractKind, readonly string[]> = {
   MirrorFeed: ["RoleGranted", "RoleRevoked"],
   TestStockToken: ["RoleGranted", "RoleRevoked", "UIMultiplierUpdated"],
   UsdgDrip: ["OwnershipTransferred", "Refilled", "Swept"],
+  GasDrip: ["OwnershipTransferred", "RelayerSet"],
 };
 
 /** A decoded admin or role log, as the reader hands it over (big numbers as bigint or string). */
@@ -561,6 +582,8 @@ export function describeAction(
       return `Option manager set to ${name(a("manager"))}`;
     case "MaxDepositCapSet":
       return `Deposit cap ceiling set to ${(Number(big(args.maxDepositCap)) / 1e6).toLocaleString("en-US")} USDG`;
+    case "RelayerSet":
+      return `${args.allowed ? "Allowed" : "Removed"} relayer ${name(a("relayer"))}`;
     case "Refilled":
       return `Faucet refilled with ${Number(big(args.amount)) / 1e6} USDG`;
     case "Swept":
