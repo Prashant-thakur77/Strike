@@ -64,6 +64,24 @@ export const TEAM_WALLETS: readonly TeamWallet[] = [
     label: "QA test wallets (3 Oct): team wallet 3 of 3 for the end-to-end test of the live app",
     source: "docs/testnet-epochs/2026-10-03-end-to-end-qa.md",
   },
+  {
+    address: "0xc10D28DF05aC093dE8d1bc281D3B5d6f7322d86d",
+    short: "QA test wallet 4 (3 Oct)",
+    label: "QA test wallets (3 Oct): team wallet 4, the fresh wallet used to test the gas drip end to end",
+    source: "docs/DEPLOYMENTS.md",
+  },
+  {
+    address: "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
+    short: "Gas drip relayer",
+    label: "Team relayer that submits GasDrip.drip for new users (D49)",
+    source: "docs/DEPLOYMENTS.md",
+  },
+  {
+    address: "0x80Eec5F968aeBc078f2d58fF8b84775570c180C4",
+    short: "x402 relayer",
+    label: "Team relayer that settles x402 payments for the paid agent API (D48)",
+    source: "docs/testnet-epochs/2026-10-03-x402.md",
+  },
 ];
 
 const TEAM = new Set(TEAM_WALLETS.map((w) => w.address.toLowerCase()));

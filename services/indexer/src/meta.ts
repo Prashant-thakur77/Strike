@@ -23,4 +23,8 @@ export const TEAM_WALLETS: readonly string[] = [
   "0x7767ca2d944a91e6ae896f85caca4dfde1810044",
   "0x2e89c1c42a76507db832e9b78403ab50bd8d9957",
   "0x84bebdf6736b3f438c9344fb653c80e89db05f5d",
+  // QA wallet 4 and the gas-drip and x402 relayers (3 Oct)
+  "0xc10d28df05ac093de8d1bc281d3b5d6f7322d86d",
+  "0xa84936fa307909e01c3c9710d4cee179385d5e9c",
+  "0x80eec5f968aebc078f2d58ff8b84775570c180c4",
 ];
