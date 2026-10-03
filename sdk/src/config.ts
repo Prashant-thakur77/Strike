@@ -71,6 +71,8 @@ export interface StrikeConfig {
     mcp: string;
     indexer: { port: number };
     telegramBot: string;
+    /** The mainnet waitlist's sign-up form (Google Forms or Tally), linked from /waitlist; "" until it exists. */
+    waitlistForm: string;
     repository: string;
   };
   /** Environment variable NAMES by role. Never values. */
@@ -142,6 +144,12 @@ export function locateStrikeConfig(options: LoadStrikeConfigOptions = {}): strin
   }
 }
 
+/**
+ * A public sign-up form link (Google Forms or Tally): `services.waitlistForm` holds one or "". A Google Forms id is a
+ * long random-looking string, so the long-string check skips this field when the value is such a link.
+ */
+export const WAITLIST_FORM_URL = /^https:\/\/(docs\.google\.com\/forms\/|forms\.gle\/|tally\.so\/)[^\s@]+$/;
+
 /** Patterns of secret values, with what they are. Checked against every string in the config. */
 const SECRET_PATTERNS: [RegExp, string][] = [
   [/0x[0-9a-fA-F]{64}/, "a 32-byte hex key"],
@@ -168,6 +176,7 @@ export function secretLikeValues(value: unknown, path = ""): string[] {
     return [`${path} (not an environment variable name)`];
   const hit = SECRET_PATTERNS.find(([re]) => re.test(value));
   if (hit) return [`${path} (${hit[1]})`];
+  if (path === "services.waitlistForm" && WAITLIST_FORM_URL.test(value)) return [];
   const long = value
     .split(/[\s/:?#&=@.]+/)
     .some((part) => part.length >= 32 && /^[A-Za-z0-9_+-]+$/.test(part) && !/^0x[0-9a-fA-F]{40}$/.test(part));
@@ -220,6 +229,12 @@ export function validateStrikeConfig(raw: unknown, origin = STRIKE_CONFIG_FILE):
       fail(`defaultChainId ${raw.defaultChainId} is not in chains`);
   }
   if (!isObject(raw.services)) fail("services must be an object");
+  else if (
+    raw.services.waitlistForm !== undefined &&
+    raw.services.waitlistForm !== "" &&
+    !WAITLIST_FORM_URL.test(String(raw.services.waitlistForm))
+  )
+    fail('services.waitlistForm must be "" or an https Google Forms or Tally link');
   if (!isObject(raw.secrets)) fail("secrets must be an object");
   else {
     for (const [role, name] of Object.entries(raw.secrets)) {

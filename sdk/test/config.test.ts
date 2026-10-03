@@ -60,6 +60,11 @@ describe("strike.config.json", () => {
     ["a deployment outside contracts/deployments", (c: any) => c.chains["46630"].deployments.push("x.json")],
     ["a non-numeric chain id", (c: any) => (c.chains.testnet = c.chains["46630"])],
     ["a missing secret role", (c: any) => delete c.secrets.databaseUrl],
+    ["a waitlist form over http", (c: any) => (c.services.waitlistForm = "http://tally.so/r/w4AbCd")],
+    [
+      "a waitlist form on another host",
+      (c: any) => (c.services.waitlistForm = "https://forms.example.org/x"),
+    ],
   ])("the schema rejects %s", (_what, change) => {
     const c = structuredClone(config);
     change(c);
@@ -70,6 +75,33 @@ describe("strike.config.json", () => {
     expect(() => validateStrikeConfig(structuredClone(config))).not.toThrow();
   });
 
+  // services.waitlistForm: the team's own sign-up form, linked from /waitlist (D46). A public link, so a Google Forms
+  // id (long and random-looking) must pass the secret check; anything but "" or an https form link must fail.
+  it.each([
+    ["empty, before the form exists", ""],
+    [
+      "a Google Forms link",
+      `https://docs.google.com/forms/d/e/1FAIpQLSf${"Ab3_x-Z9".repeat(6)}/viewform?usp=header`,
+    ],
+    ["a forms.gle short link", "https://forms.gle/Ab12Cd34Ef56Gh78"],
+    ["a Tally link", "https://tally.so/r/w4AbCd"],
+  ])("takes a waitlist form %s, and does not call it a secret", (_what, url) => {
+    const c = structuredClone(config);
+    c.services.waitlistForm = url;
+    expect(new Ajv({ strict: true }).compile(schema)(c)).toBe(true);
+    expect(() => validateStrikeConfig(c)).not.toThrow();
+    expect(secretLikeValues(c)).toEqual([]);
+  });
+
+  it.each(["http://tally.so/r/w4AbCd", "https://forms.example.org/x", "tally.so/r/w4AbCd"])(
+    "the runtime validator rejects the waitlist form %s",
+    (url) => {
+      const c = structuredClone(config);
+      c.services.waitlistForm = url;
+      expect(() => validateStrikeConfig(c)).toThrow(/services\.waitlistForm/);
+    },
+  );
+
   it("has the chains, services and secret names the plan's schema names", () => {
     expect(Object.keys(config.chains)).toEqual(expect.arrayContaining(["46630", "421614", "4663", "31337"]));
     expect(config.services).toMatchObject({
@@ -77,6 +109,7 @@ describe("strike.config.json", () => {
       mcp: expect.any(String),
       indexer: { port: expect.any(Number) },
       telegramBot: expect.any(String),
+      waitlistForm: expect.any(String),
     });
     expect(config.secrets).toMatchObject({
       deployerKey: "PRIVATE_KEY",

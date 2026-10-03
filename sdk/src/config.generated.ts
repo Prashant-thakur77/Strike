@@ -134,6 +134,7 @@ export const bundledStrikeConfig: StrikeConfig = {
       "port": 8787
     },
     "telegramBot": "https://t.me/strike_options_bot",
+    "waitlistForm": "",
     "repository": "https://github.com/Prashant-thakur77/Strike"
   },
   "secrets": {

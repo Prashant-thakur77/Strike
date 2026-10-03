@@ -22,7 +22,7 @@
     },
     "services": {
       "type": "object",
-      "required": ["app", "mcp", "indexer", "telegramBot", "repository"],
+      "required": ["app", "mcp", "indexer", "telegramBot", "waitlistForm", "repository"],
       "additionalProperties": false,
       "properties": {
         "app": { "$ref": "#/definitions/httpsUrl", "description": "The public web app." },
@@ -41,6 +41,11 @@
           }
         },
         "telegramBot": { "$ref": "#/definitions/httpsUrl", "description": "The Telegram bot's t.me link." },
+        "waitlistForm": {
+          "type": "string",
+          "pattern": "^$|^https://(docs\\.google\\.com/forms/|forms\\.gle/|tally\\.so/)[^\\s@]+$",
+          "description": "The mainnet waitlist's sign-up form, run by the team on Google Forms or Tally (https), which /waitlist links to; empty until it exists. Not a secret: a public link. Strike's code stores no emails or personal data (D46)."
+        },
         "repository": {
           "$ref": "#/definitions/httpsUrl",
           "description": "The GitHub repository (links, decision-record URLs)."

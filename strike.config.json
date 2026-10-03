@@ -115,6 +115,7 @@
     "mcp": "https://strike-options.vercel.app/api/mcp",
     "indexer": { "port": 8787 },
     "telegramBot": "https://t.me/strike_options_bot",
+    "waitlistForm": "",
     "repository": "https://github.com/Prashant-thakur77/Strike"
   },
   "secrets": {
