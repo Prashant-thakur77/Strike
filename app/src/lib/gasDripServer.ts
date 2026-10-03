@@ -1,4 +1,4 @@
-// POST and GET /api/gas-drip's logic (D47), with the chain, the clock and the limiters passed in, so the Playwright
+// POST and GET /api/gas-drip's logic (D48), with the chain, the clock and the limiters passed in, so the Playwright
 // specs run it without a network or a key. app/src/app/api/gas-drip/route.ts wires it to the relayer key and RPC.
 //
 // Order of checks on a POST, cheapest first: body shape and the honeypot field; attempts per IP (6 per 10 minutes);

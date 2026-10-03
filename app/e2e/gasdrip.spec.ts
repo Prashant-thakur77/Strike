@@ -26,7 +26,7 @@ import { gasDripAbi } from "../../sdk/src/abi/gasDrip";
 import { generatedDeployments } from "../../sdk/src/deployments.generated";
 import { acknowledge, connectWallet, horizontalOverflow, installMockWallet } from "./helpers";
 
-// The starter gas drip (GasDrip.sol, D47). Unit tests run POST and GET /api/gas-drip's logic in the test process with
+// The starter gas drip (GasDrip.sol, D48). Unit tests run POST and GET /api/gas-drip's logic in the test process with
 // a fake chain and clock: every limit, in the order the route checks them. The page tests stub the route with
 // fixtures and connect a never-used wallet on Robinhood Chain testnet (its balances are read live, so they are 0).
 // The specs load no runtime SDK code (CommonJS), so the ABI and the deployments map come from their generated files.

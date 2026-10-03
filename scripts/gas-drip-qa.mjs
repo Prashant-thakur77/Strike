@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// One real starter-gas drip through the deployed app, as a new user's browser does it (D47): GET /api/gas-drip for
+// One real starter-gas drip through the deployed app, as a new user's browser does it (D48): GET /api/gas-drip for
 // the wallet, solve the proof-of-work, POST, then read the chain to confirm the GasDrip `Dripped` event and the new
 // balance. With --usdg (Robinhood Chain testnet only) the wallet then spends that gas on its own UsdgDrip.drip(), the
 // next step of the first-run path, to show the starter gas is enough to start.

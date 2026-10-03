@@ -89,7 +89,7 @@ export const generatedDeployments = {
     "gasDripFundTx": "0xd284e812e9aabd6d90805fc792524a0996eac332d8840a2655f8795421422219",
     "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
     "gasDripRelayerFundTx": "0x911a93dbece25b91d65d490fa2e69108223f482f95167e1792c910f5ac3e82c6",
-    "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D47). Deployed in block 128,261,147; serves every Strike deployment on this chain",
+    "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D48). Deployed in block 128,261,147; serves every Strike deployment on this chain",
     "vaults": {
       "TSLA_cash_secured_put": "0xE33EAD75Df1aF35cBA330f1fc7636926e31c67d7",
       "TSLA_covered_call": "0xADFF7900dbe01E8170a750AB88e1f4eA8D9D1D4e",
@@ -175,7 +175,7 @@ export const generatedDeployments = {
     "gasDripFundTx": "0x2994afe2df148715de0b92c9a4f659f54765d63a05cffe380c5a566c77039b0e",
     "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
     "gasDripRelayerFundTx": "0xe67614270edd829a1fb6f4d698aa79ccf60b663a52552927650e9e2ef113887f",
-    "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D47). Deployed in block 315,393,690; serves every Strike deployment on this chain",
+    "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D48). Deployed in block 315,393,690; serves every Strike deployment on this chain",
     "vaults": {
       "TSLA_cash_secured_put": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
       "TSLA_covered_call": "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",

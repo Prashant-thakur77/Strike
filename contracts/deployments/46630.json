@@ -55,5 +55,5 @@
   "gasDripFundTx": "0xd284e812e9aabd6d90805fc792524a0996eac332d8840a2655f8795421422219",
   "gasDripRelayer": "0xA84936fA307909e01C3C9710D4cEE179385d5e9c",
   "gasDripRelayerFundTx": "0x911a93dbece25b91d65d490fa2e69108223f482f95167e1792c910f5ac3e82c6",
-  "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D47). Deployed in block 128,261,147; serves every Strike deployment on this chain"
+  "gasDripNote": "Additive (testnet only): the team-funded starter gas drip, 0.0001 ETH once per address to wallets holding less than that, at most 20 per UTC day, sent by the /api/gas-drip relayer (GasDrip, D48). Deployed in block 128,261,147; serves every Strike deployment on this chain"
 }
