@@ -19,6 +19,8 @@ import { ROOT, chromium, ff, log, pageHelpers } from "./lib/engine.mjs";
 const CFG = JSON.parse(readFileSync(join(ROOT, "video/founder.json"), "utf8"));
 const RAW = process.env.FOUNDER_RAW ?? join(homedir(), ".cache/strike-founder/raw.mp4");
 const FONTS = process.env.FOUNDER_FONTS ?? join(homedir(), ".cache/strike-founder/fonts");
+const NOTE = process.env.FOUNDER_NOTE ?? join(homedir(), ".cache/strike-founder/note.ogg");
+const SPLICE = CFG.splice ?? null;
 const APP = "https://strike-options.vercel.app";
 const WORK = join(ROOT, "video/.out/founder");
 const MEDIA = join(ROOT, "docs/media");
@@ -38,29 +40,61 @@ function keptSegments() {
     t = b;
   }
   segs.push([t, CFG.out]);
-  return segs;
+  // the re-recorded sentence takes the place of the kept interval it replaces (times in the voice note)
+  return segs.map(([a, b]) =>
+    SPLICE && Math.abs(a - SPLICE.raw[0]) < 1e-6 && Math.abs(b - SPLICE.raw[1]) < 1e-6
+      ? [SPLICE.from, SPLICE.to, "note"]
+      : [a, b, "raw"],
+  );
 }
 const SEGS = keptSegments();
+if (SPLICE && !SEGS.some((s) => s[2] === "note"))
+  throw new Error("founder.json: splice.raw is not a kept interval");
 /** A raw time on the edited timeline. */
 function edited(t) {
   let out = 0;
-  for (const [a, b] of SEGS) {
-    if (t <= a) return out;
-    if (t <= b) return out + (t - a);
+  for (const [a, b, src] of SEGS) {
+    if (src === "raw") {
+      if (t <= a) return out;
+      if (t <= b) return out + (t - a);
+    }
     out += b - a;
   }
   return out;
 }
+/** Where the voice note starts on the edited timeline. */
+const NOTE_AT = (() => {
+  let out = 0;
+  for (const [a, b, src] of SEGS) {
+    if (src === "note") return out;
+    out += b - a;
+  }
+  return null;
+})();
 const SPEECH = SEGS.reduce((s, [a, b]) => s + (b - a), 0);
-const WORDS = CFG.words.map(([a, b, text]) => ({ a: edited(a), b: edited(b), text }));
-const BROLL = CFG.broll.map((r) => ({ ...r, a: edited(r.from), b: edited(r.to) }));
+const inSplice = (t) => SPLICE && t >= SPLICE.raw[0] && t <= SPLICE.raw[1];
+export const WORDS = [
+  ...CFG.words.filter(([a]) => !inSplice(a)).map(([a, b, text]) => ({ a: edited(a), b: edited(b), text })),
+  ...(SPLICE?.words ?? []).map(([a, b, text]) => ({
+    a: NOTE_AT + a - SPLICE.from,
+    b: NOTE_AT + b - SPLICE.from,
+    text,
+  })),
+].sort((x, y) => x.a - y.a);
+const BROLL = CFG.broll
+  .map((r) =>
+    r.splice
+      ? { ...r, a: NOTE_AT, b: NOTE_AT + SPLICE.to - SPLICE.from }
+      : { ...r, a: edited(r.from), b: edited(r.to) },
+  )
+  .sort((x, y) => x.a - y.a);
 
 /** The intro the pitch opens with: the founder's cut before its end card (docs/media/strike-founder.mp4). */
 export const INTRO = {
   path: join(MEDIA, "strike-founder.mp4"),
   duration: SPEECH,
   title: "Founder intro",
-  text: CFG.words.map((w) => w[2]).join(" "),
+  text: WORDS.map((w) => w.text).join(" "),
 };
 
 // ------------------------------------------------------------------------------------------ captions
@@ -158,6 +192,15 @@ export function founderSrt(offset = 0) {
 
 /** Each cut-away: a page of the live site, what to box, and the screenshot's focus rectangle (viewport pixels). */
 const SHOTS = {
+  // covered calls against holding, from the backtest (the sentence is about covered-call funds)
+  market: {
+    path: "/app/backtest",
+    ready: (p) => p.locator('[data-metric="cagr"]').first().waitFor({ timeout: 60_000 }),
+    focus: () => [
+      document.querySelector('[data-metric="cagr"]'),
+      document.querySelector('[data-metric="vol"]'),
+    ],
+  },
   stages: {
     path: "/app/decision/46630/2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run-2?dry=1",
     ready: (p) =>
@@ -326,13 +369,17 @@ function cutAroll(crop, w, h, out, wav) {
   const [cx, cy, cw, ch] = crop;
   const parts = [];
   const labels = [];
-  SEGS.forEach(([a, b], i) => {
+  SEGS.forEach(([a, b, src], i) => {
+    // the voice note's picture is the camera's own frames from where the sentence was (a cut-away covers them)
+    const [va, vb] = src === "note" ? [SPLICE.raw[0], SPLICE.raw[0] + (b - a)] : [a, b];
     parts.push(
-      `[0:v:0]trim=start=${a.toFixed(3)}:end=${b.toFixed(3)},setpts=PTS-STARTPTS,crop=${cw}:${ch}:${cx}:${cy},scale=${w}:${h}:flags=lanczos,setsar=1,eq=contrast=1.03:saturation=0.97,unsharp=5:5:0.35[v${i}]`,
+      `[0:v:0]trim=start=${va.toFixed(3)}:end=${vb.toFixed(3)},setpts=PTS-STARTPTS,crop=${cw}:${ch}:${cx}:${cy},scale=${w}:${h}:flags=lanczos,setsar=1,eq=contrast=1.03:saturation=0.97,unsharp=5:5:0.35[v${i}]`,
     );
     // 8 ms fades at each cut, so a jump cut never clicks
     parts.push(
-      `[0:a:0]atrim=start=${a.toFixed(3)}:end=${b.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:d=0.008,afade=t=out:st=${(b - a - 0.008).toFixed(3)}:d=0.008[a${i}]`,
+      src === "note"
+        ? `[1:a:0]asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo[a${i}]`
+        : `[0:a:0]atrim=start=${a.toFixed(3)}:end=${b.toFixed(3)},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,afade=t=in:d=0.008,afade=t=out:st=${(b - a - 0.008).toFixed(3)}:d=0.008[a${i}]`,
     );
     labels.push(`[v${i}][a${i}]`);
   });
@@ -340,6 +387,7 @@ function cutAroll(crop, w, h, out, wav) {
   ff([
     "-i",
     RAW,
+    ...(SPLICE ? ["-i", join(WORK, "note-matched.wav")] : []),
     "-filter_complex",
     parts.join(";"),
     "-map",
@@ -385,6 +433,32 @@ function cutAroll(crop, w, h, out, wav) {
     "-c:a",
     "pcm_s16le",
     wav,
+  ]);
+}
+
+/** The voice note, matched to the camera's voice: the EQ (with the camera audio's bandwidth), the level, the camera's
+ *  room tone under it, 30 ms fades. Written as 48 kHz stereo, exactly to - from seconds long. */
+function matchNote() {
+  if (!existsSync(NOTE)) throw new Error(`no voice note at ${NOTE} (set FOUNDER_NOTE)`);
+  const len = SPLICE.to - SPLICE.from;
+  const eq = SPLICE.eq.map(([f, g]) => `entry(${f},${g})`).join(";");
+  const [ra, rb] = SPLICE.roomTone;
+  ff([
+    "-i",
+    NOTE,
+    "-i",
+    RAW,
+    "-filter_complex",
+    [
+      `[0:a]atrim=start=${SPLICE.from}:end=${SPLICE.to},asetpts=PTS-STARTPTS,aresample=48000,${SPLICE.denoise ?? "anull"},firequalizer=gain_entry='${eq}',volume=${SPLICE.gainDb}dB,aformat=channel_layouts=stereo[v]`,
+      `[1:a]atrim=start=${ra}:end=${rb},asetpts=PTS-STARTPTS,aformat=sample_rates=48000:channel_layouts=stereo,aloop=loop=-1:size=${Math.round((rb - ra) * 48000)},atrim=duration=${len.toFixed(3)}[room]`,
+      `[v][room]amix=inputs=2:normalize=0:duration=first,afade=t=in:d=0.02,afade=t=out:st=${(len - 0.03).toFixed(3)}:d=0.03,atrim=duration=${len.toFixed(3)}[out]`,
+    ].join(";"),
+    "-map",
+    "[out]",
+    "-c:a",
+    "pcm_s16le",
+    join(WORK, "note-matched.wav"),
   ]);
 }
 
@@ -495,6 +569,7 @@ async function main() {
   const onCamera = SPEECH - BROLL.reduce((s, r) => s + (r.b - r.a), 0);
   log(`  founder on camera ${((onCamera / SPEECH) * 100).toFixed(0)}% of the speech`);
 
+  if (SPLICE) matchNote();
   // the founder, both framings, and the cleaned voice
   const wav = join(WORK, "voice.wav");
   cutAroll(CFG.crop.wide, 1920, 1080, join(WORK, "aroll-wide.mkv"), wav);

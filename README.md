@@ -98,8 +98,8 @@
   <a href="docs/JUDGES.md"><b>Judge's tour</b></a> ·
   <a href="https://strike-options.vercel.app"><b>Live app</b></a> ·
   <a href="docs/media/strike-demo.mp4"><b>Demo video</b></a> (6:04, <a href="docs/media/strike-demo-silent.mp4">captions only</a>) ·
-  <a href="docs/media/strike-pitch.mp4"><b>Pitch</b></a> (2:56, opens with the founder) ·
-  <a href="docs/media/strike-founder.mp4"><b>Founder intro</b></a> (0:46, <a href="docs/media/strike-founder-vertical.mp4">vertical</a>) ·
+  <a href="docs/media/strike-pitch.mp4"><b>Pitch</b></a> (2:57, opens with the founder) ·
+  <a href="docs/media/strike-founder.mp4"><b>Founder intro</b></a> (0:47, <a href="docs/media/strike-founder-vertical.mp4">vertical</a>) ·
   <a href="docs/README.md"><b>Docs</b></a> ·
   <a href="docs/DEPLOYMENTS.md"><b>Deployments</b></a> ·
   <a href="docs/security/review-2026-09-29.md"><b>Security review</b></a> ·

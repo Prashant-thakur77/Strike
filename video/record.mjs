@@ -393,7 +393,8 @@ async function main() {
   );
 }
 
-/** The intro's first `duration` seconds, then the rendered body; one encode, 30 fps, AAC 48 kHz stereo. */
+/** The intro's first `duration` seconds, then the rendered body; one encode, 30 fps, AAC 48 kHz stereo, a -2 dB
+ *  limiter so the joined, re-encoded audio stays under -1.5 dBTP. */
 function prependIntro(intro, body, out) {
   const norm = (i) =>
     `[${i}:v]fps=30,scale=1920:1080,setsar=1,format=yuv420p[v${i}];[${i}:a]aresample=48000,aformat=channel_layouts=stereo[a${i}]`;
@@ -405,7 +406,7 @@ function prependIntro(intro, body, out) {
     "-i",
     body,
     "-filter_complex",
-    `${norm(0)};${norm(1)};[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]`,
+    `${norm(0)};${norm(1)};[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][ac];[ac]alimiter=limit=0.79:attack=5:release=60:level=disabled[a]`,
     "-map",
     "[v]",
     "-map",

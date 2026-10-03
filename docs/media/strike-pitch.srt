@@ -47,285 +47,285 @@ Robinhood chain,
 but holding them earns
 
 13
-00:00:12,632 --> 00:00:13,791
+00:00:12,632 --> 00:00:13,504
 nothing extra.
 
 14
-00:00:13,811 --> 00:00:14,911
+00:00:13,524 --> 00:00:15,124
 Covered call funds made
 
 15
-00:00:14,931 --> 00:00:15,851
+00:00:15,144 --> 00:00:16,104
 that a hundred billion
 
 16
-00:00:15,871 --> 00:00:17,480
-dollar company off chain.
+00:00:16,124 --> 00:00:18,328
+dollar category off chain.
 
 17
-00:00:17,500 --> 00:00:18,320
+00:00:18,348 --> 00:00:19,168
 Now in Strike,
 
 18
-00:00:18,340 --> 00:00:19,335
+00:00:19,188 --> 00:00:20,183
 an AI agent picks
 
 19
-00:00:19,355 --> 00:00:20,675
+00:00:20,203 --> 00:00:21,523
 the strike each week,
 
 20
-00:00:20,695 --> 00:00:21,704
+00:00:21,543 --> 00:00:22,552
 but the smart contract
 
 21
-00:00:21,724 --> 00:00:23,184
+00:00:22,572 --> 00:00:24,032
 enforces the depositors'
 
 22
-00:00:23,204 --> 00:00:23,354
+00:00:24,052 --> 00:00:24,202
 rule.
 
 23
-00:00:23,374 --> 00:00:24,096
+00:00:24,222 --> 00:00:24,944
 If the AI agent
 
 24
-00:00:24,116 --> 00:00:25,081
+00:00:24,964 --> 00:00:25,929
 breaks them,
 
 25
-00:00:25,101 --> 00:00:26,176
+00:00:25,949 --> 00:00:27,024
 it is rejected and
 
 26
-00:00:26,196 --> 00:00:27,126
+00:00:27,044 --> 00:00:27,974
 its own bond pays
 
 27
-00:00:27,146 --> 00:00:28,123
+00:00:27,994 --> 00:00:28,971
 the depositors.
 
 28
-00:00:28,143 --> 00:00:28,883
+00:00:28,991 --> 00:00:29,731
 It's live on two
 
 29
-00:00:28,903 --> 00:00:30,263
+00:00:29,751 --> 00:00:31,111
 testnets with real option
 
 30
-00:00:30,283 --> 00:00:31,543
+00:00:31,131 --> 00:00:32,391
 sales and a real
 
 31
-00:00:31,563 --> 00:00:32,743
+00:00:32,411 --> 00:00:33,591
 slash and over 1,500
 
 32
-00:00:32,763 --> 00:00:33,203
+00:00:33,611 --> 00:00:34,051
 tests.
 
 33
-00:00:33,223 --> 00:00:34,303
+00:00:34,071 --> 00:00:35,151
 And we are working
 
 34
-00:00:34,323 --> 00:00:35,563
+00:00:35,171 --> 00:00:36,411
 on to make it
 
 35
-00:00:35,583 --> 00:00:36,703
+00:00:36,431 --> 00:00:37,551
 to arrive to mainnet.
 
 36
-00:00:36,723 --> 00:00:37,863
+00:00:37,571 --> 00:00:38,711
 And that is why
 
 37
-00:00:37,883 --> 00:00:39,163
+00:00:38,731 --> 00:00:40,011
 we would like you
 
 38
-00:00:39,183 --> 00:00:40,205
+00:00:40,031 --> 00:00:41,053
 to fund our company
 
 39
-00:00:40,225 --> 00:00:41,413
+00:00:41,073 --> 00:00:42,261
 and our waitlist is
 
 40
-00:00:41,433 --> 00:00:42,473
+00:00:42,281 --> 00:00:43,321
 open today.
 
 41
-00:00:42,493 --> 00:00:43,293
+00:00:43,341 --> 00:00:44,141
 So let's check out
 
 42
-00:00:43,313 --> 00:00:43,743
+00:00:44,161 --> 00:00:44,591
 Strike.
 
 43
-00:00:44,043 --> 00:00:46,377
+00:00:44,891 --> 00:00:47,225
 This is Strike, by Prashant Thakur:
 
 44
-00:00:46,427 --> 00:00:49,790
+00:00:47,275 --> 00:00:50,638
 weekly options vaults for
 Robinhood Chain stock tokens,
 
 45
-00:00:49,840 --> 00:00:53,424
+00:00:50,688 --> 00:00:54,272
 run by AI agents the
 contract holds to a mandate.
 
 46
-00:00:53,574 --> 00:00:57,039
+00:00:54,422 --> 00:00:57,887
 A stock token earns nothing
 extra while it sits in a wallet.
 
 47
-00:00:57,089 --> 00:01:00,886
+00:00:57,937 --> 00:01:01,734
 On Wall Street, holders
 sell covered calls for that.
 
 48
-00:01:01,036 --> 00:01:03,002
+00:01:01,884 --> 00:01:03,850
 Stock tokens also have traps:
 
 49
-00:01:03,052 --> 00:01:05,728
+00:01:03,900 --> 00:01:06,576
 a multiplier that is easy to apply twice,
 
 50
-00:01:05,778 --> 00:01:09,050
+00:01:06,626 --> 00:01:09,898
 weekend price freezes,
 and two pause layers.
 
 51
-00:01:09,100 --> 00:01:11,932
+00:01:09,948 --> 00:01:12,780
 Strike's contracts handle each one.
 
 52
-00:01:12,082 --> 00:01:15,883
+00:01:12,930 --> 00:01:16,731
 Robinhood Chain, an Arbitrum
 chain, now has every piece:
 
 53
-00:01:15,933 --> 00:01:19,760
+00:01:16,781 --> 00:01:20,608
 stock tokens, Chainlink stock feeds, USDG,
 
 54
-00:01:19,810 --> 00:01:22,791
+00:01:20,658 --> 00:01:23,639
 and ERC-8004 agent identity.
 
 55
-00:01:22,841 --> 00:01:28,648
+00:01:23,689 --> 00:01:29,496
 And Stylus makes solving the strike
 on-chain 3.3 times cheaper per proposal.
 
 56
-00:01:28,798 --> 00:01:33,260
+00:01:29,646 --> 00:01:34,108
 Each week an agent proposes a
 strike, but never touches the funds.
 
 57
-00:01:33,310 --> 00:01:36,701
+00:01:34,158 --> 00:01:37,549
 The contract checks it against
 the vault's fixed mandate.
 
 58
-00:01:36,751 --> 00:01:41,139
+00:01:37,599 --> 00:01:41,987
 On September 29, a reckless
 at-the-money put was rejected,
 
 59
-00:01:41,189 --> 00:01:45,172
+00:01:42,037 --> 00:01:46,020
 and 10 USDG of its bond
 went to depositors.
 
 60
-00:01:45,322 --> 00:01:49,464
+00:01:46,170 --> 00:01:50,312
 It is live on Robinhood Chain
 testnet and Arbitrum Sepolia,
 
 61
-00:01:49,514 --> 00:01:51,640
+00:01:50,362 --> 00:01:52,488
 with 14 contracts verified,
 
 62
-00:01:51,690 --> 00:01:56,297
+00:01:52,538 --> 00:01:57,145
 and a buyer agent that
 paid 10.01 USDG of premium.
 
 63
-00:01:56,347 --> 00:01:59,915
+00:01:57,195 --> 00:02:00,763
 On Arbitrum, Claude planned
 the accepted proposal.
 
 64
-00:02:00,065 --> 00:02:03,519
+00:02:00,913 --> 00:02:04,367
 Stonkhouse and Archer Markets
 let traders pick strikes.
 
 65
-00:02:03,569 --> 00:02:08,092
+00:02:04,417 --> 00:02:08,940
 In Strike, a bonded agent
 proposes and the contract checks.
 
 66
-00:02:08,242 --> 00:02:12,892
+00:02:09,090 --> 00:02:13,740
 We take 10% of a week's positive
 net premium, half to the agent,
 
 67
-00:02:12,942 --> 00:02:15,373
+00:02:13,790 --> 00:02:16,221
 and nothing on a losing week.
 
 68
-00:02:15,523 --> 00:02:21,745
+00:02:16,371 --> 00:02:22,593
 Behind it: 1,607 tests and
 proofs, 99.3% line coverage,
 
 69
-00:02:21,795 --> 00:02:24,049
+00:02:22,643 --> 00:02:24,897
 nine properties proven with Halmos,
 
 70
-00:02:24,099 --> 00:02:27,565
+00:02:24,947 --> 00:02:28,413
 and all 11 internal-review findings fixed.
 
 71
-00:02:27,615 --> 00:02:33,240
+00:02:28,463 --> 00:02:34,088
 CI re-checks all 177 transactions
 the docs cite, on-chain.
 
 72
-00:02:33,290 --> 00:02:35,300
+00:02:34,138 --> 00:02:36,148
 It is not audited yet.
 
 73
-00:02:35,450 --> 00:02:39,683
+00:02:36,298 --> 00:02:40,531
 We are building Strike as a company
 on Robinhood Chain and Arbitrum.
 
 74
-00:02:39,733 --> 00:02:44,435
+00:02:40,581 --> 00:02:45,283
 Funding buys an external audit and
 the first capped mainnet vault.
 
 75
-00:02:44,485 --> 00:02:47,736
+00:02:45,333 --> 00:02:48,584
 We are asking for a place
 at Founder House Singapore,
 
 76
-00:02:47,786 --> 00:02:50,617
+00:02:48,634 --> 00:02:51,465
 and introductions to
 wallets and market makers.
 
 77
-00:02:50,667 --> 00:02:55,483
+00:02:51,515 --> 00:02:56,331
 Try the playground at
 strike-options.vercel.app.
