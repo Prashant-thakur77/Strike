@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Checks every relative link and anchor in README.md, CHANGELOG.md and docs/**/*.md against the files git tracks
-// (so a link to an untracked or ignored file counts as broken). External URLs are not fetched.
+// (so a link to an untracked or ignored file counts as broken), and the paths and commits docs/evidence/lessons.json
+// cites. External URLs are not fetched.
 // Usage: node scripts/check-links.mjs   (exit 1 if anything is broken)
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -102,6 +103,30 @@ for (const file of sources) {
   }
 }
 
+// docs/evidence/lessons.json (rendered at /app/lessons): every evidence path and guarding test must be a tracked file, and
+// every commit must exist in this repository.
+const LESSONS = "docs/evidence/lessons.json";
+let lessonRefs = 0;
+if (tracked.has(LESSONS)) {
+  for (const l of JSON.parse(readFileSync(join(root, LESSONS), "utf8")).lessons) {
+    const paths = [...l.evidence.flatMap((e) => (e.path ? [e.path] : [])), ...l.tests];
+    for (const p of paths) {
+      lessonRefs++;
+      if (!tracked.has(p)) broken.push(`${LESSONS}: ${l.id}: ${p} (no such tracked file)`);
+    }
+    for (const c of l.commits) {
+      lessonRefs++;
+      try {
+        execFileSync("git", ["cat-file", "-e", `${c}^{commit}`], { cwd: root, stdio: "ignore" });
+      } catch {
+        broken.push(`${LESSONS}: ${l.id}: commit ${c} (not in this repository)`);
+      }
+    }
+  }
+}
+
 for (const b of broken) console.log(b);
-console.log(`${sources.length} files, ${checked} relative links checked, ${broken.length} broken`);
+console.log(
+  `${sources.length} files, ${checked} relative links checked, ${lessonRefs} lesson paths and commits, ${broken.length} broken`,
+);
 process.exit(broken.length ? 1 : 0);

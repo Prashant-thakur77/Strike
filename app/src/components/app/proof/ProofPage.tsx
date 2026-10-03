@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { shortAddr } from "@/lib/format";
@@ -103,7 +104,12 @@ export function ProofPage() {
             <p className={styles.leadNote}>
               Figures are taken from the repository and link to their source. The active pricer, the price
               mirror audit and the activity feed are read from the chains when the page loads. Strike is
-              unaudited: the review below is internal.
+              unaudited: the review below is internal. What went wrong in the live runs, and what changed
+              because of it, is on the{" "}
+              <Link href="/app/lessons" className="text-link" data-testid="proof-lessons-link">
+                lessons page
+              </Link>
+              .
             </p>
           </>
         }

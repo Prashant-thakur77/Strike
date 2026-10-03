@@ -159,6 +159,7 @@ test("the footer links every page, the docs, GitHub and the judges' tour", async
     "Proof",
     "Faucet",
     "Glossary",
+    "Lessons",
   ]);
   const project = footer.getByRole("navigation", { name: "Project links" });
   await expect(project.getByRole("link", { name: /Judges/ })).toHaveAttribute("href", /docs\/JUDGES\.md$/);

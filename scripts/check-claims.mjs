@@ -7,7 +7,8 @@
 //
 // What is collected: explorer links to a transaction in README.md, docs/**/*.md and app/src (the host names the chain:
 // explorer.testnet.chain.robinhood.com is 46630, sepolia.arbiscan.io 421614, explorer.chain.robinhood.com 4663), bare
-// hashes on app/src lines that name a tx, and every { tx, block } pair in the proven-week records (docs/evidence).
+// hashes on app/src lines that name a tx, and every { tx, block } pair in docs/evidence (the proven-week records, and
+// lessons.json, whose entries carry their own chainId).
 //
 // What is checked, for each transaction:
 //   - the receipt exists on that chain and succeeded (or reverted, for a transaction cited because it failed);
@@ -140,7 +141,7 @@ function collect() {
             out.push({ hash: m[1].toLowerCase(), chainId: null, file, line: i + 1, text: line });
       });
   }
-  // The proven-week records: every object with a tx and a block.
+  // docs/evidence: every object with a tx and a block (the chain is the object's chainId, else the file's).
   const evidence = join(ROOT, "docs/evidence");
   if (existsSync(evidence)) {
     for (const path of walk(evidence, (p) => p.endsWith(".json") && !p.endsWith("facts.json"))) {
@@ -150,7 +151,13 @@ function collect() {
         if (Array.isArray(node)) return node.forEach((n, k) => visit(n, `${where}[${k}]`));
         if (!node || typeof node !== "object") return;
         if (typeof node.tx === "string" && /^0x[0-9a-f]{64}$/i.test(node.tx) && Number.isInteger(node.block))
-          out.push({ hash: node.tx.toLowerCase(), chainId: record.chainId, file, where, block: node.block });
+          out.push({
+            hash: node.tx.toLowerCase(),
+            chainId: node.chainId ?? record.chainId,
+            file,
+            where,
+            block: node.block,
+          });
         for (const [k, v] of Object.entries(node)) visit(v, where ? `${where}.${k}` : k);
       };
       visit(record, "");

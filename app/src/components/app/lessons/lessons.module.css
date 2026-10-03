@@ -1,0 +1,85 @@
+/* /app/lessons: what went wrong in the live runs, the evidence, what changed and what guards it. */
+
+.list {
+  display: grid;
+  gap: clamp(40px, 5vw, 64px);
+  padding-top: clamp(40px, 5vw, 72px);
+  list-style: none;
+  margin: 0;
+}
+
+.lesson {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+  gap: 16px 32px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule-strong);
+  scroll-margin-top: calc(var(--banner-h) + var(--app-nav-h) + 16px);
+}
+
+.head {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.status {
+  justify-self: start;
+  display: inline-block;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-size: var(--fs-label);
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gain-c);
+}
+
+.status[data-status="open"],
+.status[data-status="mitigated"] {
+  color: var(--loss-c);
+}
+
+.body {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+}
+
+.part {
+  display: grid;
+  gap: 6px;
+  max-width: 54em;
+}
+
+.part p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.note {
+  font-size: 0.85rem;
+  color: var(--fg-muted);
+}
+
+@media (max-width: 900px) {
+  .lesson {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

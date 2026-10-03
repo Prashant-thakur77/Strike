@@ -12,6 +12,7 @@ const PAGES = [
   ["/app/proof", "Proof"],
   ["/app/faucet", "Faucet"],
   ["/app/glossary", "Glossary"],
+  ["/app/lessons", "Lessons"],
 ] as const;
 
 /** Micro row on a hairline (every page, then project links), plus the eligibility and risk notice. */

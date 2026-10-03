@@ -1,0 +1,190 @@
+{
+  "about": "Lessons from Strike's live testnet runs. Each entry is something that happened on a public chain, in CI or in a rehearsal, the evidence for it, what we changed and what now guards it. Rendered at /app/lessons. scripts/check-claims.mjs checks every { tx, block, chainId } below on its chain; scripts/check-links.mjs checks every path and commit.",
+  "lessons": [
+    {
+      "id": "why-not-other-strikes",
+      "date": "2026-10-01",
+      "title": "A rejected proposal said that it failed, not what would have passed",
+      "happened": "On purpose, agent #1 sent an at-the-money put to the v3 sTSLA-CSP vault with force: true (the scripted reckless run). The contract rejected it with DeltaOutOfBand, |delta| 0.4928 against a band of 0.10 to 0.35, and slashed 10 USDG of the agent's bond to the vault's depositors. The record held one dry run, so it showed that 0.49 failed but not which strikes the mandate would have accepted, or why the agent chose its strike over the others.",
+      "evidence": [
+        {
+          "label": "proposeSeries, rejected and slashed",
+          "chainId": 46630,
+          "tx": "0xa8b5eba59bbffd9203c9deab6053754df82f69396fbc03b41de2a9897de7efb2",
+          "block": 127183195
+        },
+        {
+          "label": "The decision record",
+          "path": "docs/agent-log/2026-10-01-sTSLA-CSP.json"
+        }
+      ],
+      "changed": "Records now list the alternatives the agent dry-ran through the contract's own previewProposal: a ladder of target deltas across the band and past each edge, each with the contract's verdict and, for a rejection, the rule, the measured value and the limit. Every record has a decision page with the mandate check and headroom, the other strikes, the break-even and the strikes graded after settlement.",
+      "commits": ["e905e53", "c4d018c"],
+      "tests": ["agents/example/test/candidates.test.ts", "app/e2e/decision.spec.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "settlement-rehearsal",
+      "date": "2026-10-01",
+      "title": "The settlement rehearsal found four keeper bugs before Friday",
+      "happened": "Friday's settlement was run twice on anvil forks of both testnets, in and out of the money. The keeper compared expiry with the machine's clock instead of the chain's; settle sent with eth_estimateGas as the limit let v2's ERC-8004 feedback run out of gas inside a try/catch; a failed mirror push was logged as mirrored; and an empty read from a rate-limited RPC crashed a comparison. Nothing was sent to a public chain.",
+      "evidence": [
+        {
+          "label": "Rehearsal log",
+          "path": "docs/testnet-epochs/2026-10-02-settlement-rehearsal.md"
+        },
+        {
+          "label": "The keeper",
+          "path": "scripts/keeper.sh"
+        }
+      ],
+      "changed": "The keeper reads the latest block's timestamp, sends settle with cast estimate × 1.5, treats a failed push as a failure for that feed only, and skips a symbol whose read comes back empty. The runbook in operations.md came out of the same run.",
+      "commits": ["d59f508"],
+      "tests": [".github/workflows/keeper.yml"],
+      "testNote": "No unit test covers the shell keeper. Each keeper run ends with a dry run that must find nothing left to push or settle, or the run fails and opens an issue.",
+      "status": "fixed"
+    },
+    {
+      "id": "usdg-faucet",
+      "date": "2026-09-30",
+      "title": "Paxos's USDG faucet stalled for about a day",
+      "happened": "From 30 September to 1 October the only source of test USDG was Paxos's faucet, and it stalled. A tester could not make a first deposit, buy an option or bond an agent.",
+      "evidence": [
+        {
+          "label": "Decision D38",
+          "path": "docs/decisions.md"
+        },
+        {
+          "label": "UsdgDrip deployed",
+          "chainId": 46630,
+          "tx": "0x705290d78e669cd46db507a08154680aaa7d95e9ba06df2bdb6843ca9c02965b",
+          "block": 127311607
+        }
+      ],
+      "changed": "UsdgDrip, a team-funded faucet of the real testnet USDG: 10 USDG per address per 24 hours, sent by the tester's own wallet, with TooSoon and Empty errors the faucet page decodes.",
+      "commits": ["63bf1ec", "82eb198"],
+      "tests": ["contracts/test/testnet/UsdgDrip.t.sol", "app/e2e/faucet.spec.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "keeper-uptime",
+      "date": "2026-10-02",
+      "title": "The keeper did not run often enough to mirror most prints",
+      "happened": "Until 2 October the keeper ran as a scheduled job of a session on the owner's laptop, which stops when the session ends, and as a GitHub Actions cron that GitHub ran only 19 times from 28 September to 2 October, 2.7 to 6.8 hours apart. The first mirror audit found 15 of the 41 TSLA mainnet prints mirrored on Robinhood Chain testnet, with gaps of up to 23 hours on other feeds.",
+      "evidence": [
+        {
+          "label": "Mirror audit, coverage",
+          "path": "docs/testnet-epochs/2026-10-02-mirror-audit.md"
+        },
+        {
+          "label": "What runs where",
+          "path": "docs/operations.md"
+        }
+      ],
+      "changed": "The keeper runs on GitHub Actions with its own key, which holds only KEEPER_ROLE on the mirrored feeds. Each run keeps going for 50 minutes and then starts the next. The liveness card on /app/proof shows each feed's age against mainnet and the last keeper run.",
+      "commits": ["1b9fe0e", "b17388e"],
+      "tests": ["app/e2e/status.spec.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "rpc-429-cors",
+      "date": "2026-10-02",
+      "title": "A rate limit looked like a CORS error",
+      "happened": "The live activity feed sent JSON-RPC batches of 33 to 61 calls. The public Robinhood Chain testnet RPC answered with HTTP 429, and its 429 carries 'Access-Control-Allow-Origin: *,*', so Chrome reported a CORS error and the feed failed until the limit cleared. Two CI runs failed on it.",
+      "evidence": [
+        {
+          "label": "CI run 37055228383",
+          "url": "https://github.com/Prashant-thakur77/Strike/actions/runs/37055228383"
+        },
+        {
+          "label": "CI run 37068333653",
+          "url": "https://github.com/Prashant-thakur77/Strike/actions/runs/37068333653"
+        }
+      ],
+      "changed": "The feed's contract reads go through Multicall3, one eth_call per tick, like the rest of the app's clients. Reproduced with curl first: a 33-call batch drew a 429 after two requests; 15 rounds of 60 reads through Multicall3 drew none.",
+      "commits": ["4e46fdb"],
+      "tests": ["app/e2e/proof.spec.ts", "app/e2e/smoke.spec.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "anchor-per-record",
+      "date": "2026-10-02",
+      "title": "A later anchor made an earlier record read as 'does not match'",
+      "happened": "DecisionLog keeps one latestHash per agent, vault and epoch. A settlement record is anchored under the same epoch as the proposal, so after the settle run the proposal's hash was no longer the latest, and a check against latestHash alone would call a genuine record altered. Found in the rehearsal, before it happened live.",
+      "evidence": [
+        {
+          "label": "Proposal anchored, sTSLA-CC epoch 1",
+          "chainId": 46630,
+          "tx": "0x00e27fe12ab6b01507f55aba3b32b9576d2bcdf84dbede88c8bee2223aef6388",
+          "block": 127182818
+        },
+        {
+          "label": "Settle record anchored, same vault and epoch",
+          "chainId": 46630,
+          "tx": "0xe6b78dcbc570952922f574eb0fc69de04ffe46860be75f87f2496459e804253b",
+          "block": 127834965
+        }
+      ],
+      "changed": "The SDK and the app check each record against its own anchoring transaction's DecisionRecorded event, and say when a later record for the same epoch exists. The demo video reads the anchor the same way.",
+      "commits": ["5bc5acd", "2cd9a00"],
+      "tests": ["sdk/test/decisionRecord.test.ts", "app/e2e/why.spec.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "settlement-print",
+      "date": "2026-10-02",
+      "title": "The settlement print can come days after expiry",
+      "happened": "The series expired on Friday 2 October at 20:00 UTC. A series settles at the first mainnet Chainlink print at or after expiry, and the last TSLA print before it was at 19:55:31 UTC. With the US market closed for the weekend, the next print, and so the settlement, waits until Monday. The vault page had no state for a series that has expired but cannot settle yet.",
+      "evidence": [
+        {
+          "label": "Settle run: latest round published at 1790970931 (19:55:31 UTC), expiry 1790971200",
+          "path": "docs/agent-log/2026-10-03-sTSLA-CC.json"
+        },
+        {
+          "label": "Decision D44",
+          "path": "docs/decisions.md"
+        }
+      ],
+      "changed": "'Expired, settling' is its own state: the vault page says when the series expired, which print it waits for, the last print and that it is not the settlement price, and that buying is closed. The live tests branch on the chain's state and have a fixture for each phase.",
+      "commits": ["0957ae7", "20a29b4"],
+      "tests": ["app/e2e/app.spec.ts", "app/e2e/lifecycle.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "settle-waiting",
+      "date": "2026-10-03",
+      "title": "Waiting for a print was reported as a failed run",
+      "happened": "The scheduled settle runs after Friday's expiry stopped with 'no price at or after expiry yet' and wrote 'failed' records, though nothing was wrong: the print had not come.",
+      "evidence": [
+        {
+          "label": "The settle runs' 'failed' records",
+          "path": "docs/agent-log/2026-10-02-sTSLA-CC.json"
+        },
+        {
+          "label": "The shared skip rule",
+          "path": "scripts/settle-recorded.jq"
+        }
+      ],
+      "changed": "Before expiry a settle run exits 0; after expiry with no print yet it exits 75, writes nothing and the job shows 'Waiting for the first print after expiry'. The keeper re-checks a waiting run at most every 3 hours for 4 days, and a vault with nothing to settle is not recorded again each day.",
+      "commits": ["ac8c61f", "35eaa94"],
+      "tests": ["agents/example/test/settle.test.ts"],
+      "status": "fixed"
+    },
+    {
+      "id": "gitleaks-branches",
+      "date": "2026-10-02",
+      "title": "A branch's test fixtures failed main's secret scan",
+      "happened": "The config loader's test used two made-up values shaped like secrets. Gitleaks scans every branch, so the branch that added them failed the scan on main too.",
+      "evidence": [
+        {
+          "label": "The scan",
+          "path": ".github/workflows/gitleaks.yml"
+        }
+      ],
+      "changed": "The two made-up values are allowlisted by exact value in the workflow's config, with the test that uses them named; the scan still covers every ref and fails on anything else secret-shaped.",
+      "commits": ["b954cf1"],
+      "tests": [".github/workflows/gitleaks.yml"],
+      "status": "fixed"
+    }
+  ]
+}

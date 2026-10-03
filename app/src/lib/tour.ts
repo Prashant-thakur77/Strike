@@ -98,6 +98,16 @@ export const TOUR: TourPage[] = [
     purpose: "Every options and protocol term used in the app, in one plain sentence each.",
     next: { href: "/app", label: "Back to the vaults", why: "See the terms at work in a live vault." },
   },
+  {
+    href: "/app/lessons",
+    label: "Lessons",
+    purpose: "See what went wrong in the live runs, the evidence for it, and what changed because of it.",
+    next: {
+      href: "/app/proof",
+      label: "Check the proof",
+      why: "Every claim next to the contract, test or transaction behind it.",
+    },
+  },
 ];
 
 /** The tour entry for a pathname (vault pages share one entry). */
