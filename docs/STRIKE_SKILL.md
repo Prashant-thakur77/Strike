@@ -133,7 +133,7 @@ This skill is served at `https://strike-options.vercel.app/skill.md`, with an in
 https://strike-options.vercel.app/api/mcp
 ```
 
-It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats` and `series_risk`, plus the `strike://skill` resource. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
+It speaks MCP Streamable HTTP, is stateless (no session to keep; every POST is answered with JSON), holds no keys and sends no transactions. It exposes only the read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats`, `series_risk`, `wallet_statement` and `explain_decision`, plus the `strike://skill` resource and the `explain_decision` prompt. Chain reads are shared for about 10 seconds, so polling faster than that returns the same answer.
 
 By default it reads every deployment on Robinhood Chain testnet (46630), v2 and v3. `list_vaults` labels each vault with its `chainId` and `version`, and a tool given a vault address reads it in that vault's own deployment. The URL's query narrows it: `?chainId=421614` reads Arbitrum Sepolia, `?version=v3` (or `v2`) one deployment, for example `https://strike-options.vercel.app/api/mcp?chainId=46630&version=v3`. Two things differ between deployments:
 
@@ -167,24 +167,26 @@ To register, bond, propose, settle or buy, run the MCP server over stdio with yo
 
 ## Tools
 
-| Tool               | Kind  | What it does                                                                                                                                                                        |
-| ------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `strike_info`      | read  | Protocol, chain, read-only or agent mode                                                                                                                                            |
-| `list_vaults`      | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                                                             |
-| `vault_state`      | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                                                      |
-| `quote`            | read  | USDG premium to buy options of a live series now                                                                                                                                    |
-| `hedge_plan`       | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                                                         |
-| `buy_options`      | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                                                            |
-| `redeem_options`   | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                                                                 |
-| `risk_check`       | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                                                                  |
-| `propose_epoch`    | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                                                               |
-| `settle_epoch`     | write | Settle an expired series (settlement round and any extra hints found automatically)                                                                                                 |
-| `agent_stats`      | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                                                        |
-| `series_risk`      | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine (or through `RiskLens` on v3): depositors' exposure, worst case vs collateral, last buy's implied vol      |
-| `register_agent`   | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                                                                  |
-| `set_signer`       | write | Rotate an owned agent's signer key; on v3 with the new key's EIP-712 consent (a dry run returns the typed data to sign)                                                             |
-| `create_vault`     | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                                                                 |
-| `paid_risk_report` | pay   | Buy a vault's full risk report over x402 (0.01 test USDC or USDG per call) within the run's spending cap; listed only when the server has a payer key. See "Paying for data (x402)" |
+| Tool               | Kind  | What it does                                                                                                                                                                                                                                                                             |
+| ------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strike_info`      | read  | Protocol, chain, read-only or agent mode                                                                                                                                                                                                                                                 |
+| `list_vaults`      | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                                                                                                                                                                  |
+| `vault_state`      | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                                                                                                                                                           |
+| `quote`            | read  | USDG premium to buy options of a live series now                                                                                                                                                                                                                                         |
+| `hedge_plan`       | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                                                                                                                                                              |
+| `buy_options`      | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                                                                                                                                                                 |
+| `redeem_options`   | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                                                                                                                                                                      |
+| `risk_check`       | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                                                                                                                                                                       |
+| `propose_epoch`    | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                                                                                                                                                                    |
+| `settle_epoch`     | write | Settle an expired series (settlement round and any extra hints found automatically)                                                                                                                                                                                                      |
+| `agent_stats`      | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                                                                                                                                                             |
+| `series_risk`      | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine (or through `RiskLens` on v3): depositors' exposure, worst case vs collateral, last buy's implied vol                                                                                                           |
+| `wallet_statement` | read  | A wallet's statement on every deployment: deposits, withdrawals, premium claims, option buys and redemptions, bonds and slashes, x402 payments and drips, each with date, amounts, tokens and transaction; totals per token; a `cast` command per row type. `format: "csv"` adds the CSV |
+| `explain_decision` | read  | Answer a question about one decision record from its own fields only, every figure cited by field path; refuses anything the record cannot answer. `verify: true` checks the anchor on chain                                                                                             |
+| `register_agent`   | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                                                                                                                                                                       |
+| `set_signer`       | write | Rotate an owned agent's signer key; on v3 with the new key's EIP-712 consent (a dry run returns the typed data to sign)                                                                                                                                                                  |
+| `create_vault`     | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                                                                                                                                                                      |
+| `paid_risk_report` | pay   | Buy a vault's full risk report over x402 (0.01 test USDC or USDG per call) within the run's spending cap; listed only when the server has a payer key. See "Paying for data (x402)"                                                                                                      |
 
 Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent`, `set_signer` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 
@@ -214,6 +216,12 @@ series_risk { "vault": "sTSLA-CC" }
 quote { "vault": "sTSLA-CC", "amount": "2" }
 hedge_plan { "position": "10 TSLA" }
 buy_options { "vault": "sTSLA-CSP", "amount": "10", "maxSlippageBps": 100 }
+
+// A wallet's records (any address; read-only)
+wallet_statement { "address": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff", "from": "2026-09-28", "format": "csv" }
+
+// Ask about one decision record: answers cite the record's fields, e.g. "$369.37 [dryRun.strike]"
+explain_decision { "url": "docs/agent-log/2026-10-01-sTSLA-CC.json", "question": "Why this strike?", "verify": true }
 
 // After Friday's close
 settle_epoch { "vault": "sTSLA-CC" }
@@ -307,3 +315,7 @@ The example agent also records how it decided, as `decision.pipeline`: five stag
 5. **Contract:** `propose_epoch`, the final judge.
 
 Every stage is listed even when it did not run (`not-run`, with the reason), and a value a stage could not get is `{ "provided": false, "reason": "..." }`. Model text is kept apart as `narration`; every number comes from a tool. A no-trade record has `result.status` `not-sent` and `result.noTrade` (`stage`, `reasons`, `codes`). The record also lists `alternatives` with model numbers to grade at settlement and `confidence`, the computed model odds that the option expires worthless. With `--llm` the record also has `decision.llm`, what the Claude call used as the API or the Claude Code stream reported it (`planner`, `model`, `calls`, `inputTokens`, `outputTokens`, `cacheReadTokens`, `cacheCreationTokens`, `costUsd`, `durationMs`, `source`; the planner stage repeats it as `usage`). A figure the source did not report is `{ "provided": false, "reason": "..." }`, not 0: the Messages API reports no price, and Claude Code's `costUsd` is its own list-price estimate, not a bill. Rule-mode records have no `llm`. All of it is optional and covered by the hash.
+
+### Asking about a record
+
+`explain_decision` answers from the record alone, with no model: why this strike, what would make it lose, whether it was within the mandate, the result, the premium, the alternatives, the market, the anchor and the agent's track record. Each figure is followed by the field it came from (`[dryRun.strike]`), `citations` lists every field and its value, and a question the record cannot answer comes back with `refused: true`. `hashMatches` says whether the record still hashes to its anchor; only then are the cited fields the committed ones. When you phrase a longer answer with your own model, use only the returned citations, name the field for each statement, and say so when the record does not answer. The `explain_decision` prompt sets this up. The SDK's `answerDecisionQuestion(record, question)` is the same function.

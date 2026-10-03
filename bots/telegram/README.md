@@ -1,6 +1,6 @@
 # @strike/telegram-bot
 
-Live: [@strike_options_bot](https://t.me/strike_options_bot). Send `/subscribe` for alerts, or `/vaults`, `/quote sTSLA-CC`, `/agent 1`, `/status`.
+Live: [@strike_options_bot](https://t.me/strike_options_bot). Send `/subscribe` for alerts, `/watch <address>` for one wallet's alerts, or `/vaults`, `/quote sTSLA-CC`, `/agent 1`, `/status`, `/status <address>`.
 
 <p align="center">
   <img src="../../docs/media/telegram-bot.png" alt="@strike_options_bot answering /vaults on Robinhood Chain testnet" width="280">
@@ -51,6 +51,9 @@ Events: `EpochOpened`, `SeriesProposed`, `ProposalRejected`, `OptionsBought`, `E
 | `/quote <vault> [amount] [chain] [ver]` | USDG premium for N options (default 1) of the vault's live series (SDK quote), on each deployment that has the vault        |
 | `/agent <id> [chain] [version]`         | Bond, strikes, accepted and rejected proposals, status, on every registry where the id exists (agent ids are per registry)  |
 | `/status [chain]`                       | Per chain: head block, NYSE session, each underlying's price feed status per deployment, and each deployment's alert cursor |
+| `/status <address>`                     | The wallet's positions on every deployment, what needs its action, and what waits for a settlement price                    |
+| `/watch <address>`                      | Alerts in this chat for that wallet's actionable items (below); up to 5 wallets per chat. `/watch` alone lists them         |
+| `/unwatch <address\|all>`               | Stop watching one wallet or all of them                                                                                     |
 
 `<vault>` is the share symbol (`sTSLA-CC`, case does not matter) or the vault address. `[chain]` is a chain id
 (`/vaults 421614`), a name (`/vaults arbitrum`) or both a chain and a version (`/vaults 46630 v3`); `[version]` is
@@ -71,6 +74,29 @@ A vault with no series says "No live series" (and, once an epoch has settled, th
 open vault says it is waiting for the agent's proposal. Replies longer than Telegram's 4096 characters are split
 between vaults.
 
+## Wallet alerts (/watch)
+
+`/watch <address>` sends this chat an alert when that wallet has something to do on any deployment ([D51](../../docs/decisions.md)):
+
+- premium ready to claim (`claimPremium`);
+- a queued deposit processed, shares to claim (`claimDeposit`);
+- a queued withdrawal processed, assets to claim (`claimRedeem`);
+- an option in the money at settlement, or of a cancelled series, to redeem (`redeem`);
+- a series the wallet is in (as a depositor or an option holder) past expiry and waiting for its settlement price;
+- an agent's slash paid into a vault the wallet is in.
+
+The items come from chain state, read every `WATCH_INTERVAL_SECONDS`: each vault's `claimables` for the wallet, its option balances (the series it bought or was sent, from `OptionsBought` and `TransferSingle` logs since the deploy block, scanned once and then incrementally) and each series' state. An item shows while the chain says it is true. Each chat gets an item once; it alerts again only if it goes away and comes back (a new epoch's premium, say). The slash notice comes from the alert loop's `ProposalRejected`, so it rides the persisted per-deployment cursors. The `/watch` reply itself lists what the wallet needs now, and those items are not repeated as alerts.
+
+Privacy: addresses are public chain data. The state file keeps only which chat watches which address (`watches`), nothing else about the chat or the wallet; which items were already sent is kept in memory, so a restart sends each open item once more. A chat that blocks the bot stops watching.
+
+A dry run against the live chains, with nothing sent and no state written:
+
+```sh
+pnpm --filter @strike/telegram-bot dry-run --no-history "/watch 0x7767ca2d944A91e6ae896f85cACA4DfDE1810044" "/status 0x26b277b434B1670f207Afd8946edA9AF78A613Ff"
+```
+
+On 3 October QA wallet 1 had 3 sTSLA-CSP shares on Robinhood Chain testnet v3 and nothing to do; the deployer had 9.999999 USDG of premium to claim on each v3 put vault (the slashes of 1 October and 30 September, paid to depositors) and three call series plus its 4 calls waiting for a settlement price.
+
 ## Create the bot (BotFather)
 
 1. In Telegram, open a chat with [@BotFather](https://t.me/BotFather) and send `/newbot`.
@@ -85,7 +111,9 @@ between vaults.
    vaults - vault state, TVL and live series
    quote - premium for N options: /quote sTSLA-CC 2
    agent - agent bond, strikes and record: /agent 1
-   status - chain head and price feed status
+   status - chain head and price feed status, or a wallet: /status 0x...
+   watch - alerts for one wallet: /watch 0x...
+   unwatch - stop watching a wallet: /unwatch 0x... or /unwatch all
    help - command list
    ```
 
@@ -96,17 +124,18 @@ between vaults.
 
 Copy `.env.example` to `.env` in this directory (the bot loads it on start; real environment variables win).
 
-| Variable                | Default                    | Meaning                                                            |
-| ----------------------- | -------------------------- | ------------------------------------------------------------------ |
-| `TELEGRAM_BOT_TOKEN`    | none                       | BotFather token. Required to run the bot, not for the dry run.     |
-| `STRIKE_CHAIN_ID`       | `46630`                    | The primary chain: its state file keeps the subscribers            |
-| `STRIKE_CHAIN_IDS`      | every chain with a deploy  | Comma-separated chains to read (see [Chains](#chains))             |
-| `STRIKE_RPC_URL`        | the chain's public RPC     | Your own RPC endpoint for the primary chain                        |
-| `ALCHEMY_API_KEY`       | unset                      | Read through Alchemy first, with the public RPC as fallback        |
-| `DATA_DIR`              | `./data`                   | Where `state-<chainId>.json` (subscribers, log cursor) is kept     |
-| `POLL_INTERVAL_SECONDS` | `15`                       | How often to check for new logs                                    |
-| `LOG_BLOCK_RANGE`       | `50000`                    | Largest `getLogs` range; halved automatically when the RPC refuses |
-| `TELEGRAM_API_URL`      | `https://api.telegram.org` | A self-hosted Bot API server (or a mock in tests)                  |
+| Variable                 | Default                    | Meaning                                                            |
+| ------------------------ | -------------------------- | ------------------------------------------------------------------ |
+| `TELEGRAM_BOT_TOKEN`     | none                       | BotFather token. Required to run the bot, not for the dry run.     |
+| `STRIKE_CHAIN_ID`        | `46630`                    | The primary chain: its state file keeps the subscribers            |
+| `STRIKE_CHAIN_IDS`       | every chain with a deploy  | Comma-separated chains to read (see [Chains](#chains))             |
+| `STRIKE_RPC_URL`         | the chain's public RPC     | Your own RPC endpoint for the primary chain                        |
+| `ALCHEMY_API_KEY`        | unset                      | Read through Alchemy first, with the public RPC as fallback        |
+| `DATA_DIR`               | `./data`                   | Where `state-<chainId>.json` (subscribers, log cursor) is kept     |
+| `POLL_INTERVAL_SECONDS`  | `15`                       | How often to check for new logs                                    |
+| `LOG_BLOCK_RANGE`        | `50000`                    | Largest `getLogs` range; halved automatically when the RPC refuses |
+| `TELEGRAM_API_URL`       | `https://api.telegram.org` | A self-hosted Bot API server (or a mock in tests)                  |
+| `WATCH_INTERVAL_SECONDS` | `60`                       | How often each watched wallet is read for `/watch` alerts          |
 
 ## Chains
 
