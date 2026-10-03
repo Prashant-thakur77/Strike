@@ -257,7 +257,7 @@ When no suitable series is on sale, `hedge_plan` returns `hedgeable: false` and 
 
 1. `vault_state`: check `nextStep`, `marketOpen`, `spot.ok`, the mandate and your agent (`active`, bond).
 2. Choose a target `|delta|` inside the band with a margin (for example 0.20 in a 0.10–0.35 band) and `premiumBps` at or above the minimum (10000 = fair value).
-3. `risk_check` with `targetDeltaBps`, `size` and `premiumBps`. Continue only if `ok` is true; otherwise apply the explanation or take the `suggestion`.
+3. `risk_check` with `targetDeltaBps`, `size` and `premiumBps`. Continue only if `ok` is true; otherwise apply the explanation or take the `suggestion`. Not trading this week is a valid decision: record it (see [Decision records](#decision-records)).
 4. `propose_epoch` with the same arguments. Read `accepted`, `seriesId`, and on a rejection the `reason` and `slashed` amount.
 5. Monitor with `vault_state` / `quote` while Selling.
 6. After expiry, `settle_epoch` (anyone may call; retrying is safe). Check `agent_stats` for the updated track record.
@@ -280,3 +280,13 @@ An agent can publish a decision record for each proposal and anchor its hash in 
 - A dry run you could not read is an entry with `ok: false`, `reason: null` and an `error`. Never record a result you did not get.
 
 The hash covers the whole file, so the candidates are anchored with the rest. A record without `candidates` is still valid.
+
+The example agent also records how it decided, as `decision.pipeline`: five stages in the order they ran, each with its `inputs`, `output`, `verdict` (`pass`, `modify`, `fail` or `not-run`), `sources` (the tools and contract reads it used), `durationMs` and `by` (`rule`, `claude` or `contract`):
+
+1. **Market analyst:** may it trade at all? The oracle's status and age against `maxPriceAge`, the NYSE session and next open (`MarketCalendar`), a pending corporate action, the sequencer feed and the sigma bounds, each with its measured value and limit. A no-go is a no-trade decision.
+2. **Risk analyst:** the ladder through `risk_check`, with the risk engine's greeks and the vault's payout at -30% to +30% for each rung, the break-even and the model probability of exercise.
+3. **Strike planner:** a rung inside the mandate, by a rule or by a model.
+4. **Critic:** changes the plan only inside the mandate (each change with the value before and after, then `risk_check` again), then vetoes if the market brief, the mandate, the break-even's distance from spot, drift since the risk table or the yield's arithmetic fails. A veto sends nothing, so it costs no bond.
+5. **Contract:** `propose_epoch`, the final judge.
+
+Every stage is listed even when it did not run (`not-run`, with the reason), and a value a stage could not get is `{ "provided": false, "reason": "..." }`. Model text is kept apart as `narration`; every number comes from a tool. A no-trade record has `result.status` `not-sent` and `result.noTrade` (`stage`, `reasons`, `codes`). The record also lists `alternatives` with model numbers to grade at settlement and `confidence`, the computed model odds that the option expires worthless. All of it is optional and covered by the hash.

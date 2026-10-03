@@ -1,0 +1,402 @@
+{
+  "version": 1,
+  "action": "propose",
+  "date": "2026-10-03",
+  "chainTimeIso": "2026-10-03T05:40:56.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": null
+  },
+  "vault": {
+    "address": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "60",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "370.448",
+    "sigma": 0.6,
+    "source": "live",
+    "openedAtIso": null,
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": {
+    "strategy": "default",
+    "targetDeltaBps": null,
+    "premiumBps": null,
+    "reasoning": "No trade this week: the market analyst stopped the run (market closed until Mon 5 Oct 13:30 UTC). Nothing was sent.",
+    "notes": [],
+    "planner": {
+      "kind": "rule",
+      "model": "default",
+      "label": "rule: default"
+    },
+    "pipeline": [
+      {
+        "stage": "market",
+        "attempt": 1,
+        "verdict": "fail",
+        "summary": "No-go: market closed until Mon 5 Oct 13:30 UTC.",
+        "inputs": {
+          "vault": "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+          "underlying": {
+            "symbol": "TSLA",
+            "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+          },
+          "ignoreSession": false,
+          "mcpSpot": "370.448"
+        },
+        "output": {
+          "go": false,
+          "reasons": ["market closed until Mon 5 Oct 13:30 UTC"],
+          "codes": ["MARKET_CLOSED"],
+          "checks": [
+            {
+              "check": "session",
+              "ok": false,
+              "measured": "NYSE closed until Mon 5 Oct 13:30 UTC",
+              "limit": "the NYSE regular session (openEpoch and buy revert outside it)",
+              "code": "MARKET_CLOSED"
+            },
+            {
+              "check": "feed-status",
+              "ok": true,
+              "measured": "StockOracle.status: Ok",
+              "limit": "a valid price from a feed and token that are not paused",
+              "code": "FEED_UNUSABLE"
+            },
+            {
+              "check": "feed-fresh",
+              "ok": true,
+              "measured": "last print 9.8 h old (Fri 2 Oct 19:55 UTC)",
+              "limit": "at most 25.0 h old (feedConfig.maxPriceAge)",
+              "code": "FEED_STALE"
+            },
+            {
+              "check": "corporate-action",
+              "ok": true,
+              "measured": "none: uiMultiplier equals newUIMultiplier and no change took effect within the grace window",
+              "limit": "no ERC-8056 multiplier change pending or within 24.0 h of taking effect",
+              "code": "CORPORATE_ACTION_PENDING"
+            },
+            {
+              "check": "sequencer",
+              "ok": true,
+              "measured": "not provided: no sequencer uptime feed is configured on this chain's StockOracle (sequencerFeed is the zero address); the contract skips the check too",
+              "limit": "up and past its grace period, when a sequencer feed is configured (the contract skips the check without one)",
+              "code": "SEQUENCER_DOWN"
+            },
+            {
+              "check": "sigma-bounds",
+              "ok": true,
+              "measured": "sigma 60.0% a year",
+              "limit": "20% to 200% (EpochManager.underlyings minSigma, maxSigma)",
+              "code": "SIGMA_OUT_OF_BOUNDS"
+            }
+          ],
+          "contradictions": [
+            {
+              "between": ["testnet MirrorFeed latest round", "mainnet Chainlink latest round"],
+              "agree": true,
+              "measured": "the mirror has the mainnet's latest print ($370.448 at Fri 2 Oct 19:55 UTC)",
+              "limit": "the mirror at most 30 min behind mainnet"
+            },
+            {
+              "between": ["pricer sigma (EpochManager)", "realised volatility (10 daily mainnet closes)"],
+              "agree": true,
+              "measured": "sigma 60.0% against realised 37.1% a year",
+              "limit": "neither more than 2x the other"
+            },
+            {
+              "between": ["MCP vault_state spot", "StockOracle.status price"],
+              "agree": true,
+              "measured": "$370.448 against $370.448",
+              "limit": "within 0.01%"
+            }
+          ],
+          "sessionWaived": false,
+          "chainTimeIso": "2026-10-03T05:40:57Z",
+          "underlying": {
+            "symbol": "TSLA",
+            "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+          },
+          "spot": {
+            "price": "370.448",
+            "status": "Ok",
+            "updatedAtIso": "2026-10-02T19:55:31Z",
+            "ageSeconds": 35126,
+            "maxAgeSeconds": 90000
+          },
+          "sigma": {
+            "value": 0.6,
+            "min": 0.2,
+            "max": 2,
+            "source": "EpochManager.underlyings(token).sigma",
+            "realised": {
+              "value": 0.37103383859792344,
+              "closes": [
+                {
+                  "closeIso": "2026-09-18T20:00:00.000Z",
+                  "price": 363.79999999
+                },
+                {
+                  "closeIso": "2026-09-21T20:00:00.000Z",
+                  "price": 374.2316
+                },
+                {
+                  "closeIso": "2026-09-22T20:00:00.000Z",
+                  "price": 380.265
+                },
+                {
+                  "closeIso": "2026-09-23T20:00:00.000Z",
+                  "price": 379.925
+                },
+                {
+                  "closeIso": "2026-09-24T20:00:00.000Z",
+                  "price": 378.34
+                },
+                {
+                  "closeIso": "2026-09-25T20:00:00.000Z",
+                  "price": 371.7471
+                },
+                {
+                  "closeIso": "2026-09-28T20:00:00.000Z",
+                  "price": 357.6
+                },
+                {
+                  "closeIso": "2026-09-29T20:00:00.000Z",
+                  "price": 352.571
+                },
+                {
+                  "closeIso": "2026-09-30T20:00:00.000Z",
+                  "price": 354.085
+                },
+                {
+                  "closeIso": "2026-10-01T20:00:00.000Z",
+                  "price": 354.904
+                },
+                {
+                  "closeIso": "2026-10-02T20:00:00.000Z",
+                  "price": 370.448
+                }
+              ],
+              "returns": 10
+            }
+          },
+          "session": {
+            "open": false,
+            "nextOpenIso": "2026-10-05T13:30:00Z",
+            "nextCloseIso": "2026-10-05T20:00:00Z"
+          },
+          "corporateAction": {
+            "provided": true,
+            "pending": false,
+            "effectiveAtIso": null
+          },
+          "sequencer": {
+            "provided": false,
+            "reason": "no sequencer uptime feed is configured on this chain's StockOracle (sequencerFeed is the zero address); the contract skips the check too"
+          },
+          "mainnet": {
+            "chainId": 4663,
+            "feed": "0x4A1166a659A55625345e9515b32adECea5547C38",
+            "roundId": "18446744073709553062",
+            "price": "370.448",
+            "updatedAt": 1790970931
+          }
+        },
+        "sources": [
+          {
+            "kind": "mcp",
+            "name": "vault_state"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.status",
+            "address": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.feedConfig",
+            "address": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.isMarketOpen",
+            "address": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.sequencerFeed",
+            "address": "0x5BCdBFaB940BFAEF821392d7f58c670c2064989A"
+          },
+          {
+            "kind": "contract",
+            "name": "EpochManager.underlyings",
+            "address": "0x256D4546486368dCb23E94758b4cb500c215929F"
+          },
+          {
+            "kind": "contract",
+            "name": "MarketCalendar.isTradingDay",
+            "address": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4"
+          },
+          {
+            "kind": "contract",
+            "name": "MarketCalendar.sessionOf",
+            "address": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4"
+          },
+          {
+            "kind": "contract",
+            "name": "ERC-8056 uiMultiplier, newUIMultiplier, effectiveAt",
+            "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+          },
+          {
+            "kind": "contract",
+            "name": "MirrorFeed.latestRoundData",
+            "address": "0x5476cb08769f406dE95F6171AcC1F5FE88431230"
+          },
+          {
+            "kind": "contract",
+            "name": "Chainlink latestRoundData",
+            "address": "0x4A1166a659A55625345e9515b32adECea5547C38",
+            "chainId": 4663
+          }
+        ],
+        "by": "rule",
+        "durationMs": 13788
+      },
+      {
+        "stage": "risk",
+        "attempt": 1,
+        "verdict": "not-run",
+        "summary": "not run: the market analyst stopped the run before this stage",
+        "inputs": {},
+        "output": {},
+        "sources": [],
+        "durationMs": 0,
+        "by": "rule"
+      },
+      {
+        "stage": "planner",
+        "attempt": 1,
+        "verdict": "not-run",
+        "summary": "not run: the market analyst stopped the run before this stage",
+        "inputs": {},
+        "output": {},
+        "sources": [],
+        "durationMs": 0,
+        "by": "rule"
+      },
+      {
+        "stage": "critic",
+        "attempt": 1,
+        "verdict": "not-run",
+        "summary": "not run: the market analyst stopped the run before this stage",
+        "inputs": {},
+        "output": {},
+        "sources": [],
+        "durationMs": 0,
+        "by": "rule"
+      },
+      {
+        "stage": "contract",
+        "attempt": 1,
+        "verdict": "not-run",
+        "summary": "not run: the market analyst stopped the run, so no proposal was sent",
+        "inputs": {},
+        "output": {},
+        "sources": [],
+        "durationMs": 0,
+        "by": "contract"
+      }
+    ],
+    "alternatives": [
+      {
+        "name": "kept cash",
+        "taken": true,
+        "available": true,
+        "targetDeltaBps": null,
+        "premiumBps": null,
+        "strike": null,
+        "size": "0",
+        "premiumPerOption": null,
+        "premiumIncomeUsd": "0",
+        "breakEven": null,
+        "exerciseProbability": null,
+        "stressLossUsd": "0",
+        "source": "no option sold: no premium, no payout"
+      }
+    ],
+    "confidence": null,
+    "contradictions": [
+      {
+        "between": ["testnet MirrorFeed latest round", "mainnet Chainlink latest round"],
+        "agree": true,
+        "measured": "the mirror has the mainnet's latest print ($370.448 at Fri 2 Oct 19:55 UTC)",
+        "limit": "the mirror at most 30 min behind mainnet"
+      },
+      {
+        "between": ["pricer sigma (EpochManager)", "realised volatility (10 daily mainnet closes)"],
+        "agree": true,
+        "measured": "sigma 60.0% against realised 37.1% a year",
+        "limit": "neither more than 2x the other"
+      },
+      {
+        "between": ["MCP vault_state spot", "StockOracle.status price"],
+        "agree": true,
+        "measured": "$370.448 against $370.448",
+        "limit": "within 0.01%"
+      }
+    ]
+  },
+  "dryRun": null,
+  "transactions": [],
+  "result": {
+    "status": "not-sent",
+    "summary": "No trade this week: the market analyst stopped the run (market closed until Mon 5 Oct 13:30 UTC). Nothing was sent.",
+    "reason": "no-trade",
+    "noTrade": {
+      "stage": "market",
+      "reasons": ["market closed until Mon 5 Oct 13:30 UTC"],
+      "codes": ["MARKET_CLOSED"]
+    }
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 1,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "70",
+    "settledEpochs": 0,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "run": {
+    "dryRun": true,
+    "ignoreSession": false,
+    "note": "Dry run: nothing was sent and the record is not anchored."
+  }
+}
