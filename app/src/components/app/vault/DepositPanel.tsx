@@ -1,6 +1,7 @@
 "use client";
 
 import { strikeVaultAbi } from "@strike/sdk";
+import Link from "next/link";
 import { useState } from "react";
 import { erc20Abi } from "viem";
 import { useConnection } from "wagmi";
@@ -23,6 +24,8 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
   const { chainId } = useStrike();
   const pos = usePosition(vault).data;
   const tx = useTx();
+  // What the last confirmed action was, for the next step under it (a newcomer's "now what?" after "done").
+  const [doneAs, setDoneAs] = useState<string | null>(null);
 
   const locked = vault.locked;
   const assetDec = vault.asset.decimals;
@@ -51,6 +54,7 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
 
   async function submit() {
     if (!address || amount === null) return;
+    setDoneAs(null);
     const v = { address: vault.address, abi: strikeVaultAbi, chainId } as const;
     if (needsApproval) {
       const ok = await tx.exec(`Approve ${vault.asset.symbol}`, (w) =>
@@ -75,8 +79,27 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
       );
     if (mode === "withdraw" && locked)
       ok = await tx.exec(verb, (w) => w({ ...v, functionName: "requestRedeem", args: [amount] }));
-    if (ok) setText("");
+    if (ok) {
+      setText("");
+      setDoneAs(verb);
+    }
   }
+
+  const next =
+    tx.phase === "done" && doneAs ? (
+      <p className={styles.hint} data-testid="deposit-next">
+        {doneAs === "Deposit"
+          ? "Your shares are under Your position above. They earn premium from the next epoch, which opens during US market hours. "
+          : doneAs === "Withdraw"
+            ? "Paid to your wallet. Premium your shares earned stays claimable under Your position. "
+            : doneAs === "Queue deposit"
+              ? `Your ${vault.asset.symbol} waits in the vault until this epoch settles; then claim your shares under Your position. `
+              : "Your shares wait in the vault until this epoch settles; then claim the payout under Your position. "}
+        <Link href={`/app/portfolio?chain=${chainId}`} className="text-link">
+          Every vault in your portfolio
+        </Link>
+      </p>
+    ) : null;
 
   const estimate =
     inShares && amount && vault.totalSupply > 0n ? (amount * vault.totalAssets) / vault.totalSupply : null;
@@ -94,6 +117,7 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
           onClick={() => {
             setMode(m);
             setText("");
+            setDoneAs(null);
             tx.reset();
           }}
         >
@@ -158,6 +182,7 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
         </div>
         {hint}
         <TxNote tx={tx} />
+        {next}
       </div>
     );
   }
@@ -177,6 +202,7 @@ export function DepositPanel({ vault }: { vault: VaultSummary }) {
       {hint}
       {action}
       <TxNote tx={tx} />
+      {next}
     </div>
   );
 }

@@ -192,6 +192,29 @@ test.describe("with a local devnet", () => {
     await expect(page.getByText("sTSLA-CC").or(page.getByText("sTSLA-CSP")).first()).toBeVisible();
   });
 
+  test("a deposit says what happens next and links the portfolio (QA, 3 Oct)", async ({ page }) => {
+    test.skip(test.info().project.name !== "desktop", "one chain-mutating run is enough");
+    await installMockWallet(page);
+    await page.goto("/app?chain=31337");
+    const put = page.locator('a[href^="/app/vault/"]').filter({ hasText: "Cash-secured put" }).first();
+    await put.waitFor();
+    await connectWallet(page, false);
+    await put.click();
+    const amount = page.locator('input[inputmode="decimal"]').first();
+    await expect(amount).toBeEnabled({ timeout: 30_000 });
+    await amount.fill("1");
+    await page
+      .getByRole("button", { name: /^(Approve & (queue deposit|deposit)|Queue deposit|Deposit)$/ })
+      .click();
+    await expect(page.getByText(/^(Queue deposit|Deposit): done\./)).toBeVisible({ timeout: 30_000 });
+    const next = page.getByTestId("deposit-next");
+    await expect(next).toContainText(/under Your position/);
+    await expect(next.getByRole("link", { name: "Every vault in your portfolio" })).toHaveAttribute(
+      "href",
+      "/app/portfolio?chain=31337",
+    );
+  });
+
   test("buys one option through the mock wallet", async ({ page }) => {
     test.skip(test.info().project.name !== "desktop", "one chain-mutating run is enough");
     await installMockWallet(page);
