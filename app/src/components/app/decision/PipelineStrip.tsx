@@ -47,7 +47,7 @@ export function PipelineStrip({
   chainId,
 }: {
   pipeline: Pipeline;
-  record: LogRecord;
+  record?: LogRecord;
   chainId: number;
 }) {
   const stages = stripStages(p);
@@ -110,7 +110,7 @@ function StageCard({
 }: {
   stage: Stage & { missing?: boolean };
   pipeline: Pipeline;
-  record: LogRecord;
+  record?: LogRecord;
   chainId: number;
 }) {
   const plannerTarget = n(p.stages.find((x) => x.stage === "planner")?.output.targetDeltaBps);

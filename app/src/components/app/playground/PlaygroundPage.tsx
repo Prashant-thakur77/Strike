@@ -38,6 +38,7 @@ import { PageIndex } from "../PageIndex";
 import { Rail } from "../Rail";
 import { Skeleton } from "../Skeleton";
 import appStyles from "../app.module.css";
+import { AgentRun } from "./AgentRun";
 import { MandateRules } from "./MandateRules";
 import { Presets } from "./Presets";
 import { EpochNote, VaultPicker } from "./VaultPicker";
@@ -366,6 +367,14 @@ export function PlaygroundPage() {
           ) : (
             <RulesSkeleton />
           )}
+        </Rail>
+        <Rail
+          index="04"
+          id="pg-agent"
+          label="Run the agent"
+          note="The example agent's rule stages against a live vault, in your browser: market checks, the strike ladder judged by the contract, the profile's pick and the critic. It sends nothing."
+        >
+          <AgentRun snap={snap} />
         </Rail>
       </div>
 
