@@ -3,6 +3,23 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@strike/sdk", "@strike/mcp"],
+  // Response headers on every route: no MIME sniffing, no full URLs in the Referer sent to other sites, and none of
+  // the device APIs the app never uses. Framing is left alone (the demo and submission pages may embed the app).
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+          },
+        ],
+      },
+    ];
+  },
   // Whether browsers read through /api/rpc, the server-side Alchemy proxy: on when the build sees ALCHEMY_API_KEY
   // (Vercel exposes its env vars to builds), or forced with NEXT_PUBLIC_STRIKE_RPC_PROXY=1/0. Only this flag is
   // inlined into the bundle; the key itself is read by the server at request time (src/lib/rpc/server.ts).
