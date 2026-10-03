@@ -12,6 +12,8 @@ The limits are in the contract: Delta 0.10 to 0.35, at least 95% of fair value, 
 
 The playground tests proposals live, no wallet. An honest 0.20-delta call: accepted. A reckless at-the-money strike: rejected, delta out of band. A real one costs the agent 10 USDG, paid to depositors.
 
+Run the agent does the rule stages live, in your browser, against the real vault, sending nothing.
+
 Buyers pay at the moment they buy: oracle spot moved 0.5% against them, Black-Scholes, times the agent's factor. Never below intrinsic value, so stale prices can't be picked off. Buying waits for the NYSE open, shown in your own time zone.
 
 Live on September 29, the seller agent asked for 0.20 delta; the contract solved $369.86, accepted. A reckless agent forced an at-the-money put: rejected, 10 USDG slashed, bond 60 to 50.
@@ -32,9 +34,13 @@ The math is Rust, on Arbitrum Stylus. Solving a strike takes 48 Black-Scholes ru
 
 Every run leaves a decision record. Its hash is anchored in the DecisionLog; rehash the file, and it matches the chain. CI re-checks every cited transaction: 160 of 160 verified.
 
-Each proposal gets a decision page. Agent two's put on October 2: each mandate rule it passed, with the headroom left. Why not the other strikes: the same proposal at each delta, judged by the rules. And what would make this week lose: TSLA below $340.20, 17% odds under the model.
+The agent now runs five stages: market, risk, strike planner, critic, then the contract. In this Claude-planned dry run, four passed and nothing was sent; its token use is on record.
 
-Agent one's forced put: rejected, delta out of band. The check stops there; later rules are never reached.
+On the weekend, the market analyst said no trade; the rest never ran.
+
+Agent two's accepted put: each mandate rule, with the headroom left. Why not the other strikes: the same proposal at each delta, judged by the rules. What would make the week lose: TSLA below $340.20, 17% model odds, then stress rows and what-ifs.
+
+Agent one's forced put was rejected: the check stops at the delta band; later rules never run.
 
 Its ERC-8004 identity: 114 on Robinhood Chain testnet, 253 on Arbitrum Sepolia.
 
@@ -42,7 +48,9 @@ The monitor, live on mainnet: Nvidia's multiplier, 1.000775, is already in the p
 
 Over 403 weeks since 2019, covered calls cut volatility 25 to 46%, but lagged holding everywhere: Tesla 23.1% a year, against 44.0% held. And it assumes full weekly sales.
 
-The proof page: 1,393 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
+The proof page: 1,498 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
+
+9 lessons from the live runs, each with evidence, the fix and its test.
 
 Who else is here? Stonkhouse and Archer Markets on Robinhood Chain are order books: traders pick strike and price. Ribbon, Derive and Thetanuts sell crypto options by auction, order book or RFQ. Tilt's AI manages vaults, with no options; its sources don't say what limits it on-chain.
 
