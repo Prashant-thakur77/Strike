@@ -387,6 +387,33 @@ describe("risk analyst", () => {
     expect(row.exerciseProbability).toBeLessThan(0.3);
   });
 
+  it("measures a covered call's stress in tokens of collateral at the shocked spot", async () => {
+    const callEngine: RiskEngineReader = {
+      ...engine,
+      async scenarioLoss(_isCall, strike, soldWad, spot, shocks) {
+        // USD value of what the vault pays holders: (S' - K) per option above the strike.
+        const losses = shocks.map((sh) => {
+          const shocked = (spot * (10n ** 18n + sh)) / 10n ** 18n;
+          return shocked > strike ? ((shocked - strike) * soldWad) / 10n ** 18n : 0n;
+        });
+        return { worst: losses.reduce((a, b) => (b > a ? b : a), 0n), losses };
+      },
+    };
+    const call = {
+      ...cand(2000),
+      strike: "390.00",
+      size: "4",
+      premium: "3.5",
+    };
+    const row = await riskRow(call, { ...ctx, isCall: true }, callEngine);
+    expect(row.stress).toMatchObject({ worstShock: 0.3 });
+    const stress = row.stress as { shareOfCollateral: number; worstLossUsd: string };
+    const shocked = 370.448 * 1.3;
+    expect(Number(stress.worstLossUsd)).toBeCloseTo((shocked - 390) * 4, 3);
+    expect(stress.shareOfCollateral).toBeCloseTo((shocked - 390) / shocked, 6);
+    expect(Number(row.breakEven)).toBeCloseTo(393.5, 6);
+  });
+
   it("computes the model probability of exercise as N(d2), below a call's delta and above a put's |delta|", () => {
     const call = exerciseProbability(100, 105, 7 * 86_400, 0.6, true)!;
     const put = exerciseProbability(100, 95, 7 * 86_400, 0.6, false)!;
