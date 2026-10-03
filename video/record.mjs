@@ -39,6 +39,7 @@ import {
   srt,
   timeline,
   timingHash,
+  wrap2,
   writeFileSync,
 } from "./lib/engine.mjs";
 import { chainConfig } from "./lib/config.mjs";
@@ -96,14 +97,31 @@ function epochLog() {
 
 const mmss = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 /** docs/submission/<kind>-script.md, written from the same scene list and timeline as the video. */
-function scriptDoc(doc, scenes, tls, total, words) {
+function scriptDoc(doc, scenes, tls, total, words, intro = null) {
+  const off = intro?.duration ?? 0;
   const chapters = scenes
-    .map((s, i) => (s.chapter ? `${mmss(tls[i].start)} ${s.chapter}` : null))
+    .map((s, i) => (s.chapter ? `${mmss(off + tls[i].start)} ${s.chapter}` : null))
     .filter(Boolean);
-  const parts = [doc.head({ total, words, wpm: Math.round((words / total) * 60), mmss, chapters })];
+  if (intro) chapters.unshift(`0:00 ${intro.title}`);
+  const parts = [
+    doc.head({
+      total: total + off,
+      narration: total,
+      words,
+      wpm: Math.round((words / total) * 60),
+      mmss,
+      chapters,
+      intro,
+    }),
+  ];
+  if (intro) {
+    parts.push(`## 0:00 to ${mmss(off)} · ${intro.title}`);
+    if (intro.screen) parts.push(`Screen: ${intro.screen}`);
+    parts.push(`> ${intro.text}`);
+  }
   scenes.forEach((s, i) => {
     const tl = tls[i];
-    parts.push(`## ${mmss(tl.start)} to ${mmss(tl.start + tl.dur)} · ${s.title ?? s.tag}`);
+    parts.push(`## ${mmss(off + tl.start)} to ${mmss(off + tl.start + tl.dur)} · ${s.title ?? s.tag}`);
     if (s.screen) parts.push(`Screen: ${s.screen}`);
     parts.push(tl.lines.map((l) => `> ${l.text.replace(/\s*\|\s*/g, " ")}`).join("\n>\n"));
   });
@@ -298,10 +316,20 @@ async function main() {
   const picture = join(WORK, "picture.mp4");
   finalVideo(joined, states, WORK, picture, def.crf ?? 23);
   const wav = mixAudio(tls, total2, WORK, def.music ?? null);
-  mux(picture, wav, join(MEDIA, out.narrated));
+  // a video may open with a recorded intro (the pitch: the founder's own clip, video/founder.mjs)
+  const intro = def.intro && !PREVIEW ? await def.intro() : null;
+  if (intro) {
+    const body = join(WORK, "body.mp4");
+    mux(picture, wav, body);
+    prependIntro(intro, body, join(MEDIA, out.narrated));
+    log(`  opens with ${intro.path.replace(ROOT + "/", "")} (${intro.duration.toFixed(1)} s)`);
+  } else mux(picture, wav, join(MEDIA, out.narrated));
   if (out.silent) copyFileSync(picture, join(MEDIA, out.silent));
   const s = srt(tls);
-  writeFileSync(join(MEDIA, out.srt), s.text);
+  writeFileSync(
+    join(MEDIA, out.srt),
+    intro ? srtText([...intro.cues, ...shiftCues(s.cues, intro.duration)]) : s.text,
+  );
   writeFileSync(
     join(WORK, "script.txt"),
     tls.map((t) => t.lines.map((l) => l.text.replace(/\s*\|\s*/g, " ")).join(" ")).join("\n\n") + "\n",
@@ -345,7 +373,7 @@ async function main() {
   }
   if (PREVIEW) return log(`preview: video/.out/preview.mp4, ${total2.toFixed(1)} s`);
   if (def.scriptDoc)
-    writeFileSync(join(ROOT, def.scriptDoc.path), scriptDoc(def.scriptDoc, scenes, tls, total, nw));
+    writeFileSync(join(ROOT, def.scriptDoc.path), scriptDoc(def.scriptDoc, scenes, tls, total, nw, intro));
   writeFileSync(
     join(WORK, "report.json"),
     JSON.stringify(
@@ -360,7 +388,58 @@ async function main() {
     ),
   );
   for (const k of Object.values(out)) if (existsSync(join(MEDIA, k))) log(`${k}  ${mb(join(MEDIA, k))}`);
-  log(`duration ${total.toFixed(1)} s, ${nw} words, ${((nw / total) * 60).toFixed(0)} wpm`);
+  log(
+    `duration ${(total + (intro?.duration ?? 0)).toFixed(1)} s${intro ? ` (intro ${intro.duration.toFixed(1)} s)` : ""}, ${nw} words, ${((nw / total) * 60).toFixed(0)} wpm`,
+  );
+}
+
+/** The intro's first `duration` seconds, then the rendered body; one encode, 30 fps, AAC 48 kHz stereo. */
+function prependIntro(intro, body, out) {
+  const norm = (i) =>
+    `[${i}:v]fps=30,scale=1920:1080,setsar=1,format=yuv420p[v${i}];[${i}:a]aresample=48000,aformat=channel_layouts=stereo[a${i}]`;
+  ff([
+    "-t",
+    intro.duration.toFixed(3),
+    "-i",
+    intro.path,
+    "-i",
+    body,
+    "-filter_complex",
+    `${norm(0)};${norm(1)};[v0][a0][v1][a1]concat=n=2:v=1:a=1[v][a]`,
+    "-map",
+    "[v]",
+    "-map",
+    "[a]",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "slow",
+    "-crf",
+    "20",
+    "-profile:v",
+    "high",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "160k",
+    "-movflags",
+    "+faststart",
+    out,
+  ]);
+}
+
+const shiftCues = (cues, by) => cues.map((c) => ({ ...c, from: c.from + by, to: c.to + by }));
+function srtText(cues) {
+  const ts = (s) => {
+    const ms = Math.max(0, Math.round(s * 1000));
+    const p = (n, w = 2) => String(n).padStart(w, "0");
+    return `${p(Math.floor(ms / 3600000))}:${p(Math.floor(ms / 60000) % 60)}:${p(Math.floor(ms / 1000) % 60)},${p(ms % 1000, 3)}`;
+  };
+  return cues
+    .map((c, i) => `${i + 1}\n${ts(c.from)} --> ${ts(c.to)}\n${wrap2(c.text).join("\n")}\n`)
+    .join("\n");
 }
 
 main().then(

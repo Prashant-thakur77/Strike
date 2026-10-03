@@ -1541,7 +1541,7 @@ export function scenes(f, live) {
     {
       id: "waitlist",
       screen:
-        "`/waitlist`, the mainnet waitlist page: the staged launch plan, with the two stages still to come before mainnet (eight settled weeks on both testnets, the external audit) and the capped mainnet vault after them boxed. The sign-up button is not shown: it opens later.",
+        "`/waitlist`, the mainnet waitlist page: the staged launch plan, with the two stages still to come before mainnet (eight settled weeks on both testnets, the external audit) and the capped mainnet vault after them boxed.",
       tag: "Mainnet",
       lines: [L("Next: eight settled weeks, an external audit, | then one capped mainnet vault.")],
       async prepare(page) {

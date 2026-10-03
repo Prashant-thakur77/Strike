@@ -357,7 +357,7 @@ Screen: A two-column card: each challenge and how Strike solves it, lit as it is
 
 ## 5:54 to 5:59 · Mainnet
 
-Screen: `/waitlist`, the mainnet waitlist page: the staged launch plan, with the two stages still to come before mainnet (eight settled weeks on both testnets, the external audit) and the capped mainnet vault after them boxed. The sign-up button is not shown: it opens later.
+Screen: `/waitlist`, the mainnet waitlist page: the staged launch plan, with the two stages still to come before mainnet (eight settled weeks on both testnets, the external audit) and the capped mainnet vault after them boxed.
 
 > Next: eight settled weeks, an external audit, then one capped mainnet vault.
 

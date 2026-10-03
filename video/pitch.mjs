@@ -1,7 +1,7 @@
 // The 2-minute pitch: slides from the deck (video/deck, copied from the deck artifact) with narration and captions.
 // Each scene is one slide; its length comes from its narration. Numbers come from README.md (facts).
 // Script and reasons: docs/submission/pitch-script.md.
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { L, ROOT, log } from "./lib/engine.mjs";
 import { sayDec, sayInt, sayUsd } from "./lib/facts.mjs";
@@ -131,6 +131,18 @@ export async function probe() {
   return { claims: claimsCheck(ROOT) };
 }
 
+/** The pitch opens with the founder's own intro (video/founder.mjs; its word-by-word captions are burned in). */
+export async function intro() {
+  const { INTRO, founderSrt } = await import("./founder.mjs");
+  if (!existsSync(INTRO.path)) throw new Error(`no ${INTRO.path}: run node video/founder.mjs first`);
+  return {
+    ...INTRO,
+    cues: founderSrt(),
+    screen:
+      "The founder, Prashant Thakur, to camera ([strike-founder.mp4](../media/strike-founder.mp4) before its end card), with word-by-word captions, his name and school in a lower third, and four short cut-aways from the live site: a decision page's specialist stages, the rejected proposal's failing rule, the two testnets on the proof page and the waitlist.",
+  };
+}
+
 // ------------------------------------------------------------------------------------------ slides
 
 /** Fixes for the video render only (the deck artifact is unchanged): current numbers and no placeholders. */
@@ -197,9 +209,9 @@ td{padding:18px 16px 18px 0;border-bottom:1px solid rgba(0,0,0,.15);vertical-ali
 
 export const scriptDoc = {
   path: "docs/submission/pitch-script.md",
-  head: ({ total, words, wpm, mmss }) => `# Pitch video script (${mmss(total)})
+  head: ({ total, narration, words, wpm, mmss, intro }) => `# Pitch video script (${mmss(total)})
 
-The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (${total.toFixed(1)} s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by \`node video/record.mjs pitch\` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
+${intro ? `[docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (${total.toFixed(1)} s) opens with the founder's own intro (${intro.duration.toFixed(1)} s, the standalone cut is [strike-founder.mp4](../media/strike-founder.mp4), edited by [video/founder.mjs](../../video/founder.mjs) from [video/founder.json](../../video/founder.json)), then the narration (${narration.toFixed(1)} s)` : `The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (${total.toFixed(1)} s)`}, over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by \`node video/record.mjs pitch\` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
 
-The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): ${words} words in ${total.toFixed(0)} s (${wpm} words a minute). Every number is read from README.md at render time, and the count of verified transactions from a live run of \`scripts/check-claims.mjs\`. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.`,
+The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): ${words} words in ${narration.toFixed(0)} s (${wpm} words a minute); the founder's intro has no music. Every number is read from README.md at render time, and the count of verified transactions from a live run of \`scripts/check-claims.mjs\`. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to keep the slides near two minutes.`,
 };
