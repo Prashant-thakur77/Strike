@@ -81,6 +81,8 @@ export interface FormatContext {
   /** Block explorer base URL, without a trailing slash. */
   explorerUrl: string;
   usdgDecimals: number;
+  /** The deployment ("Robinhood Chain testnet · v3"): when set, each alert names it on the line above the link. */
+  label?: string;
 }
 
 const WAD_DECIMALS = 18;
@@ -138,6 +140,14 @@ function absDelta(delta: bigint): string {
 
 /** One alert as a short plain-text Telegram message. */
 export function formatAlert(a: Alert, ctx: FormatContext): string {
+  const text = alertText(a, ctx);
+  if (!ctx.label) return text;
+  const lines = text.split("\n");
+  lines.splice(lines.length - 1, 0, `Deployment: ${ctx.label}`); // the last line is always the Tx link
+  return lines.join("\n");
+}
+
+function alertText(a: Alert, ctx: FormatContext): string {
   const v = a.vault;
   const tx = `Tx: ${txLink(ctx, a.txHash)}`;
   const money = (x: bigint) => `${usdg(x, ctx.usdgDecimals)} USDG`;
@@ -219,19 +229,30 @@ function safeReason(code: number): string {
   }
 }
 
-/** Split a long message at line breaks into pieces Telegram accepts (4096 characters each). */
+/**
+ * Split a long message into pieces Telegram accepts (4096 characters each). Pieces end at a blank line (between
+ * two vaults, say) where they can, else at a line break, else mid-line.
+ */
 export function splitMessage(text: string, limit = 4096): string[] {
   if (text.length <= limit) return [text];
   const parts: string[] = [];
   let current = "";
-  for (const line of text.split("\n")) {
-    const pieces = line.length > limit ? (line.match(new RegExp(`.{1,${limit}}`, "gs")) ?? []) : [line];
-    for (const piece of pieces) {
-      const next = current ? `${current}\n${piece}` : piece;
-      if (next.length > limit) {
-        parts.push(current);
-        current = piece;
-      } else current = next;
+  const push = (piece: string, separator: string) => {
+    const next = current ? `${current}${separator}${piece}` : piece;
+    if (next.length > limit) {
+      parts.push(current);
+      current = piece;
+    } else current = next;
+  };
+  for (const paragraph of text.split("\n\n")) {
+    if (paragraph.length <= limit) {
+      push(paragraph, "\n\n");
+      continue;
+    }
+    // A paragraph longer than a message: its own lines, and lines longer than a message in pieces.
+    for (const line of paragraph.split("\n")) {
+      const pieces = line.length > limit ? (line.match(new RegExp(`.{1,${limit}}`, "gs")) ?? []) : [line];
+      for (const piece of pieces) push(piece, "\n");
     }
   }
   if (current) parts.push(current);

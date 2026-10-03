@@ -45,6 +45,36 @@ describe("configFromEnv", () => {
     expect(c.rpcEndpoints[0]?.headers).toEqual({ Authorization: "Bearer test-alchemy-key" });
   });
 
+  it("reads every chain with a deployment, the primary first, and STRIKE_RPC_URL for the primary only", () => {
+    const c = configFromEnv({ STRIKE_RPC_URL: "https://rpc.example" });
+    expect(c.chains.map((x) => x.chainId)).toEqual([46630, 421614]);
+    expect(c.chains[0]?.rpcEndpoints.map((e) => e.url)).toEqual([
+      "https://rpc.example",
+      "https://rpc.testnet.chain.robinhood.com",
+    ]);
+    expect(c.chains[1]?.rpcEndpoints.map((e) => e.url)).toEqual(["https://sepolia-rollup.arbitrum.io/rpc"]);
+    expect(c.chains.map((x) => x.explorerUrl)).toEqual([
+      "https://explorer.testnet.chain.robinhood.com",
+      "https://sepolia.arbiscan.io",
+    ]);
+    expect(configFromEnv({ STRIKE_CHAIN_ID: "421614" }).chains.map((x) => x.chainId)).toEqual([
+      421614, 46630,
+    ]);
+  });
+
+  it("STRIKE_CHAIN_IDS limits the chains, and a local primary chain is read alone", () => {
+    expect(configFromEnv({ STRIKE_CHAIN_IDS: "421614" }).chains.map((x) => x.chainId)).toEqual([
+      46630, 421614,
+    ]);
+    expect(configFromEnv({ STRIKE_CHAIN_ID: "421614", STRIKE_CHAIN_IDS: "421614" }).chains).toHaveLength(1);
+    expect(
+      configFromEnv({ STRIKE_CHAIN_ID: "31337", STRIKE_RPC_URL: "http://127.0.0.1:8545" }).chains.map(
+        (x) => x.chainId,
+      ),
+    ).toEqual([31337]);
+    expect(() => configFromEnv({ STRIKE_CHAIN_IDS: "46630,abc" })).toThrow(/STRIKE_CHAIN_IDS/);
+  });
+
   it("rejects bad values without echoing a token", () => {
     expect(() => configFromEnv({ STRIKE_CHAIN_ID: "abc" })).toThrow(/STRIKE_CHAIN_ID/);
     expect(() => configFromEnv({ LOG_BLOCK_RANGE: "0" })).toThrow(/LOG_BLOCK_RANGE/);

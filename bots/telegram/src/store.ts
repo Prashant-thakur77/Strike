@@ -5,12 +5,26 @@ import { join } from "node:path";
 export interface BotState {
   version: 1;
   chainId: number;
-  /** Next block to scan for alerts (null: start at the deploy block). */
+  /** Next block to scan for alerts on the primary chain's first deployment (null: start at the deploy block). */
   cursor: string | null;
+  /**
+   * Next block to scan for every other deployment, by `<chainId>:<EpochManager, lower case>`. Absent in files
+   * written before the bot read every deployment; such files load as they were.
+   */
+  cursors?: Record<string, string>;
   /** Next Telegram update id to ask for (getUpdates offset). */
   updateOffset: number;
   /** Chat ids that receive alerts. */
   subscribers: number[];
+}
+
+function readCursors(raw: unknown): Record<string, string> | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (typeof value === "string" && /^\d+$/.test(value)) out[key.toLowerCase()] = value;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 const empty = (chainId: number): BotState => ({
@@ -45,6 +59,7 @@ export class StateStore {
         ...state,
         cursor: typeof parsed.cursor === "string" && /^\d+$/.test(parsed.cursor) ? parsed.cursor : null,
         updateOffset: Number.isInteger(parsed.updateOffset) ? (parsed.updateOffset as number) : 0,
+        cursors: readCursors(parsed.cursors),
         subscribers: Array.isArray(parsed.subscribers)
           ? [...new Set(parsed.subscribers.filter((id): id is number => Number.isSafeInteger(id)))]
           : [],
@@ -59,6 +74,17 @@ export class StateStore {
 
   get cursor(): bigint | null {
     return this.state.cursor === null ? null : BigInt(this.state.cursor);
+  }
+
+  /** The next block to scan for a deployment other than the primary one (null: not scanned yet). */
+  cursorOf(key: string): bigint | null {
+    const raw = this.state.cursors?.[key.toLowerCase()];
+    return raw === undefined ? null : BigInt(raw);
+  }
+
+  async setCursorOf(key: string, nextBlock: bigint): Promise<void> {
+    this.state.cursors = { ...this.state.cursors, [key.toLowerCase()]: nextBlock.toString() };
+    await this.save();
   }
 
   get updateOffset(): number {
@@ -102,7 +128,9 @@ export class StateStore {
 
   /** Write the state atomically (temp file, then rename). */
   save(): Promise<void> {
-    const snapshot = `${JSON.stringify(this.state, null, 2)}\n`;
+    const { cursors, ...rest } = this.state;
+    const written = cursors && Object.keys(cursors).length > 0 ? { ...rest, cursors } : rest;
+    const snapshot = `${JSON.stringify(written, null, 2)}\n`;
     const tmp = `${this.path}.tmp`;
     this.writing = this.writing
       .catch(() => undefined)

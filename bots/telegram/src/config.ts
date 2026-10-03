@@ -4,6 +4,7 @@ import {
   type RpcEndpoint,
   type StrikeClient,
   createStrikeClient,
+  deploymentsFor,
   getDeployment,
   getStrikeChain,
   loadStrikeConfig,
@@ -12,7 +13,16 @@ import {
   strikeSecretName,
   transportFromEndpoints,
 } from "@strike/sdk";
-import { createPublicClient } from "viem";
+import { type PublicClient, createPublicClient } from "viem";
+
+/** One chain the bot reads: every Strike deployment on it is covered. */
+export interface ChainSetting {
+  chainId: number;
+  /** The SDK's `rpcEndpointsFor`: Alchemy when ALCHEMY_API_KEY is set, then (primary chain only) STRIKE_RPC_URL, then the public RPC. */
+  rpcEndpoints: RpcEndpoint[];
+  /** Block explorer base URL for tx links (strike.config.json's `explorer` for the chain). */
+  explorerUrl: string;
+}
 
 /** Bot configuration from the environment. */
 export interface BotConfig {
@@ -20,8 +30,16 @@ export interface BotConfig {
   token?: string;
   /** TELEGRAM_API_URL (default https://api.telegram.org): a self-hosted Bot API server, or a mock. */
   telegramApiUrl: string;
-  /** STRIKE_CHAIN_ID (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet). */
+  /**
+   * STRIKE_CHAIN_ID (default: strike.config.json's defaultChainId, 46630, Robinhood Chain testnet): the primary
+   * chain. Its state file keeps the subscribers, and its first deployment keeps the legacy `cursor`.
+   */
   chainId: number;
+  /**
+   * Every chain the bot reads, the primary first: STRIKE_CHAIN_IDS (comma-separated), else each chain in
+   * strike.config.json that has a deployment and is not `local`. A local primary chain (31337) is read alone.
+   */
+  chains: ChainSetting[];
   /** The first RPC endpoint's URL, for display. Never carries an API key (Alchemy's goes in a header). */
   rpcUrl: string;
   /** The SDK's `rpcEndpointsFor`: Alchemy when ALCHEMY_API_KEY is set, then STRIKE_RPC_URL, then the public RPC. */
@@ -58,33 +76,72 @@ function positiveInt(env: NodeJS.ProcessEnv, name: string, fallback: number): nu
 /** Read and validate the environment (defaults, the explorer and the token's variable from strike.config.json). */
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): BotConfig {
   const chainId = positiveInt(env, "STRIKE_CHAIN_ID", loadStrikeConfig().defaultChainId);
-  const chain = getStrikeChain(chainId);
+  getStrikeChain(chainId); // an unknown chain fails here
   const rpcEndpoints = rpcEndpointsFor(chainId, env);
+  const explorerOf = (id: number) =>
+    strikeExplorerUrl(id) ?? getStrikeChain(id).blockExplorers?.default.url ?? "";
   const tokenEnv = strikeSecretName("telegramToken"); // TELEGRAM_BOT_TOKEN
   const token = env[tokenEnv]?.trim() || undefined;
   if (token && !/^\d+:[A-Za-z0-9_-]{20,}$/.test(token)) {
     throw new Error(`${tokenEnv} does not look like a BotFather token (<digits>:<secret>)`);
   }
+  const chains: ChainSetting[] = chainIdsFor(chainId, env).map((id) => ({
+    chainId: id,
+    // STRIKE_RPC_URL names the primary chain's endpoint; the other chains use Alchemy (if keyed) and their public RPC.
+    rpcEndpoints: id === chainId ? rpcEndpoints : rpcEndpointsFor(id, { ...env, STRIKE_RPC_URL: undefined }),
+    explorerUrl: explorerOf(id),
+  }));
   return {
     token,
     telegramApiUrl: (env.TELEGRAM_API_URL?.trim() || "https://api.telegram.org").replace(/\/+$/, ""),
     chainId,
+    chains,
     rpcUrl: rpcEndpoints[0]!.url,
     rpcEndpoints,
     dataDir: resolve(env.DATA_DIR?.trim() || "data"),
     pollIntervalMs: positiveInt(env, "POLL_INTERVAL_SECONDS", 15) * 1000,
     logBlockRange: BigInt(positiveInt(env, "LOG_BLOCK_RANGE", 50_000)),
     startBlock: deploymentBlock(chainId),
-    explorerUrl: strikeExplorerUrl(chainId) ?? chain.blockExplorers?.default.url ?? "",
+    explorerUrl: explorerOf(chainId),
   };
 }
 
-/** A read-only Strike client for the configuration. */
+/** The chains to read, the primary first (see {@link BotConfig.chains}). */
+function chainIdsFor(primary: number, env: NodeJS.ProcessEnv): number[] {
+  const raw = env.STRIKE_CHAIN_IDS?.trim();
+  let ids: number[];
+  if (raw) {
+    ids = raw.split(",").map((part) => {
+      const n = Number(part.trim());
+      if (!Number.isInteger(n) || n <= 0) throw new Error(`invalid STRIKE_CHAIN_IDS entry: ${part.trim()}`);
+      getStrikeChain(n); // unknown chains fail here, by id
+      return n;
+    });
+  } else {
+    const config = loadStrikeConfig();
+    const primaryIsLocal = config.chains[String(primary)]?.local === true;
+    ids = primaryIsLocal
+      ? []
+      : Object.entries(config.chains)
+          .filter(([id, c]) => !c.local && deploymentsFor(Number(id)).length > 0)
+          .map(([id]) => Number(id));
+  }
+  return [primary, ...ids.filter((id) => id !== primary)];
+}
+
+/** A viem public client for a chain over the bot's RPC endpoints. */
+export function publicClientFor(setting: ChainSetting): PublicClient {
+  const chain = {
+    ...getStrikeChain(setting.chainId),
+    rpcUrls: { default: { http: [setting.rpcEndpoints[0]!.url] } },
+  };
+  const transport = transportFromEndpoints(setting.rpcEndpoints, { retryCount: 3 });
+  return createPublicClient({ chain, transport }) as PublicClient;
+}
+
+/** A read-only Strike client for the primary chain's default deployment (what the bot read before it covered every deployment). */
 export function clientFromConfig(config: BotConfig): StrikeClient {
-  const chain = { ...getStrikeChain(config.chainId), rpcUrls: { default: { http: [config.rpcUrl] } } };
-  const transport = transportFromEndpoints(config.rpcEndpoints, { retryCount: 3 });
-  const publicClient = createPublicClient({ chain, transport });
-  return createStrikeClient({ publicClient, chainId: config.chainId });
+  return createStrikeClient({ publicClient: publicClientFor(config.chains[0]!), chainId: config.chainId });
 }
 
 /** Load `.env` from the working directory if there is one (Node 22's built-in loader; never overrides). */

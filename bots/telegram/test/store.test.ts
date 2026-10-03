@@ -91,4 +91,44 @@ describe("StateStore", () => {
     await writeFile(join(dir, "state-46630.json"), "{ not json");
     await expect(StateStore.open(dir, 46630)).rejects.toThrow(/cannot read/);
   });
+
+  it("reads a state file from before per-deployment cursors, and keeps its fields on save", async () => {
+    await writeFile(
+      join(dir, "state-46630.json"),
+      JSON.stringify({
+        version: 1,
+        chainId: 46630,
+        cursor: "128057788",
+        updateOffset: 932382290,
+        subscribers: [7],
+      }),
+    );
+    const store = await StateStore.open(dir, 46630);
+    expect(store.cursor).toBe(128_057_788n);
+    expect(store.cursorOf("46630:0xabc")).toBeNull();
+    expect(store.subscribers).toEqual([7]);
+    await store.subscribe(8);
+    expect(JSON.parse(await readFile(store.path, "utf8"))).toEqual({
+      version: 1,
+      chainId: 46630,
+      cursor: "128057788",
+      updateOffset: 932382290,
+      subscribers: [7, 8],
+    });
+  });
+
+  it("stores per-deployment cursors by lower-case key and drops invalid ones", async () => {
+    const store = await StateStore.open(dir, 46630);
+    await store.setCursorOf("421614:0xABC", 9n);
+    expect(store.cursorOf("421614:0xabc")).toBe(9n);
+    expect((await StateStore.open(dir, 46630)).cursorOf("421614:0xAbC")).toBe(9n);
+    await writeFile(
+      join(dir, "state-421614.json"),
+      JSON.stringify({ version: 1, chainId: 421614, cursors: { good: "5", bad: 5, worse: "x1" } }),
+    );
+    const hand = await StateStore.open(dir, 421614);
+    expect(hand.cursorOf("good")).toBe(5n);
+    expect(hand.cursorOf("bad")).toBeNull();
+    expect(hand.cursorOf("worse")).toBeNull();
+  });
 });

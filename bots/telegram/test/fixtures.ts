@@ -6,6 +6,8 @@
  */
 import type { SeriesState, VaultState } from "@strike/sdk";
 import type { Address, Hex } from "viem";
+import { vi } from "vitest";
+import type { CommandTarget, StrikeReader } from "../src/commands.js";
 import type { FormatContext, SeriesInfo, VaultInfo } from "../src/format.js";
 import type { DecodedLog } from "../src/logs.js";
 
@@ -179,3 +181,135 @@ export const CC_SERIES_STATE: SeriesState = {
   payoutPerOption: 0n,
   escrow: 0n,
 };
+
+// --- The other deployments (addresses from contracts/deployments), for the multi-deployment tests ---
+
+export const V3_CC_VAULT: VaultInfo = {
+  ...CC_VAULT,
+  address: "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+};
+export const V3_CSP_VAULT: VaultInfo = {
+  ...CSP_VAULT,
+  address: "0x1bc73c1B28F520E57982FAe6127477190FA53690",
+};
+export const SEPOLIA_CC_VAULT: VaultInfo = {
+  ...CC_VAULT,
+  address: "0x5655659E18bf54ee0EF8f6A816E2e18D000F7311",
+};
+export const SEPOLIA_CSP_VAULT: VaultInfo = {
+  ...CSP_VAULT,
+  address: "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+};
+
+/** Chain time well after `EXPIRY`: a Selling series is expired and unsettled. */
+export const AFTER_EXPIRY = EXPIRY + 46_000n;
+/** Chain time before `EXPIRY`. */
+export const BEFORE_EXPIRY = EXPIRY - 40_000n;
+
+const oracle = {
+  status: "Ok" as const,
+  ok: true,
+  price: 352_453_000_000_000_000_000n,
+  updatedAt: 1_790_700_000n,
+};
+
+export interface FakeTargetOptions {
+  chainId: number;
+  chainName: string;
+  shortName: string;
+  version: string | null;
+  registry: string;
+  vaults: VaultState[];
+  /** Chain time. */
+  now?: bigint;
+  primary?: boolean;
+  /** Overrides on the fake Strike reads. */
+  strike?: Record<string, unknown>;
+  lastSettlement?: CommandTarget["lastSettlement"];
+}
+
+/** A `CommandTarget` over a fake Strike client: Robinhood Chain testnet v2/v3, Arbitrum Sepolia v3 are built from it. */
+export function fakeTarget(o: FakeTargetOptions): CommandTarget {
+  const now = o.now ?? AFTER_EXPIRY;
+  const label = o.version ? `${o.chainName} · ${o.version}` : o.chainName;
+  const strike = {
+    chainId: o.chainId,
+    listVaults: vi.fn(async () => o.vaults),
+    quoteBuy: vi.fn(async (_id: bigint, amount: bigint) => ({
+      premium: (2_444_436n * amount) / WAD,
+      collateral: amount,
+    })),
+    agentStats: vi.fn(),
+    oracleStatus: vi.fn(async () => oracle),
+    marketOpen: vi.fn(async () => true),
+    saleCutoff: vi.fn(async () => 3600),
+    blockTimestamp: vi.fn(async () => now),
+    viem: { publicClient: { getBlock: vi.fn(async () => ({ number: 126_332_630n, timestamp: now })) } },
+    ...o.strike,
+  } as unknown as StrikeReader;
+  return {
+    key: `${o.chainId}:${o.registry.toLowerCase()}`,
+    chainId: o.chainId,
+    chainName: o.chainName,
+    shortName: o.shortName,
+    version: o.version,
+    label,
+    registry: o.registry,
+    usdgDecimals: 6,
+    primary: o.primary,
+    strike,
+    lastSettlement: o.lastSettlement,
+  };
+}
+
+export const selling = (v: VaultInfo, over: Partial<SeriesState> = {}) =>
+  vaultState(v, {
+    epoch: { state: "Selling", openedAt: 1_790_700_000n, seriesId: CC_SERIES_STATE.id },
+    series: { ...CC_SERIES_STATE, vault: v.address, ...over },
+  });
+
+/** Robinhood Chain testnet v2: the call series is Selling, the put vault is Open. */
+export const targetV2 = (over: Partial<FakeTargetOptions> = {}) =>
+  fakeTarget({
+    chainId: 46630,
+    chainName: "Robinhood Chain testnet",
+    shortName: "RH testnet",
+    version: "v2",
+    registry: "0xE5b76249041e59C74Ee317fC2729f26249618D32",
+    primary: true,
+    vaults: [selling(CC_VAULT), vaultState(CSP_VAULT)],
+    ...over,
+  });
+
+/** Robinhood Chain testnet v3: a Selling call series and an idle put vault. */
+export const targetV3 = (over: Partial<FakeTargetOptions> = {}) =>
+  fakeTarget({
+    chainId: 46630,
+    chainName: "Robinhood Chain testnet",
+    shortName: "RH testnet",
+    version: "v3",
+    registry: "0x1c42740145B245b2f894d8e989ca29dfd9A9052f",
+    vaults: [
+      selling(V3_CC_VAULT, { strike: 369_360_000_000_000_000_000n }),
+      vaultState(V3_CSP_VAULT, {
+        epoch: { state: "Idle", openedAt: 0n, seriesId: 0n },
+        lastProcessedEpoch: 1n,
+      }),
+    ],
+    ...over,
+  });
+
+/** Arbitrum Sepolia v3. */
+export const targetSepolia = (over: Partial<FakeTargetOptions> = {}) =>
+  fakeTarget({
+    chainId: 421614,
+    chainName: "Arbitrum Sepolia",
+    shortName: "Arb Sepolia",
+    version: "v3",
+    registry: "0xAa3CA7847Af10d94CCD3eF09370Aab580A92341E",
+    vaults: [
+      selling(SEPOLIA_CC_VAULT, { strike: 364_290_000_000_000_000_000n }),
+      vaultState(SEPOLIA_CSP_VAULT, { epoch: { state: "Idle", openedAt: 0n, seriesId: 0n } }),
+    ],
+    ...over,
+  });

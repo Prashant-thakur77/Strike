@@ -1,13 +1,12 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { type BotDeps, pollAlertsOnce, pollUpdatesOnce } from "../src/bot.js";
-import type { StrikeReader } from "../src/commands.js";
+import { type AlertSource, type BotDeps, pollAlertsOnce, pollUpdatesOnce } from "../src/bot.js";
 import { AlertBuilder, type ChainReader, type DecodedLog } from "../src/logs.js";
 import { StateStore } from "../src/store.js";
 import { type FetchFn, TelegramError, broadcast, createTelegramApi, sendWithRetry } from "../src/telegram.js";
-import { CC_SERIES_STATE, CC_VAULT, CSP_VAULT, FORMAT, REAL_LOGS, vaultState } from "./fixtures.js";
+import { CC_SERIES_STATE, CC_VAULT, CSP_VAULT, FORMAT, REAL_LOGS, targetV2, vaultState } from "./fixtures.js";
 
 const TOKEN = "123456:TEST-token_abcdefghijklmnopqrstuvwxyz";
 
@@ -169,11 +168,11 @@ describe("bot loops against a fake Telegram API", () => {
     getSeries: vi.fn(async () => CC_SERIES_STATE),
   };
 
-  function deps(store: StateStore, api: BotDeps["api"], logs: DecodedLog[], head = 126_302_600n): BotDeps {
+  function source(logs: DecodedLog[], head = 126_302_600n, over: Partial<AlertSource> = {}): AlertSource {
     return {
-      api,
-      store,
-      strike: { chainId: 46630 } as unknown as StrikeReader,
+      key: "46630:0x5a3b58df27e4dd5e0fa6493d90ff653e0e199c99",
+      label: "Robinhood Chain testnet · v2",
+      primary: true,
       pipeline: {
         fetchLogs: vi.fn(async (from: bigint, to: bigint) =>
           logs.filter((l) => l.blockNumber >= from && l.blockNumber <= to),
@@ -185,8 +184,21 @@ describe("bot loops against a fake Telegram API", () => {
       },
       getBlockNumber: async () => head,
       startBlock: 125_880_607n,
+      ...over,
+    };
+  }
+
+  function deps(store: StateStore, api: BotDeps["api"], logs: DecodedLog[], head = 126_302_600n): BotDeps {
+    return depsFor(store, api, [source(logs, head)]);
+  }
+
+  function depsFor(store: StateStore, api: BotDeps["api"], sources: AlertSource[]): BotDeps {
+    return {
+      api,
+      store,
+      targets: [targetV2()],
+      sources,
       pollIntervalMs: 10,
-      usdgDecimals: 6,
       botUsername: "StrikeAlertsBot",
       log: () => undefined,
       send: { sleep: noSleep },
@@ -237,10 +249,10 @@ describe("bot loops against a fake Telegram API", () => {
     await store.setCursor(126_000_000n);
     const { api } = fakeTelegram();
     const d = deps(store, api, []);
-    d.pipeline.fetchLogs = vi.fn(async () => {
+    d.sources[0]!.pipeline.fetchLogs = vi.fn(async () => {
       throw new Error("503 Service Unavailable");
     });
-    d.pipeline.retries = 1;
+    d.sources[0]!.pipeline.retries = 1;
     await expect(pollAlertsOnce(d)).rejects.toThrow(/503/);
     expect(store.cursor).toBe(126_000_000n);
   });
@@ -287,5 +299,147 @@ describe("bot loops against a fake Telegram API", () => {
 
     await pollUpdatesOnce(d, 0);
     expect(calls.filter((c) => c.method === "getUpdates")[1]?.body.offset).toBe(504);
+  });
+
+  describe("alerts from every deployment", () => {
+    const V3_KEY = "46630:0x256d4546486368dcb23e94758b4cb500c215929f";
+    const SEP_KEY = "421614:0xb8ed17588ab022d8f84b8305d784fa01478cb7f0";
+    const V3_LOG: DecodedLog = {
+      ...REAL_LOGS[0]!,
+      transactionHash: `0x${"d4".repeat(32)}`,
+      blockNumber: 126_800_010n,
+    } as DecodedLog;
+    const SEP_LOG: DecodedLog = {
+      ...REAL_LOGS[0]!,
+      transactionHash: `0x${"e5".repeat(32)}`,
+      blockNumber: 315_000_010n,
+    } as DecodedLog;
+
+    const v3Source = (head = 126_800_100n, over: Partial<AlertSource> = {}) =>
+      source([V3_LOG], head, {
+        key: V3_KEY,
+        label: "Robinhood Chain testnet · v3",
+        primary: false,
+        startBlock: 126_713_718n,
+        ...over,
+      });
+    const sepoliaSource = (head = 315_000_100n, over: Partial<AlertSource> = {}) =>
+      source([SEP_LOG], head, {
+        key: SEP_KEY,
+        label: "Arbitrum Sepolia · v3",
+        primary: false,
+        startBlock: 314_350_623n,
+        ...over,
+      });
+
+    it("sends each deployment's alerts to the same subscribers, with its own cursor", async () => {
+      const store = await StateStore.open(dir, 46630);
+      await store.subscribe(11);
+      const { calls, api } = fakeTelegram();
+      const d = depsFor(store, api, [source(REAL_LOGS.slice(0, 1)), v3Source(), sepoliaSource()]);
+
+      // A fresh store: every deployment catches up from its own deploy block.
+      expect(await pollAlertsOnce(d)).toBe(3);
+      expect(sent(calls).map((m) => m.chat_id)).toEqual([11, 11, 11]);
+      expect(store.cursor).toBe(126_302_601n);
+      expect(store.cursorOf(V3_KEY)).toBe(126_800_101n);
+      expect(store.cursorOf(SEP_KEY)).toBe(315_000_101n);
+
+      // Nothing new on any deployment: no repeats.
+      expect(await pollAlertsOnce(d)).toBe(0);
+      expect(sent(calls)).toHaveLength(3);
+
+      // The cursors survive a restart, in the same state file.
+      const again = await StateStore.open(dir, 46630);
+      expect(again.cursor).toBe(126_302_601n);
+      expect(again.cursorOf(V3_KEY)).toBe(126_800_101n);
+      expect(again.cursorOf(SEP_KEY)).toBe(315_000_101n);
+    });
+
+    it("names the deployment in an alert when the pipeline has a label", async () => {
+      const store = await StateStore.open(dir, 46630);
+      await store.subscribe(11);
+      const { calls, api } = fakeTelegram();
+      const labelled = v3Source();
+      labelled.pipeline.format = { ...FORMAT, label: "Robinhood Chain testnet · v3" };
+      await pollAlertsOnce(depsFor(store, api, [labelled]));
+      const lines = (sent(calls)[0]?.text as string).split("\n");
+      expect(lines.at(-2)).toBe("Deployment: Robinhood Chain testnet · v3");
+      expect(lines.at(-1)).toMatch(/^Tx: https:\/\/explorer\.testnet\.chain\.robinhood\.com\/tx\/0xd4d4/);
+    });
+
+    it("upgrading an existing store: new deployments start at their head, not at their history", async () => {
+      // The one-deployment bot's state file: a cursor, one subscriber, no per-deployment cursors.
+      const store = await StateStore.open(dir, 46630);
+      await store.subscribe(11);
+      await store.setCursor(126_302_000n);
+      const { calls, api } = fakeTelegram();
+      const d = depsFor(store, api, [source([]), v3Source(), sepoliaSource()]);
+
+      expect(await pollAlertsOnce(d)).toBe(0);
+      expect(sent(calls)).toHaveLength(0);
+      expect(store.cursor).toBe(126_302_601n);
+      // v3's alert at block 126800010 is older than its head (126800100): skipped, and the cursor moves on.
+      expect(store.cursorOf(V3_KEY)).toBe(126_800_101n);
+
+      // From now on a new alert on a new deployment is sent.
+      const newer = {
+        ...V3_LOG,
+        transactionHash: `0x${"f6".repeat(32)}`,
+        blockNumber: 126_800_150n,
+      } as DecodedLog;
+      const live = v3Source(126_800_200n);
+      live.pipeline.fetchLogs = async (from, to) =>
+        [newer].filter((l) => l.blockNumber >= from && l.blockNumber <= to);
+      expect(await pollAlertsOnce(depsFor(store, api, [source([]), live, sepoliaSource()]))).toBe(1);
+      expect(sent(calls)).toHaveLength(1);
+    });
+
+    it("keeps the legacy cursor field for the primary deployment and writes cursors only for the rest", async () => {
+      const store = await StateStore.open(dir, 46630);
+      await store.setCursor(5n);
+      expect(JSON.parse(await readFile(store.path, "utf8"))).toEqual({
+        version: 1,
+        chainId: 46630,
+        cursor: "5",
+        updateOffset: 0,
+        subscribers: [],
+      });
+      await store.setCursorOf(V3_KEY, 7n);
+      expect(JSON.parse(await readFile(store.path, "utf8")).cursors).toEqual({ [V3_KEY]: "7" });
+    });
+
+    it("never sends the same alert twice, even if a cursor save is lost", async () => {
+      const store = await StateStore.open(dir, 46630);
+      await store.subscribe(11);
+      const { calls, api } = fakeTelegram();
+      const d = depsFor(store, api, [v3Source(), sepoliaSource()]);
+      await pollAlertsOnce(d);
+      expect(sent(calls)).toHaveLength(2);
+      // Rewind the cursors, as a crash between the broadcast and the save would.
+      await store.setCursorOf(V3_KEY, 126_713_718n);
+      await store.setCursorOf(SEP_KEY, 314_350_623n);
+      expect(await pollAlertsOnce(d)).toBe(2); // scanned again ...
+      expect(sent(calls)).toHaveLength(2); // ... but nothing re-sent
+    });
+
+    it("one deployment failing does not hold up the others, and keeps its own cursor", async () => {
+      const store = await StateStore.open(dir, 46630);
+      await store.subscribe(11);
+      await store.setCursor(126_302_000n);
+      await store.setCursorOf(V3_KEY, 126_800_000n);
+      const { calls, api } = fakeTelegram();
+      const failing = v3Source();
+      failing.pipeline.fetchLogs = async () => {
+        throw new Error("503 Service Unavailable");
+      };
+      failing.pipeline.retries = 0;
+      const d = depsFor(store, api, [failing, sepoliaSource()]);
+      await store.setCursorOf(SEP_KEY, 315_000_000n);
+      await expect(pollAlertsOnce(d)).rejects.toThrow(/503/);
+      expect(sent(calls)).toHaveLength(1); // Arbitrum Sepolia's alert went out
+      expect(store.cursorOf(V3_KEY)).toBe(126_800_000n);
+      expect(store.cursorOf(SEP_KEY)).toBe(315_000_101n);
+    });
   });
 });
