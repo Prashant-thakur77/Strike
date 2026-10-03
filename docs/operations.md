@@ -287,15 +287,36 @@ curl -s -D - -o /dev/null -X POST -H 'content-type: application/json' \
 
 Rotate: create a new key in the Alchemy dashboard, put it in Vercel (redeploy), the GitHub secret, `.env` and the bot's SSM parameter, then delete the old key. Nothing in the repository holds a key; gitleaks scans every push.
 
+## Mainnet waitlist
+
+Sign-ups from [`/waitlist`](https://strike-options.vercel.app/waitlist) land in the private Vercel Blob store `strike-waitlist`, one encrypted file per email ([D46](decisions.md)). Only the team's private key, `.internal/waitlist-key.pem` on the owner's machine (gitignored, mode 600), decrypts them; back it up offline, since without it the list cannot be read. The app needs `BLOB_READ_WRITE_TOKEN` (added when the store was linked to the project) and `WAITLIST_SALT` in Vercel for production and preview; without either, sign-up answers 503 "Sign-up is temporarily unavailable".
+
+Export the list (the setup is also at the top of [`scripts/waitlist-export.mjs`](../scripts/waitlist-export.mjs)):
+
+```bash
+# 1. The token and salt, into a temporary file in .internal/ (gitignored), from a scratch directory linked to the project
+d=$(mktemp -d -p ~/.cache) && (cd "$d" && vercel link --yes --project strike-options >/dev/null \
+  && vercel env pull "$OLDPWD/.internal/waitlist.env" --environment=production --yes >/dev/null); rm -rf "$d"
+# 2. Decrypt every entry into .internal/waitlist-<YYYY-MM-DD>.csv (mode 600); prints only the count
+node --no-warnings --env-file=.internal/waitlist.env scripts/waitlist-export.mjs
+# 3. Delete the env file when done
+rm .internal/waitlist.env
+```
+
+Removal requests come as a reply to any message the team sent, or on Telegram to @strike_options_bot. Run the same setup, then `node --no-warnings --env-file=.internal/waitlist.env scripts/waitlist-export.mjs --delete someone@example.com`: it hashes the email with `WAITLIST_SALT`, deletes `waitlist/<hmac>.json` and checks it is gone. Delete any CSV exported before the removal, and reply to confirm. Entries are kept until the mainnet launch plus 12 months, then the store is emptied.
+
+Check the count without a key: `curl -s https://strike-options.vercel.app/api/waitlist/count` (cached for 60 s).
+
 ## Keys
 
-| Key                | Where                                                                                                                                                                                                    | Mainnet requirement                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Admin / guardian   | `contracts/.env` on testnet                                                                                                                                                                              | A Safe multisig; guardian may be a faster 2-of-3                             |
-| Keeper             | GitHub Actions secret `KEEPER_PRIVATE_KEY`: the CI keeper key `0x317a…AfF76`, `KEEPER_ROLE` on the mirrored MirrorFeeds only ([CI keeper key](DEPLOYMENTS.md#ci-keeper-key)); on the laptop the deployer | Separate hot key with `KEEPER_ROLE` only (done on testnet since 2 October)   |
-| Agent signer       | Agent operator                                                                                                                                                                                           | Separate from the agent owner key; rotate with `setSigner`                   |
-| Telegram bot token | `bots/telegram/.env` (laptop); SSM SecureString `/strike/telegram-bot-token` (AWS)                                                                                                                       | Same; rotate with BotFather `/revoke`, then `deploy-bot.sh --update-secrets` |
-| Alchemy API key    | Vercel env (server only), GitHub secret, `.env` files, SSM (bot); see [RPC (Alchemy)](#rpc-alchemy)                                                                                                      | A paid plan with Alchemy's method and contract allowlists on the key         |
+| Key                  | Where                                                                                                                                                                                                    | Mainnet requirement                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin / guardian     | `contracts/.env` on testnet                                                                                                                                                                              | A Safe multisig; guardian may be a faster 2-of-3                                                                                             |
+| Keeper               | GitHub Actions secret `KEEPER_PRIVATE_KEY`: the CI keeper key `0x317a…AfF76`, `KEEPER_ROLE` on the mirrored MirrorFeeds only ([CI keeper key](DEPLOYMENTS.md#ci-keeper-key)); on the laptop the deployer | Separate hot key with `KEEPER_ROLE` only (done on testnet since 2 October)                                                                   |
+| Agent signer         | Agent operator                                                                                                                                                                                           | Separate from the agent owner key; rotate with `setSigner`                                                                                   |
+| Telegram bot token   | `bots/telegram/.env` (laptop); SSM SecureString `/strike/telegram-bot-token` (AWS)                                                                                                                       | Same; rotate with BotFather `/revoke`, then `deploy-bot.sh --update-secrets`                                                                 |
+| Alchemy API key      | Vercel env (server only), GitHub secret, `.env` files, SSM (bot); see [RPC (Alchemy)](#rpc-alchemy)                                                                                                      | A paid plan with Alchemy's method and contract allowlists on the key                                                                         |
+| Waitlist private key | `.internal/waitlist-key.pem` on the owner's machine (gitignored, mode 600), backed up offline; the public half is [`waitlistKey.ts`](../app/src/lib/waitlistKey.ts)                                      | Same; rotating means a new pair, the new public key deployed, and the old private key kept until every entry under the old `kid` is exported |
 
 ## Live smoke test
 
