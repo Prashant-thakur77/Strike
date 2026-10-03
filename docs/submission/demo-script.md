@@ -1,8 +1,8 @@
-# Demo video script (5:59)
+# Demo video script (6:04)
 
-The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (359.3 s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by `node video/record.mjs demo` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
+The narration of [docs/media/strike-demo.mp4](../media/strike-demo.mp4) (364.1 s, 1920×1080, narrated, with a quiet music bed), and the captions of the voiceless cut [strike-demo-silent.mp4](../media/strike-demo-silent.mp4). Both are rendered by `node video/record.mjs demo` from the scene list in [video/demo.mjs](../../video/demo.mjs), and this file is written by the same run, so the times and words below are the video's own. The captions show the spoken words (two lines of at most about 42 characters); the timed captions are in [strike-demo.srt](../media/strike-demo.srt).
 
-The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 32% faster with Rubber Band (formants kept): 1003 words in 359 s (167 words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of `scripts/check-claims.mjs`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
+The arc: the problem (over stock footage), the turn, the key features, the architecture (a 3D scene with a spotlight on each part as it is named), one depositor's walkthrough of the live product on both chains (including the decision pages, the week after its expiry as the chain stands at render time, and the proof page's liveness checks), the competition, challenges and solutions, and the close. The voice is Chatterbox TTS (open source, Resemble AI) with a synthetic reference voice, read 32% faster with Rubber Band (formants kept): 1015 words in 364 s (167 words a minute, numbers counted as one word). Every number is read from README.md and the epoch logs at render time; the NVDA multiplier, the decision page's break-even and odds, the mirror audit's round count and the settlement state are read from the live app, the count of verified transactions from a live run of `scripts/check-claims.mjs`, and the DecisionLog hash is recomputed and read from Arbitrum Sepolia. The 3D scenes are three.js pages ([video/three.html](../../video/three.html)) drawn from the same numbers. Footage and music credits: [docs/media/CREDITS.md](../media/CREDITS.md). Nothing here is audited: the video says so.
 
 ## Chapters
 
@@ -17,8 +17,8 @@ Ready to paste into a YouTube description:
 2:57 Planned by Claude, on Arbitrum Sepolia
 3:34 Rust on Stylus: pricer and risk engine
 3:43 Decision records, identity and the multiplier trap
-4:40 Backtest and evidence
-5:15 Who else is here, and how Strike differs
+4:41 Backtest and evidence
+5:16 Who else is here, and how Strike differs
 5:41 Challenges, solutions and close
 ```
 
@@ -38,8 +38,8 @@ Code: https://github.com/Prashant-thakur77/Strike
 2:57 Planned by Claude, on Arbitrum Sepolia
 3:34 Rust on Stylus: pricer and risk engine
 3:43 Decision records, identity and the multiplier trap
-4:40 Backtest and evidence
-5:15 Who else is here, and how Strike differs
+4:41 Backtest and evidence
+5:16 Who else is here, and how Strike differs
 5:41 Challenges, solutions and close
 
 Voice: Chatterbox TTS (Resemble AI, open source) with a synthetic reference voice.
@@ -245,7 +245,7 @@ Screen: A terminal: the Claude-planned decision record (planner, target, the sta
 >
 > Its hash is anchored in the DecisionLog; rehash the file, and it matches the chain.
 >
-> CI re-checks every cited transaction: 160 of 160 verified.
+> CI re-checks every cited transaction: 177 of 177 verified.
 
 ## 3:54 to 4:04 · Pipeline
 
@@ -255,13 +255,13 @@ Screen: A dry run of the agent's specialist pipeline, planned by Claude and eval
 >
 > In this Claude-planned dry run, four passed and nothing was sent; its token use is on record.
 
-## 4:04 to 4:07 · Pipeline
+## 4:04 to 4:08 · Pipeline
 
 Screen: The weekend dry run of the same pipeline (/app/decision/46630/2026-10-03-sTSLA-CSP-dry-run?dry=1): the market analyst stops it with MARKET_CLOSED, "No trade", and the four later stages read "Not run".
 
 > On the weekend, the market analyst said no trade; the rest never ran.
 
-## 4:07 to 4:21 · Decision page
+## 4:08 to 4:22 · Decision page
 
 Screen: Agent #2's decision page for 2 October (/app/decision/46630/2026-10-02-sTSLA-CSP-A2): the mandate check rule by rule with the headroom left, the "why not the other strikes" ladder, "what would make this week lose" (below $340.20, 17.0% model odds) with its stress rows, and the "what if" alternatives, read from the page at render time.
 
@@ -271,19 +271,19 @@ Screen: Agent #2's decision page for 2 October (/app/decision/46630/2026-10-02-s
 >
 > What would make the week lose: TSLA below $340.20, 17% model odds, then stress rows and what-ifs.
 
-## 4:21 to 4:26 · Decision page
+## 4:22 to 4:26 · Decision page
 
 Screen: Agent #1's rejected put of 1 October (/app/decision/46630/2026-10-01-sTSLA-CSP): the verdict, then the mandate check with the delta band rule marked FAILS and the rule after it NOT REACHED.
 
 > Agent one's forced put was rejected: the check stops at the delta band; later rules never run.
 
-## 4:26 to 4:32 · ERC-8004
+## 4:26 to 4:33 · ERC-8004
 
 Screen: `/app/agents` leaderboard: agent #1's row opened, a zoom on its ERC-8004 identity (#114 on Robinhood Chain testnet).
 
 > Its ERC-8004 identity: 114 on Robinhood Chain testnet, 253 on Arbitrum Sepolia.
 
-## 4:32 to 4:40 · Monitor
+## 4:33 to 4:41 · Monitor
 
 Screen: `/app/monitor`, live from Robinhood Chain mainnet: scroll to NVDA and zoom on its multiplier (1.000775159, read from the page at render time).
 
@@ -291,7 +291,7 @@ Screen: `/app/monitor`, live from Robinhood Chain mainnet: scroll to NVDA and zo
 >
 > Nvidia's multiplier, 1.000775, is already in the price, so Strike never applies it twice.
 
-## 4:40 to 4:53 · Backtest
+## 4:41 to 4:54 · Backtest
 
 Screen: `/app/backtest` (TSLA): zoom on the volatility figures, then on the annual return (23.1% against 44.0% held); then the assumption.
 
@@ -301,25 +301,25 @@ Screen: `/app/backtest` (TSLA): zoom on the volatility figures, then on the annu
 >
 > And it assumes full weekly sales.
 
-## 4:53 to 5:11 · Proof
+## 4:54 to 5:11 · Proof
 
 Screen: `/app/proof`: the headline tiles (deployment, Foundry tests, coverage, internal review), then "Running by itself" (read from both testnets, mainnet and GitHub by /api/status: price age, each vault's epoch and last settlement, the scheduled keeper and weekly agent) and its price mirror audit: 84 of 84 mirrored rounds match Robinhood Chain mainnet Chainlink, read at render time.
 
 > The proof page:
 >
-> 1,498 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed.
+> 1,574 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed.
 >
 > Running by itself reads both testnets: prices, each vault's week, the scheduled jobs.
 >
 > The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
 
-## 5:11 to 5:15 · Lessons
+## 5:11 to 5:16 · Lessons
 
 Screen: `/app/lessons`: 9 lessons from the live runs (9 fixed, read at render time), each with what happened, its evidence, what changed and the test that guards it.
 
 > 9 lessons from the live runs, each with evidence, the fix and its test.
 
-## 5:15 to 5:31 · Competition
+## 5:16 to 5:32 · Competition
 
 Screen: The capability matrix from scripts/charts/data/competition.json (checked 2026-09-30): rows appear, then the columns being described light up in turn (Stonkhouse and Archer Markets; Ribbon/Aevo, Derive and Thetanuts; Tilt Protocol), Strike's column shaded throughout.
 
@@ -331,7 +331,7 @@ Screen: The capability matrix from scripts/charts/data/competition.json (checked
 >
 > Tilt's AI manages vaults, with no options; its sources don't say what limits it on-chain.
 
-## 5:31 to 5:41 · Competition
+## 5:32 to 5:41 · Competition
 
 Screen: The whole positioning chart (docs/media/charts/competition-positioning-light.png: who picks the strike against how the price is set) above the caption bar; Strike is boxed, then Stonkhouse and Archer Markets, the two others on Robinhood Chain.
 
@@ -355,7 +355,13 @@ Screen: A two-column card: each challenge and how Strike solves it, lit as it is
 >
 > Not done: no audit, and testnet only.
 
-## 5:54 to 5:59 · Strike
+## 5:54 to 5:59 · Mainnet
+
+Screen: `/waitlist`, the mainnet waitlist page: the staged launch plan, with the two stages still to come before mainnet (eight settled weeks on both testnets, the external audit) and the capped mainnet vault after them boxed. The sign-up button is not shown: it opens later.
+
+> Next: eight settled weeks, an external audit, then one capped mainnet vault.
+
+## 5:59 to 6:04 · Strike
 
 Screen: The closing card: the line, **strike-options.vercel.app**, the repository and "Live on Robinhood Chain testnet and Arbitrum Sepolia · Unaudited", then a few seconds of silence.
 

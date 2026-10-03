@@ -991,6 +991,7 @@ export function scenes(f, live) {
         L(
           `CI re-checks every cited transaction: | ${live.claims.verified} of ${live.claims.cited} verified.`,
           `C I re-checks every cited transaction: | ${sayInt(live.claims.verified)} of ${sayInt(live.claims.cited)} verified.`,
+          { seeds: [11, 23, 37, 51, 64, 77] },
         ),
       ],
       async prepare(page) {
@@ -1535,6 +1536,27 @@ export function scenes(f, live) {
           await h.cue(i, -0.15);
           await h.page.evaluate((i) => window.__chal.show(i), i);
         }
+      },
+    },
+    {
+      id: "waitlist",
+      screen:
+        "`/waitlist`, the mainnet waitlist page: the staged launch plan, with the two stages still to come before mainnet (eight settled weeks on both testnets, the external audit) and the capped mainnet vault after them boxed. The sign-up button is not shown: it opens later.",
+      tag: "Mainnet",
+      lines: [L("Next: eight settled weeks, an external audit, | then one capped mainnet vault.")],
+      async prepare(page) {
+        await openApp(page, "/waitlist", () =>
+          page.getByText("One capped vault on Robinhood Chain mainnet").first().waitFor({ timeout: 60_000 }),
+        );
+        await scrollToText(page, /^Eight settled weeks on both testnets$/, 170);
+      },
+      async run(h) {
+        await h.at(0.2);
+        await h.page.evaluate(() => {
+          const v = window.__v;
+          const items = [...document.querySelectorAll('ol[class*="waitlist_stages"] > li')].slice(2);
+          v.box(v.union(items.map((li) => v.rect(li))), { pad: 10, dim: 0.22 });
+        });
       },
     },
     // ============================================================================================ 7. close

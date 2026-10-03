@@ -116,48 +116,48 @@ net premium, half to the agent,
 and nothing on a losing week.
 
 26
-00:01:31,780 --> 00:01:38,503
-Behind it: 1,498 tests and
+00:01:31,780 --> 00:01:38,264
+Behind it: 1,574 tests and
 proofs, 99.3% line coverage,
 
 27
-00:01:38,553 --> 00:01:40,909
+00:01:38,314 --> 00:01:40,850
 nine properties proven with Halmos,
 
 28
-00:01:40,959 --> 00:01:44,227
+00:01:40,900 --> 00:01:44,259
 and all 11 internal-review findings fixed.
 
 29
-00:01:44,277 --> 00:01:49,555
-CI re-checks all 160 transactions
+00:01:44,309 --> 00:01:49,934
+CI re-checks all 177 transactions
 the docs cite, on-chain.
 
 30
-00:01:49,605 --> 00:01:51,600
+00:01:49,984 --> 00:01:51,994
 It is not audited yet.
 
 31
-00:01:51,750 --> 00:01:55,983
+00:01:52,144 --> 00:01:56,377
 We are building Strike as a company
 on Robinhood Chain and Arbitrum.
 
 32
-00:01:56,033 --> 00:02:00,735
+00:01:56,427 --> 00:02:01,129
 Funding buys an external audit and
 the first capped mainnet vault.
 
 33
-00:02:00,785 --> 00:02:04,036
+00:02:01,179 --> 00:02:04,430
 We are asking for a place
 at Founder House Singapore,
 
 34
-00:02:04,086 --> 00:02:06,917
+00:02:04,480 --> 00:02:07,311
 and introductions to
 wallets and market makers.
 
 35
-00:02:06,967 --> 00:02:11,783
+00:02:07,361 --> 00:02:12,177
 Try the playground at
 strike-options.vercel.app.

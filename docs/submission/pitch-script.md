@@ -1,8 +1,8 @@
-# Pitch video script (2:12)
+# Pitch video script (2:13)
 
-The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (132.9 s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by `node video/record.mjs pitch` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
+The narration of [docs/media/strike-pitch.mp4](../media/strike-pitch.mp4) (133.3 s), over slides of the deck in the order of [deck-outline.md](deck-outline.md). It is rendered by `node video/record.mjs pitch` from [video/pitch.mjs](../../video/pitch.mjs) and the slide copies in [video/deck](../../video/deck), and this file is written by the same run. Timed captions are in [strike-pitch.srt](../media/strike-pitch.srt).
 
-The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): 287 words in 133 s (130 words a minute). Every number is read from README.md at render time, and the count of verified transactions from a live run of `scripts/check-claims.mjs`. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
+The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synthesised music bed (CC0, [credits](../media/CREDITS.md)): 287 words in 133 s (129 words a minute). Every number is read from README.md at render time, and the count of verified transactions from a live run of `scripts/check-claims.mjs`. The product itself is in the separate demo video; slides 6 to 8, 10, 11 and 15 of the deck are left out to stay near two minutes.
 
 ## 0:00 to 0:09 · Slide 1: Strike
 
@@ -46,9 +46,9 @@ The voice is Chatterbox TTS with a synthetic reference voice, over a quiet synth
 
 > Behind it: 1,574 tests and proofs, 99.3% line coverage, nine properties proven with Halmos, and all 11 internal-review findings fixed.
 >
-> CI re-checks all 160 transactions the docs cite, on-chain. It is not audited yet.
+> CI re-checks all 177 transactions the docs cite, on-chain. It is not audited yet.
 
-## 1:51 to 2:12 · Slide 16: The ask
+## 1:51 to 2:13 · Slide 16: The ask
 
 > We are building Strike as a company on Robinhood Chain and Arbitrum. Funding buys an external audit and the first capped mainnet vault. We are asking for a place at Founder House Singapore, and introductions to wallets and market makers.
 >

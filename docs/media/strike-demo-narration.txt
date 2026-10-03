@@ -32,7 +32,7 @@ In 3D: Across, Tesla's price. Back, days left. Up, a share's value. At expiry it
 
 The math is Rust, on Arbitrum Stylus. Solving a strike takes 48 Black-Scholes runs: 6.5 times less gas than Solidity, 3.3 times less per proposal.
 
-Every run leaves a decision record. Its hash is anchored in the DecisionLog; rehash the file, and it matches the chain. CI re-checks every cited transaction: 160 of 160 verified.
+Every run leaves a decision record. Its hash is anchored in the DecisionLog; rehash the file, and it matches the chain. CI re-checks every cited transaction: 177 of 177 verified.
 
 The agent now runs five stages: market, risk, strike planner, critic, then the contract. In this Claude-planned dry run, four passed and nothing was sent; its token use is on record.
 
@@ -48,7 +48,7 @@ The monitor, live on mainnet: Nvidia's multiplier, 1.000775, is already in the p
 
 Over 403 weeks since 2019, covered calls cut volatility 25 to 46%, but lagged holding everywhere: Tesla 23.1% a year, against 44.0% held. And it assumes full weekly sales.
 
-The proof page: 1,498 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
+The proof page: 1,574 tests and proofs, 99.3% line coverage, nine Halmos proofs, all 11 review findings fixed. Running by itself reads both testnets: prices, each vault's week, the scheduled jobs. The mirror audit checks every copied price: 84 of 84 rounds match mainnet Chainlink.
 
 9 lessons from the live runs, each with evidence, the fix and its test.
 
@@ -57,5 +57,7 @@ Who else is here? Stonkhouse and Archer Markets on Robinhood Chain are order boo
 In Strike, a bonded agent proposes, the contract enforces mandate and price, and rule-breakers pay. Stock-token traps are handled on-chain. Holders get income and keep their keys.
 
 Weekend freezes: settle on the first post-expiry price. Multiplier: never applied, fork-tested. Agent trust: fixed mandate, bond, slashing. Gas: Rust on Stylus, 6.5 times cheaper. Not done: no audit, and testnet only.
+
+Next: eight settled weeks, an external audit, then one capped mainnet vault.
 
 Strike: options on Robinhood Chain and Arbitrum, run by agents held to a mandate.

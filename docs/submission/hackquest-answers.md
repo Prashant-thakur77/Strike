@@ -44,7 +44,7 @@ https://strike-options.vercel.app (no wallet needed: start with /app/playground 
 
 The app is live on Vercel. The two quickest things for a judge to try need no wallet. `/app/playground` tests a proposal against a live vault's mandate and shows Accepted or the rejection reason. `/app/proof` puts every claim next to its evidence, with a live feed of on-chain activity.
 
-Videos for the form's video fields: the narrated demo ([strike-demo.mp4](../media/strike-demo.mp4), 5:59, chapters and description text in [demo-script.md](demo-script.md#chapters)) and the pitch ([strike-pitch.mp4](../media/strike-pitch.mp4), 2:12, captions in [strike-pitch.srt](../media/strike-pitch.srt)). Upload both to YouTube (unlisted is fine) and paste those links; the files in the repo are the fallback.
+Videos for the form's video fields: the narrated demo ([strike-demo.mp4](../media/strike-demo.mp4), 6:04, chapters and description text in [demo-script.md](demo-script.md#chapters)) and the pitch ([strike-pitch.mp4](../media/strike-pitch.mp4), 2:13, captions in [strike-pitch.srt](../media/strike-pitch.srt)). Upload both to YouTube (unlisted is fine) and paste those links; the files in the repo are the fallback.
 
 ## Core protocol / smart contract addresses (257 characters)
 
