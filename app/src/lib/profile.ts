@@ -7,7 +7,7 @@ export type Upside = "any" | "some" | "little";
 /** "How much upside will you give up?" read as the most a vault's mandate lets the agent sell, in delta (bps). */
 export const UPSIDE_MAX_DELTA_BPS: Record<Upside, number | null> = { any: null, some: 3500, little: 2500 };
 
-export const PROFILE_KEY = "strike.profile.v1";
+export const PROFILE_STORAGE_ID = "strike.profile.v1";
 
 /** Does a vault's on-chain mandate fit the answers? */
 export function fitsProfile(

@@ -9,7 +9,7 @@ import { useAllVaults, useMarket } from "@/hooks/queries";
 import { useStrike } from "@/hooks/useStrike";
 import { fmtBps, fmtDelta, fmtNy, fmtPct, fmtUsd, fmtWadUsd, toNumber } from "@/lib/format";
 import { clockNow, seriesPhase } from "@/lib/lifecycle";
-import { PROFILE_KEY, fitsProfile, type Hold, type Upside } from "@/lib/profile";
+import { PROFILE_STORAGE_ID, fitsProfile, type Hold, type Upside } from "@/lib/profile";
 import { position, type VaultHistory, type VaultSummary } from "@/lib/reads";
 import { SHOWCASE_DECISION, tourPage } from "@/lib/tour";
 import { Gate } from "./Gate";
@@ -56,7 +56,7 @@ function useProfile() {
   // A per-viewer convenience: remembered in this browser only, and the page works without it.
   useEffect(() => {
     try {
-      const saved = JSON.parse(window.localStorage.getItem(PROFILE_KEY) ?? "null") as {
+      const saved = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_ID) ?? "null") as {
         hold?: Hold;
         upside?: Upside;
       } | null;
@@ -70,7 +70,7 @@ function useProfile() {
     setHold(next.hold);
     setUpside(next.upside);
     try {
-      window.localStorage.setItem(PROFILE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(PROFILE_STORAGE_ID, JSON.stringify(next));
     } catch {
       // storage blocked: the answer lasts for this visit
     }
