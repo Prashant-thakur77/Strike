@@ -1,0 +1,341 @@
+/* The portfolio dashboard: the address bar, the action list, the opportunity cards, the charts' extras. Tables,
+   rails, the key-figure strip and the chart frame come from app.module.css. */
+
+.addressBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  margin-top: var(--sp-m);
+}
+
+.addressBar input {
+  flex: 1 1 22em;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.addressBar input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.viewing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+  font-size: max(0.92rem, var(--fs-floor-meta, 0.875rem));
+  color: var(--fg-muted);
+}
+
+.viewing strong {
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--fg);
+}
+
+.gain {
+  color: var(--gain);
+}
+
+.loss {
+  color: var(--loss);
+}
+
+/* Needs your action */
+.actions {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.action {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 14px 16px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+}
+
+.action[data-tx="false"] {
+  border-style: dashed;
+}
+
+.actionTitle {
+  font-weight: 650;
+}
+
+.actionDetail {
+  margin-top: 2px;
+  color: var(--fg-muted);
+  font-size: max(0.9rem, var(--fs-floor-note, 0.9rem));
+  line-height: 1.45;
+}
+
+.actionCtl {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .action {
+    grid-template-columns: 1fr;
+  }
+  .actionCtl {
+    justify-items: start;
+  }
+}
+
+/* Opportunity cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 14px;
+  min-width: 0;
+}
+
+.card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.card dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.card dt {
+  color: var(--fg-muted);
+}
+
+.card dd {
+  margin: 0;
+  white-space: nowrap;
+  text-align: right;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.cardNote {
+  color: var(--fg-muted);
+  font-size: max(0.88rem, var(--fs-floor-note, 0.88rem));
+  line-height: 1.45;
+}
+
+/* Chart controls */
+.chartControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  align-items: center;
+}
+
+.chipGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.chipGroup > span {
+  margin-right: 4px;
+  color: var(--fg-muted);
+  font-size: 0.82rem;
+}
+
+.lineValue {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.lineInvested {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.areaGain {
+  fill: var(--gain);
+  fill-opacity: 0.22;
+}
+
+.areaLoss {
+  fill: var(--loss);
+  fill-opacity: 0.22;
+}
+
+.linePnl {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+}
+
+.marker {
+  stroke: var(--bg, var(--paper));
+  stroke-width: 2;
+}
+
+.marker[data-kind="deposit"] {
+  fill: var(--accent);
+}
+
+.marker[data-kind="withdraw"],
+.marker[data-kind="claim"] {
+  fill: var(--tone-put);
+}
+
+.marker[data-kind="settle"],
+.marker[data-kind="open"] {
+  fill: var(--ink);
+}
+
+.barGain {
+  fill: #008c9e;
+}
+
+.barLoss {
+  fill: var(--loss);
+}
+
+.barHold {
+  fill: var(--muted);
+}
+
+.barHit {
+  fill: transparent;
+  cursor: pointer;
+}
+
+.barHit:focus-visible {
+  outline: none;
+  stroke: var(--focus-ring);
+  stroke-width: 2;
+}
+
+.legendDash::before {
+  background: repeating-linear-gradient(90deg, var(--ink) 0 5px, transparent 5px 9px) !important;
+}
+
+/* The key figures: six cells, so the values are a size smaller than the shared strip's. */
+.figures dl > div > dd:first-of-type {
+  font-size: clamp(1.5rem, 2.3vw, 2.4rem);
+  overflow-wrap: anywhere;
+}
+
+/* Allocation */
+.alloc {
+  margin-top: var(--sp-m);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
+  gap: 18px 28px;
+}
+
+.allocList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.allocRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  font-size: 0.9rem;
+}
+
+.allocBar {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--rule);
+  overflow: hidden;
+}
+
+.allocBar > span {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+}
+
+/* Empty state */
+.steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 1.3em;
+}
+
+.method {
+  display: grid;
+  gap: 10px;
+  max-width: 52em;
+  font-size: max(0.92rem, var(--fs-floor-note, 0.92rem));
+  line-height: 1.5;
+}
+
+.method p {
+  margin: 0;
+}
+
+.agentCard {
+  display: grid;
+  gap: 10px;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* The shared prompt is a grid sized by its content; the example buttons are long, so cap the column at the width. */
+.prompt {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.prompt :global(.pill) {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
