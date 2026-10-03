@@ -325,3 +325,76 @@ export function logFilterCounts(entries: LogEntry[]): Record<LogFilter, number> 
     nothing: entries.filter((e) => matchesFilter(e, "nothing")).length,
   };
 }
+
+/* ================================================================ week by week */
+
+export interface WeekReview {
+  /** Monday of the week (UTC), YYYY-MM-DD. */
+  week: string;
+  proposals: number;
+  accepted: number;
+  rejected: number;
+  slashedUsdg: number;
+  notSent: number;
+  settled: number;
+  /** USDG premium the settled series earned, as the settle records state it. */
+  premiumUsdg: number;
+  waitingOrStopped: number;
+  vaults: string[];
+}
+
+/** The Monday (UTC) of a YYYY-MM-DD date. */
+export function weekOf(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  const back = (d.getUTCDay() + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - back);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Every week the records cover, newest first: what was proposed, what the contract said, what settled. */
+export function weeklyReview(entries: LogEntry[]): WeekReview[] {
+  const weeks = new Map<string, WeekReview>();
+  for (const e of entries) {
+    const r = e.record;
+    const w = weekOf(r.date);
+    const x =
+      weeks.get(w) ??
+      ({
+        week: w,
+        proposals: 0,
+        accepted: 0,
+        rejected: 0,
+        slashedUsdg: 0,
+        notSent: 0,
+        settled: 0,
+        premiumUsdg: 0,
+        waitingOrStopped: 0,
+        vaults: [],
+      } satisfies WeekReview);
+    if (!x.vaults.includes(r.vault.symbol)) x.vaults.push(r.vault.symbol);
+    const st = r.result.status;
+    if (r.action !== "settle") {
+      x.proposals++;
+      if (st === "accepted") x.accepted++;
+      else if (st === "rejected") {
+        x.rejected++;
+        x.slashedUsdg += Number(r.result.slashed ?? 0) || 0;
+      } else if (st === "not-sent") x.notSent++;
+      else x.waitingOrStopped++;
+    } else if (st === "settled") {
+      x.settled++;
+      x.premiumUsdg += Number(r.result.premium ?? 0) || 0;
+    } else x.waitingOrStopped++;
+    weeks.set(w, x);
+  }
+  return [...weeks.values()].sort((a, b) => b.week.localeCompare(a.week));
+}
+
+/** Settled epochs below which the review proposes no change to a profile: one bad week would decide it. */
+export const REVIEW_MIN_SETTLED = 5;
+
+export function reviewRecommendation(settledEpochs: number): string {
+  return settledEpochs < REVIEW_MIN_SETTLED
+    ? `No recommendation: ${settledEpochs} settled epoch${settledEpochs === 1 ? "" : "s"} so far, and Strike suggests no change to a profile's delta or premium from fewer than ${REVIEW_MIN_SETTLED}, since one week would decide it.`
+    : `${settledEpochs} settled epochs: compare each week's graded ladder on its decision page before changing a profile.`;
+}

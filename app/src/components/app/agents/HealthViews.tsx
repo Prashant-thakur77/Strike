@@ -13,7 +13,9 @@ import {
   noTradeCounts,
   noTrades,
   rankStanding,
+  reviewRecommendation,
   sampleVerdict,
+  weeklyReview,
   seriesHealth,
   type AgentStanding,
   type NoTradeKind,
@@ -437,6 +439,83 @@ export function DryRuns() {
         Runs of the agent&apos;s five stages that sent nothing: each record is committed as the agent wrote it
         but not anchored, and the page says so. The weekly runs from Monday 5 October write the same stages
         into anchored records.
+      </p>
+    </div>
+  );
+}
+
+/* ================================================================ week by week */
+
+export function WeekByWeek() {
+  const q = useAgentLog();
+  const regs = useRegistries();
+  if (q.isPending) return <Skeleton width="60%" />;
+  if (q.isError) {
+    return <p className={styles.hint}>The decision records could not be read from GitHub right now.</p>;
+  }
+  const weeks = weeklyReview(q.data.entries);
+  const settled = (regs.data ?? []).reduce(
+    (n, r) => n + r.registry.agents.reduce((m, a) => m + a.settledEpochs, 0),
+    0,
+  );
+  return (
+    <div className={h.stack} data-testid="weekly" data-weeks={weeks.length}>
+      <div className={styles.tableWrap}>
+        <table className={styles.table} aria-label="Week by week">
+          <thead>
+            <tr>
+              <th scope="col">Week of</th>
+              <th scope="col" className={styles.num}>
+                Proposals
+              </th>
+              <th scope="col" className={styles.num}>
+                Accepted
+              </th>
+              <th scope="col" className={styles.num}>
+                Rejected (slashed)
+              </th>
+              <th scope="col" className={styles.num}>
+                Not sent
+              </th>
+              <th scope="col" className={styles.num}>
+                Settled (premium)
+              </th>
+              <th scope="col" className={styles.num}>
+                Waiting or stopped
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {weeks.map((w) => (
+              <tr key={w.week} data-testid="weekly-row">
+                <th scope="row">
+                  {fmtLogDate(w.week)}
+                  <span className={styles.cellMuted}>{w.vaults.join(", ")}</span>
+                </th>
+                <td className={`mono ${styles.num}`}>{w.proposals}</td>
+                <td className={`mono ${styles.num}`}>{w.accepted}</td>
+                <td className={`mono ${styles.num}`}>
+                  {w.rejected}
+                  {w.rejected ? <span className={styles.cellMuted}>{w.slashedUsdg} USDG</span> : null}
+                </td>
+                <td className={`mono ${styles.num}`}>{w.notSent}</td>
+                <td className={`mono ${styles.num}`}>
+                  {w.settled}
+                  {w.settled ? <span className={styles.cellMuted}>{w.premiumUsdg} USDG</span> : null}
+                </td>
+                <td className={`mono ${styles.num}`}>{w.waitingOrStopped}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className={h.verdict} data-testid="weekly-recommendation">
+        {reviewRecommendation(settled)}
+      </p>
+      <p className={styles.hint}>
+        Counted from the Robinhood Chain testnet records ({q.data.entries.length} newest), by the Monday of
+        each run&apos;s date; settled epochs are AgentRegistry&apos;s. The review only counts: it does not ask
+        a model what to change.
       </p>
     </div>
   );

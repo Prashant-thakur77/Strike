@@ -12,7 +12,11 @@ import {
   noTrades,
   normCdf,
   rankStanding,
+  REVIEW_MIN_SETTLED,
+  reviewRecommendation,
   sampleVerdict,
+  weekOf,
+  weeklyReview,
   seriesHealth,
   type AgentStanding,
   type SeriesInput,
@@ -175,6 +179,30 @@ test.describe("health logic", () => {
   });
 });
 
+test.describe("week by week", () => {
+  test.skip(({ isMobile }) => isMobile, "pure logic runs once, on desktop");
+
+  test("weeks start on Monday; the committed records add up; no recommendation below five settled epochs", () => {
+    expect(weekOf("2026-10-01")).toBe("2026-09-28");
+    expect(weekOf("2026-10-04")).toBe("2026-09-28");
+    expect(weekOf("2026-10-05")).toBe("2026-10-05");
+    const entries = committed();
+    const weeks = weeklyReview(entries);
+    const sum = (k: "proposals" | "settled" | "waitingOrStopped") => weeks.reduce((n, w) => n + w[k], 0);
+    expect(sum("proposals")).toBe(entries.filter((e) => e.record.action !== "settle").length);
+    expect(sum("settled")).toBe(entries.filter((e) => e.record.result.status === "settled").length);
+    expect(sum("proposals") + sum("settled") + sum("waitingOrStopped")).toBeGreaterThanOrEqual(
+      entries.length,
+    );
+    const first = weeks.find((w) => w.week === "2026-09-28")!;
+    expect(first.rejected).toBeGreaterThanOrEqual(1);
+    expect(first.slashedUsdg).toBeGreaterThanOrEqual(10);
+    expect(first.accepted).toBeGreaterThanOrEqual(2);
+    expect(reviewRecommendation(0)).toMatch(/^No recommendation: 0 settled epochs/);
+    expect(reviewRecommendation(REVIEW_MIN_SETTLED)).not.toMatch(/^No recommendation/);
+  });
+});
+
 test.describe("decision log filter", () => {
   test.skip(({ isMobile }) => isMobile, "pure logic runs once, on desktop");
 
@@ -276,6 +304,14 @@ test("agents page: live series health with alerts, performance and the runs that
     await page.getByTestId("notrade-settle-toggle").click();
     await expect(page.getByTestId("notrade-row")).toHaveCount(listed);
   }
+  // Week by week: one row per week the records cover, and the recommendation follows the settled epochs.
+  const weekly = page.getByTestId("weekly");
+  await expect(weekly).toBeVisible();
+  const logEntries = committed()
+    .sort((a, b) => b.name.localeCompare(a.name))
+    .slice(0, 24);
+  await expect(page.getByTestId("weekly-row")).toHaveCount(weeklyReview(logEntries).length);
+  await expect(page.getByTestId("weekly-recommendation")).toHaveText(reviewRecommendation(settled));
   // The decision log's filters: proposals only, then a text filter, then a filter that matches nothing.
   const entries = committed()
     .sort((a, b) => b.name.localeCompare(a.name))

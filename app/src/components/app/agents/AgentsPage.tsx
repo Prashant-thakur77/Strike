@@ -12,7 +12,7 @@ import type { AgentRow, Registry } from "@/lib/reads";
 import { Gate } from "../Gate";
 import { VersionTag } from "../VaultList";
 import { DecisionLog } from "./DecisionLog";
-import { DryRuns, LiveHealth, NoTradeHistory, Performance } from "./HealthViews";
+import { DryRuns, LiveHealth, NoTradeHistory, Performance, WeekByWeek } from "./HealthViews";
 import { RegisterAgent } from "./RegisterAgent";
 import { SeasonBanner } from "./SeasonBanner";
 import { MetaStrip, MetaStripSkeleton } from "../MetaStrip";
@@ -180,6 +180,14 @@ export function AgentsPage() {
           note="The market analyst, risk analyst, strike planner, critic and contract on the live vaults, run without sending: the weekend no-trades and the runs evaluated as if the market were open."
         >
           <DryRuns />
+        </Rail>
+        <Rail
+          index="09"
+          id="weekly"
+          label="Week by week"
+          note="Each week the records cover: proposals and what the contract said, slashes, runs that did not send, settlements and the premium they earned, and whether a profile change is warranted yet."
+        >
+          <WeekByWeek />
         </Rail>
       </div>
     </>
