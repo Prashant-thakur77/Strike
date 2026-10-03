@@ -22,9 +22,11 @@ It speaks MCP over stdio. With no configuration it reads Strike v2 on Robinhood 
 | `ALCHEMY_API_KEY`           | unset                         | Read and send through Alchemy (key sent in a header), with the public RPC as fallback          |
 | `STRIKE_MCP_READ_ONLY`      | unset                         | `1`: register only the read tools and never load a key                                         |
 | `STRIKE_AGENT_PRIVATE_KEY`  | unset                         | The agent signer's key (0x + 64 hex). Without it the write tools are listed but refuse to send |
+| `STRIKE_PAYER_KEY`          | the agent key                 | The key `paid_risk_report` pays with over x402 (needs the token, not gas)                      |
+| `STRIKE_X402_MAX_SPEND`     | `0.05`                        | The most `paid_risk_report` pays in one run, in token units                                    |
 | `STRIKE_SKILL_PATH`         | the bundled `STRIKE_SKILL.md` | Another file for the `strike://skill` resource                                                 |
 
-Read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats`, `series_risk`. Write tools (need `STRIKE_AGENT_PRIVATE_KEY`): `propose_epoch`, `settle_epoch`, `buy_options`, `redeem_options`, `register_agent`, `set_signer`, `create_vault`. The `strike://skill` resource is [STRIKE_SKILL.md](https://strike-options.vercel.app/skill.md): the mandate rules, slashing and a safe proposal loop. Read it first.
+Read tools: `strike_info`, `list_vaults`, `vault_state`, `quote`, `hedge_plan`, `risk_check`, `agent_stats`, `series_risk`. Write tools (need `STRIKE_AGENT_PRIVATE_KEY`): `propose_epoch`, `settle_epoch`, `buy_options`, `redeem_options`, `register_agent`, `set_signer`, `create_vault`. Paid tool (with a payer key, in the repository build): `paid_risk_report`, a vault's full risk report bought over x402 for 0.01 test USDC or USDG ([how](https://github.com/Prashant-thakur77/Strike/blob/main/docs/ENDPOINTS.md#paid-route-x402)). The `strike://skill` resource is [STRIKE_SKILL.md](https://strike-options.vercel.app/skill.md): the mandate rules, slashing and a safe proposal loop. Read it first.
 
 ## Claude Desktop and Claude Code
 

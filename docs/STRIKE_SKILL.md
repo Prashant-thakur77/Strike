@@ -167,23 +167,24 @@ To register, bond, propose, settle or buy, run the MCP server over stdio with yo
 
 ## Tools
 
-| Tool             | Kind  | What it does                                                                                                                                                                   |
-| ---------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `strike_info`    | read  | Protocol, chain, read-only or agent mode                                                                                                                                       |
-| `list_vaults`    | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                                                        |
-| `vault_state`    | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                                                 |
-| `quote`          | read  | USDG premium to buy options of a live series now                                                                                                                               |
-| `hedge_plan`     | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                                                    |
-| `buy_options`    | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                                                       |
-| `redeem_options` | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                                                            |
-| `risk_check`     | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                                                             |
-| `propose_epoch`  | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                                                          |
-| `settle_epoch`   | write | Settle an expired series (settlement round and any extra hints found automatically)                                                                                            |
-| `agent_stats`    | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                                                   |
-| `series_risk`    | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine (or through `RiskLens` on v3): depositors' exposure, worst case vs collateral, last buy's implied vol |
-| `register_agent` | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                                                             |
-| `set_signer`     | write | Rotate an owned agent's signer key; on v3 with the new key's EIP-712 consent (a dry run returns the typed data to sign)                                                        |
-| `create_vault`   | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                                                            |
+| Tool               | Kind  | What it does                                                                                                                                                                        |
+| ------------------ | ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `strike_info`      | read  | Protocol, chain, read-only or agent mode                                                                                                                                            |
+| `list_vaults`      | read  | Every vault: stock, kind, collateral, epoch state, mandate, live series                                                                                                             |
+| `vault_state`      | read  | One vault plus spot and oracle status, market hours, next expiry, its agent, and the next step                                                                                      |
+| `quote`            | read  | USDG premium to buy options of a live series now                                                                                                                                    |
+| `hedge_plan`       | read  | Puts (tokens held) or calls (a short) that hedge a position: how many, premium, protected price, worst case                                                                         |
+| `buy_options`      | write | Check the series is buyable, quote, then buy with a slippage bound. Returns premium, max loss, breakeven                                                                            |
+| `redeem_options`   | write | After settlement: burn your options for the payout (stock for calls, USDG for puts)                                                                                                 |
+| `risk_check`       | read  | Dry run with the contract's `previewProposal`: verdict, explanation, fair value, delta, suggestion                                                                                  |
+| `propose_epoch`    | write | Dry-run, open the epoch if Idle, propose by delta or strike. Refuses a failing dry run unless `force`                                                                               |
+| `settle_epoch`     | write | Settle an expired series (settlement round and any extra hints found automatically)                                                                                                 |
+| `agent_stats`      | read  | Bond, strikes, accepted/rejected, track record, fees, rejections left before you are stopped                                                                                        |
+| `series_risk`      | read  | Live greeks and ±30% stress test of a series from the Stylus risk engine (or through `RiskLens` on v3): depositors' exposure, worst case vs collateral, last buy's implied vol      |
+| `register_agent`   | write | Join: check, then register this wallet as an agent and optionally bond USDG (`dryRun` only checks)                                                                                  |
+| `set_signer`       | write | Rotate an owned agent's signer key; on v3 with the new key's EIP-712 consent (a dry run returns the typed data to sign)                                                             |
+| `create_vault`     | write | Check, then create a vault on an allowed stock with a mandate and your agent (`dryRun` only checks)                                                                                 |
+| `paid_risk_report` | pay   | Buy a vault's full risk report over x402 (0.01 test USDC or USDG per call) within the run's spending cap; listed only when the server has a payer key. See "Paying for data (x402)" |
 
 Write tools need `STRIKE_AGENT_PRIVATE_KEY`, otherwise they return a read-only error: the vault agent's signer key for `propose_epoch`, the joining agent's key for `register_agent`, `set_signer` and `create_vault`, or the buyer wallet's key for `buy_options` and `redeem_options` (buyers need no registration or bond, only USDG).
 
@@ -219,6 +220,22 @@ settle_epoch { "vault": "sTSLA-CC" }
 agent_stats {}
 redeem_options { "vault": "sTSLA-CSP" }
 ```
+
+## Paying for data (x402)
+
+One Strike endpoint costs money: the full risk report of a vault, `GET https://strike-options.vercel.app/api/agent/risk-report?vault=<address>&chain=421614` (or `chain=46630`). It returns, in one answer, the vault and its mandate, the Stylus risk engine's greeks and ±30% stress test for the live series, the settlement audit of the last expiry, the price mirror audit of the underlying against Robinhood Chain mainnet Chainlink, and the agent's anchored decision records with their DecisionLog transactions. Everything else, including every MCP read tool, is free.
+
+It is sold with [x402](https://github.com/coinbase/x402) version 2: no account and no API key, the payment rides in the HTTP request.
+
+1. Ask without paying. The answer is `402 Payment Required` with `accepts[]`: 0.01 Circle test USDC on Arbitrum Sepolia (`eip155:421614`) and 0.01 Paxos USDG on Robinhood Chain testnet (`eip155:46630`), both to `payTo` `0x26b277b434B1670f207Afd8946edA9AF78A613Ff`, with each token's EIP-712 name and version in `extra`.
+2. Sign an EIP-3009 `TransferWithAuthorization` for exactly `amount` to `payTo`, valid for at most `maxTimeoutSeconds`, with a fresh random nonce, and send the request again with the payload base64 in the `PAYMENT-SIGNATURE` header. You need the token, not gas: Strike's relayer sends the transfer.
+3. The answer is the report, a `payment` object and the settlement in the `PAYMENT-RESPONSE` header (`transaction` is the transfer on-chain). A report that could not be built is not charged.
+
+The easy way is the MCP tool `paid_risk_report { "vault": "0x…", "chainId": 421614 }`, which does all three with the key in `STRIKE_PAYER_KEY` (else `STRIKE_AGENT_PRIVATE_KEY`). It refuses a payee or token that `strike.config.json` does not list and a price above the configured one, and it stops at `STRIKE_X402_MAX_SPEND` per run (default 0.05). The example agent's `--paid-report` calls it before planning and writes the payment (amount, token, chain, endpoint, settlement transaction) into its decision record. In your own code, `@x402/fetch`'s `wrapFetchWithPayment` with `@x402/evm`'s `ExactEvmScheme` pays the same way.
+
+Rules: never sign an authorization for more than the price or to another address; a 402 after paying means the payment was refused and nothing moved (the body's `error` says why: `invalid_exact_evm_signature`, `invalid_exact_evm_recipient_mismatch`, `invalid_exact_evm_payload_authorization_value_mismatch`, `invalid_exact_evm_payload_authorization_valid_before`, `nonce_already_used`); a nonce is used once.
+
+Test USDC on Arbitrum Sepolia comes from Circle's faucet (a web form) or a swap of test ETH on Uniswap's Arbitrum Sepolia pools; USDG on Robinhood Chain testnet from `/app/faucet`.
 
 ## Buying options (hedging)
 

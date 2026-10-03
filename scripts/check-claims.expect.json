@@ -1,6 +1,6 @@
 {
   "about": "What scripts/check-claims.mjs checks in a cited transaction beyond its status, block, time and gas (those are read from the tables that cite it). Each entry is one claim the docs make, with the events its receipt must contain. Values: '10 USDG' and '369.86 USD' are exact amounts in the unit's decimals; a leading '~' compares after rounding to the decimals written ('~0.20 WAD'); '8 (DeltaOutOfBand)' is an enum value with its name; addresses compare case-insensitively. 'status': 'reverted' marks a transaction cited because it failed. 'context' lists figures a citing sentence may also state that are not in this receipt (balances before and after), each with what it is.",
-  "units": { "USDG": 6, "USD": 18, "WAD": 18, "TOKEN": 18 },
+  "units": { "USDG": 6, "USD": 18, "WAD": 18, "TOKEN": 18, "USDC": 6 },
   "events": {
     "EpochOpened": "EpochOpened(address indexed vault, uint64 indexed epoch, uint256 spot)",
     "SeriesProposed": "SeriesProposed(address indexed vault, uint64 indexed epoch, uint256 indexed seriesId, uint256 strike, uint64 expiry, uint256 size, uint16 premiumBps, uint256 fairValue, int256 delta)",
@@ -20,9 +20,70 @@
     "Withdraw": "Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares)",
     "PremiumClaimed": "PremiumClaimed(address indexed account, uint256 amount)",
     "Transfer": "Transfer(address indexed from, address indexed to, uint256 value)",
-    "IdentityMinted": "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+    "IdentityMinted": "Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
+    "AuthorizationUsed": "AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce)"
   },
   "transactions": {
+    "0x7cdcbb537cb7d8703c865c3bcb29c25eebaa8a85c0eca8ca27ffeb5476d2ae7a": {
+      "chain": 421614,
+      "claim": "x402: the first paid risk report, 0.01 USDC settled by transferWithAuthorization",
+      "events": [
+        {
+          "event": "AuthorizationUsed",
+          "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+          "args": { "authorizer": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044" }
+        },
+        {
+          "event": "Transfer",
+          "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+          "args": {
+            "from": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+            "to": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+            "value": "0.01 USDC"
+          }
+        }
+      ]
+    },
+    "0xf3d96e3be187b3d2318219b64c8c75ceca19c336afc3c2ff1f4ce0b01251729d": {
+      "chain": 46630,
+      "claim": "x402: a paid risk report on Robinhood Chain testnet, 0.01 USDG settled by transferWithAuthorization",
+      "events": [
+        {
+          "event": "AuthorizationUsed",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": { "authorizer": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044" }
+        },
+        {
+          "event": "Transfer",
+          "address": "0x7E955252E15c84f5768B83c41a71F9eba181802F",
+          "args": {
+            "from": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+            "to": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+            "value": "0.01 USDG"
+          }
+        }
+      ]
+    },
+    "0x9bb2d27cc55a823862fc0388d544722abde6bcf986a9084b25565ae9c55ab54f": {
+      "chain": 421614,
+      "claim": "x402: a paid risk report, 0.01 USDC settled by transferWithAuthorization",
+      "events": [
+        {
+          "event": "AuthorizationUsed",
+          "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+          "args": { "authorizer": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044" }
+        },
+        {
+          "event": "Transfer",
+          "address": "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+          "args": {
+            "from": "0x7767ca2d944A91e6ae896f85cACA4DfDE1810044",
+            "to": "0x26b277b434B1670f207Afd8946edA9AF78A613Ff",
+            "value": "0.01 USDC"
+          }
+        }
+      ]
+    },
     "0x001cbf637009addbe13bb20e7c6ad5bdaf10f149cb1fc66a99a7afe599696498": {
       "chain": 46630,
       "claim": "v2: put vault collateral, 20 USDG",

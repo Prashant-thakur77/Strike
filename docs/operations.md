@@ -307,6 +307,15 @@ Removal requests come as a reply to any message the team sent, or on Telegram to
 
 Check the count without a key: `curl -s https://strike-options.vercel.app/api/waitlist/count` (cached for 60 s).
 
+## x402 relayer
+
+[`/api/agent/risk-report`](ENDPOINTS.md#paid-route-x402) settles each payment itself ([D48](decisions.md)): a relayer wallet sends the token's `transferWithAuthorization` and pays the gas. The payment goes from the payer to `x402.payTo`; the relayer only needs a little ETH on each chain the route accepts.
+
+- **The key.** `0x80Eec5F968aeBc078f2d58fF8b84775570c180C4`, made on 3 October with `cast wallet new` for testnets only; the key is in `.internal/x402-relayer.key` on the owner's machine (git-ignored, mode 600). Never reuse it for anything else.
+- **Vercel.** Set `X402_RELAYER_KEY` to the key (server only, production and preview) and redeploy. Without it the route still answers 402 with the price, and 503 to a payment. Check with `curl -i "https://strike-options.vercel.app/api/agent/risk-report?chain=421614&vault=0x5655659E18bf54ee0EF8f6A816E2e18D000F7311"`: 402 and a `PAYMENT-REQUIRED` header.
+- **Gas.** It was funded with 0.002 ETH on Arbitrum Sepolia and 0.001 ETH on Robinhood Chain testnet ([log](testnet-epochs/2026-10-03-x402.md#transactions)); a settlement used 86,630 to 108,313 gas there. Top up from the deployer when `cast balance` runs low.
+- **Rotate.** Make a new wallet, fund it, set the new key on Vercel, redeploy, then sweep the old one. Nothing on-chain names the relayer.
+
 ## Keys
 
 | Key                  | Where                                                                                                                                                                                                    | Mainnet requirement                                                                                                                          |
