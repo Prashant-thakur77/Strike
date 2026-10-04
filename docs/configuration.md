@@ -182,6 +182,19 @@ Environment variables still override per run, as before: `STRIKE_CHAIN_ID`, `STR
 address overrides (`sdk/src/deployments.ts`), `RPC_URL` and `MAINNET_RPC` for the keeper, `NEXT_PUBLIC_RPC_<chainId>`
 and `NEXT_PUBLIC_DEFAULT_CHAIN_ID` for the app.
 
+## Other variables (not secrets)
+
+A few plain overrides are read from the environment and are not in the `secrets` block, because they hold no key:
+
+| Variable                                                                       | Read by                                                                                                                                         |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_RPC_46630`, `NEXT_PUBLIC_RPC_421614`, `NEXT_PUBLIC_RPC_4663`      | The app: RPC URLs used instead of the public ones; inlined into the browser bundle, so never put a key in them ([deploy-app.md](deploy-app.md)) |
+| `NEXT_PUBLIC_LOCAL_RPC`                                                        | The app: the local devnet's RPC (31337), as CI's Playwright jobs set it                                                                         |
+| `STRIKE_MCP_RPC_URL`                                                           | The app's remote MCP (`/api/mcp`): an RPC for 46630 after Alchemy and before `NEXT_PUBLIC_RPC_46630`                                            |
+| `STRIKE_INDEXER_URL`                                                           | The app's statement and portfolio routes: the hosted indexer, when there is one (log scans otherwise)                                           |
+| `STRIKE_INDEXER_VERSION`                                                       | The indexer: the version its `/health` reports (default `0.1.0`)                                                                                |
+| `STRIKE_CLAUDE_CODE_MODEL`, `STRIKE_PLANNER_MCP_URL`, `STRIKE_RECORD_BASE_URL` | The example agent ([its README](../agents/example/README.md))                                                                                   |
+
 ## Changing it
 
 1. Edit `strike.config.json`.
