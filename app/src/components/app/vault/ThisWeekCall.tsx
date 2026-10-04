@@ -76,7 +76,7 @@ export function ThisWeekCall({ vault }: { vault: VaultSummary }) {
   }
   lines.push({
     k: "Market",
-    v: `${sym} at ${vault.spot.price > 0n ? fmtWadUsd(vault.spot.price) : "no price yet"}, price feed ${(FEED_STATUS[vault.spot.status] ?? "unknown").toLowerCase()}${market ? `, US market ${market.open ? "open" : "closed"}` : ""}${rec?.record.market?.spot ? `; ${fmtPrice(rec.record.market.spot)} when the agent decided` : ""}.`,
+    v: `${sym} at ${vault.spot.price > 0n ? fmtWadUsd(vault.spot.price) : "no price yet"}, feed status: ${(FEED_STATUS[vault.spot.status] ?? "unknown").toLowerCase()}${market ? `, US market ${market.open ? "open" : "closed"}` : ""}${rec?.record.market?.spot ? `; ${fmtPrice(rec.record.market.spot)} when the agent decided` : ""}.`,
   });
   lines.push({
     k: "For you",

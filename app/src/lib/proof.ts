@@ -390,7 +390,7 @@ export const TESTS: readonly TestFact[] = [
   },
   {
     label: "Playwright",
-    count: "457",
+    count: "463",
     detail:
       "The app at 1440 px desktop and 390 px mobile, including this page and its links; 33 of them are the opt-in UI audit at five widths",
     evidence: [
@@ -455,14 +455,16 @@ export const CHECKS: readonly CheckFact[] = [
   },
   {
     title: "Fork tests",
-    claim: "9 tests against Robinhood Chain mainnet (4663)",
+    claim: "16 tests against Robinhood Chain mainnet (4663)",
     detail: [
       "Real TSLA, NVDA and SPY tokens and Chainlink feeds, real USDG, real ERC-8004 registries",
       "The ERC-8056 multiplier is never applied twice; a full epoch runs with real tokens",
+      "The Pendle collateral prototype buys, sells and redeems against the real PT-USDG market",
     ],
     evidence: [
       { label: "RobinhoodFork.t.sol", href: gh("contracts/test/fork/RobinhoodFork.t.sol") },
       { label: "StockCollateralFork.t.sol", href: gh("contracts/test/fork/StockCollateralFork.t.sol") },
+      { label: "PendleCollateralFork.t.sol", href: gh("contracts/test/fork/PendleCollateralFork.t.sol") },
       { label: "CI fork job", href: gh(".github/workflows/ci.yml", 105) },
     ],
   },

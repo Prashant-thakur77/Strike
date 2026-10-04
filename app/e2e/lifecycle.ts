@@ -28,6 +28,8 @@ const GET_SERIES = toFunctionSelector("getSeries(uint256)");
 const STATUS = toFunctionSelector("status(address)");
 const QUOTE_BUY = toFunctionSelector("quoteBuy(uint256,uint256)");
 const IS_OPEN = toFunctionSelector("isMarketOpen()");
+/** `EpochManager.spot(token)`, which reverts once the last print is older than the feed's `maxPriceAge`. */
+export const SPOT = toFunctionSelector("spot(address)");
 const AGGREGATE3 = toFunctionSelector("aggregate3((address,bool,bytes)[])");
 export const STALE_PRICE = toFunctionSelector("StalePrice(uint256,uint256)");
 
@@ -162,6 +164,34 @@ export const feedStatus =
     c.data.startsWith(STATUS) && r && r.length >= 2 + 64 * 3
       ? setWords(r, { 0: BigInt(status), 2: BigInt(updatedAt) })
       : undefined;
+
+/**
+ * `spot(token)` answers `price` where the chain's own call reverts. A fixture that reports the feed as fresh
+ * (`feedStatus(0, ...)`) must also give a spot, or the risk panel finds the feed "Ok" and the spot reverting, which
+ * happens on every weekend once the Friday print is older than `maxPriceAge` (25 hours).
+ */
+export const spotWhenReverted =
+  (price: bigint): CallPatch =>
+  (c, r) =>
+    c.data.startsWith(SPOT) && r === null ? encodeAbiParameters([{ type: "uint256" }], [price]) : undefined;
+
+/** The oracle's last print for `token` (`status(token)`'s price, 18 decimals), read straight from the chain. */
+export async function lastPrint(rpcUrl: string, oracle: string, token: string): Promise<bigint> {
+  const data = `${STATUS}${token.slice(2).toLowerCase().padStart(64, "0")}`;
+  const res = await fetch(rpcUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "eth_call",
+      params: [{ to: oracle, data }, "latest"],
+    }),
+    signal: AbortSignal.timeout(15_000),
+  });
+  const { result } = (await res.json()) as { result: Hex };
+  return BigInt(`0x${result.slice(2 + 64, 2 + 128)}`);
+}
 
 /** `quoteBuy` reverts with StalePrice, as SafeStockFeed makes it once the last print is past the limit. */
 export const quoteReverts: CallPatch = (c) =>

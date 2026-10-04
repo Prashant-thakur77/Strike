@@ -5,9 +5,12 @@ import type { Address } from "viem";
 import { acknowledge, horizontalOverflow, settle } from "./helpers";
 import {
   PHASE_SELECTORS,
+  SPOT,
   feedStatus,
+  lastPrint,
   livePhase,
   patchEthCalls,
+  spotWhenReverted,
   vaultPhase,
   type LivePhase,
 } from "./lifecycle";
@@ -200,6 +203,9 @@ for (const c of CASES) {
 // the future gets real greeks from the engine at that tenor). Its series of 2 October; reads rewritten by lifecycle.ts.
 const V2 = CASES[0]!;
 const V2_SERIES = 8614008145645214741184698995285385951692715470493509368088435356950067027964n;
+// v2's StockOracle and the TSLA stock token on 46630 (contracts/deployments/46630.json: stockOracle, stocks.TSLA.token).
+const V2_ORACLE = "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89";
+const V2_TSLA = "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E";
 
 for (const phase of ["selling", "expired", "settled", "open"] as const) {
   test(`vault risk panel, ${phase} (fixture, v2 on Robinhood Chain testnet)`, async ({ page }) => {
@@ -210,10 +216,19 @@ for (const phase of ["selling", "expired", "settled", "open"] as const) {
       );
     test.skip(!(await rpcUp(V2.rpc, V2.chainId)), `${V2.chain} RPC unreachable`);
     await acknowledge(page);
-    await patchEthCalls(page, V2.chainId, V2.rpc, PHASE_SELECTORS, [
-      vaultPhase({ vault: V2.vault as Address, seriesId: V2_SERIES, phase }),
-      feedStatus(0, Math.floor(Date.now() / 1000) - 600),
-    ]);
+    // The fixture reports a fresh print, so the spot must be one too, whatever the day (V2_TSLA, V2_ORACLE below).
+    const price = await lastPrint(V2.rpc, V2_ORACLE, V2_TSLA);
+    await patchEthCalls(
+      page,
+      V2.chainId,
+      V2.rpc,
+      [...PHASE_SELECTORS, SPOT],
+      [
+        vaultPhase({ vault: V2.vault as Address, seriesId: V2_SERIES, phase }),
+        feedStatus(0, Math.floor(Date.now() / 1000) - 600),
+        spotWhenReverted(price),
+      ],
+    );
     await page.goto(`/app/vault/${V2.vault}?chain=${V2.chainId}#risk`);
     await expectRiskPhase(page, V2, phase);
   });

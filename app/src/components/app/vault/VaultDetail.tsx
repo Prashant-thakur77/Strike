@@ -120,7 +120,9 @@ export function VaultDetail({ address }: { address: Address }) {
                 sub:
                   history.data && history.data.apy === null
                     ? v.series
-                      ? `Trailing, from settled epochs. First one ${fmtDay(v.series.expiry)}.`
+                      ? expired
+                        ? "Trailing, from settled epochs. The first comes when this series settles, at the first mainnet price after its expiry."
+                        : `Trailing, from settled epochs. First one ${fmtDay(v.series.expiry)}.`
                       : "Trailing, from settled epochs."
                     : "trailing, from settled epochs",
               },
