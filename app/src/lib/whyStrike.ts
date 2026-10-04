@@ -19,6 +19,15 @@ import {
   type LogRecord,
 } from "./agentLog";
 import type { VaultSummary } from "./reads";
+import {
+  RAW_BASE,
+  WhyStrikeError,
+  fetchRecordIndex,
+  indexHas,
+  listedRunNames,
+  type Fetch,
+  type RecordIndex,
+} from "./recordIndex";
 
 // "Why this strike" on the vault page: the agent's decision record for the vault's live (or last) epoch, fetched
 // from GitHub without the API (raw.githubusercontent.com has no 60-an-hour limit), matched to the epoch by chain,
@@ -26,11 +35,13 @@ import type { VaultSummary } from "./reads";
 // known DecisionLog for this agent, vault and epoch must carry the hash rebuilt from the file. `latestHash` is
 // secondary (a settlement record anchored for the same epoch overwrites it).
 //
-// The record's file name is derived, not listed: the agent names a record `<YYYY-MM-DD>-<vault symbol>[-N].json`
+// The record's file name is derived, then looked up: the agent names a record `<YYYY-MM-DD>-<vault symbol>[-N].json`
 // after the UTC date its run started, and a propose run opens the epoch minutes later, so the epoch's `openedAt`
-// gives the date (the day before and after are tried too, for runs that straddle midnight UTC).
+// gives the date (the day before and after are tried too, for runs that straddle midnight UTC). Only the names the
+// published index lists (docs/agent-log/index.json, scripts/agent-log-index.mjs) are fetched, so a page never asks
+// GitHub for a record that does not exist; without an index (a fork that has none) every candidate is tried.
 
-export const RAW_BASE = `https://raw.githubusercontent.com/${AGENT_LOG_REPO}/${AGENT_LOG_BRANCH}/`;
+export { RAW_BASE };
 export const BLOB_BASE = `https://github.com/${AGENT_LOG_REPO}/blob/${AGENT_LOG_BRANCH}/`;
 
 /** Where each chain's records live in the repository. */
@@ -118,17 +129,7 @@ export function candidateBaseNames(symbol: string, openedAt: number): string[] {
 
 /* ================================================================ fetching */
 
-export class WhyStrikeError extends Error {
-  constructor(
-    readonly kind: "network" | "http" | "rpc",
-    message: string,
-  ) {
-    super(message);
-    this.name = "WhyStrikeError";
-  }
-}
-
-type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
+export { WhyStrikeError };
 
 const CACHE_PREFIX = "strike.why.v1:";
 
@@ -177,6 +178,18 @@ export async function fetchRepoFile(
   const text = await res.text();
   cacheSet(url, text);
   return text;
+}
+
+/** A record file by path when the index lists it (null, without a request, when it does not). */
+function fetchListed(
+  index: RecordIndex | null,
+  folder: string,
+  file: string,
+  fetchImpl: Fetch,
+  signal?: AbortSignal,
+): Promise<string | null> {
+  if (!indexHas(index, folder, file)) return Promise.resolve(null);
+  return fetchRepoFile(`${folder}/${file}`, fetchImpl, signal);
 }
 
 /* ================================================================ the result */
@@ -370,6 +383,33 @@ function newest(a: { record: LogRecord; name: string }, b: { record: LogRecord; 
 }
 
 /**
+ * Without an index: the first run of each candidate day in parallel, then the `-N` retries of the days that had one,
+ * until one is missing. `consider` returns false for a missing file.
+ */
+async function probeRuns(
+  bases: string[],
+  folder: string,
+  consider: (name: string, text: string | null) => boolean,
+  fetchImpl: Fetch,
+  signal?: AbortSignal,
+): Promise<void> {
+  const firsts = await Promise.all(
+    bases.map(async (base) =>
+      consider(base, await fetchRepoFile(`${folder}/${base}.json`, fetchImpl, signal)),
+    ),
+  );
+  await Promise.all(
+    bases.map(async (base, i) => {
+      if (!firsts[i]) return;
+      for (let n = 2; n <= MAX_RUNS_PER_DAY; n++) {
+        const name = `${base}-${n}`;
+        if (!consider(name, await fetchRepoFile(`${folder}/${name}.json`, fetchImpl, signal))) break;
+      }
+    }),
+  );
+}
+
+/**
  * The decision record for a vault's current epoch (live, or the last one once settled) and its anchor check.
  * Throws a `WhyStrikeError` only when GitHub cannot be reached; a chain that cannot be read makes the anchor
  * "unreadable" instead, so the record still shows.
@@ -392,6 +432,7 @@ export async function loadWhyStrike(
     seriesId: vault.series?.id ?? null,
   };
   const bases = candidateBaseNames(vault.symbol, Number(vault.openedAt));
+  const index = await fetchRecordIndex(fetchImpl, signal);
   const found: { record: LogRecord; name: string; text: string; rank: 1 | 2 }[] = [];
   const consider = (name: string, text: string | null) => {
     if (text === null) return false;
@@ -409,21 +450,16 @@ export async function loadWhyStrike(
     if (rank !== 0) found.push({ record, name, text, rank });
     return true;
   };
-  // The first run of each day in parallel, then the `-N` retries of the days that had one.
-  const firsts = await Promise.all(
-    bases.map(async (base) =>
-      consider(base, await fetchRepoFile(`${folder}/${base}.json`, fetchImpl, signal)),
-    ),
-  );
-  await Promise.all(
-    bases.map(async (base, i) => {
-      if (!firsts[i]) return;
-      for (let n = 2; n <= MAX_RUNS_PER_DAY; n++) {
-        const name = `${base}-${n}`;
-        if (!consider(name, await fetchRepoFile(`${folder}/${name}.json`, fetchImpl, signal))) break;
-      }
-    }),
-  );
+  if (index) {
+    // Every run the index lists for the candidate days, in parallel.
+    const names = bases.flatMap((base) => listedRunNames(index, folder, base));
+    const texts = await Promise.all(
+      names.map((name) => fetchRepoFile(`${folder}/${name}.json`, fetchImpl, signal)),
+    );
+    names.forEach((name, i) => consider(name, texts[i]!));
+  } else {
+    await probeRuns(bases, folder, consider, fetchImpl, signal);
+  }
 
   if (found.length > 0) {
     // The record that put the live series on sale; else the newest run of the epoch that made a decision.
@@ -440,7 +476,7 @@ export async function loadWhyStrike(
       contract: r.anchor?.contract ?? null,
       txHash: r.anchor?.txHash ?? r.transactions.find((t) => t.label === "DecisionLog.record")?.hash ?? null,
     });
-    const md = await fetchRepoFile(`${folder}/${best.name}.md`, fetchImpl, signal).catch(() => null);
+    const md = await fetchListed(index, folder, `${best.name}.md`, fetchImpl, signal).catch(() => null);
     const page = (file: string) =>
       folder === AGENT_LOG_DIR ? recordPageUrl(file) : `${BLOB_BASE}${folder}/${encodeURIComponent(file)}`;
     return {
@@ -530,7 +566,8 @@ export async function loadRecordByName(
 ): Promise<NamedRecord> {
   const folder = dryRun ? DRY_RUN_FOLDERS[chainId] : RECORD_FOLDERS[chainId];
   if (!folder) return { kind: "not-found" };
-  const text = await fetchRepoFile(`${folder}/${name}.json`, fetchImpl, signal);
+  const index = await fetchRecordIndex(fetchImpl, signal);
+  const text = await fetchListed(index, folder, `${name}.json`, fetchImpl, signal);
   if (text === null) return { kind: "not-found" };
   const record = parseRecordText(text);
   if (!record) return { kind: "invalid", why: "The file is not a decision record this page can read." };
@@ -554,7 +591,7 @@ export async function loadRecordByName(
           record.transactions.find((t) => t.label === "DecisionLog.record")?.hash ??
           null,
       });
-  const md = await fetchRepoFile(`${folder}/${name}.md`, fetchImpl, signal).catch(() => null);
+  const md = await fetchListed(index, folder, `${name}.md`, fetchImpl, signal).catch(() => null);
   const page = (file: string) =>
     folder === AGENT_LOG_DIR ? recordPageUrl(file) : `${BLOB_BASE}${folder}/${encodeURIComponent(file)}`;
   return {

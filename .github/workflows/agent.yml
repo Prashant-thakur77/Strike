@@ -243,8 +243,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "agent-log: weekly epoch $DATE ($MODE, chain $CHAIN_ID)"
+          # The record index (docs/agent-log/index.json, which the app reads before fetching a record) is rebuilt
+          # after each rebase, on top of the records other jobs pushed, and folded into this commit; a failed push
+          # takes it out again, so the next rebase cannot conflict on it.
           for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
+            if git pull --rebase origin main; then
+              node scripts/agent-log-index.mjs
+              git add docs/agent-log/index.json
+              git commit --amend --no-edit -q
+              if git push origin HEAD:main; then exit 0; fi
+              git checkout HEAD~1 -- docs/agent-log/index.json
+              git commit --amend --no-edit -q --allow-empty
+            else
+              git rebase --abort || true
+            fi
             echo "push attempt $attempt failed; retrying"
             sleep $((attempt * 5))
           done
@@ -343,8 +355,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "agent-log: weekly epoch $DATE ($MODE, agent 2)"
+          # The record index (docs/agent-log/index.json, which the app reads before fetching a record) is rebuilt
+          # after each rebase, on top of the records other jobs pushed, and folded into this commit; a failed push
+          # takes it out again, so the next rebase cannot conflict on it.
           for attempt in 1 2 3 4 5; do
-            if git pull --rebase origin main && git push origin HEAD:main; then exit 0; fi
+            if git pull --rebase origin main; then
+              node scripts/agent-log-index.mjs
+              git add docs/agent-log/index.json
+              git commit --amend --no-edit -q
+              if git push origin HEAD:main; then exit 0; fi
+              git checkout HEAD~1 -- docs/agent-log/index.json
+              git commit --amend --no-edit -q --allow-empty
+            else
+              git rebase --abort || true
+            fi
             echo "push attempt $attempt failed; retrying"
             sleep $((attempt * 5))
           done

@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { normCdf as sdkNormCdf } from "../../sdk/src/pricing";
-import { parseRecordText, type LogEntry } from "../src/lib/agentLog";
+import { RECORD_FILE_NAME_RE, parseRecordText, type LogEntry } from "../src/lib/agentLog";
 import {
   HEALTH_LABEL,
   filterLog,
@@ -57,7 +57,7 @@ const put = (over: Partial<SeriesInput> = {}): SeriesInput => ({
 
 const committed = (): LogEntry[] =>
   readdirSync(LOG)
-    .filter((f) => f.endsWith(".json"))
+    .filter((f) => RECORD_FILE_NAME_RE.test(f))
     .map((f) => ({
       name: f.replace(/\.json$/, ""),
       record: parseRecordText(readFileSync(join(LOG, f), "utf8"))!,
@@ -226,7 +226,8 @@ test.describe("decision log filter", () => {
 /* ================================================================ the page */
 
 async function serveLog(page: Page) {
-  const files = readdirSync(LOG).filter((f) => f.endsWith(".json") || f.endsWith(".md"));
+  // Record files only (the index.json beside them is not one; the API listing's parser ignores it too).
+  const files = readdirSync(LOG).filter((f) => /^\d{4}-\d{2}-\d{2}-.+\.(json|md)$/.test(f));
   await page.route(`${API}*`, (route: Route) =>
     route.fulfill({
       status: 200,
