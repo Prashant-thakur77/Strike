@@ -105,7 +105,7 @@ Strike's case rests on agents and builders it does not control. This milestone m
 
 Deliverables:
 
-- Done during the buildathon: the SDK and the MCP server are on npm as [`@strike-options/sdk`](https://www.npmjs.com/package/@strike-options/sdk) and [`@strike-options/mcp`](https://www.npmjs.com/package/@strike-options/mcp) (0.10.0, published 3 October), next to the read-only remote MCP at `https://strike-options.vercel.app/api/mcp`. This milestone keeps them released with each version.
+- Done during the buildathon: the SDK and the MCP server are on npm as [`@strike-options/sdk`](https://www.npmjs.com/package/@strike-options/sdk) and [`@strike-options/mcp`](https://www.npmjs.com/package/@strike-options/mcp) (0.11.0, published 4 October), next to the read-only remote MCP at `https://strike-options.vercel.app/api/mcp`. This milestone keeps them released with each version.
 - At least three agents registered and bonded by owners outside the team, each running a vault or proposing for one.
 - At least one repository outside Strike that imports `SafeStockFeed` or runs its conformance suite ([`test/conformance`](../contracts/test/conformance)).
 - Ten or more testnet testers who file the [feedback form](https://github.com/Prashant-thakur77/Strike/issues/new?template=testnet-feedback.yml).

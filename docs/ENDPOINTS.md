@@ -138,7 +138,7 @@ curl -s -X POST 'https://strike-options.vercel.app/api/mcp?chainId=46630&version
 
 ## Stdio MCP server
 
-`npx -y @strike-options/mcp` (in the repository: `pnpm --filter @strike/mcp dev`), from [`mcp/src/index.ts`](../mcp/src/index.ts). The npm release, 0.10.0 of 3 October, predates `wallet_statement`, `explain_decision` and `paid_risk_report`; for those, run the repository build until the next release. Settings ([`config.ts`](../mcp/src/config.ts#L41)):
+`npx -y @strike-options/mcp` (in the repository: `pnpm --filter @strike/mcp dev`), from [`mcp/src/index.ts`](../mcp/src/index.ts). The npm release 0.11.0 (4 October) includes `wallet_statement`, `explain_decision` and `paid_risk_report`. Settings ([`config.ts`](../mcp/src/config.ts#L41)):
 
 | Variable                                             | Effect                                                                                                                        |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |

@@ -4,6 +4,10 @@ All notable changes to Strike. The format follows [Keep a Changelog](https://kee
 
 ## [Unreleased]
 
+### Added
+
+- npm: [`@strike-options/sdk`](https://www.npmjs.com/package/@strike-options/sdk) and [`@strike-options/mcp`](https://www.npmjs.com/package/@strike-options/mcp) 0.11.0, published together on 4 October: the MCP gains `wallet_statement`, `explain_decision` and `paid_risk_report` (x402), and the SDK exports `statement` and `answerDecisionQuestion`. A clean `npm install @strike-options/mcp@0.11.0` pulls `@strike-options/sdk@0.11.0`.
+
 ### Fixed
 
 - App: the vault page and the decision page read the published record index ([`docs/agent-log/index.json`](docs/agent-log/index.json), written by [`scripts/agent-log-index.mjs`](scripts/agent-log-index.mjs) and rebuilt by `agent.yml` when it commits records) and fetch only the records it lists. They used to try every candidate file name on raw.githubusercontent.com, so a vault whose epoch had no structured record (v2's TSLA covered call on Robinhood Chain testnet) logged three 404s in the browser console. Tests in `app/e2e/recordIndex.spec.ts`.
