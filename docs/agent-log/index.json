@@ -54,7 +54,9 @@
       "2026-10-03-sTSLA-CC.json",
       "2026-10-03-sTSLA-CC.md",
       "2026-10-03-sTSLA-CSP.json",
-      "2026-10-03-sTSLA-CSP.md"
+      "2026-10-03-sTSLA-CSP.md",
+      "2026-10-05-sTSLA-CC.json",
+      "2026-10-05-sTSLA-CC.md"
     ],
     "docs/agent-log/dry-runs": [
       "2026-10-03-sTSLA-CSP-as-if-open-claude-dry-run-2.json",
