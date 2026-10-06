@@ -15,16 +15,16 @@
   "dependencies": {
     "@strike/mcp": "workspace:*",
     "@strike/sdk": "workspace:*",
-    "@tanstack/react-query": "^5.104.0",
+    "@tanstack/react-query": "^5.104.1",
     "@vercel/blob": "^2.8.0",
     "@x402/core": "2.28.0",
     "@x402/evm": "2.28.0",
-    "lucide-react": "^1.48.0",
+    "lucide-react": "^1.51.0",
     "motion": "^13.4.4",
-    "next": "^16.3.6",
+    "next": "^16.3.8",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "viem": "^2.56.9",
+    "viem": "^2.57.2",
     "wagmi": "^3.7.7"
   },
   "devDependencies": {
