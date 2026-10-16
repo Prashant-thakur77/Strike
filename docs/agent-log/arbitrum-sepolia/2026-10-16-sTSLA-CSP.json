@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-16",
+  "chainTimeIso": "2026-10-16T21:11:14.000Z",
+  "chain": {
+    "id": 421614,
+    "name": "Arbitrum Sepolia",
+    "explorer": "https://sepolia.arbiscan.io"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "30",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "352.5518",
+    "sigma": 0.6,
+    "source": "live",
+    "openedAtIso": null,
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "settle (keeper)",
+      "hash": "0xc76b77aefdf47ec3212b7de11d706d60a19703503ef551d5ab28ab73014d9f2c",
+      "url": "https://sepolia.arbiscan.io/tx/0xc76b77aefdf47ec3212b7de11d706d60a19703503ef551d5ab28ab73014d9f2c"
+    },
+    {
+      "label": "DecisionLog.record",
+      "hash": "0xfa1a6e98384cfffc153472106dae809bd80f1efb14e4b703cf830548513ba572",
+      "url": "https://sepolia.arbiscan.io/tx/0xfa1a6e98384cfffc153472106dae809bd80f1efb14e4b703cf830548513ba572"
+    }
+  ],
+  "result": {
+    "status": "settled",
+    "summary": "Already settled by the keeper without a price: nothing was sold. The vault is unlocked.",
+    "seriesId": "110644756080044766806924250292982585215896772340623706703669940675244793235650",
+    "settlementPrice": null,
+    "payout": "0 USDG",
+    "premium": "0",
+    "fee": "0",
+    "settledBy": "keeper"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 5,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "50",
+    "settledEpochs": 5,
+    "cumulativePnl": "-23.094564",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+    "recordHash": "0x90c9a6ea9cbb353fcffcf01901076093b58d4aaf366f1c50e90a8ddb29dabfa1",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/arbitrum-sepolia/2026-10-16-sTSLA-CSP.json",
+    "epoch": 3,
+    "txHash": "0xfa1a6e98384cfffc153472106dae809bd80f1efb14e4b703cf830548513ba572"
+  }
+}
