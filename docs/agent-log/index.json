@@ -58,7 +58,11 @@
       "2026-10-12-sTSLA-CSP-A2.json",
       "2026-10-12-sTSLA-CSP-A2.md",
       "2026-10-12-sTSLA-CSP.json",
-      "2026-10-12-sTSLA-CSP.md"
+      "2026-10-12-sTSLA-CSP.md",
+      "2026-10-16-sTSLA-CC.json",
+      "2026-10-16-sTSLA-CC.md",
+      "2026-10-16-sTSLA-CSP.json",
+      "2026-10-16-sTSLA-CSP.md"
     ],
     "docs/agent-log/arbitrum-sepolia": [
       "2026-09-30-sTSLA-CC.json",
