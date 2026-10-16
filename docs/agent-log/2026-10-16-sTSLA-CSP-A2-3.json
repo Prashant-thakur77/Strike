@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-16",
+  "chainTimeIso": "2026-10-16T22:33:55.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "2",
+    "signer": "0x4501c16dc4f29394560F9B2aB935667cA058B79b"
+  },
+  "vault": {
+    "address": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+    "symbol": "sTSLA-CSP-A2",
+    "name": "Strike TSLA Cash-Secured Put (agent 2)",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "150",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 2500,
+      "minPremiumBps": 10000,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 5000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.25, premium >= 100% of fair value, yield >= 0.05% of collateral, size <= 50% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "352.5518",
+    "sigma": 0.6,
+    "source": "live",
+    "openedAtIso": null,
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "DecisionLog.record",
+      "hash": "0xdfca908533b5bdbf4d36e931f2cebba019b87d6b777d514e06b5df438494f8fa",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xdfca908533b5bdbf4d36e931f2cebba019b87d6b777d514e06b5df438494f8fa"
+    }
+  ],
+  "result": {
+    "status": "failed",
+    "summary": "Agent stopped: Invalid parameters were provided to the RPC method.\nDouble check you have provided the correct parameters.\n\nURL: https://rpc.testnet.chain.robinhood.com\nRequest body: {\"method\":\"eth_getLogs\",\"params\":[{\"address\":\"0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99\",\"topics\":[\"0x8262817fd8236f63c5c172bfcd42263401c45fb513ff548a0347a76da613e594\",\"0x0000000000000000000000008aeb1e0ac30ff7829609954688b2ac649ef26969\",null,null],\"fromBlock\":\"0x780c91f\",\"toBlock\":\"latest\"}]}\n\nDetails: query spans 11011293 blocks (125880607 to 136891899), but only 10000000 are allowed for this request; narrow the block range\nVersion: viem@2.56.9"
+  },
+  "trackRecord": {
+    "agentId": "2",
+    "status": "Active",
+    "active": true,
+    "accepted": 2,
+    "rejected": 0,
+    "strikes": 0,
+    "maxStrikes": 3,
+    "bond": "60",
+    "settledEpochs": 2,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+    "recordHash": "0x82ecc906245e745871e8e64e72f0f29e95d309e9d091f776bc6096968fec2388",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-16-sTSLA-CSP-A2-3.json",
+    "epoch": 2,
+    "txHash": "0xdfca908533b5bdbf4d36e931f2cebba019b87d6b777d514e06b5df438494f8fa"
+  }
+}
