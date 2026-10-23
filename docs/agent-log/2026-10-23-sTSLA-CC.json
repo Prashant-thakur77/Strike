@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-23",
+  "chainTimeIso": "2026-10-23T22:11:38.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    "symbol": "sTSLA-CC",
+    "name": "Strike TSLA Covered Call",
+    "kind": "covered-call",
+    "underlying": "TSLA",
+    "collateral": "4.968519165273537276",
+    "collateralAsset": "TSLA",
+    "epochState": "Selling",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "367.8262",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-10-19T15:48:30.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "settle",
+      "hash": "0x70e0983b49b1c6bfe896b309e6f7415cc38a1181c2ece62a43b93918a669cde3",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x70e0983b49b1c6bfe896b309e6f7415cc38a1181c2ece62a43b93918a669cde3"
+    },
+    {
+      "label": "DecisionLog.record",
+      "hash": "0xf5d8b7680153efaf9d12e2fe91e1af079b9d3065da2b40db80d98935adaccadd",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xf5d8b7680153efaf9d12e2fe91e1af079b9d3065da2b40db80d98935adaccadd"
+    }
+  ],
+  "result": {
+    "status": "settled",
+    "summary": "Settled without a price: nothing was sold. The vault is unlocked.",
+    "seriesId": "109735668384546784923146372153702684154624169690884756746679237775595730220860",
+    "settlementPrice": null,
+    "payout": "0 TSLA",
+    "premium": "0",
+    "fee": "0",
+    "settledBy": "agent"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 7,
+    "rejected": 2,
+    "strikes": 2,
+    "maxStrikes": 3,
+    "bond": "60",
+    "settledEpochs": 6,
+    "cumulativePnl": "-4.336129",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+    "recordHash": "0xbdbbe0d1edc671c893769a1b22c97106276d58037359991da42fc51ad130127f",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-23-sTSLA-CC.json",
+    "epoch": 4,
+    "txHash": "0xf5d8b7680153efaf9d12e2fe91e1af079b9d3065da2b40db80d98935adaccadd"
+  }
+}
