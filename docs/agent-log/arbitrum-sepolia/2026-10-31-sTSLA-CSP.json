@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-31",
+  "chainTimeIso": "2026-10-31T00:48:43.000Z",
+  "chain": {
+    "id": 421614,
+    "name": "Arbitrum Sepolia",
+    "explorer": "https://sepolia.arbiscan.io"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x02B701210aA006CEAbd389dBc32af0047B1B9bbe",
+    "symbol": "sTSLA-CSP",
+    "name": "Strike TSLA Cash-Secured Put",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "30",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "399.3924",
+    "sigma": 0.6,
+    "source": "live",
+    "openedAtIso": null,
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "DecisionLog.record",
+      "hash": "0xc2c297fd4d072c553bf9d8dcdf313c3e0fad5d2d2058b3f4e3853d39ab3c23bf",
+      "url": "https://sepolia.arbiscan.io/tx/0xc2c297fd4d072c553bf9d8dcdf313c3e0fad5d2d2058b3f4e3853d39ab3c23bf"
+    }
+  ],
+  "result": {
+    "status": "failed",
+    "summary": "Agent stopped: Invalid parameters were provided to the RPC method.\nDouble check you have provided the correct parameters.\n\nURL: https://sepolia-rollup.arbitrum.io/rpc\nRequest body: {\"method\":\"eth_getLogs\",\"params\":[{\"address\":\"0xB8Ed17588AB022d8f84b8305d784Fa01478Cb7F0\",\"topics\":[\"0x8262817fd8236f63c5c172bfcd42263401c45fb513ff548a0347a76da613e594\",\"0x00000000000000000000000002b701210aa006ceabd389dbc32af0047b1b9bbe\",null,null],\"fromBlock\":\"0x12bc9c1f\",\"toBlock\":\"latest\"}]}\n\nDetails: query spans 10153873 blocks (314350623 to 324504495), but only 10000000 are allowed for this request; narrow the block range\nVersion: viem@2.56.9"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 9,
+    "rejected": 1,
+    "strikes": 1,
+    "maxStrikes": 3,
+    "bond": "50",
+    "settledEpochs": 9,
+    "cumulativePnl": "-23.094564",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0x60E947b8d2c2C34b95d88d02F0A06AeFb6Ccd04C",
+    "recordHash": "0x24579cd285906491e734c31b9a22b5a56852d0496ccbada39662585ac0a143bd",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/arbitrum-sepolia/2026-10-31-sTSLA-CSP.json",
+    "epoch": 5,
+    "txHash": "0xc2c297fd4d072c553bf9d8dcdf313c3e0fad5d2d2058b3f4e3853d39ab3c23bf"
+  }
+}
