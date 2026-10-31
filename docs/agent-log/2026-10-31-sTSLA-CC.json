@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "action": "settle",
+  "date": "2026-10-31",
+  "chainTimeIso": "2026-10-31T00:48:41.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "1",
+    "signer": "0x4fd9565bf8C0Bda9bBdF2Add233d19c64e50AC6f"
+  },
+  "vault": {
+    "address": "0x478E7BC3C3aB07fdd104e4765F178977adEe6285",
+    "symbol": "sTSLA-CC",
+    "name": "Strike TSLA Covered Call",
+    "kind": "covered-call",
+    "underlying": "TSLA",
+    "collateral": "4.968519165273537276",
+    "collateralAsset": "TSLA",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 3500,
+      "minPremiumBps": 9500,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 8000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.35, premium >= 95% of fair value, yield >= 0.05% of collateral, size <= 80% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "399.3924",
+    "sigma": 0.6,
+    "source": "live",
+    "openedAtIso": null,
+    "oracleStatus": "Ok",
+    "marketOpen": false
+  },
+  "decision": null,
+  "dryRun": null,
+  "transactions": [
+    {
+      "label": "DecisionLog.record",
+      "hash": "0xc339afa0127eed29fe40c95211f75ebf92abe533cea26ab7b072b821419002fa",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0xc339afa0127eed29fe40c95211f75ebf92abe533cea26ab7b072b821419002fa"
+    }
+  ],
+  "result": {
+    "status": "failed",
+    "summary": "Agent stopped: Invalid parameters were provided to the RPC method.\nDouble check you have provided the correct parameters.\n\nURL: https://rpc.testnet.chain.robinhood.com\nRequest body: {\"method\":\"eth_getLogs\",\"params\":[{\"address\":\"0x256D4546486368dCb23E94758b4cb500c215929F\",\"topics\":[\"0x8262817fd8236f63c5c172bfcd42263401c45fb513ff548a0347a76da613e594\",\"0x000000000000000000000000478e7bc3c3ab07fdd104e4765f178977adee6285\",null,null],\"fromBlock\":\"0x78d7f76\",\"toBlock\":\"latest\"}]}\n\nDetails: query spans 18932118 blocks (126713718 to 145645835), but only 10000000 are allowed for this request; narrow the block range\nVersion: viem@2.56.9"
+  },
+  "trackRecord": {
+    "agentId": "1",
+    "status": "Active",
+    "active": true,
+    "accepted": 9,
+    "rejected": 2,
+    "strikes": 2,
+    "maxStrikes": 3,
+    "bond": "60",
+    "settledEpochs": 9,
+    "cumulativePnl": "-4.336129",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xa98106db53519F8cfE4D7C56B34D4Fe0460403a4",
+    "recordHash": "0x28aea65b56970173719a175adff6497e6649cfe9f162ff2c1c9b9b7c524ac1e5",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-10-31-sTSLA-CC.json",
+    "epoch": 5,
+    "txHash": "0xc339afa0127eed29fe40c95211f75ebf92abe533cea26ab7b072b821419002fa"
+  }
+}
