@@ -1,0 +1,1121 @@
+{
+  "version": 1,
+  "action": "propose",
+  "date": "2026-11-02",
+  "chainTimeIso": "2026-11-02T15:33:42.000Z",
+  "chain": {
+    "id": 46630,
+    "name": "Robinhood Chain Testnet",
+    "explorer": "https://explorer.testnet.chain.robinhood.com"
+  },
+  "agent": {
+    "agentId": "2",
+    "signer": "0x4501c16dc4f29394560F9B2aB935667cA058B79b"
+  },
+  "vault": {
+    "address": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+    "symbol": "sTSLA-CSP-A2",
+    "name": "Strike TSLA Cash-Secured Put (agent 2)",
+    "kind": "cash-secured-put",
+    "underlying": "TSLA",
+    "collateral": "150",
+    "collateralAsset": "USDG",
+    "epochState": "Idle",
+    "mandate": {
+      "minDeltaBps": 1000,
+      "maxDeltaBps": 2500,
+      "minPremiumBps": 10000,
+      "minYieldBps": 5,
+      "maxShareSoldBps": 5000,
+      "minTenor": 86400,
+      "maxTenor": 691200,
+      "summary": "|delta| 0.10-0.25, premium >= 100% of fair value, yield >= 0.05% of collateral, size <= 50% of capacity, tenor 1-8 days"
+    }
+  },
+  "market": {
+    "spot": "409.3205",
+    "sigma": 0.6,
+    "source": "epoch-open snapshot",
+    "openedAtIso": "2026-11-02T15:34:04.000Z",
+    "oracleStatus": "Ok",
+    "marketOpen": true
+  },
+  "decision": {
+    "strategy": "default",
+    "targetDeltaBps": 1500,
+    "premiumBps": 10800,
+    "reasoning": "Profile \"conservative\": target 0.15 delta, further out of the money than the default 0.20, so the option is exercised less often and the premium is smaller. Price at 108% of Black-Scholes fair value, and offer at most 50% of the vault's capacity, so a bad week costs depositors less.",
+    "notes": [],
+    "planner": {
+      "kind": "rule",
+      "model": "conservative",
+      "label": "rule: conservative"
+    },
+    "candidates": [
+      {
+        "source": "ladder",
+        "targetDeltaBps": 500,
+        "premiumBps": 10800,
+        "ok": false,
+        "reason": "DeltaOutOfBand",
+        "strike": "368.85",
+        "fairValue": "0.5659",
+        "premium": "0.611172",
+        "yieldBps": 16.57,
+        "delta": 0.05,
+        "size": "0.203334688897925986",
+        "capacity": "0.406669377795851972",
+        "chosen": false,
+        "failedRule": {
+          "rule": "DeltaOutOfBand",
+          "measured": "|delta| 0.05",
+          "limit": "0.10 to 0.25"
+        },
+        "explanation": "The option's |delta| is outside the mandate's delta band. |delta| is 0.0500; the band is 0.10 to 0.25. Move the strike closer to spot. Proposing it anyway would be rejected on-chain and slash the agent's bond."
+      },
+      {
+        "source": "ladder",
+        "targetDeltaBps": 1000,
+        "premiumBps": 10800,
+        "ok": true,
+        "reason": "None",
+        "strike": "377.61",
+        "fairValue": "1.2864",
+        "premium": "1.389312",
+        "yieldBps": 36.79,
+        "delta": 0.1001,
+        "size": "0.198617621355366648",
+        "capacity": "0.397235242710733296",
+        "chosen": false,
+        "failedRule": null,
+        "explanation": "Inside the mandate: the contract would accept this proposal."
+      },
+      {
+        "source": "ladder",
+        "targetDeltaBps": 1500,
+        "premiumBps": 10800,
+        "ok": true,
+        "reason": "None",
+        "strike": "383.63",
+        "fairValue": "2.1148",
+        "premium": "2.283984",
+        "yieldBps": 59.54,
+        "delta": 0.15,
+        "size": "0.195500873237233792",
+        "capacity": "0.391001746474467585",
+        "chosen": true,
+        "failedRule": null,
+        "explanation": "Inside the mandate: the contract would accept this proposal."
+      },
+      {
+        "source": "ladder",
+        "targetDeltaBps": 2000,
+        "premiumBps": 10800,
+        "ok": true,
+        "reason": "None",
+        "strike": "388.48",
+        "fairValue": "3.0431",
+        "premium": "3.286548",
+        "yieldBps": 84.6,
+        "delta": 0.2,
+        "size": "0.193060131795716639",
+        "capacity": "0.386120263591433278",
+        "chosen": false,
+        "failedRule": null,
+        "explanation": "Inside the mandate: the contract would accept this proposal."
+      },
+      {
+        "source": "ladder",
+        "targetDeltaBps": 2500,
+        "premiumBps": 10800,
+        "ok": true,
+        "reason": "None",
+        "strike": "392.69",
+        "fairValue": "4.0714",
+        "premium": "4.397112",
+        "yieldBps": 111.97,
+        "delta": 0.2499,
+        "size": "0.190990348621049682",
+        "capacity": "0.381980697242099365",
+        "chosen": false,
+        "failedRule": null,
+        "explanation": "Inside the mandate: the contract would accept this proposal."
+      },
+      {
+        "source": "ladder",
+        "targetDeltaBps": 3000,
+        "premiumBps": 10800,
+        "ok": false,
+        "reason": "DeltaOutOfBand",
+        "strike": "396.51",
+        "fairValue": "5.2039",
+        "premium": "5.620212",
+        "yieldBps": 141.74,
+        "delta": 0.2999,
+        "size": "0.189150336687599303",
+        "capacity": "0.378300673375198607",
+        "chosen": false,
+        "failedRule": {
+          "rule": "DeltaOutOfBand",
+          "measured": "|delta| 0.2999",
+          "limit": "0.10 to 0.25"
+        },
+        "explanation": "The option's |delta| is outside the mandate's delta band. |delta| is 0.2999; the band is 0.10 to 0.25. Move the strike further out of the money. Proposing it anyway would be rejected on-chain and slash the agent's bond."
+      }
+    ],
+    "pipeline": [
+      {
+        "stage": "market",
+        "attempt": 1,
+        "verdict": "pass",
+        "summary": "Go: all 6 checks passed.",
+        "inputs": {
+          "vault": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+          "underlying": {
+            "symbol": "TSLA",
+            "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+          },
+          "ignoreSession": false,
+          "mcpSpot": "409.3205"
+        },
+        "output": {
+          "go": true,
+          "reasons": ["all 6 checks passed"],
+          "codes": [],
+          "checks": [
+            {
+              "check": "session",
+              "ok": true,
+              "measured": "NYSE open (closes Mon 2 Nov 21:00 UTC)",
+              "limit": "the NYSE regular session (openEpoch and buy revert outside it)",
+              "code": "MARKET_CLOSED"
+            },
+            {
+              "check": "feed-status",
+              "ok": true,
+              "measured": "StockOracle.status: Ok",
+              "limit": "a valid price from a feed and token that are not paused",
+              "code": "FEED_UNUSABLE"
+            },
+            {
+              "check": "feed-fresh",
+              "ok": true,
+              "measured": "last print 12 min old (Mon 2 Nov 15:21 UTC)",
+              "limit": "at most 25.0 h old (feedConfig.maxPriceAge)",
+              "code": "FEED_STALE"
+            },
+            {
+              "check": "corporate-action",
+              "ok": true,
+              "measured": "none: uiMultiplier equals newUIMultiplier and no change took effect within the grace window",
+              "limit": "no ERC-8056 multiplier change pending or within 24.0 h of taking effect",
+              "code": "CORPORATE_ACTION_PENDING"
+            },
+            {
+              "check": "sequencer",
+              "ok": true,
+              "measured": "not provided: no sequencer uptime feed is configured on this chain's StockOracle (sequencerFeed is the zero address); the contract skips the check too",
+              "limit": "up and past its grace period, when a sequencer feed is configured (the contract skips the check without one)",
+              "code": "SEQUENCER_DOWN"
+            },
+            {
+              "check": "sigma-bounds",
+              "ok": true,
+              "measured": "sigma 60.0% a year",
+              "limit": "20% to 200% (EpochManager.underlyings minSigma, maxSigma)",
+              "code": "SIGMA_OUT_OF_BOUNDS"
+            }
+          ],
+          "contradictions": [
+            {
+              "between": ["testnet MirrorFeed latest round", "mainnet Chainlink latest round"],
+              "agree": true,
+              "measured": "the mirror has the mainnet's latest print ($409.3205 at Mon 2 Nov 15:21 UTC)",
+              "limit": "the mirror at most 30 min behind mainnet"
+            },
+            {
+              "between": ["pricer sigma (EpochManager)", "realised volatility (10 daily mainnet closes)"],
+              "agree": true,
+              "measured": "sigma 60.0% against realised 42.3% a year",
+              "limit": "neither more than 2x the other"
+            },
+            {
+              "between": ["MCP vault_state spot", "StockOracle.status price"],
+              "agree": true,
+              "measured": "$409.3205 against $409.3205",
+              "limit": "within 0.01%"
+            }
+          ],
+          "sessionWaived": false,
+          "chainTimeIso": "2026-11-02T15:33:43Z",
+          "underlying": {
+            "symbol": "TSLA",
+            "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+          },
+          "spot": {
+            "price": "409.3205",
+            "status": "Ok",
+            "updatedAtIso": "2026-11-02T15:21:23Z",
+            "ageSeconds": 740,
+            "maxAgeSeconds": 90000
+          },
+          "sigma": {
+            "value": 0.6,
+            "min": 0.2,
+            "max": 2,
+            "source": "EpochManager.underlyings(token).sigma",
+            "realised": {
+              "value": 0.4228361734208233,
+              "closes": [
+                {
+                  "closeIso": "2026-10-16T20:00:00.000Z",
+                  "price": 354.463
+                },
+                {
+                  "closeIso": "2026-10-19T20:00:00.000Z",
+                  "price": 367.82625
+                },
+                {
+                  "closeIso": "2026-10-20T20:00:00.000Z",
+                  "price": 373.125
+                },
+                {
+                  "closeIso": "2026-10-21T20:00:00.000Z",
+                  "price": 386.2475
+                },
+                {
+                  "closeIso": "2026-10-22T20:00:00.000Z",
+                  "price": 376.742
+                },
+                {
+                  "closeIso": "2026-10-23T20:00:00.000Z",
+                  "price": 372.07125
+                },
+                {
+                  "closeIso": "2026-10-26T20:00:00.000Z",
+                  "price": 391.359
+                },
+                {
+                  "closeIso": "2026-10-27T20:00:00.000Z",
+                  "price": 406.94
+                },
+                {
+                  "closeIso": "2026-10-28T20:00:00.000Z",
+                  "price": 404.1575
+                },
+                {
+                  "closeIso": "2026-10-29T20:00:00.000Z",
+                  "price": 404.124575
+                },
+                {
+                  "closeIso": "2026-10-30T20:00:00.000Z",
+                  "price": 399.3924
+                }
+              ],
+              "returns": 10
+            }
+          },
+          "session": {
+            "open": true,
+            "nextOpenIso": "2026-11-03T14:30:00Z",
+            "nextCloseIso": "2026-11-02T21:00:00Z"
+          },
+          "corporateAction": {
+            "provided": true,
+            "pending": false,
+            "effectiveAtIso": null
+          },
+          "sequencer": {
+            "provided": false,
+            "reason": "no sequencer uptime feed is configured on this chain's StockOracle (sequencerFeed is the zero address); the contract skips the check too"
+          },
+          "mainnet": {
+            "chainId": 4663,
+            "feed": "0x4A1166a659A55625345e9515b32adECea5547C38",
+            "roundId": "18446744073709553448",
+            "price": "409.3205",
+            "updatedAt": 1793632883
+          }
+        },
+        "sources": [
+          {
+            "kind": "mcp",
+            "name": "vault_state"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.status",
+            "address": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.feedConfig",
+            "address": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.isMarketOpen",
+            "address": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89"
+          },
+          {
+            "kind": "contract",
+            "name": "StockOracle.sequencerFeed",
+            "address": "0x7bb3cAb211E7Ce51e37693E0155C77f477F8aB89"
+          },
+          {
+            "kind": "contract",
+            "name": "EpochManager.underlyings",
+            "address": "0x5A3b58DF27e4DD5E0fa6493D90fF653e0E199C99"
+          },
+          {
+            "kind": "contract",
+            "name": "MarketCalendar.isTradingDay",
+            "address": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4"
+          },
+          {
+            "kind": "contract",
+            "name": "MarketCalendar.sessionOf",
+            "address": "0x214d21F4fCA2226091AF009B9F1BF1D3C63f95F4"
+          },
+          {
+            "kind": "contract",
+            "name": "ERC-8056 uiMultiplier, newUIMultiplier, effectiveAt",
+            "address": "0xC9f9c86933092BbbfFF3CCb4b105A4A94bf3Bd4E"
+          },
+          {
+            "kind": "contract",
+            "name": "MirrorFeed.latestRoundData",
+            "address": "0x5476cb08769f406dE95F6171AcC1F5FE88431230"
+          },
+          {
+            "kind": "contract",
+            "name": "Chainlink latestRoundData",
+            "address": "0x4A1166a659A55625345e9515b32adECea5547C38",
+            "chainId": 4663
+          }
+        ],
+        "by": "rule",
+        "durationMs": 4290
+      },
+      {
+        "stage": "risk",
+        "attempt": 1,
+        "verdict": "pass",
+        "summary": "6 rungs dry-run, 4 inside the mandate; greeks and stress from the risk engine at 0x61158d98C6C2b7cCb22755A098D0Da2BbCf2a4Ec.",
+        "inputs": {
+          "vault": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+          "premiumBps": 10800,
+          "mandate": "|delta| 0.10-0.25, premium >= 100% of fair value, yield >= 0.05% of collateral, size <= 50% of capacity, tenor 1-8 days",
+          "sigma": 0.6
+        },
+        "output": {
+          "isCall": false,
+          "spot": "409.3205",
+          "sigma": 0.6,
+          "chainTimeIso": "2026-11-02T15:33:43.000Z",
+          "expiryIso": "2026-11-06T21:00:00.000Z",
+          "tenorSeconds": 365177,
+          "premiumBps": 10800,
+          "engine": {
+            "address": "0x61158d98C6C2b7cCb22755A098D0Da2BbCf2a4Ec",
+            "via": "the deployment's riskEngine"
+          },
+          "shocks": "spot moves of -30% to +30% in 5% steps (RiskLens.defaultShocks)",
+          "rows": [
+            {
+              "targetDeltaBps": 500,
+              "premiumBps": 10800,
+              "ok": false,
+              "reason": "DeltaOutOfBand",
+              "failedRule": {
+                "rule": "DeltaOutOfBand",
+                "measured": "|delta| 0.05",
+                "limit": "0.10 to 0.25"
+              },
+              "strike": "368.85",
+              "size": "0.203334688897925986",
+              "capacity": "0.406669377795851972",
+              "fairValue": "0.5659",
+              "premium": "0.611172",
+              "yieldBps": 16.57,
+              "delta": 0.05,
+              "greeks": {
+                "delta": -0.05001251144132459,
+                "gamma": 0.00390330299502104,
+                "vega": 4.543675597246518,
+                "theta": -0.3225068158198072
+              },
+              "stress": {
+                "worstShock": -0.3,
+                "worstSpot": "286.52435",
+                "worstLossUsd": "16.73966",
+                "shareOfCollateral": 0.22319547241426052,
+                "premiumIncomeUsd": "0.124272"
+              },
+              "breakEven": "368.238828",
+              "breakEvenDistance": 0.10036553751888794,
+              "exerciseProbability": 0.057034318396638584
+            },
+            {
+              "targetDeltaBps": 1000,
+              "premiumBps": 10800,
+              "ok": true,
+              "reason": "None",
+              "failedRule": null,
+              "strike": "377.61",
+              "size": "0.198617621355366648",
+              "capacity": "0.397235242710733296",
+              "fairValue": "1.2864",
+              "premium": "1.389312",
+              "yieldBps": 36.79,
+              "delta": 0.1001,
+              "greeks": {
+                "delta": -0.10006241942451462,
+                "gamma": 0.006643664986586648,
+                "vega": 7.733619069372848,
+                "theta": -0.5489267020599441
+              },
+              "stress": {
+                "worstShock": -0.3,
+                "worstSpot": "286.52435",
+                "worstLossUsd": "18.091215",
+                "shareOfCollateral": 0.2412162019014327,
+                "premiumIncomeUsd": "0.275942"
+              },
+              "breakEven": "376.220688",
+              "breakEvenDistance": 0.08086526817005253,
+              "exerciseProbability": 0.11187239637334193
+            },
+            {
+              "targetDeltaBps": 1500,
+              "premiumBps": 10800,
+              "ok": true,
+              "reason": "None",
+              "failedRule": null,
+              "strike": "383.63",
+              "size": "0.195500873237233792",
+              "capacity": "0.391001746474467585",
+              "fairValue": "2.1148",
+              "premium": "2.283984",
+              "yieldBps": 59.54,
+              "delta": 0.15,
+              "greeks": {
+                "delta": -0.15004854713297605,
+                "gamma": 0.00882434168301844,
+                "vega": 10.272055748180529,
+                "theta": -0.7291031061453469
+              },
+              "stress": {
+                "worstShock": -0.3,
+                "worstSpot": "286.52435",
+                "worstLossUsd": "18.984239",
+                "shareOfCollateral": 0.25312319161692254,
+                "premiumIncomeUsd": "0.446521"
+              },
+              "breakEven": "381.346016",
+              "breakEvenDistance": 0.06834371598783828,
+              "exerciseProbability": 0.16560990469823916
+            },
+            {
+              "targetDeltaBps": 2000,
+              "premiumBps": 10800,
+              "ok": true,
+              "reason": "None",
+              "failedRule": null,
+              "strike": "388.48",
+              "size": "0.193060131795716639",
+              "capacity": "0.386120263591433278",
+              "fairValue": "3.0431",
+              "premium": "3.286548",
+              "yieldBps": 84.6,
+              "delta": 0.2,
+              "greeks": {
+                "delta": -0.1999933432463514,
+                "gamma": 0.010593198776185309,
+                "vega": 12.331110046422468,
+                "theta": -0.8752532947126199
+              },
+              "stress": {
+                "worstShock": -0.3,
+                "worstSpot": "286.52435",
+                "worstLossUsd": "19.683571",
+                "shareOfCollateral": 0.26244761635090613,
+                "premiumIncomeUsd": "0.634501"
+              },
+              "breakEven": "385.193452",
+              "breakEvenDistance": 0.05894414767889697,
+              "exerciseProbability": 0.2185558927744116
+            },
+            {
+              "targetDeltaBps": 2500,
+              "premiumBps": 10800,
+              "ok": true,
+              "reason": "None",
+              "failedRule": null,
+              "strike": "392.69",
+              "size": "0.190990348621049682",
+              "capacity": "0.381980697242099365",
+              "fairValue": "4.0714",
+              "premium": "4.397112",
+              "yieldBps": 111.97,
+              "delta": 0.2499,
+              "greeks": {
+                "delta": -0.2499329039422021,
+                "gamma": 0.012022557482909611,
+                "vega": 13.994968138848128,
+                "theta": -0.9933527417086605
+              },
+              "stress": {
+                "worstShock": -0.3,
+                "worstSpot": "286.52435",
+                "worstLossUsd": "20.276615",
+                "shareOfCollateral": 0.27035486006773796,
+                "premiumIncomeUsd": "0.839806"
+              },
+              "breakEven": "388.292888",
+              "breakEvenDistance": 0.0513719982263287,
+              "exerciseProbability": 0.27088601417952185
+            },
+            {
+              "targetDeltaBps": 3000,
+              "premiumBps": 10800,
+              "ok": false,
+              "reason": "DeltaOutOfBand",
+              "failedRule": {
+                "rule": "DeltaOutOfBand",
+                "measured": "|delta| 0.2999",
+                "limit": "0.10 to 0.25"
+              },
+              "strike": "396.51",
+              "size": "0.189150336687599303",
+              "capacity": "0.378300673375198607",
+              "fairValue": "5.2039",
+              "premium": "5.620212",
+              "yieldBps": 141.74,
+              "delta": 0.2999,
+              "greeks": {
+                "delta": -0.2998738065629901,
+                "gamma": 0.01315375107886278,
+                "vega": 15.311744403527074,
+                "theta": -1.0868165709763258
+              },
+              "stress": {
+                "worstShock": -0.3,
+                "worstSpot": "286.52435",
+                "worstLossUsd": "20.803823",
+                "shareOfCollateral": 0.2773843030440594,
+                "premiumIncomeUsd": "1.063065"
+              },
+              "breakEven": "390.889788",
+              "breakEvenDistance": 0.045027581076442474,
+              "exerciseProbability": 0.3226870097770278
+            }
+          ],
+          "rejections": {
+            "DeltaOutOfBand": 2
+          }
+        },
+        "sources": [
+          {
+            "kind": "mcp",
+            "name": "risk_check"
+          },
+          {
+            "kind": "contract",
+            "name": "IRiskEngine.greeks",
+            "address": "0x61158d98C6C2b7cCb22755A098D0Da2BbCf2a4Ec"
+          },
+          {
+            "kind": "contract",
+            "name": "IRiskEngine.scenarioLoss",
+            "address": "0x61158d98C6C2b7cCb22755A098D0Da2BbCf2a4Ec"
+          },
+          {
+            "kind": "sdk",
+            "name": "normCdf (model probability of exercise)"
+          }
+        ],
+        "by": "rule",
+        "durationMs": 11494
+      },
+      {
+        "stage": "planner",
+        "attempt": 1,
+        "verdict": "pass",
+        "summary": "The rung at the profile's 0.15 delta, which the contract's dry run accepts.",
+        "inputs": {
+          "profile": "conservative",
+          "desiredDeltaBps": 1500,
+          "premiumBps": 10800,
+          "ladderRungs": 6
+        },
+        "output": {
+          "targetDeltaBps": 1500,
+          "premiumBps": 10800,
+          "desiredDeltaBps": 1500,
+          "strike": "383.63",
+          "size": "0.195500873237233792",
+          "from": "ladder",
+          "reason": "The rung at the profile's 0.15 delta, which the contract's dry run accepts.",
+          "considered": [
+            {
+              "targetDeltaBps": 1500,
+              "ok": true,
+              "reason": "None",
+              "distanceBps": 0,
+              "selected": true
+            },
+            {
+              "targetDeltaBps": 1000,
+              "ok": true,
+              "reason": "None",
+              "distanceBps": 500,
+              "selected": false
+            },
+            {
+              "targetDeltaBps": 2000,
+              "ok": true,
+              "reason": "None",
+              "distanceBps": 500,
+              "selected": false
+            },
+            {
+              "targetDeltaBps": 500,
+              "ok": false,
+              "reason": "DeltaOutOfBand",
+              "distanceBps": 1000,
+              "selected": false
+            },
+            {
+              "targetDeltaBps": 2500,
+              "ok": true,
+              "reason": "None",
+              "distanceBps": 1000,
+              "selected": false
+            },
+            {
+              "targetDeltaBps": 3000,
+              "ok": false,
+              "reason": "DeltaOutOfBand",
+              "distanceBps": 1500,
+              "selected": false
+            }
+          ]
+        },
+        "sources": [
+          {
+            "kind": "sdk",
+            "name": "profile conservative"
+          }
+        ],
+        "by": "rule",
+        "durationMs": 0
+      },
+      {
+        "stage": "critic",
+        "attempt": 1,
+        "verdict": "pass",
+        "summary": "All 5 rules pass.",
+        "inputs": {
+          "plan": {
+            "targetDeltaBps": 1500,
+            "premiumBps": 10800,
+            "desiredDeltaBps": 1500,
+            "strike": "383.63",
+            "size": "0.195500873237233792",
+            "from": "ladder",
+            "reason": "The rung at the profile's 0.15 delta, which the contract's dry run accepts.",
+            "considered": [
+              {
+                "targetDeltaBps": 1500,
+                "ok": true,
+                "reason": "None",
+                "distanceBps": 0,
+                "selected": true
+              },
+              {
+                "targetDeltaBps": 1000,
+                "ok": true,
+                "reason": "None",
+                "distanceBps": 500,
+                "selected": false
+              },
+              {
+                "targetDeltaBps": 2000,
+                "ok": true,
+                "reason": "None",
+                "distanceBps": 500,
+                "selected": false
+              },
+              {
+                "targetDeltaBps": 500,
+                "ok": false,
+                "reason": "DeltaOutOfBand",
+                "distanceBps": 1000,
+                "selected": false
+              },
+              {
+                "targetDeltaBps": 2500,
+                "ok": true,
+                "reason": "None",
+                "distanceBps": 1000,
+                "selected": false
+              },
+              {
+                "targetDeltaBps": 3000,
+                "ok": false,
+                "reason": "DeltaOutOfBand",
+                "distanceBps": 1500,
+                "selected": false
+              }
+            ]
+          },
+          "attempt": 1,
+          "profile": "conservative",
+          "marketGo": true
+        },
+        "output": {
+          "proposal": {
+            "targetDeltaBps": 1500,
+            "premiumBps": 10800,
+            "strike": "383.63",
+            "size": "0.195500873237233792",
+            "expiryIso": "2026-11-06T21:00:00.000Z"
+          },
+          "modifications": [],
+          "rules": [
+            {
+              "priority": "P0",
+              "code": "MARKET_NO_GO",
+              "value": 0,
+              "threshold": 0,
+              "rule": "market",
+              "ok": true,
+              "applicable": true,
+              "measured": "go",
+              "limit": "the market analyst's go"
+            },
+            {
+              "priority": "P1",
+              "code": "MANDATE_REJECTED",
+              "value": null,
+              "threshold": null,
+              "rule": "mandate",
+              "ok": true,
+              "applicable": true,
+              "measured": "previewProposal accepts it (None)",
+              "limit": "every rule of the vault's mandate"
+            },
+            {
+              "priority": "P2",
+              "code": "CUSHION_TOO_THIN",
+              "value": 0.06834371598783828,
+              "threshold": 0.04842402872768001,
+              "rule": "cushion",
+              "ok": true,
+              "applicable": true,
+              "measured": "break-even $381.346016 is 6.8% below spot $409.3205; the worst ±30% move (-30%) would cost $18.984239, 25.3% of the collateral, against $0.446521 of premium",
+              "limit": "at least 4.8% (0.75 x the 6.5% one-sigma move to expiry)"
+            },
+            {
+              "priority": "P3",
+              "code": "ANALYSIS_DRIFT",
+              "value": 0,
+              "threshold": 0.005,
+              "rule": "drift",
+              "ok": true,
+              "applicable": true,
+              "measured": "strike $383.63 in the risk table, $383.63 now (0.00%); spot $409.3205 then, $409.3205 now (0.00%)",
+              "limit": "both within 0.5%"
+            },
+            {
+              "priority": "P4",
+              "code": "YIELD_MISMATCH",
+              "value": 0.00006524138423420514,
+              "threshold": 0.02,
+              "rule": "yield",
+              "ok": true,
+              "applicable": true,
+              "measured": "risk_check reports 0.60% of collateral; rebuilt from fair value $2.1148 x 108% over $383.63 it is 0.60%; the risk table had 0.60% for this rung",
+              "limit": "within 2% of the rebuilt yield and 10% of the table's"
+            }
+          ],
+          "veto": [],
+          "exact": {
+            "targetDeltaBps": 1500,
+            "premiumBps": 10800,
+            "ok": true,
+            "reason": "None",
+            "failedRule": null,
+            "strike": "383.63",
+            "size": "0.195500873237233792",
+            "capacity": "0.391001746474467585",
+            "fairValue": "2.1148",
+            "premium": "2.283984",
+            "yieldBps": 59.54,
+            "delta": 0.15,
+            "greeks": {
+              "delta": -0.15004854713297605,
+              "gamma": 0.00882434168301844,
+              "vega": 10.272055748180529,
+              "theta": -0.7291031061453469
+            },
+            "stress": {
+              "worstShock": -0.3,
+              "worstSpot": "286.52435",
+              "worstLossUsd": "18.984239",
+              "shareOfCollateral": 0.25312319161692254,
+              "premiumIncomeUsd": "0.446521"
+            },
+            "breakEven": "381.346016",
+            "breakEvenDistance": 0.06834371598783828,
+            "exerciseProbability": 0.16560990469823916
+          },
+          "confidence": {
+            "worthlessProbability": 0.8343900953017609,
+            "kind": "model odds",
+            "basis": "Black-Scholes N(d2), risk-neutral with a zero rate, at the pricer's sigma 60.0% and 4.23 days to expiry: model odds, not a forecast and not self-reported"
+          }
+        },
+        "sources": [
+          {
+            "kind": "mcp",
+            "name": "risk_check"
+          },
+          {
+            "kind": "contract",
+            "name": "IRiskEngine.greeks",
+            "address": "0x61158d98C6C2b7cCb22755A098D0Da2BbCf2a4Ec"
+          },
+          {
+            "kind": "contract",
+            "name": "IRiskEngine.scenarioLoss",
+            "address": "0x61158d98C6C2b7cCb22755A098D0Da2BbCf2a4Ec"
+          }
+        ],
+        "by": "rule",
+        "durationMs": 1746
+      },
+      {
+        "stage": "contract",
+        "attempt": 1,
+        "verdict": "pass",
+        "summary": "Accepted: series 43881419001864878497702765313745960345592647246319542462576352992188935977799 on sale.",
+        "inputs": {
+          "vault": "0x8aEb1e0aC30Ff7829609954688B2aC649Ef26969",
+          "targetDeltaBps": 1500,
+          "size": "0.195500873237233792",
+          "premiumBps": 10800,
+          "expiryIso": "2026-11-06T21:00:00.000Z",
+          "preflight": {
+            "proposalDigest": "0x97503ecb8289e8b6aa4e712f6c56bff51aaaa388bbcb720bea21ca1e97ec5879",
+            "checks": [
+              {
+                "check": "binding",
+                "code": "PAYLOAD_MISMATCH",
+                "ok": true,
+                "measured": "the payload is the critic's proposal (digest 0x97503ecb…)",
+                "limit": "exactly the delta, premium factor and size the critic passed"
+              },
+              {
+                "check": "approval-age",
+                "code": "APPROVAL_EXPIRED",
+                "ok": true,
+                "measured": "the critic passed it 0.0 s ago",
+                "limit": "at most 120 s"
+              },
+              {
+                "check": "live-only",
+                "code": "DRY_RUN_FLAG_ON_SEND",
+                "ok": true,
+                "measured": "no dry-run-only flag",
+                "limit": "--ignore-session never goes with a send"
+              }
+            ]
+          }
+        },
+        "output": {
+          "submitted": true,
+          "accepted": true,
+          "reason": "None",
+          "seriesId": "43881419001864878497702765313745960345592647246319542462576352992188935977799",
+          "strike": "383.63",
+          "size": "0.195500873237233792",
+          "slashed": "0",
+          "txHash": "0x7bb7c21014aec6abe9834980a4c4617bc17630de214df8b138dac2ee3b1e02c2",
+          "openTxHash": "0x46af13ee31ba1da5d9e3b987dfed10e5e83e32a38a29422d4e79dc37f5d37af8"
+        },
+        "sources": [
+          {
+            "kind": "mcp",
+            "name": "propose_epoch"
+          }
+        ],
+        "by": "contract",
+        "durationMs": 5605
+      }
+    ],
+    "alternatives": [
+      {
+        "name": "chosen strike",
+        "taken": true,
+        "available": true,
+        "targetDeltaBps": 1500,
+        "premiumBps": 10800,
+        "strike": "383.63",
+        "size": "0.195500873237233792",
+        "premiumPerOption": "2.283984",
+        "premiumIncomeUsd": "0.446521",
+        "breakEven": "381.346016",
+        "exerciseProbability": 0.16560990469823916,
+        "stressLossUsd": "18.984239",
+        "source": "the critic's exact dry run and risk engine read"
+      },
+      {
+        "name": "kept cash",
+        "taken": false,
+        "available": true,
+        "targetDeltaBps": null,
+        "premiumBps": null,
+        "strike": null,
+        "size": "0",
+        "premiumPerOption": null,
+        "premiumIncomeUsd": "0",
+        "breakEven": null,
+        "exerciseProbability": null,
+        "stressLossUsd": "0",
+        "source": "no option sold: no premium, no payout"
+      },
+      {
+        "name": "half size",
+        "taken": false,
+        "available": true,
+        "targetDeltaBps": 1500,
+        "premiumBps": 10800,
+        "strike": "383.63",
+        "size": "0.09775",
+        "premiumPerOption": "2.283984",
+        "premiumIncomeUsd": "0.223261",
+        "breakEven": "381.346016",
+        "exerciseProbability": 0.16560990469823916,
+        "stressLossUsd": "9.492119",
+        "source": "the chosen strike at half the size: premium and stress loss halved"
+      },
+      {
+        "name": "one step nearer",
+        "taken": false,
+        "available": true,
+        "targetDeltaBps": 2000,
+        "premiumBps": 10800,
+        "strike": "388.48",
+        "size": "0.193060131795716639",
+        "premiumPerOption": "3.286548",
+        "premiumIncomeUsd": "0.634501",
+        "breakEven": "385.193452",
+        "exerciseProbability": 0.2185558927744116,
+        "stressLossUsd": "19.683571",
+        "source": "the risk table's 0.20 delta rung at 108% of fair value"
+      },
+      {
+        "name": "one step farther",
+        "taken": false,
+        "available": true,
+        "targetDeltaBps": 1000,
+        "premiumBps": 10800,
+        "strike": "377.61",
+        "size": "0.198617621355366648",
+        "premiumPerOption": "1.389312",
+        "premiumIncomeUsd": "0.275942",
+        "breakEven": "376.220688",
+        "exerciseProbability": 0.11187239637334193,
+        "stressLossUsd": "18.091215",
+        "source": "the risk table's 0.10 delta rung at 108% of fair value"
+      }
+    ],
+    "confidence": {
+      "worthlessProbability": 0.8343900953017609,
+      "kind": "model odds",
+      "basis": "Black-Scholes N(d2), risk-neutral with a zero rate, at the pricer's sigma 60.0% and 4.23 days to expiry: model odds, not a forecast and not self-reported"
+    },
+    "contradictions": [
+      {
+        "between": ["testnet MirrorFeed latest round", "mainnet Chainlink latest round"],
+        "agree": true,
+        "measured": "the mirror has the mainnet's latest print ($409.3205 at Mon 2 Nov 15:21 UTC)",
+        "limit": "the mirror at most 30 min behind mainnet"
+      },
+      {
+        "between": ["pricer sigma (EpochManager)", "realised volatility (10 daily mainnet closes)"],
+        "agree": true,
+        "measured": "sigma 60.0% against realised 42.3% a year",
+        "limit": "neither more than 2x the other"
+      },
+      {
+        "between": ["MCP vault_state spot", "StockOracle.status price"],
+        "agree": true,
+        "measured": "$409.3205 against $409.3205",
+        "limit": "within 0.01%"
+      }
+    ]
+  },
+  "dryRun": {
+    "ok": true,
+    "reason": "None",
+    "explanation": "Inside the mandate: the contract would accept this proposal.",
+    "optionType": "put",
+    "strike": "383.63",
+    "delta": 0.15,
+    "targetDeltaBps": 1500,
+    "expiryIso": "2026-11-06T21:00:00.000Z",
+    "size": "0.195500873237233792",
+    "capacity": "0.391001746474467585",
+    "premiumBps": 10800,
+    "fairValue": "2.1148",
+    "yieldBps": 59.54
+  },
+  "transactions": [
+    {
+      "label": "openEpoch",
+      "hash": "0x46af13ee31ba1da5d9e3b987dfed10e5e83e32a38a29422d4e79dc37f5d37af8",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x46af13ee31ba1da5d9e3b987dfed10e5e83e32a38a29422d4e79dc37f5d37af8"
+    },
+    {
+      "label": "proposeByDelta",
+      "hash": "0x7bb7c21014aec6abe9834980a4c4617bc17630de214df8b138dac2ee3b1e02c2",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x7bb7c21014aec6abe9834980a4c4617bc17630de214df8b138dac2ee3b1e02c2"
+    },
+    {
+      "label": "DecisionLog.record",
+      "hash": "0x7c5ffb64f782699a3dbb1c0d383b950024cf45e3f5e4d347210e0a651b6e2f9f",
+      "url": "https://explorer.testnet.chain.robinhood.com/tx/0x7c5ffb64f782699a3dbb1c0d383b950024cf45e3f5e4d347210e0a651b6e2f9f"
+    }
+  ],
+  "result": {
+    "status": "accepted",
+    "summary": "Accepted: series 43881419001864878497702765313745960345592647246319542462576352992188935977799 is on sale (strike $383.63, |delta| 0.15, expiry 2026-11-06T21:00:00.000Z).",
+    "seriesId": "43881419001864878497702765313745960345592647246319542462576352992188935977799",
+    "strike": "383.63",
+    "expiryIso": "2026-11-06T21:00:00.000Z",
+    "size": "0.195500873237233792"
+  },
+  "trackRecord": {
+    "agentId": "2",
+    "status": "Active",
+    "active": true,
+    "accepted": 5,
+    "rejected": 0,
+    "strikes": 0,
+    "maxStrikes": 3,
+    "bond": "60",
+    "settledEpochs": 4,
+    "cumulativePnl": "0",
+    "claimableFees": "0"
+  },
+  "anchor": {
+    "contract": "0xbF94f54fd0258ac59e2f54B70754dFAfFd245D93",
+    "recordHash": "0xc9be9d91b1c2e324d287f0203edc73561e63b3d39892d1b5a6be73168bcb6808",
+    "uri": "https://github.com/Prashant-thakur77/Strike/blob/main/docs/agent-log/2026-11-02-sTSLA-CSP-A2.json",
+    "epoch": 5,
+    "txHash": "0x7c5ffb64f782699a3dbb1c0d383b950024cf45e3f5e4d347210e0a651b6e2f9f"
+  }
+}
